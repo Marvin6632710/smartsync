@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Send, Timer } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
@@ -9,7 +9,14 @@ export default function ChatPage() {
   const navigate = useNavigate()
   const { activities, joinedIds, messages, sendMessage } = useApp()
   const [text, setText] = useState('')
+  const bottomRef = useRef(null)
   const a = activities.find((x) => x.id === id)
+  const list = messages[id] || []
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: 'end' })
+  }, [list.length])
+
   if (!a)
     return (
       <div className="page-content">
@@ -33,7 +40,6 @@ export default function ChatPage() {
         </div>
       </div>
     )
-  const list = messages[id] || []
   const submit = (e) => {
     e.preventDefault()
     sendMessage(id, text)
@@ -68,6 +74,7 @@ export default function ChatPage() {
             <span>{m.time}</span>
           </div>
         ))}
+        <div ref={bottomRef} />
       </div>
       <form className="chat-form" onSubmit={submit}>
         <input
