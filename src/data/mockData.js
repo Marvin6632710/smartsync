@@ -1,0 +1,75 @@
+export const interests = ['Football', 'Basketball', 'Running', 'Gym', 'Study', 'Coffee', 'Gaming', 'Hangouts', 'Cycling', 'Movies', 'Food', 'Events']
+
+export const initialUser = {
+  id: 'me',
+  name: 'Min Khant Aung',
+  username: '@hax_sync',
+  bio: 'CS student in Bangkok looking for good activities and new people.',
+  interests: ['Football', 'Gaming', 'Coffee'],
+  preferredTime: 'Evening',
+  historyCategories: ['Football', 'Gaming'],
+  avatar: 'MK',
+}
+
+export const mockUsers = [
+  { id: 'u2', name: 'Alex', avatar: 'AL', interests: ['Football', 'Gaming', 'Gym'], preferredTime: 'Evening', historyCategories: ['Football', 'Gym'] },
+  { id: 'u3', name: 'Maya', avatar: 'MY', interests: ['Coffee', 'Study', 'Movies'], preferredTime: 'Afternoon', historyCategories: ['Study', 'Coffee'] },
+  { id: 'u4', name: 'Narin', avatar: 'NR', interests: ['Running', 'Cycling', 'Food'], preferredTime: 'Morning', historyCategories: ['Running', 'Cycling'] },
+  { id: 'u5', name: 'June', avatar: 'JN', interests: ['Gaming', 'Movies', 'Hangouts'], preferredTime: 'Evening', historyCategories: ['Gaming', 'Movies'] },
+]
+
+export const mockActivities = [
+  {
+    id: 'a1', title: 'Football Night at Rama IX', category: 'Football', description: 'Friendly 6-a-side football. Beginners are welcome and teams will be balanced on arrival.',
+    location: 'Rama IX Park', distanceKm: 1.2, date: 'Today', time: '7:00 PM', timeBand: 'Evening', participants: 8, capacity: 12,
+    tags: ['Football', 'Fitness'], x: 64, y: 33, host: 'Alex', similarUsersJoined: true, createdBy: 'u2', joinedUserIds: ['u2', 'u4']
+  },
+  {
+    id: 'a2', title: 'Focus Study Circle', category: 'Study', description: 'Quiet two-hour study session with Pomodoro blocks and a short coffee break.',
+    location: 'Samyan Mitrtown', distanceKm: 2.8, date: 'Tomorrow', time: '2:00 PM', timeBand: 'Afternoon', participants: 5, capacity: 10,
+    tags: ['Study', 'Coffee'], x: 43, y: 47, host: 'Maya', similarUsersJoined: false, createdBy: 'u3', joinedUserIds: ['u3']
+  },
+  {
+    id: 'a3', title: 'Coffee & New Connections', category: 'Coffee', description: 'Low-pressure coffee meetup for students and young professionals who want to meet new people.',
+    location: 'Ari', distanceKm: 3.1, date: 'Saturday', time: '4:30 PM', timeBand: 'Afternoon', participants: 7, capacity: 10,
+    tags: ['Coffee', 'Hangouts'], x: 49, y: 24, host: 'Maya', similarUsersJoined: true, createdBy: 'u3', joinedUserIds: ['u3', 'u5']
+  },
+  {
+    id: 'a4', title: 'Bangkok Night Gamers', category: 'Gaming', description: 'Casual multiplayer session. Bring your laptop or handheld console; some devices are available.',
+    location: 'Siam Square', distanceKm: 4.2, date: 'Friday', time: '8:00 PM', timeBand: 'Evening', participants: 11, capacity: 16,
+    tags: ['Gaming', 'Hangouts'], x: 38, y: 42, host: 'June', similarUsersJoined: true, createdBy: 'u5', joinedUserIds: ['u5', 'u2']
+  },
+  {
+    id: 'a5', title: 'Benjakitti Easy Run', category: 'Running', description: 'Relaxed 5 km social run around Benjakitti Park. Pace groups available.',
+    location: 'Benjakitti Park', distanceKm: 2.2, date: 'Sunday', time: '7:00 AM', timeBand: 'Morning', participants: 12, capacity: 20,
+    tags: ['Running', 'Fitness'], x: 55, y: 55, host: 'Narin', similarUsersJoined: false, createdBy: 'u4', joinedUserIds: ['u4']
+  },
+  {
+    id: 'a6', title: 'Indie Movie Meetup', category: 'Movies', description: 'Watch a new indie release together, then grab food and discuss it afterward.',
+    location: 'House Samyan', distanceKm: 5.0, date: 'Saturday', time: '6:30 PM', timeBand: 'Evening', participants: 6, capacity: 10,
+    tags: ['Movies', 'Food'], x: 35, y: 52, host: 'June', similarUsersJoined: true, createdBy: 'u5', joinedUserIds: ['u5', 'u3']
+  },
+  {
+    id: 'a7', title: 'Weekend Cycling Loop', category: 'Cycling', description: 'A beginner-friendly city cycling loop with water stops and a café finish.',
+    location: 'Lumpini Park', distanceKm: 3.7, date: 'Sunday', time: '6:30 AM', timeBand: 'Morning', participants: 9, capacity: 15,
+    tags: ['Cycling', 'Coffee'], x: 44, y: 56, host: 'Narin', similarUsersJoined: false, createdBy: 'u4', joinedUserIds: ['u4']
+  },
+  {
+    id: 'a8', title: 'Street Food Walk', category: 'Food', description: 'Explore a few popular local food spots together and vote for the best dish.',
+    location: 'Yaowarat', distanceKm: 6.1, date: 'Saturday', time: '7:30 PM', timeBand: 'Evening', participants: 14, capacity: 18,
+    tags: ['Food', 'Hangouts'], x: 27, y: 57, host: 'Alex', similarUsersJoined: true, createdBy: 'u2', joinedUserIds: ['u2', 'u3', 'u4']
+  }
+]
+
+export const initialMessages = {
+  a1: [
+    { id: 'm1', senderId: 'u2', sender: 'Alex', text: 'Hey everyone! We meet near the north gate at 6:45.', time: '6:02 PM' },
+    { id: 'm2', senderId: 'u4', sender: 'Narin', text: 'Perfect. I can bring an extra ball.', time: '6:10 PM' },
+  ],
+}
+
+export const initialNotifications = [
+  { id: 'n1', type: 'recommendation', title: 'New top match', body: 'Football Night at Rama IX fits your interests.', activityId: 'a1', read: false, time: '10 min ago' },
+  { id: 'n2', type: 'activity', title: 'Starting soon', body: 'Your activity begins this evening.', activityId: 'a1', read: false, time: '1 hr ago' },
+  { id: 'n3', type: 'chat', title: 'New chat message', body: 'Alex posted an update.', activityId: 'a1', read: true, time: '2 hrs ago' },
+]
