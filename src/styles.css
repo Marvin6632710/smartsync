@@ -208,8 +208,7 @@ select:focus-visible {
 .person-card:hover,
 .feature-row:hover,
 .setting-row:hover,
-.surprise-card:hover,
-.promo-card:hover {
+.surprise-card:hover {
   transform: translateY(-1px);
 }
 .icon-button {
@@ -308,7 +307,6 @@ select:focus-visible {
 .brand-orb,
 .avatar,
 .feature-icon,
-.promo-icon,
 .mini-avatar {
   display: grid;
   place-items: center;
@@ -362,7 +360,6 @@ select:focus-visible {
 .surprise-card,
 .insight-card,
 .profile-showcase,
-.promo-card,
 .profile-card,
 .activity-card {
   background: var(--surface);
@@ -376,7 +373,6 @@ select:focus-visible {
 .notification-card,
 .surprise-card,
 .insight-card,
-.promo-card,
 .profile-card { padding: 16px; }
 .hero-card,
 .panel,
@@ -388,8 +384,7 @@ select:focus-visible {
 .profile-showcase { padding: 18px; }
 .light-page .hero-card,
 .light-page .panel,
-.light-page .activity-card,
-.light-page .promo-card { background: var(--surface); }
+.light-page .activity-card { background: var(--surface); }
 .feature-row,
 .person-card,
 .profile-card,
@@ -798,20 +793,6 @@ select:focus-visible {
 .profile-actions-top .mini-actions { display: flex; gap: 8px; }
 .profile-center { text-align: center; display: flex; flex-direction: column; align-items: center; }
 .profile-center p { margin-bottom: 12px; }
-.promo-card {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  background: #fff6f7;
-}
-.promo-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: #ffe6ec;
-  color: var(--accent);
-  font-size: 22px;
-}
 
 .map-canvas { min-height: calc(100vh - 230px); }
 .nomad-map,

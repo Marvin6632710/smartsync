@@ -5,10 +5,34 @@ import ActivityCard from '../components/ActivityCard'
 import { useApp } from '../context/AppContext'
 
 export default function ProfilePage() {
-  const { user, privacy, activities, joinedIds, recommendations } = useApp()
+  const { user, privacy, activities, joinedIds, recommendations, pushCelebration } = useApp()
   const navigate = useNavigate()
   const joined = activities.filter((a) => joinedIds.includes(a.id))
   const best = recommendations[0]
+
+  const shareProfile = async () => {
+    const shareText = `${user.name} (${user.username}) is on SmartSync. ${user.bio}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'SmartSync profile', text: shareText })
+        return
+      }
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
+      await navigator.clipboard.writeText(shareText)
+      pushCelebration({
+        emoji: '🔗',
+        title: 'Profile copied',
+        body: 'Profile summary copied to clipboard.',
+      })
+    } catch (err) {
+      if (err?.name === 'AbortError') return // user closed the native share sheet
+      pushCelebration({
+        emoji: '⚠️',
+        title: "Couldn't share",
+        body: 'Sharing is not available in this browser.',
+      })
+    }
+  }
 
   return (
     <div className="page-content light-page">
@@ -18,10 +42,14 @@ export default function ProfilePage() {
             <Settings size={18} />
           </button>
           <div className="mini-actions">
-            <button className="icon-button slim">
+            <button className="icon-button slim" onClick={shareProfile} aria-label="Share profile">
               <Share2 size={18} />
             </button>
-            <button className="icon-button slim">
+            <button
+              className="icon-button slim"
+              onClick={() => navigate('/privacy')}
+              aria-label="Privacy controls"
+            >
               <ShieldCheck size={18} />
             </button>
           </div>
@@ -31,14 +59,6 @@ export default function ProfilePage() {
           <h2>{privacy.anonymousMode ? 'Anonymous user' : user.name}</h2>
           <p>{user.bio}</p>
           <div className="profile-handle">{user.username}</div>
-        </div>
-      </section>
-
-      <section className="promo-card">
-        <div className="promo-icon">★</div>
-        <div>
-          <strong>Upgrade your profile</strong>
-          <p>Unlock more visibility and better matching.</p>
         </div>
       </section>
 
