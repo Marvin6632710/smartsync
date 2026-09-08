@@ -70,6 +70,12 @@ export default function HomePage() {
         <section
           className="surprise-card"
           onClick={() => navigate(`/activity/${heroPick.id}`)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              navigate(`/activity/${heroPick.id}`)
+            }
+          }}
           role="button"
           tabIndex="0"
         >
@@ -106,6 +112,12 @@ export default function HomePage() {
       <section
         className="insight-card"
         onClick={() => navigate('/recommendations')}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            navigate('/recommendations')
+          }
+        }}
         role="button"
         tabIndex="0"
       >
