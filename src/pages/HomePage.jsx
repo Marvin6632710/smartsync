@@ -24,7 +24,7 @@ export default function HomePage() {
         <p>Nearby activities picked for you.</p>
         <div className="hero-stat-grid">
           <div className="stat-card">
-            <span>Best match</span>
+            <span>Match</span>
             <strong>{heroPick?.matchScore || '--'}%</strong>
             <small>{heroPick?.category || 'Activity'}</small>
           </div>
