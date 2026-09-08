@@ -22,7 +22,7 @@ export default function PermissionPage() {
           role="switch"
           aria-checked={privacy.locationPermission}
         >
-          <LocateFixed />
+          <LocateFixed size={18} />
           <span>
             <strong>Location</strong>
             <small>Show nearby activities</small>
@@ -35,7 +35,7 @@ export default function PermissionPage() {
           role="switch"
           aria-checked={privacy.approximateLocation}
         >
-          <ShieldCheck />
+          <ShieldCheck size={18} />
           <span>
             <strong>Approximate location</strong>
             <small>Hide exact position</small>
@@ -51,7 +51,7 @@ export default function PermissionPage() {
           role="switch"
           aria-checked={privacy.notifications}
         >
-          <BellRing />
+          <BellRing size={18} />
           <span>
             <strong>Notifications</strong>
             <small>Get reminders and updates</small>

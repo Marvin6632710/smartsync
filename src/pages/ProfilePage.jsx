@@ -5,9 +5,9 @@ import ActivityCard from '../components/ActivityCard'
 import { useApp } from '../context/AppContext'
 
 export default function ProfilePage() {
-  const { user, privacy, activities, joinedIds, recommendations, pushCelebration } = useApp()
+  const { user, privacy, joinedIds, recommendations, pushCelebration } = useApp()
   const navigate = useNavigate()
-  const joined = activities.filter((a) => joinedIds.includes(a.id))
+  const joined = recommendations.filter((a) => joinedIds.includes(a.id))
   const best = recommendations[0]
 
   const shareProfile = async () => {
@@ -20,14 +20,16 @@ export default function ProfilePage() {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
       await navigator.clipboard.writeText(shareText)
       pushCelebration({
-        emoji: '🔗',
+        icon: 'link',
+        tone: 'success',
         title: 'Profile copied',
         body: 'Profile summary copied to clipboard.',
       })
     } catch (err) {
       if (err?.name === 'AbortError') return // user closed the native share sheet
       pushCelebration({
-        emoji: '⚠️',
+        icon: 'alert',
+        tone: 'warning',
         title: "Couldn't share",
         body: 'Sharing is not available in this browser.',
       })
@@ -35,7 +37,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="page-content light-page">
+    <div className="page-content">
       <section className="profile-showcase">
         <div className="profile-actions-top">
           <button className="icon-button slim" onClick={() => navigate('/settings')}>
@@ -105,7 +107,7 @@ export default function ProfilePage() {
         </div>
         <div className="stack">
           {joined.slice(0, 2).map((a) => (
-            <ActivityCard key={a.id} activity={{ ...a, matchScore: '—' }} compact />
+            <ActivityCard key={a.id} activity={a} compact />
           ))}
         </div>
       </section>

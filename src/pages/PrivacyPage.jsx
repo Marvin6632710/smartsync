@@ -24,7 +24,7 @@ export default function PrivacyPage() {
           role="switch"
           aria-checked={privacy.anonymousMode}
         >
-          <EyeOff />
+          <EyeOff size={18} />
           <span>
             <strong>Anonymous mode</strong>
             <small>Hide your display name in local activity interactions</small>
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
           role="switch"
           aria-checked={privacy.locationPermission}
         >
-          <LocateFixed />
+          <LocateFixed size={18} />
           <span>
             <strong>Location permission</strong>
             <small>Enable or disable location-based prototype behavior</small>
@@ -50,7 +50,7 @@ export default function PrivacyPage() {
           role="switch"
           aria-checked={privacy.approximateLocation}
         >
-          <MapPinned />
+          <MapPinned size={18} />
           <span>
             <strong>Approximate location</strong>
             <small>Prefer general nearby area instead of precise coordinates</small>

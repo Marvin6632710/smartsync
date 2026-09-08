@@ -1,7 +1,34 @@
 import React from 'react'
-import { Bell, Compass, Map, MessageSquare, Plus, Sparkles, User } from 'lucide-react'
+import {
+  AlertTriangle,
+  Bell,
+  BellOff,
+  Check,
+  Compass,
+  Link2,
+  LogOut,
+  Map,
+  MessageSquare,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  Trash2,
+  User,
+} from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+
+const toastIcons = {
+  sparkles: Sparkles,
+  check: Check,
+  bell: Bell,
+  'bell-off': BellOff,
+  'log-out': LogOut,
+  trash: Trash2,
+  rotate: RotateCcw,
+  link: Link2,
+  alert: AlertTriangle,
+}
 
 const tabs = [
   { to: '/home', label: 'Discover', icon: Compass },
@@ -27,6 +54,21 @@ const routeTitles = {
   privacy: 'Privacy',
   joined: 'Joined',
   404: 'Not found',
+}
+
+function CelebrationToast({ celebration }) {
+  const Icon = toastIcons[celebration.icon] || Sparkles
+  return (
+    <div className="celebration-toast" key={celebration.id} role="status" aria-live="polite">
+      <div className={`toast-icon ${celebration.tone || 'default'}`}>
+        <Icon size={18} />
+      </div>
+      <div>
+        <strong>{celebration.title}</strong>
+        <p>{celebration.body}</p>
+      </div>
+    </div>
+  )
 }
 
 export default function Shell() {
@@ -67,15 +109,7 @@ export default function Shell() {
           </div>
         </header>
 
-        {celebration && (
-          <div className="celebration-toast" key={celebration.id} role="status" aria-live="polite">
-            <div className="toast-emoji">{celebration.emoji}</div>
-            <div>
-              <strong>{celebration.title}</strong>
-              <p>{celebration.body}</p>
-            </div>
-          </div>
-        )}
+        {celebration && <CelebrationToast celebration={celebration} />}
 
         <main className="page-scroll">
           <Outlet />

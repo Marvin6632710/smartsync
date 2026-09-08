@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrainCircuit } from 'lucide-react'
+import { BrainCircuit, Check } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
@@ -21,7 +21,7 @@ export default function RecommendationDetailsPage() {
   return (
     <div className="page-content">
       <BackButton />
-      <section className="score-card cinematic-score">
+      <section className="score-card">
         <BrainCircuit size={32} />
         <span className="eyebrow">Score</span>
         <strong>{a.matchScore}%</strong>
@@ -29,11 +29,14 @@ export default function RecommendationDetailsPage() {
         <p>Local SmartSync score.</p>
       </section>
 
-      <section className="panel spotlight-panel">
+      <section className="panel">
         <h3>Reasons</h3>
         <ul className="reason-list">
           {a.reasons.map((r) => (
-            <li key={r}>✓ {r}</li>
+            <li key={r}>
+              <Check size={15} />
+              {r}
+            </li>
           ))}
         </ul>
       </section>

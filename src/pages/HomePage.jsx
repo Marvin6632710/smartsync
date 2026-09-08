@@ -13,7 +13,7 @@ export default function HomePage() {
 
   return (
     <div className="page-content">
-      <section className="hero-card luxury-hero">
+      <section className="hero-card">
         <div className="hero-badge-row">
           <span className="floating-pill">
             {privacy.anonymousMode ? 'Anonymous mode' : `Hi, ${user.name}`}

@@ -18,13 +18,13 @@ export default function SearchPage() {
   }, [query, recommendations])
 
   return (
-    <div className="page-content light-page">
+    <div className="page-content">
       <BackButton />
       <section className="headline-block">
         <h2>Search</h2>
         <p className="helper-text">Find activities fast.</p>
       </section>
-      <div className="search-box soft-search">
+      <div className="search-box">
         <Search size={18} />
         <input
           autoFocus

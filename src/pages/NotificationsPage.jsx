@@ -14,7 +14,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="page-content light-page">
+    <div className="page-content">
       <div className="title-row">
         <BackButton />
         <h2>Notifications</h2>
@@ -49,7 +49,6 @@ export default function NotificationsPage() {
             key={n.id}
             onClick={() => open(n)}
           >
-            <div className="note-bar" />
             <div className="avatar small">{n.title.slice(0, 1)}</div>
             <div>
               <strong>{n.title}</strong>

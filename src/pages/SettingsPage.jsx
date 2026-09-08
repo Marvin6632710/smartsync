@@ -1,5 +1,12 @@
 import React from 'react'
-import { Bell, MessageCircle, RotateCcw, ShieldCheck, SlidersHorizontal } from 'lucide-react'
+import {
+  Bell,
+  ChevronRight,
+  MessageCircle,
+  RotateCcw,
+  ShieldCheck,
+  SlidersHorizontal,
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
@@ -13,28 +20,28 @@ export default function SettingsPage() {
       <h2>Settings</h2>
       <div className="settings-card">
         <button className="setting-row" onClick={() => navigate('/privacy')}>
-          <ShieldCheck />
+          <ShieldCheck size={18} />
           <span>
             <strong>Privacy</strong>
             <small>Anonymous mode and location controls</small>
           </span>
-          <span>›</span>
+          <ChevronRight size={17} />
         </button>
         <button className="setting-row" onClick={() => navigate('/filters')}>
-          <SlidersHorizontal />
+          <SlidersHorizontal size={18} />
           <span>
             <strong>Discovery preferences</strong>
             <small>Category, distance and availability</small>
           </span>
-          <span>›</span>
+          <ChevronRight size={17} />
         </button>
         <button className="setting-row" onClick={() => navigate('/messages')}>
-          <MessageCircle />
+          <MessageCircle size={18} />
           <span>
             <strong>Activity messages</strong>
             <small>Temporary local conversations</small>
           </span>
-          <span>›</span>
+          <ChevronRight size={17} />
         </button>
         <button
           className="setting-row"
@@ -42,7 +49,7 @@ export default function SettingsPage() {
           role="switch"
           aria-checked={privacy.notifications}
         >
-          <Bell />
+          <Bell size={18} />
           <span>
             <strong>Notifications</strong>
             <small>Local prototype notifications</small>

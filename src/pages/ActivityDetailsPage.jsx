@@ -1,5 +1,6 @@
 import React from 'react'
-import { CalendarDays, Clock3, Edit3, MapPin, MessageCircle, Sparkles, Users } from 'lucide-react'
+import { CalendarDays, Check, Clock3, Edit3, MapPin, MessageCircle, Users } from 'lucide-react'
+import CategoryIcon from '../components/CategoryIcon'
 import { useNavigate, useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
@@ -43,35 +44,32 @@ export default function ActivityDetailsPage() {
     <div className="page-content">
       <BackButton />
 
-      <section
-        className="detail-hero detail-premium"
-        data-category={(a.category || '').toLowerCase()}
-      >
+      <section className="detail-hero" data-category={(a.category || '').toLowerCase()}>
         <div className="card-topline">
-          <span className="category-chip">{a.category}</span>
-          <span className="match-pill">
-            <Sparkles size={14} />
-            {a.matchScore}%
+          <span className="category-chip">
+            <CategoryIcon category={a.category} size={12} />
+            {a.category}
           </span>
+          <span className="match-pill">{a.matchScore}% match</span>
         </div>
         <h2>{a.title}</h2>
         <p>{a.description}</p>
         <div className="detail-facts">
           <span>
-            <MapPin />
+            <MapPin size={14} />
             {a.location} · {a.distanceKm} km
           </span>
           <span>
-            <CalendarDays />
+            <CalendarDays size={14} />
             {a.date}
           </span>
           <span>
-            <Clock3 />
+            <Clock3 size={14} />
             {a.time}
           </span>
           <span>
-            <Users />
-            {a.participants}/{a.capacity}
+            <Users size={14} />
+            {a.participants}/{a.capacity} joined
           </span>
         </div>
         <div className="capacity-meter large-meter">
@@ -79,7 +77,7 @@ export default function ActivityDetailsPage() {
         </div>
       </section>
 
-      <section className="panel spotlight-panel">
+      <section className="panel">
         <div className="section-heading">
           <div>
             <span className="eyebrow">Why this?</span>
@@ -91,7 +89,10 @@ export default function ActivityDetailsPage() {
         </div>
         <ul className="reason-list">
           {a.reasons.map((r) => (
-            <li key={r}>✓ {r}</li>
+            <li key={r}>
+              <Check size={15} />
+              {r}
+            </li>
           ))}
         </ul>
       </section>
@@ -102,9 +103,8 @@ export default function ActivityDetailsPage() {
             <span className="eyebrow">Host</span>
             <h3>{a.host}</h3>
           </div>
-          <span className="count-chip">Participants</span>
         </div>
-        <p className="helper-text">See who joined.</p>
+        <p className="helper-text">See who else is going.</p>
         <button
           className="secondary-button"
           onClick={() => navigate(`/activity/${id}/participants`)}

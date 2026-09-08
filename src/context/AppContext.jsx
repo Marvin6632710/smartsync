@@ -183,7 +183,9 @@ export function AppProvider({ children }) {
     setCelebration({
       id: Date.now(),
 
-      emoji: '✨',
+      icon: 'sparkles',
+
+      tone: 'default',
 
       title: '',
 
@@ -273,7 +275,7 @@ export function AppProvider({ children }) {
       setFollowedUserIds((previous) => previous.filter((id) => id !== targetUser.id))
 
       pushCelebration({
-        emoji: '🔕',
+        icon: 'bell-off',
 
         title: 'Notifications off',
 
@@ -312,7 +314,7 @@ export function AppProvider({ children }) {
     // POPUP
 
     pushCelebration({
-      emoji: '🔔',
+      icon: 'bell',
 
       title: 'Notifications on',
 
@@ -389,9 +391,11 @@ export function AppProvider({ children }) {
     })
 
     pushCelebration({
-      emoji: '🎉',
+      icon: 'check',
 
-      title: 'You are in!',
+      tone: 'success',
+
+      title: 'You are in',
 
       body: `${activity.title} added to your list.`,
     })
@@ -432,7 +436,7 @@ export function AppProvider({ children }) {
 
     if (activity) {
       pushCelebration({
-        emoji: '👋',
+        icon: 'log-out',
 
         title: 'Activity left',
 
@@ -461,7 +465,9 @@ export function AppProvider({ children }) {
     setJoinedIds((previous) => previous.filter((activityId) => activityId !== id))
 
     pushCelebration({
-      emoji: '🗑️',
+      icon: 'trash',
+
+      tone: 'danger',
 
       title: 'Activity cancelled',
 
@@ -529,7 +535,9 @@ export function AppProvider({ children }) {
     })
 
     pushCelebration({
-      emoji: '🚀',
+      icon: 'check',
+
+      tone: 'success',
 
       title: 'Activity created',
 
@@ -561,7 +569,9 @@ export function AppProvider({ children }) {
     )
 
     pushCelebration({
-      emoji: '✨',
+      icon: 'check',
+
+      tone: 'success',
 
       title: 'Saved',
 
@@ -675,7 +685,7 @@ export function AppProvider({ children }) {
     })
 
     pushCelebration({
-      emoji: '🔄',
+      icon: 'rotate',
 
       title: 'Reset complete',
 

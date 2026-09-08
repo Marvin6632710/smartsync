@@ -1,21 +1,7 @@
 import React from 'react'
-import { ArrowUpRight, Clock3, MapPin, Users, WandSparkles } from 'lucide-react'
+import { ArrowUpRight, Clock3, MapPin, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-
-const categoryLabels = {
-  football: 'Football',
-  basketball: 'Basketball',
-  running: 'Running',
-  gym: 'Gym',
-  study: 'Study',
-  coffee: 'Coffee',
-  gaming: 'Gaming',
-  hangouts: 'Hangout',
-  cycling: 'Cycling',
-  movies: 'Movies',
-  food: 'Food',
-  events: 'Event',
-}
+import CategoryIcon from './CategoryIcon'
 
 export default function ActivityCard({ activity, compact = false }) {
   const navigate = useNavigate()
@@ -38,13 +24,13 @@ export default function ActivityCard({ activity, compact = false }) {
     >
       <div className="activity-visual">
         <div className="card-topline">
-          <span className="category-chip">{activity.category}</span>
-          <span className="match-pill">
-            <WandSparkles size={14} /> {activity.matchScore ?? '--'}%
+          <span className="category-chip">
+            <CategoryIcon category={activity.category} size={12} />
+            {activity.category}
           </span>
+          <span className="match-pill">{activity.matchScore ?? '--'}% match</span>
         </div>
         <div className="activity-title-block">
-          <small>{categoryLabels[categoryKey] || 'Activity'}</small>
           <h3>{activity.title}</h3>
           {!compact && <p>{description}</p>}
         </div>
@@ -53,13 +39,13 @@ export default function ActivityCard({ activity, compact = false }) {
       <div className="activity-body">
         <div className="meta-grid">
           <span>
-            <MapPin size={15} /> {activity.distanceKm} km · {activity.location}
+            <MapPin size={14} /> {activity.distanceKm} km · {activity.location}
           </span>
           <span>
-            <Clock3 size={15} /> {activity.date} · {activity.time}
+            <Clock3 size={14} /> {activity.date} · {activity.time}
           </span>
           <span>
-            <Users size={15} /> {activity.participants}/{activity.capacity}
+            <Users size={14} /> {activity.participants}/{activity.capacity} joined
           </span>
         </div>
 

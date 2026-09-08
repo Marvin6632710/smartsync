@@ -9,12 +9,12 @@ export default function MessagesPage() {
   const joined = activities.filter((a) => joinedIds.includes(a.id))
 
   return (
-    <div className="page-content light-page">
+    <div className="page-content">
       <section className="headline-block">
         <h2>Messages</h2>
       </section>
 
-      <div className="search-box soft-search">
+      <div className="search-box">
         <Search size={18} />
         <input placeholder="Search" readOnly />
       </div>

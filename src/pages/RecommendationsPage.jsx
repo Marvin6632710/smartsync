@@ -1,5 +1,5 @@
 import React from 'react'
-import { BellRing, ChevronRight, Sparkles, UsersRound } from 'lucide-react'
+import { ChevronRight, Sparkles, UsersRound } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 import ActivityCard from '../components/ActivityCard'
@@ -12,7 +12,7 @@ export default function RecommendationsPage() {
   const top = recommendations[0]
 
   return (
-    <div className="page-content light-page">
+    <div className="page-content">
       {/* HEADER */}
       <section className="headline-block">
         <span className="eyebrow">AI Picks</span>
@@ -64,11 +64,7 @@ export default function RecommendationsPage() {
           <span>Find similar people and follow their activities</span>
         </div>
 
-        <div className="people-match-bell">
-          <BellRing size={18} />
-        </div>
-
-        <ChevronRight size={19} />
+        <ChevronRight size={18} />
       </button>
 
       {/* ACTIVITIES */}
@@ -89,110 +85,6 @@ export default function RecommendationsPage() {
           ))}
         </div>
       </section>
-
-      <style>{`
-
-        .people-match-banner {
-          width: 100%;
-
-          display: grid;
-
-          grid-template-columns:
-            auto
-            1fr
-            auto
-            auto;
-
-          align-items: center;
-
-          gap: 12px;
-
-          padding: 16px;
-
-          text-align: left;
-
-          border: 1px solid #ECD2E0;
-
-          border-radius: 24px;
-
-          background: #FFF;
-
-          color: #151515;
-
-          box-shadow:
-            0 7px 18px
-            rgba(0,0,0,0.04);
-
-          transition:
-            transform 180ms ease,
-            box-shadow 180ms ease;
-        }
-
-
-        .people-match-banner:hover {
-          transform:
-            translateY(-2px);
-
-          box-shadow:
-            0 12px 24px
-            rgba(167,171,222,0.14);
-        }
-
-
-        .people-match-icon {
-          width: 48px;
-          height: 48px;
-
-          display: grid;
-          place-items: center;
-
-          border-radius: 17px;
-
-          background: #FFD6EE;
-
-          color: #D94E93;
-        }
-
-
-        .people-match-copy {
-          min-width: 0;
-
-          display: flex;
-          flex-direction: column;
-
-          gap: 4px;
-        }
-
-
-        .people-match-copy strong {
-          font-size: 16px;
-        }
-
-
-        .people-match-copy span {
-          color: #777;
-
-          font-size: 12px;
-
-          line-height: 1.35;
-        }
-
-
-        .people-match-bell {
-          width: 34px;
-          height: 34px;
-
-          display: grid;
-          place-items: center;
-
-          border-radius: 50%;
-
-          background: #FFF0F1;
-
-          color: #FFA5D6;
-        }
-
-      `}</style>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowRight, Sparkles, Star } from 'lucide-react'
+import { ArrowRight, MapPin, ShieldCheck, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 export default function SplashPage() {
@@ -16,13 +16,13 @@ export default function SplashPage() {
       </div>
       <div className="entry-highlights">
         <span className="tiny-chip">
-          <Star size={12} /> Clean UI
+          <MapPin size={12} /> Nearby
         </span>
         <span className="tiny-chip">
-          <Star size={12} /> Smart matches
+          <Sparkles size={12} /> Smart matches
         </span>
         <span className="tiny-chip">
-          <Star size={12} /> Smooth motion
+          <ShieldCheck size={12} /> Privacy first
         </span>
       </div>
       <button className="primary-button wide" onClick={() => navigate('/onboarding')}>
