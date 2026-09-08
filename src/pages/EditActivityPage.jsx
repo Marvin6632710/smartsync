@@ -74,6 +74,17 @@ export default function EditActivityPage() {
           </label>
         </div>
         <label>
+          Time preference
+          <select
+            value={form.timeBand || 'Evening'}
+            onChange={(e) => set('timeBand', e.target.value)}
+          >
+            <option>Morning</option>
+            <option>Afternoon</option>
+            <option>Evening</option>
+          </select>
+        </label>
+        <label>
           Location
           <input value={form.location || ''} onChange={(e) => set('location', e.target.value)} />
         </label>
