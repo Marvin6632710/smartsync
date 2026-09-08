@@ -13,6 +13,11 @@ import { rankActivities } from '../services/recommendationService'
 
 const AppContext = createContext(null)
 
+// Notifications only ever get prepended, so without a cap the list (and
+// the localStorage payload behind it) grows without bound over a long
+// session.
+const MAX_NOTIFICATIONS = 50
+
 export function AppProvider({ children }) {
   // =========================================================
   // USER
@@ -189,6 +194,16 @@ export function AppProvider({ children }) {
   }
 
   // =========================================================
+  // ADD NOTIFICATION
+  //
+  // Prepends and caps the list at MAX_NOTIFICATIONS.
+  // =========================================================
+
+  function pushNotification(notification) {
+    setNotifications((previous) => [notification, ...previous].slice(0, MAX_NOTIFICATIONS))
+  }
+
+  // =========================================================
   // RECOMMENDATIONS
   // =========================================================
 
@@ -292,7 +307,7 @@ export function AppProvider({ children }) {
       time: 'Now',
     }
 
-    setNotifications((previous) => [notification, ...previous])
+    pushNotification(notification)
 
     // POPUP
 
@@ -357,25 +372,21 @@ export function AppProvider({ children }) {
 
     // CREATE NOTIFICATION
 
-    setNotifications((previous) => [
-      {
-        id: `join-${Date.now()}`,
+    pushNotification({
+      id: `join-${Date.now()}`,
 
-        type: 'activity',
+      type: 'activity',
 
-        title: 'Activity joined',
+      title: 'Activity joined',
 
-        body: `You joined ${activity.title}.`,
+      body: `You joined ${activity.title}.`,
 
-        activityId: id,
+      activityId: id,
 
-        read: false,
+      read: false,
 
-        time: 'Now',
-      },
-
-      ...previous,
-    ])
+      time: 'Now',
+    })
 
     pushCelebration({
       emoji: '🎉',
@@ -501,25 +512,21 @@ export function AppProvider({ children }) {
 
     // CREATE NOTIFICATION
 
-    setNotifications((previous) => [
-      {
-        id: `created-${Date.now()}`,
+    pushNotification({
+      id: `created-${Date.now()}`,
 
-        type: 'activity',
+      type: 'activity',
 
-        title: 'Activity created',
+      title: 'Activity created',
 
-        body: `${newActivity.title} is live.`,
+      body: `${newActivity.title} is live.`,
 
-        activityId: id,
+      activityId: id,
 
-        read: false,
+      read: false,
 
-        time: 'Now',
-      },
-
-      ...previous,
-    ])
+      time: 'Now',
+    })
 
     pushCelebration({
       emoji: '🚀',
