@@ -1,7 +1,11 @@
 /* =========================================================
    SMARTSYNC DESIGN TOKENS
-   One palette, one scale. Nothing hardcodes a colour or a
-   radius outside this block.
+   One palette, one scale. Every themed colour and every radius
+   comes from here, so changing the accent below re-themes the
+   whole app (glows and gradients included, via the -rgb channels).
+   The only literals left outside this block are pure #fff on a
+   coloured ground - a switch thumb and the map pin glyphs - which
+   are deliberately absolute, not theme-dependent.
    ========================================================= */
 
 :root {
@@ -15,6 +19,9 @@
 
   /* --- Neutrals ------------------------------------------ */
   --bg: #f5f6f8;
+  /* Channels for the few places that need the colour at partial alpha
+     (gradient fade-outs, glows). Keep in sync with the hex above. */
+  --bg-rgb: 245, 246, 248;
   --bg-sunken: #eceef1;
   --surface: #ffffff;
   --surface-2: #fafbfc;
@@ -28,10 +35,19 @@
 
   /* --- Brand --------------------------------------------- */
   --accent: #4f46e5;
+  --accent-rgb: 79, 70, 229;
   --accent-strong: #4338ca;
   --accent-soft: #eef0fe;
   --accent-line: #d9ddfb;
   --on-accent: #ffffff;
+
+  /* --- Map illustration ----------------------------------- */
+  --map-land: #eef1ec;
+  --map-block: #e2e8de;
+  --map-block-alt: #dfe7e9;
+  --map-block-warm: #e6e3da;
+  --map-road: #ffffff;
+  --map-water: #cddfe8;
 
   /* --- Semantic ------------------------------------------ */
   --success: #0f7b5f;
@@ -190,23 +206,11 @@ select:focus-visible {
   box-shadow: var(--shadow-lg);
 }
 .mobile-frame {
-  /* The frame clips; its middle row (.page-scroll) does the scrolling. */
+  /* The frame clips; its middle row (.page-scroll) does the scrolling.
+     Height floor keeps a very short window from producing a squat frame
+     (the shell scrolls instead); the cap stops a tall monitor stretching
+     it into an elongated slab. */
   overflow: hidden;
-}
-.standalone-page {
-  /* Must scroll, not clip: on a short screen (landscape phone) these
-     pages are taller than the viewport and the primary action sits at
-     the bottom, so clipping would strand the user mid-onboarding. */
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-.standalone-page::-webkit-scrollbar {
-  display: none;
-}
-.mobile-frame {
-  /* Floor keeps a very short window from producing a squat frame (the
-     shell scrolls instead); cap stops a tall monitor stretching it into
-     an elongated slab. */
   height: clamp(600px, calc(100vh - 36px), 900px);
   border-radius: 32px;
   display: grid;
@@ -214,6 +218,11 @@ select:focus-visible {
   position: relative;
 }
 .standalone-page {
+  /* Must scroll, not clip: on a short screen (landscape phone) these
+     pages are taller than the viewport and the primary action sits at
+     the bottom, so clipping would strand the user mid-onboarding. */
+  overflow-y: auto;
+  scrollbar-width: none;
   min-height: clamp(600px, calc(100vh - 36px), 900px);
   margin: 18px auto;
   border-radius: 32px;
@@ -222,6 +231,9 @@ select:focus-visible {
   flex-direction: column;
   gap: 20px;
   justify-content: center;
+}
+.standalone-page::-webkit-scrollbar {
+  display: none;
 }
 
 .topbar {
@@ -309,7 +321,7 @@ select:focus-visible {
   color: var(--on-accent);
   display: grid;
   place-items: center;
-  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.32);
+  box-shadow: 0 8px 20px rgba(var(--accent-rgb), 0.32);
   transition:
     transform 0.15s ease,
     background 0.15s ease;
@@ -484,7 +496,7 @@ select:focus-visible {
   border-radius: var(--r-xl);
   background: var(--accent);
   color: var(--on-accent);
-  box-shadow: 0 10px 24px rgba(79, 70, 229, 0.28);
+  box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.28);
 }
 .avatar {
   width: 44px;
@@ -1299,7 +1311,7 @@ select:focus-visible {
   gap: 8px;
   position: sticky;
   bottom: 0;
-  background: linear-gradient(180deg, rgba(245, 246, 248, 0) 0%, var(--bg) 30%);
+  background: linear-gradient(180deg, rgba(var(--bg-rgb), 0) 0%, var(--bg) 30%);
   padding-top: 10px;
 }
 
@@ -1522,7 +1534,7 @@ select:focus-visible {
   overflow: hidden;
   border-radius: var(--r-lg);
   border: 1px solid var(--line);
-  background: #eef1ec;
+  background: var(--map-land);
 }
 
 /* Land blocks + roads: a calm, legible schematic, not decoration. */
@@ -1537,7 +1549,7 @@ select:focus-visible {
 .map-pastel-area {
   position: absolute;
   border-radius: var(--r-sm);
-  background: #e2e8de;
+  background: var(--map-block);
 }
 .map-area-one {
   width: 130px;
@@ -1556,19 +1568,19 @@ select:focus-visible {
   height: 88px;
   left: 18%;
   bottom: 16%;
-  background: #dfe7e9;
+  background: var(--map-block-alt);
 }
 .map-area-four {
   width: 84px;
   height: 84px;
   left: 44%;
   top: 6%;
-  background: #e6e3da;
+  background: var(--map-block-warm);
 }
 .map-road {
   position: absolute;
   height: 12px;
-  background: #ffffff;
+  background: var(--map-road);
   border-radius: var(--r-pill);
 }
 .road-one {
@@ -1600,7 +1612,7 @@ select:focus-visible {
   position: absolute;
   width: 30px;
   height: 150%;
-  background: #cddfe8;
+  background: var(--map-water);
   border-radius: var(--r-pill);
 }
 .river-one {
@@ -1763,7 +1775,7 @@ select:focus-visible {
   height: 34px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: rgba(79, 70, 229, 0.18);
+  background: rgba(var(--accent-rgb), 0.18);
   animation: userPulse 2s ease-out infinite;
 }
 
