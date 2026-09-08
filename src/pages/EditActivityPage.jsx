@@ -20,11 +20,16 @@ export default function EditActivityPage() {
         </div>
       </div>
     )
+  const minCapacity = Math.max(2, existing.participants)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const submit = (e) => {
     e.preventDefault()
     if (!form.title?.trim() || !form.description?.trim()) {
       setError('Activity name and description are required.')
+      return
+    }
+    if (Number(form.capacity) < minCapacity) {
+      setError(`Capacity can't be below the current ${existing.participants} participants.`)
       return
     }
     updateActivity(id, form)
@@ -76,11 +81,14 @@ export default function EditActivityPage() {
           Capacity
           <input
             type="number"
-            min="2"
-            value={form.capacity || 2}
+            min={minCapacity}
+            value={form.capacity || minCapacity}
             onChange={(e) => set('capacity', e.target.value)}
           />
         </label>
+        <p className="helper-text">
+          Can't go below the {existing.participants} people already joined.
+        </p>
         {error && <p className="form-error">{error}</p>}
         <button className="primary-button wide">Save changes</button>
       </form>

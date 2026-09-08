@@ -548,7 +548,10 @@ export function AppProvider({ children }) {
 
           ...updates,
 
-          capacity: Number(updates.capacity ?? activity.capacity),
+          capacity: Math.max(
+            activity.participants,
+            Number(updates.capacity ?? activity.capacity),
+          ),
         }
       }),
     )
