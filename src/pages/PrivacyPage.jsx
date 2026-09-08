@@ -42,10 +42,7 @@ export default function PrivacyPage() {
             <strong>Location permission</strong>
             <small>Enable or disable location-based prototype behavior</small>
           </span>
-          <span
-            className={`switch ${privacy.locationPermission ? 'on' : ''}`}
-            aria-hidden="true"
-          />
+          <span className={`switch ${privacy.locationPermission ? 'on' : ''}`} aria-hidden="true" />
         </button>
         <button
           className="setting-row"

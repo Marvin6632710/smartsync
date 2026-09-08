@@ -555,10 +555,7 @@ export function AppProvider({ children }) {
 
           ...updates,
 
-          capacity: Math.max(
-            activity.participants,
-            Number(updates.capacity ?? activity.capacity),
-          ),
+          capacity: Math.max(activity.participants, Number(updates.capacity ?? activity.capacity)),
         }
       }),
     )
@@ -633,7 +630,9 @@ export function AppProvider({ children }) {
   // =========================================================
 
   function markAllNotificationsRead() {
-    setNotifications((previous) => previous.map((notification) => ({ ...notification, read: true })))
+    setNotifications((previous) =>
+      previous.map((notification) => ({ ...notification, read: true })),
+    )
   }
 
   // =========================================================

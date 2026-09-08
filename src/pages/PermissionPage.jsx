@@ -27,10 +27,7 @@ export default function PermissionPage() {
             <strong>Location</strong>
             <small>Show nearby activities</small>
           </span>
-          <span
-            className={`switch ${privacy.locationPermission ? 'on' : ''}`}
-            aria-hidden="true"
-          />
+          <span className={`switch ${privacy.locationPermission ? 'on' : ''}`} aria-hidden="true" />
         </button>
         <button
           className="setting-row"

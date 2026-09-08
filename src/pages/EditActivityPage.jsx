@@ -98,7 +98,7 @@ export default function EditActivityPage() {
           />
         </label>
         <p className="helper-text">
-          Can't go below the {existing.participants} people already joined.
+          {`Can't go below the ${existing.participants} people already joined.`}
         </p>
         {error && <p className="form-error">{error}</p>}
         <button className="primary-button wide">Save changes</button>
