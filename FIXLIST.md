@@ -6,9 +6,21 @@ Work one item at a time, verify the app still runs, commit, then move on.
 ## Status
 - Q-01 DONE — crash guards in recommendationService.js
 - Q-02 DONE — unguarded .slice() in MessagesPage / NotificationsPage
-- Q-03 IN PROGRESS — ErrorBoundary.jsx created, styles.css appended.
-  REMAINING: wire ErrorBoundary into main.jsx (must wrap BrowserRouter,
-  outside it, so routing errors are caught too).
+- Q-03 DONE — ErrorBoundary wired into main.jsx, wrapping BrowserRouter
+- Q-04 DONE — hosts get Cancel activity instead of Leave
+- Q-05 DONE — Edit Profile enforces the same 3-interest minimum as onboarding
+- Q-06 DONE — capacity floored at current participants, both in the form and updateActivity
+- Q-07 DONE — timeBand added to EditActivityPage
+- Q-08 DONE — SCHEMA_VERSION added to storage.js; mismatch wipes and re-seeds
+- Q-09 DONE — whole project formatted with Prettier (own commit)
+- Q-10 DONE — ChatPage auto-scrolls to newest message
+- Q-11 DONE — Mark all read added to Notifications
+- Q-12 DONE — Share/Privacy icons wired up; dead promo card removed
+- Q-13 DONE — onKeyDown added to the 3 role="button" divs
+- Q-14 DONE — notifications capped at 50 via shared pushNotification helper
+- Q-15 DONE — role="switch" + aria-checked added to all 8 toggle rows
+
+All Quick items complete. Medium/Large items below are unstarted.
 
 ---
 
