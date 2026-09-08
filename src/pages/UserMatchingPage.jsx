@@ -1,326 +1,155 @@
 import React from 'react'
 
-import {
-  Bell,
-  BellRing,
-  Check,
-  Clock3,
-  Sparkles,
-  UserRoundCheck,
-} from 'lucide-react'
+import { Bell, BellRing, Check, Clock3, Sparkles, UserRoundCheck } from 'lucide-react'
 
-import BackButton
-  from '../components/BackButton'
+import BackButton from '../components/BackButton'
 
-import { useApp }
-  from '../context/AppContext'
+import { useApp } from '../context/AppContext'
 
-import { mockUsers }
-  from '../data/mockData'
+import { mockUsers } from '../data/mockData'
 
-import {
-  calculateUserCompatibility,
-} from '../services/recommendationService'
-
+import { calculateUserCompatibility } from '../services/recommendationService'
 
 export default function UserMatchingPage() {
-
   const {
     user,
 
     followedUserIds,
 
     toggleUserNotifications,
-
   } = useApp()
 
+  const matches = mockUsers
+    .map((matchedUser) => ({
+      ...matchedUser,
 
-  const matches =
-    mockUsers
-      .map(
-        (matchedUser) => ({
+      ...calculateUserCompatibility(user, matchedUser),
+    }))
 
-          ...matchedUser,
-
-          ...calculateUserCompatibility(
-            user,
-            matchedUser
-          ),
-
-        })
-      )
-
-      .sort(
-        (a, b) =>
-          b.score - a.score
-      )
-
+    .sort((a, b) => b.score - a.score)
 
   return (
-
     <div className="page-content light-page">
-
       <BackButton />
-
 
       {/* HEADER */}
 
       <section className="headline-block">
+        <span className="eyebrow">User Matching</span>
 
-        <span className="eyebrow">
-          User Matching
-        </span>
+        <h2>People for you</h2>
 
-        <h2>
-          People for you
-        </h2>
-
-        <p className="helper-text">
-          Follow people you want to hear from.
-        </p>
-
+        <p className="helper-text">Follow people you want to hear from.</p>
       </section>
-
 
       {/* USERS */}
 
       <div className="stack">
+        {matches.map((matchedUser) => {
+          const notificationsOn = followedUserIds.includes(matchedUser.id)
 
-        {matches.map(
-          (matchedUser) => {
+          return (
+            <section className="new-match-card" key={matchedUser.id}>
+              {/* USER TOP */}
 
-            const notificationsOn =
-              followedUserIds.includes(
-                matchedUser.id
-              )
+              <div className="new-match-top">
+                <div className="avatar match-avatar">{matchedUser.avatar}</div>
 
+                <div className="match-user-copy">
+                  <div className="match-name-row">
+                    <h3>{matchedUser.name}</h3>
 
-            return (
-
-              <section
-                className="new-match-card"
-                key={matchedUser.id}
-              >
-
-
-                {/* USER TOP */}
-
-                <div className="new-match-top">
-
-                  <div className="avatar match-avatar">
-
-                    {matchedUser.avatar}
-
+                    <span className="match-pill">
+                      <UserRoundCheck size={14} />
+                      {matchedUser.score}%
+                    </span>
                   </div>
 
+                  <p>
+                    {matchedUser.shared.length > 0
+                      ? `${matchedUser.shared.length} shared interests`
+                      : 'Similar activity style'}
+                  </p>
+                </div>
+              </div>
 
-                  <div className="match-user-copy">
+              {/* INTERESTS */}
 
-                    <div className="match-name-row">
+              <div className="chip-row">
+                {matchedUser.interests.map((interest) => (
+                  <span className="tiny-chip" key={interest}>
+                    {interest}
+                  </span>
+                ))}
+              </div>
 
-                      <h3>
-                        {matchedUser.name}
-                      </h3>
+              {/* WHY MATCHED */}
 
+              <div className="match-details">
+                <span>
+                  <Sparkles size={15} />
 
-                      <span className="match-pill">
+                  {matchedUser.shared.length > 0
+                    ? matchedUser.shared
+                        .map((item) => item.charAt(0).toUpperCase() + item.slice(1))
+                        .join(' · ')
+                    : 'Similar interests'}
+                </span>
 
-                        <UserRoundCheck
-                          size={14}
-                        />
+                <span>
+                  <Clock3 size={15} />
 
-                        {matchedUser.score}%
+                  {matchedUser.preferredTime}
+                </span>
+              </div>
 
-                      </span>
+              {/* NOTIFICATION AREA */}
 
-                    </div>
+              <div className={notificationsOn ? 'notify-area enabled' : 'notify-area'}>
+                <div className="notify-text">
+                  <div className={notificationsOn ? 'notify-icon enabled' : 'notify-icon'}>
+                    {notificationsOn ? <BellRing size={19} /> : <Bell size={19} />}
+                  </div>
 
+                  <div>
+                    <strong>
+                      {notificationsOn
+                        ? 'Activity notifications ON'
+                        : `Get notified from ${matchedUser.name}`}
+                    </strong>
 
                     <p>
-
-                      {matchedUser.shared.length > 0
-
-                        ? `${matchedUser.shared.length} shared interests`
-
-                        : 'Similar activity style'
-                      }
-
-                    </p>
-
-                  </div>
-
-                </div>
-
-
-
-                {/* INTERESTS */}
-
-                <div className="chip-row">
-
-                  {matchedUser.interests.map(
-                    (interest) => (
-
-                      <span
-                        className="tiny-chip"
-                        key={interest}
-                      >
-
-                        {interest}
-
-                      </span>
-
-                    )
-                  )}
-
-                </div>
-
-
-
-                {/* WHY MATCHED */}
-
-                <div className="match-details">
-
-                  <span>
-
-                    <Sparkles
-                      size={15}
-                    />
-
-                    {matchedUser.shared.length > 0
-
-                      ? matchedUser.shared
-                          .map(
-                            (item) =>
-                              item
-                                .charAt(0)
-                                .toUpperCase() +
-                              item.slice(1)
-                          )
-                          .join(' · ')
-
-                      : 'Similar interests'
-                    }
-
-                  </span>
-
-
-                  <span>
-
-                    <Clock3
-                      size={15}
-                    />
-
-                    {matchedUser.preferredTime}
-
-                  </span>
-
-                </div>
-
-
-
-                {/* NOTIFICATION AREA */}
-
-                <div
-                  className={
-                    notificationsOn
-                      ? 'notify-area enabled'
-                      : 'notify-area'
-                  }
-                >
-
-                  <div className="notify-text">
-
-                    <div
-                      className={
-                        notificationsOn
-                          ? 'notify-icon enabled'
-                          : 'notify-icon'
-                      }
-                    >
-
                       {notificationsOn
-                        ? <BellRing size={19} />
-                        : <Bell size={19} />
-                      }
-
-                    </div>
-
-
-                    <div>
-
-                      <strong>
-
-                        {notificationsOn
-                          ? 'Activity notifications ON'
-                          : `Get notified from ${matchedUser.name}`
-                        }
-
-                      </strong>
-
-
-                      <p>
-
-                        {notificationsOn
-                          ? `We'll alert you when ${matchedUser.name} creates an activity.`
-                          : `Get alerts when ${matchedUser.name} posts a new activity.`
-                        }
-
-                      </p>
-
-                    </div>
-
+                        ? `We'll alert you when ${matchedUser.name} creates an activity.`
+                        : `Get alerts when ${matchedUser.name} posts a new activity.`}
+                    </p>
                   </div>
-
-
-
-                  {/* ACTUAL CLICK BUTTON */}
-
-                  <button
-                    className={
-                      notificationsOn
-                        ? 'notify-user-button enabled'
-                        : 'notify-user-button'
-                    }
-
-                    onClick={() =>
-                      toggleUserNotifications(
-                        matchedUser
-                      )
-                    }
-                  >
-
-                    {notificationsOn
-                      ? (
-                        <>
-                          <Check size={17} />
-
-                          Notifications ON
-                        </>
-                      )
-
-                      : (
-                        <>
-                          <Bell size={17} />
-
-                          Notify me
-                        </>
-                      )
-                    }
-
-                  </button>
-
                 </div>
 
-              </section>
+                {/* ACTUAL CLICK BUTTON */}
 
-            )
+                <button
+                  className={notificationsOn ? 'notify-user-button enabled' : 'notify-user-button'}
 
-          }
-        )}
-
+                  onClick={() => toggleUserNotifications(matchedUser)}
+                >
+                  {notificationsOn ? (
+                    <>
+                      <Check size={17} />
+                      Notifications ON
+                    </>
+                  ) : (
+                    <>
+                      <Bell size={17} />
+                      Notify me
+                    </>
+                  )}
+                </button>
+              </div>
+            </section>
+          )
+        })}
       </div>
-
-
 
       <style>{`
 
@@ -675,8 +504,6 @@ export default function UserMatchingPage() {
         }
 
       `}</style>
-
     </div>
-
   )
 }

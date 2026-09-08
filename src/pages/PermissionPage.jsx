@@ -16,11 +16,34 @@ export default function PermissionPage() {
         <p>Choose what the app can use.</p>
       </div>
       <div className="settings-card">
-        <button className="setting-row" onClick={() => toggle('locationPermission')}><LocateFixed /><span><strong>Location</strong><small>Show nearby activities</small></span><span className={`switch ${privacy.locationPermission ? 'on' : ''}`} /></button>
-        <button className="setting-row" onClick={() => toggle('approximateLocation')}><ShieldCheck /><span><strong>Approximate location</strong><small>Hide exact position</small></span><span className={`switch ${privacy.approximateLocation ? 'on' : ''}`} /></button>
-        <button className="setting-row" onClick={() => toggle('notifications')}><BellRing /><span><strong>Notifications</strong><small>Get reminders and updates</small></span><span className={`switch ${privacy.notifications ? 'on' : ''}`} /></button>
+        <button className="setting-row" onClick={() => toggle('locationPermission')}>
+          <LocateFixed />
+          <span>
+            <strong>Location</strong>
+            <small>Show nearby activities</small>
+          </span>
+          <span className={`switch ${privacy.locationPermission ? 'on' : ''}`} />
+        </button>
+        <button className="setting-row" onClick={() => toggle('approximateLocation')}>
+          <ShieldCheck />
+          <span>
+            <strong>Approximate location</strong>
+            <small>Hide exact position</small>
+          </span>
+          <span className={`switch ${privacy.approximateLocation ? 'on' : ''}`} />
+        </button>
+        <button className="setting-row" onClick={() => toggle('notifications')}>
+          <BellRing />
+          <span>
+            <strong>Notifications</strong>
+            <small>Get reminders and updates</small>
+          </span>
+          <span className={`switch ${privacy.notifications ? 'on' : ''}`} />
+        </button>
       </div>
-      <button className="primary-button wide" onClick={() => navigate('/interests')}>Continue</button>
+      <button className="primary-button wide" onClick={() => navigate('/interests')}>
+        Continue
+      </button>
     </div>
   )
 }

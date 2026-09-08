@@ -8,7 +8,13 @@ export default function InterestSelectionPage() {
   const navigate = useNavigate()
   const { user, setUser } = useApp()
   const selected = user.interests || []
-  const toggle = (interest) => setUser((u) => ({ ...u, interests: selected.includes(interest) ? selected.filter((x) => x !== interest) : [...selected, interest] }))
+  const toggle = (interest) =>
+    setUser((u) => ({
+      ...u,
+      interests: selected.includes(interest)
+        ? selected.filter((x) => x !== interest)
+        : [...selected, interest],
+    }))
 
   return (
     <div className="standalone-page onboarding-page">
@@ -23,12 +29,22 @@ export default function InterestSelectionPage() {
       </div>
       <div className="interest-grid">
         {interests.map((interest) => (
-          <button key={interest} className={`interest-chip ${selected.includes(interest) ? 'selected' : ''}`} onClick={() => toggle(interest)}>
+          <button
+            key={interest}
+            className={`interest-chip ${selected.includes(interest) ? 'selected' : ''}`}
+            onClick={() => toggle(interest)}
+          >
             {interest}
           </button>
         ))}
       </div>
-      <button className="primary-button wide" disabled={selected.length < 3} onClick={() => navigate('/home')}>Enter app <ArrowRight size={17} /></button>
+      <button
+        className="primary-button wide"
+        disabled={selected.length < 3}
+        onClick={() => navigate('/home')}
+      >
+        Enter app <ArrowRight size={17} />
+      </button>
     </div>
   )
 }

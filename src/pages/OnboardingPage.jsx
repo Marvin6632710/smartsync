@@ -21,7 +21,9 @@ export default function OnboardingPage() {
       <div className="feature-stack">
         {features.map(([Icon, title, text]) => (
           <div className="feature-row" key={title}>
-            <div className="feature-icon"><Icon size={20} /></div>
+            <div className="feature-icon">
+              <Icon size={20} />
+            </div>
             <div>
               <strong>{title}</strong>
               <p>{text}</p>
@@ -29,7 +31,9 @@ export default function OnboardingPage() {
           </div>
         ))}
       </div>
-      <button className="primary-button wide" onClick={() => navigate('/permissions')}>Continue</button>
+      <button className="primary-button wide" onClick={() => navigate('/permissions')}>
+        Continue
+      </button>
     </div>
   )
 }

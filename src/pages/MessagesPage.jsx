@@ -14,7 +14,10 @@ export default function MessagesPage() {
         <h2>Messages</h2>
       </section>
 
-      <div className="search-box soft-search"><Search size={18} /><input placeholder="Search" readOnly /></div>
+      <div className="search-box soft-search">
+        <Search size={18} />
+        <input placeholder="Search" readOnly />
+      </div>
       <div className="chip-row category-row">
         <span className="filter-chip active">All</span>
         <span className="filter-chip">Unread</span>
@@ -27,7 +30,11 @@ export default function MessagesPage() {
           const list = messages[a.id] || []
           const last = list[list.length - 1]
           return (
-            <button className="message-thread nomad-thread" key={a.id} onClick={() => navigate(`/activity/${a.id}/chat`)}>
+            <button
+              className="message-thread nomad-thread"
+              key={a.id}
+              onClick={() => navigate(`/activity/${a.id}/chat`)}
+            >
               <div className="avatar small">{a.category.slice(0, 1)}</div>
               <div>
                 <strong>{a.title}</strong>

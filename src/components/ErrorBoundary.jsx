@@ -48,8 +48,8 @@ export default class ErrorBoundary extends React.Component {
         <div className="empty-state">
           <h2>Something went wrong</h2>
           <p>
-            SmartSync hit an unexpected error on this screen. Your saved
-            activities and messages are safe.
+            SmartSync hit an unexpected error on this screen. Your saved activities and messages are
+            safe.
           </p>
 
           <div className="button-row wrap">

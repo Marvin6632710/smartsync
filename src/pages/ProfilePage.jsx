@@ -14,10 +14,16 @@ export default function ProfilePage() {
     <div className="page-content light-page">
       <section className="profile-showcase">
         <div className="profile-actions-top">
-          <button className="icon-button slim" onClick={() => navigate('/settings')}><Settings size={18} /></button>
+          <button className="icon-button slim" onClick={() => navigate('/settings')}>
+            <Settings size={18} />
+          </button>
           <div className="mini-actions">
-            <button className="icon-button slim"><Share2 size={18} /></button>
-            <button className="icon-button slim"><ShieldCheck size={18} /></button>
+            <button className="icon-button slim">
+              <Share2 size={18} />
+            </button>
+            <button className="icon-button slim">
+              <ShieldCheck size={18} />
+            </button>
           </div>
         </div>
         <div className="profile-center">
@@ -42,14 +48,28 @@ export default function ProfilePage() {
             <span className="eyebrow">Overview</span>
             <h2>Your activity life</h2>
           </div>
-          <button className="text-button" onClick={() => navigate('/profile/edit')}><Edit3 size={16} /> Edit</button>
+          <button className="text-button" onClick={() => navigate('/profile/edit')}>
+            <Edit3 size={16} /> Edit
+          </button>
         </div>
         <div className="profile-stats-grid compact-stats">
-          <div className="stat-card"><span>Joined</span><strong>{joined.length}</strong><small>activities</small></div>
-          <div className="stat-card"><span>Top match</span><strong>{best?.matchScore || '--'}%</strong><small>{best?.category || 'Activity'}</small></div>
+          <div className="stat-card">
+            <span>Joined</span>
+            <strong>{joined.length}</strong>
+            <small>activities</small>
+          </div>
+          <div className="stat-card">
+            <span>Top match</span>
+            <strong>{best?.matchScore || '--'}%</strong>
+            <small>{best?.category || 'Activity'}</small>
+          </div>
         </div>
         <div className="chip-row">
-          {user.interests.map((i) => <span className="tiny-chip" key={i}>{i}</span>)}
+          {user.interests.map((i) => (
+            <span className="tiny-chip" key={i}>
+              {i}
+            </span>
+          ))}
         </div>
       </section>
 
@@ -59,9 +79,15 @@ export default function ProfilePage() {
             <span className="eyebrow">Joined</span>
             <h2>Recent activities</h2>
           </div>
-          <button className="text-button" onClick={() => navigate('/joined')}>See all</button>
+          <button className="text-button" onClick={() => navigate('/joined')}>
+            See all
+          </button>
         </div>
-        <div className="stack">{joined.slice(0, 2).map((a) => <ActivityCard key={a.id} activity={{ ...a, matchScore: '—' }} compact />)}</div>
+        <div className="stack">
+          {joined.slice(0, 2).map((a) => (
+            <ActivityCard key={a.id} activity={{ ...a, matchScore: '—' }} compact />
+          ))}
+        </div>
       </section>
     </div>
   )

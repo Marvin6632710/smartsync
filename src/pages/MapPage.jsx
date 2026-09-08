@@ -1,13 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import {
-  ChevronRight,
-  List,
-  LocateFixed,
-  Search,
-  Sparkles,
-  Users,
-  Clock3,
-} from 'lucide-react'
+import { ChevronRight, List, LocateFixed, Search, Sparkles, Users, Clock3 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 
@@ -34,24 +26,17 @@ export default function MapPage() {
   const { recommendations } = useApp()
   const navigate = useNavigate()
 
-  const [selectedId, setSelectedId] = useState(
-    recommendations[0]?.id || null
-  )
+  const [selectedId, setSelectedId] = useState(recommendations[0]?.id || null)
 
   const selectedActivity = useMemo(() => {
-    return (
-      recommendations.find((activity) => activity.id === selectedId) ||
-      recommendations[0]
-    )
+    return recommendations.find((activity) => activity.id === selectedId) || recommendations[0]
   }, [recommendations, selectedId])
 
   return (
     <>
       <div className="smart-map-page">
-
         {/* MAP */}
         <div className="smart-map">
-
           {/* Background map texture */}
           <div className="map-background-grid" />
 
@@ -81,24 +66,16 @@ export default function MapPage() {
           {selectedActivity && (
             <button
               className="map-activity-preview"
-              onClick={() =>
-                navigate(`/activity/${selectedActivity.id}`)
-              }
+              onClick={() => navigate(`/activity/${selectedActivity.id}`)}
             >
-              <div className="preview-emoji">
-                {getActivityEmoji(selectedActivity.category)}
-              </div>
+              <div className="preview-emoji">{getActivityEmoji(selectedActivity.category)}</div>
 
               <div className="preview-copy">
-                <span className="preview-match">
-                  {selectedActivity.matchScore}% Match
-                </span>
+                <span className="preview-match">{selectedActivity.matchScore}% Match</span>
 
                 <strong>{selectedActivity.title}</strong>
 
-                <small>
-                  {selectedActivity.distanceKm} km away
-                </small>
+                <small>{selectedActivity.distanceKm} km away</small>
               </div>
 
               <ChevronRight size={21} />
@@ -112,9 +89,7 @@ export default function MapPage() {
             return (
               <button
                 key={activity.id}
-                className={`activity-map-marker ${
-                  isSelected ? 'selected' : ''
-                }`}
+                className={`activity-map-marker ${isSelected ? 'selected' : ''}`}
                 style={{
                   left: `${activity.x}%`,
                   top: `${activity.y}%`,
@@ -123,15 +98,9 @@ export default function MapPage() {
                 onClick={() => setSelectedId(activity.id)}
                 aria-label={`Select ${activity.title}`}
               >
-                <span className="marker-emoji">
-                  {getActivityEmoji(activity.category)}
-                </span>
+                <span className="marker-emoji">{getActivityEmoji(activity.category)}</span>
 
-                {isSelected && (
-                  <span className="marker-match">
-                    {activity.matchScore}%
-                  </span>
-                )}
+                {isSelected && <span className="marker-match">{activity.matchScore}%</span>}
               </button>
             )
           })}
@@ -158,18 +127,12 @@ export default function MapPage() {
           </button>
 
           {/* LOCATION */}
-          <button
-            className="map-round-button map-location-button"
-            aria-label="Center location"
-          >
+          <button className="map-round-button map-location-button" aria-label="Center location">
             <LocateFixed size={24} strokeWidth={2.2} />
           </button>
 
           {/* LIST */}
-          <button
-            className="map-list-button"
-            onClick={() => navigate('/home')}
-          >
+          <button className="map-list-button" onClick={() => navigate('/home')}>
             <List size={19} />
             <span>List</span>
           </button>
@@ -177,7 +140,6 @@ export default function MapPage() {
           {/* ACTIVITY BOTTOM CARD */}
           {selectedActivity && (
             <div className="map-bottom-card">
-
               <div className="bottom-card-top">
                 <div className="bottom-card-icon">
                   {getActivityEmoji(selectedActivity.category)}
@@ -188,9 +150,7 @@ export default function MapPage() {
                   <strong>{selectedActivity.title}</strong>
                 </div>
 
-                <div className="bottom-match">
-                  {selectedActivity.matchScore}%
-                </div>
+                <div className="bottom-match">{selectedActivity.matchScore}%</div>
               </div>
 
               <div className="bottom-card-info">
@@ -201,11 +161,9 @@ export default function MapPage() {
 
                 <span>
                   <Users size={14} />
-                  {selectedActivity.participants}/
-                  {selectedActivity.capacity}
+                  {selectedActivity.participants}/{selectedActivity.capacity}
                 </span>
               </div>
-
             </div>
           )}
         </div>

@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 import {
   initialMessages,
@@ -13,430 +7,229 @@ import {
   mockActivities,
 } from '../data/mockData'
 
-import {
-  loadStorage,
-  saveStorage,
-} from '../utils/storage'
+import { loadStorage, saveStorage } from '../utils/storage'
 
-import {
-  rankActivities,
-} from '../services/recommendationService'
-
+import { rankActivities } from '../services/recommendationService'
 
 const AppContext = createContext(null)
 
-
 export function AppProvider({ children }) {
-
   // =========================================================
   // USER
   // =========================================================
 
-  const [user, setUser] = useState(() =>
-    loadStorage(
-      'smartsync:user',
-      initialUser
-    )
-  )
-
+  const [user, setUser] = useState(() => loadStorage('smartsync:user', initialUser))
 
   // =========================================================
   // ACTIVITIES
   // =========================================================
 
-  const [
-    activities,
-    setActivities,
-  ] = useState(() =>
-    loadStorage(
-      'smartsync:activities',
-      mockActivities
-    )
+  const [activities, setActivities] = useState(() =>
+    loadStorage('smartsync:activities', mockActivities),
   )
-
 
   // =========================================================
   // JOINED ACTIVITIES
   // =========================================================
 
-  const [
-    joinedIds,
-    setJoinedIds,
-  ] = useState(() =>
-    loadStorage(
-      'smartsync:joined',
-      ['a1']
-    )
-  )
-
+  const [joinedIds, setJoinedIds] = useState(() => loadStorage('smartsync:joined', ['a1']))
 
   // =========================================================
   // MESSAGES
   // =========================================================
 
-  const [
-    messages,
-    setMessages,
-  ] = useState(() =>
-    loadStorage(
-      'smartsync:messages',
-      initialMessages
-    )
-  )
-
+  const [messages, setMessages] = useState(() => loadStorage('smartsync:messages', initialMessages))
 
   // =========================================================
   // NOTIFICATIONS
   // =========================================================
 
-  const [
-    notifications,
-    setNotifications,
-  ] = useState(() =>
-    loadStorage(
-      'smartsync:notifications',
-      initialNotifications
-    )
+  const [notifications, setNotifications] = useState(() =>
+    loadStorage('smartsync:notifications', initialNotifications),
   )
-
 
   // =========================================================
   // FOLLOWED USERS
   // Users we want activity notifications from
   // =========================================================
 
-  const [
-    followedUserIds,
-    setFollowedUserIds,
-  ] = useState(() =>
-    loadStorage(
-      'smartsync:followedUsers',
-      []
-    )
+  const [followedUserIds, setFollowedUserIds] = useState(() =>
+    loadStorage('smartsync:followedUsers', []),
   )
-
 
   // =========================================================
   // PRIVACY
   // =========================================================
 
-  const [
-    privacy,
-    setPrivacy,
-  ] = useState(() =>
-    loadStorage(
-      'smartsync:privacy',
-      {
-        anonymousMode: false,
-        locationPermission: true,
-        approximateLocation: true,
-        notifications: true,
-      }
-    )
+  const [privacy, setPrivacy] = useState(() =>
+    loadStorage('smartsync:privacy', {
+      anonymousMode: false,
+      locationPermission: true,
+      approximateLocation: true,
+      notifications: true,
+    }),
   )
-
 
   // =========================================================
   // FILTERS
   // =========================================================
 
-  const [
-    filters,
-    setFilters,
-  ] = useState(() =>
-    loadStorage(
-      'smartsync:filters',
-      {
-        category: 'All',
-        maxDistance: 10,
-        date: 'Any',
-        timeBand: 'Any',
-        availableOnly: true,
-      }
-    )
+  const [filters, setFilters] = useState(() =>
+    loadStorage('smartsync:filters', {
+      category: 'All',
+      maxDistance: 10,
+      date: 'Any',
+      timeBand: 'Any',
+      availableOnly: true,
+    }),
   )
-
 
   // =========================================================
   // CELEBRATION / POPUP
   // =========================================================
 
-  const [
-    celebration,
-    setCelebration,
-  ] = useState(null)
-
-
+  const [celebration, setCelebration] = useState(null)
 
   // =========================================================
   // SAVE USER
   // =========================================================
 
   useEffect(() => {
-
-    saveStorage(
-      'smartsync:user',
-      user
-    )
-
+    saveStorage('smartsync:user', user)
   }, [user])
-
-
 
   // =========================================================
   // SAVE ACTIVITIES
   // =========================================================
 
   useEffect(() => {
-
-    saveStorage(
-      'smartsync:activities',
-      activities
-    )
-
+    saveStorage('smartsync:activities', activities)
   }, [activities])
-
-
 
   // =========================================================
   // SAVE JOINED ACTIVITIES
   // =========================================================
 
   useEffect(() => {
-
-    saveStorage(
-      'smartsync:joined',
-      joinedIds
-    )
-
+    saveStorage('smartsync:joined', joinedIds)
   }, [joinedIds])
-
-
 
   // =========================================================
   // SAVE MESSAGES
   // =========================================================
 
   useEffect(() => {
-
-    saveStorage(
-      'smartsync:messages',
-      messages
-    )
-
+    saveStorage('smartsync:messages', messages)
   }, [messages])
-
-
 
   // =========================================================
   // SAVE NOTIFICATIONS
   // =========================================================
 
   useEffect(() => {
-
-    saveStorage(
-      'smartsync:notifications',
-      notifications
-    )
-
+    saveStorage('smartsync:notifications', notifications)
   }, [notifications])
-
-
 
   // =========================================================
   // SAVE FOLLOWED USERS
   // =========================================================
 
   useEffect(() => {
-
-    saveStorage(
-      'smartsync:followedUsers',
-      followedUserIds
-    )
-
+    saveStorage('smartsync:followedUsers', followedUserIds)
   }, [followedUserIds])
-
-
 
   // =========================================================
   // SAVE PRIVACY
   // =========================================================
 
   useEffect(() => {
-
-    saveStorage(
-      'smartsync:privacy',
-      privacy
-    )
-
+    saveStorage('smartsync:privacy', privacy)
   }, [privacy])
-
-
 
   // =========================================================
   // SAVE FILTERS
   // =========================================================
 
   useEffect(() => {
-
-    saveStorage(
-      'smartsync:filters',
-      filters
-    )
-
+    saveStorage('smartsync:filters', filters)
   }, [filters])
-
-
 
   // =========================================================
   // AUTO HIDE POPUP
   // =========================================================
 
   useEffect(() => {
-
     if (!celebration) {
       return undefined
     }
 
-    const timer =
-      window.setTimeout(
-        () => {
-          setCelebration(null)
-        },
-        2800
-      )
+    const timer = window.setTimeout(() => {
+      setCelebration(null)
+    }, 2800)
 
-
-    return () =>
-      window.clearTimeout(
-        timer
-      )
-
+    return () => window.clearTimeout(timer)
   }, [celebration])
-
-
 
   // =========================================================
   // SHOW POPUP
   // =========================================================
 
-  function pushCelebration(
-    payload
-  ) {
-
+  function pushCelebration(payload) {
     setCelebration({
+      id: Date.now(),
 
-      id:
-        Date.now(),
+      emoji: '✨',
 
-      emoji:
-        '✨',
+      title: '',
 
-      title:
-        '',
-
-      body:
-        '',
+      body: '',
 
       ...payload,
-
     })
-
   }
-
-
 
   // =========================================================
   // RECOMMENDATIONS
   // =========================================================
 
-  const recommendations =
-    useMemo(() => {
-
-      return rankActivities(
-        user,
-        activities
-      )
-
-    }, [
-      user,
-      activities,
-    ])
-
-
+  const recommendations = useMemo(() => {
+    return rankActivities(user, activities)
+  }, [user, activities])
 
   // =========================================================
   // FILTERED ACTIVITIES
   // =========================================================
 
-  const filteredActivities =
-    useMemo(() => {
+  const filteredActivities = useMemo(() => {
+    return recommendations.filter((activity) => {
+      // CATEGORY
+      if (filters.category !== 'All' && activity.category !== filters.category) {
+        return false
+      }
 
-      return recommendations.filter(
-        (activity) => {
+      // DISTANCE
+      if ((activity.distanceKm || 0) > Number(filters.maxDistance || 999)) {
+        return false
+      }
 
-          // CATEGORY
-          if (
-            filters.category !== 'All' &&
-            activity.category !==
-              filters.category
-          ) {
-            return false
-          }
+      // DATE
+      if (filters.date !== 'Any' && activity.date !== filters.date) {
+        return false
+      }
 
+      // TIME
+      if (filters.timeBand !== 'Any' && activity.timeBand !== filters.timeBand) {
+        return false
+      }
 
-          // DISTANCE
-          if (
-            (activity.distanceKm || 0) >
-            Number(
-              filters.maxDistance || 999
-            )
-          ) {
-            return false
-          }
+      // AVAILABLE SPOTS
+      if (filters.availableOnly && activity.participants >= activity.capacity) {
+        return false
+      }
 
-
-          // DATE
-          if (
-            filters.date !== 'Any' &&
-            activity.date !==
-              filters.date
-          ) {
-            return false
-          }
-
-
-          // TIME
-          if (
-            filters.timeBand !== 'Any' &&
-            activity.timeBand !==
-              filters.timeBand
-          ) {
-            return false
-          }
-
-
-          // AVAILABLE SPOTS
-          if (
-            filters.availableOnly &&
-            activity.participants >=
-              activity.capacity
-          ) {
-            return false
-          }
-
-
-          return true
-
-        }
-      )
-
-    }, [
-      recommendations,
-      filters,
-    ])
-
-
+      return true
+    })
+  }, [recommendations, filters])
 
   // =========================================================
   // USER NOTIFICATION FOLLOW
@@ -450,395 +243,192 @@ export function AppProvider({ children }) {
   // -> turn it off
   // =========================================================
 
-  function toggleUserNotifications(
-    targetUser
-  ) {
-
+  function toggleUserNotifications(targetUser) {
     if (!targetUser?.id) {
       return
     }
 
-
-    const alreadyOn =
-      followedUserIds.includes(
-        targetUser.id
-      )
-
+    const alreadyOn = followedUserIds.includes(targetUser.id)
 
     // =====================================================
     // TURN OFF
     // =====================================================
 
     if (alreadyOn) {
-
-      setFollowedUserIds(
-        (previous) =>
-          previous.filter(
-            (id) =>
-              id !== targetUser.id
-          )
-      )
-
+      setFollowedUserIds((previous) => previous.filter((id) => id !== targetUser.id))
 
       pushCelebration({
+        emoji: '🔕',
 
-        emoji:
-          '🔕',
+        title: 'Notifications off',
 
-        title:
-          'Notifications off',
-
-        body:
-          `${targetUser.name} activity alerts turned off.`,
-
+        body: `${targetUser.name} activity alerts turned off.`,
       })
-
 
       return
     }
-
-
 
     // =====================================================
     // TURN ON
     // =====================================================
 
-    setFollowedUserIds(
-      (previous) => [
-
-        ...new Set([
-
-          ...previous,
-
-          targetUser.id,
-
-        ]),
-
-      ]
-    )
-
-
+    setFollowedUserIds((previous) => [...new Set([...previous, targetUser.id])])
 
     // ADD CONFIRMATION TO NOTIFICATION PAGE
 
     const notification = {
+      id: `follow-${Date.now()}`,
 
-      id:
-        `follow-${Date.now()}`,
+      type: 'follow',
 
-      type:
-        'follow',
+      title: `Following ${targetUser.name}`,
 
-      title:
-        `Following ${targetUser.name}`,
+      body: `You'll get notified when ${targetUser.name} creates a new activity.`,
 
-      body:
-        `You'll get notified when ${targetUser.name} creates a new activity.`,
+      userId: targetUser.id,
 
-      userId:
-        targetUser.id,
+      read: false,
 
-      read:
-        false,
-
-      time:
-        'Now',
-
+      time: 'Now',
     }
 
-
-    setNotifications(
-      (previous) => [
-
-        notification,
-
-        ...previous,
-
-      ]
-    )
-
-
+    setNotifications((previous) => [notification, ...previous])
 
     // POPUP
 
     pushCelebration({
+      emoji: '🔔',
 
-      emoji:
-        '🔔',
+      title: 'Notifications on',
 
-      title:
-        'Notifications on',
-
-      body:
-        `You'll get ${targetUser.name}'s activity alerts.`,
-
+      body: `You'll get ${targetUser.name}'s activity alerts.`,
     })
-
   }
-
-
 
   // =========================================================
   // CHECK IF USER NOTIFICATION IS ON
   // OPTIONAL HELPER
   // =========================================================
 
-  function isFollowingUser(
-    userId
-  ) {
-
-    return followedUserIds.includes(
-      userId
-    )
-
+  function isFollowingUser(userId) {
+    return followedUserIds.includes(userId)
   }
-
-
 
   // =========================================================
   // JOIN ACTIVITY
   // =========================================================
 
   function joinActivity(id) {
-
-    if (
-      joinedIds.includes(id)
-    ) {
+    if (joinedIds.includes(id)) {
       return
     }
 
-
     // ADD TO JOINED
 
-    setJoinedIds(
-      (previous) => [
-
-        ...previous,
-
-        id,
-
-      ]
-    )
-
-
+    setJoinedIds((previous) => [...previous, id])
 
     // INCREASE PARTICIPANTS
 
-    setActivities(
-      (previous) =>
+    setActivities((previous) =>
+      previous.map((activity) => {
+        if (activity.id !== id) {
+          return activity
+        }
 
-        previous.map(
-          (activity) => {
+        return {
+          ...activity,
 
-            if (
-              activity.id !== id
-            ) {
-              return activity
-            }
+          participants: Math.min(
+            activity.capacity,
 
+            activity.participants + 1,
+          ),
 
-            return {
-
-              ...activity,
-
-
-              participants:
-                Math.min(
-
-                  activity.capacity,
-
-                  activity.participants + 1
-
-                ),
-
-
-              joinedUserIds: [
-
-                ...new Set([
-
-                  ...(
-                    activity.joinedUserIds ||
-                    []
-                  ),
-
-                  'me',
-
-                ]),
-
-              ],
-
-            }
-
-          }
-        )
+          joinedUserIds: [...new Set([...(activity.joinedUserIds || []), 'me'])],
+        }
+      }),
     )
 
-
-
-    const activity =
-      activities.find(
-        (item) =>
-          item.id === id
-      )
-
+    const activity = activities.find((item) => item.id === id)
 
     if (!activity) {
       return
     }
 
-
-
     // CREATE NOTIFICATION
 
-    setNotifications(
-      (previous) => [
+    setNotifications((previous) => [
+      {
+        id: `join-${Date.now()}`,
 
-        {
+        type: 'activity',
 
-          id:
-            `join-${Date.now()}`,
+        title: 'Activity joined',
 
-          type:
-            'activity',
+        body: `You joined ${activity.title}.`,
 
-          title:
-            'Activity joined',
+        activityId: id,
 
-          body:
-            `You joined ${activity.title}.`,
+        read: false,
 
-          activityId:
-            id,
+        time: 'Now',
+      },
 
-          read:
-            false,
-
-          time:
-            'Now',
-
-        },
-
-        ...previous,
-
-      ]
-    )
-
-
+      ...previous,
+    ])
 
     pushCelebration({
+      emoji: '🎉',
 
-      emoji:
-        '🎉',
+      title: 'You are in!',
 
-      title:
-        'You are in!',
-
-      body:
-        `${activity.title} added to your list.`,
-
+      body: `${activity.title} added to your list.`,
     })
-
   }
-
-
 
   // =========================================================
   // LEAVE ACTIVITY
   // =========================================================
 
   function leaveActivity(id) {
-
-    if (
-      !joinedIds.includes(id)
-    ) {
+    if (!joinedIds.includes(id)) {
       return
     }
 
+    setJoinedIds((previous) => previous.filter((activityId) => activityId !== id))
 
+    setActivities((previous) =>
+      previous.map((activity) => {
+        if (activity.id !== id) {
+          return activity
+        }
 
-    setJoinedIds(
-      (previous) =>
+        return {
+          ...activity,
 
-        previous.filter(
-          (activityId) =>
-            activityId !== id
-        )
+          participants: Math.max(
+            0,
+
+            activity.participants - 1,
+          ),
+
+          joinedUserIds: (activity.joinedUserIds || []).filter((userId) => userId !== 'me'),
+        }
+      }),
     )
 
-
-
-    setActivities(
-      (previous) =>
-
-        previous.map(
-          (activity) => {
-
-            if (
-              activity.id !== id
-            ) {
-              return activity
-            }
-
-
-            return {
-
-              ...activity,
-
-
-              participants:
-                Math.max(
-
-                  0,
-
-                  activity.participants - 1
-
-                ),
-
-
-              joinedUserIds:
-                (
-                  activity.joinedUserIds ||
-                  []
-                ).filter(
-                  (userId) =>
-                    userId !== 'me'
-                ),
-
-            }
-
-          }
-        )
-    )
-
-
-
-    const activity =
-      activities.find(
-        (item) =>
-          item.id === id
-      )
-
+    const activity = activities.find((item) => item.id === id)
 
     if (activity) {
-
       pushCelebration({
+        emoji: '👋',
 
-        emoji:
-          '👋',
+        title: 'Activity left',
 
-        title:
-          'Activity left',
-
-        body:
-          `You left ${activity.title}.`,
-
+        body: `You left ${activity.title}.`,
       })
-
     }
-
   }
-
-
 
   // =========================================================
   // CANCEL ACTIVITY
@@ -849,515 +439,246 @@ export function AppProvider({ children }) {
   // =========================================================
 
   function cancelActivity(id) {
-
-    const activity =
-      activities.find(
-        (item) =>
-          item.id === id
-      )
+    const activity = activities.find((item) => item.id === id)
 
     if (!activity || activity.createdBy !== 'me') {
       return
     }
 
+    setActivities((previous) => previous.filter((item) => item.id !== id))
 
-    setActivities(
-      (previous) =>
-        previous.filter(
-          (item) =>
-            item.id !== id
-        )
-    )
-
-
-    setJoinedIds(
-      (previous) =>
-        previous.filter(
-          (activityId) =>
-            activityId !== id
-        )
-    )
-
+    setJoinedIds((previous) => previous.filter((activityId) => activityId !== id))
 
     pushCelebration({
+      emoji: '🗑️',
 
-      emoji:
-        '🗑️',
+      title: 'Activity cancelled',
 
-      title:
-        'Activity cancelled',
-
-      body:
-        `${activity.title} was removed.`,
-
+      body: `${activity.title} was removed.`,
     })
-
   }
-
-
 
   // =========================================================
   // CREATE ACTIVITY
   // =========================================================
 
-  function createActivity(
-    data
-  ) {
-
-    const id =
-      `a-${Date.now()}`
-
-
+  function createActivity(data) {
+    const id = `a-${Date.now()}`
 
     const newActivity = {
-
       id,
 
       ...data,
 
+      distanceKm: Number(data.distanceKm || 1.5),
 
-      distanceKm:
-        Number(
-          data.distanceKm ||
-          1.5
-        ),
+      participants: 1,
 
+      capacity: Number(data.capacity || 8),
 
-      participants:
-        1,
+      createdBy: 'me',
 
+      host: user.name,
 
-      capacity:
-        Number(
-          data.capacity ||
-          8
-        ),
+      similarUsersJoined: false,
 
+      joinedUserIds: ['me'],
 
-      createdBy:
-        'me',
+      tags: [data.category, data.timeBand, 'Hosted by you'],
 
+      x: 35 + Math.round(Math.random() * 30),
 
-      host:
-        user.name,
-
-
-      similarUsersJoined:
-        false,
-
-
-      joinedUserIds:
-        ['me'],
-
-
-      tags: [
-
-        data.category,
-
-        data.timeBand,
-
-        'Hosted by you',
-
-      ],
-
-
-      x:
-        35 +
-        Math.round(
-          Math.random() *
-          30
-        ),
-
-
-      y:
-        30 +
-        Math.round(
-          Math.random() *
-          30
-        ),
-
+      y: 30 + Math.round(Math.random() * 30),
     }
-
-
 
     // ADD ACTIVITY
 
-    setActivities(
-      (previous) => [
-
-        newActivity,
-
-        ...previous,
-
-      ]
-    )
-
-
+    setActivities((previous) => [newActivity, ...previous])
 
     // AUTO JOIN OWN ACTIVITY
 
-    setJoinedIds(
-      (previous) => [
-
-        ...new Set([
-
-          ...previous,
-
-          id,
-
-        ]),
-
-      ]
-    )
-
-
+    setJoinedIds((previous) => [...new Set([...previous, id])])
 
     // CREATE NOTIFICATION
 
-    setNotifications(
-      (previous) => [
+    setNotifications((previous) => [
+      {
+        id: `created-${Date.now()}`,
 
-        {
+        type: 'activity',
 
-          id:
-            `created-${Date.now()}`,
+        title: 'Activity created',
 
-          type:
-            'activity',
+        body: `${newActivity.title} is live.`,
 
-          title:
-            'Activity created',
+        activityId: id,
 
-          body:
-            `${newActivity.title} is live.`,
+        read: false,
 
-          activityId:
-            id,
+        time: 'Now',
+      },
 
-          read:
-            false,
-
-          time:
-            'Now',
-
-        },
-
-        ...previous,
-
-      ]
-    )
-
-
+      ...previous,
+    ])
 
     pushCelebration({
+      emoji: '🚀',
 
-      emoji:
-        '🚀',
+      title: 'Activity created',
 
-      title:
-        'Activity created',
-
-      body:
-        `${newActivity.title} is live now.`,
-
+      body: `${newActivity.title} is live now.`,
     })
 
-
-
     return id
-
   }
-
-
 
   // =========================================================
   // UPDATE ACTIVITY
   // =========================================================
 
-  function updateActivity(
-    id,
-    updates
-  ) {
+  function updateActivity(id, updates) {
+    setActivities((previous) =>
+      previous.map((activity) => {
+        if (activity.id !== id) {
+          return activity
+        }
 
-    setActivities(
-      (previous) =>
+        return {
+          ...activity,
 
-        previous.map(
-          (activity) => {
+          ...updates,
 
-            if (
-              activity.id !== id
-            ) {
-              return activity
-            }
-
-
-            return {
-
-              ...activity,
-
-              ...updates,
-
-
-              capacity:
-                Number(
-                  updates.capacity ??
-                  activity.capacity
-                ),
-
-            }
-
-          }
-        )
+          capacity: Number(updates.capacity ?? activity.capacity),
+        }
+      }),
     )
 
-
-
     pushCelebration({
+      emoji: '✨',
 
-      emoji:
-        '✨',
+      title: 'Saved',
 
-      title:
-        'Saved',
-
-      body:
-        'Changes saved.',
-
+      body: 'Changes saved.',
     })
-
   }
-
-
 
   // =========================================================
   // SEND MESSAGE
   // =========================================================
 
-  function sendMessage(
-    activityId,
-    text
-  ) {
-
-    const trimmed =
-      text.trim()
-
+  function sendMessage(activityId, text) {
+    const trimmed = text.trim()
 
     if (!trimmed) {
       return
     }
 
-
-
-    const now =
-      new Date()
-
-
+    const now = new Date()
 
     const message = {
+      id: `message-${Date.now()}`,
 
-      id:
-        `message-${Date.now()}`,
+      senderId: 'me',
 
-      senderId:
-        'me',
+      sender: privacy.anonymousMode ? 'Anonymous' : user.name,
 
-      sender:
-        privacy.anonymousMode
+      text: trimmed,
 
-          ? 'Anonymous'
+      time: now.toLocaleTimeString([], {
+        hour: 'numeric',
 
-          : user.name,
-
-      text:
-        trimmed,
-
-      time:
-        now.toLocaleTimeString(
-          [],
-          {
-            hour:
-              'numeric',
-
-            minute:
-              '2-digit',
-          }
-        ),
-
+        minute: '2-digit',
+      }),
     }
 
+    setMessages((previous) => ({
+      ...previous,
 
-
-    setMessages(
-      (previous) => ({
-
-        ...previous,
-
-
-        [activityId]: [
-
-          ...(
-            previous[
-              activityId
-            ] || []
-          ),
-
-          message,
-
-        ],
-
-      })
-    )
-
+      [activityId]: [...(previous[activityId] || []), message],
+    }))
   }
-
-
 
   // =========================================================
   // MARK NOTIFICATION READ
   // =========================================================
 
-  function markNotificationRead(
-    id
-  ) {
+  function markNotificationRead(id) {
+    setNotifications((previous) =>
+      previous.map((notification) => {
+        if (notification.id !== id) {
+          return notification
+        }
 
-    setNotifications(
-      (previous) =>
+        return {
+          ...notification,
 
-        previous.map(
-          (notification) => {
-
-            if (
-              notification.id !== id
-            ) {
-              return notification
-            }
-
-
-            return {
-
-              ...notification,
-
-              read:
-                true,
-
-            }
-
-          }
-        )
+          read: true,
+        }
+      }),
     )
-
   }
-
-
 
   // =========================================================
   // RESET PROTOTYPE
   // =========================================================
 
   function resetPrototype() {
+    setUser(initialUser)
 
-    setUser(
-      initialUser
-    )
+    setActivities(mockActivities)
 
+    setJoinedIds(['a1'])
 
-    setActivities(
-      mockActivities
-    )
+    setMessages(initialMessages)
 
+    setNotifications(initialNotifications)
 
-    setJoinedIds(
-      ['a1']
-    )
-
-
-    setMessages(
-      initialMessages
-    )
-
-
-    setNotifications(
-      initialNotifications
-    )
-
-
-    setFollowedUserIds(
-      []
-    )
-
+    setFollowedUserIds([])
 
     setPrivacy({
+      anonymousMode: false,
 
-      anonymousMode:
-        false,
+      locationPermission: true,
 
-      locationPermission:
-        true,
+      approximateLocation: true,
 
-      approximateLocation:
-        true,
-
-      notifications:
-        true,
-
+      notifications: true,
     })
-
 
     setFilters({
+      category: 'All',
 
-      category:
-        'All',
+      maxDistance: 10,
 
-      maxDistance:
-        10,
+      date: 'Any',
 
-      date:
-        'Any',
+      timeBand: 'Any',
 
-      timeBand:
-        'Any',
-
-      availableOnly:
-        true,
-
+      availableOnly: true,
     })
-
-
 
     pushCelebration({
+      emoji: '🔄',
 
-      emoji:
-        '🔄',
+      title: 'Reset complete',
 
-      title:
-        'Reset complete',
-
-      body:
-        'Demo data restored.',
-
+      body: 'Demo data restored.',
     })
-
   }
-
-
 
   // =========================================================
   // CONTEXT VALUES
   // =========================================================
 
   const value = {
-
     // USER
     user,
     setUser,
-
 
     // ACTIVITIES
     activities,
     recommendations,
     filteredActivities,
-
 
     // JOIN
     joinedIds,
@@ -1365,91 +686,56 @@ export function AppProvider({ children }) {
     leaveActivity,
     cancelActivity,
 
-
     // CREATE / UPDATE
     createActivity,
     updateActivity,
-
 
     // MESSAGES
     messages,
     sendMessage,
 
-
     // NOTIFICATIONS
     notifications,
     markNotificationRead,
-
 
     // USER ACTIVITY ALERTS
     followedUserIds,
     toggleUserNotifications,
     isFollowingUser,
 
-
     // PRIVACY
     privacy,
     setPrivacy,
-
 
     // FILTERS
     filters,
     setFilters,
 
-
     // RESET
     resetPrototype,
-
 
     // POPUPS
     celebration,
     pushCelebration,
-
   }
-
-
 
   // =========================================================
   // PROVIDER
   // =========================================================
 
-  return (
-
-    <AppContext.Provider
-      value={value}
-    >
-
-      {children}
-
-    </AppContext.Provider>
-
-  )
-
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }
-
-
 
 // =========================================================
 // CUSTOM HOOK
 // =========================================================
 
 export function useApp() {
-
-  const context =
-    useContext(
-      AppContext
-    )
-
+  const context = useContext(AppContext)
 
   if (!context) {
-
-    throw new Error(
-      'useApp must be used inside AppProvider'
-    )
-
+    throw new Error('useApp must be used inside AppProvider')
   }
 
-
   return context
-
 }
