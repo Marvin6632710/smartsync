@@ -67,12 +67,14 @@ export default function FilterPage() {
         <button
           className="setting-row compact-row"
           onClick={() => set('availableOnly', !draft.availableOnly)}
+          role="switch"
+          aria-checked={draft.availableOnly}
         >
           <span>
             <strong>Available spots only</strong>
             <small>Hide activities that are already full</small>
           </span>
-          <span className={`switch ${draft.availableOnly ? 'on' : ''}`} />
+          <span className={`switch ${draft.availableOnly ? 'on' : ''}`} aria-hidden="true" />
         </button>
         <div className="button-row">
           <button className="secondary-button" onClick={reset}>

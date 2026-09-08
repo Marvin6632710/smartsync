@@ -16,29 +16,50 @@ export default function PermissionPage() {
         <p>Choose what the app can use.</p>
       </div>
       <div className="settings-card">
-        <button className="setting-row" onClick={() => toggle('locationPermission')}>
+        <button
+          className="setting-row"
+          onClick={() => toggle('locationPermission')}
+          role="switch"
+          aria-checked={privacy.locationPermission}
+        >
           <LocateFixed />
           <span>
             <strong>Location</strong>
             <small>Show nearby activities</small>
           </span>
-          <span className={`switch ${privacy.locationPermission ? 'on' : ''}`} />
+          <span
+            className={`switch ${privacy.locationPermission ? 'on' : ''}`}
+            aria-hidden="true"
+          />
         </button>
-        <button className="setting-row" onClick={() => toggle('approximateLocation')}>
+        <button
+          className="setting-row"
+          onClick={() => toggle('approximateLocation')}
+          role="switch"
+          aria-checked={privacy.approximateLocation}
+        >
           <ShieldCheck />
           <span>
             <strong>Approximate location</strong>
             <small>Hide exact position</small>
           </span>
-          <span className={`switch ${privacy.approximateLocation ? 'on' : ''}`} />
+          <span
+            className={`switch ${privacy.approximateLocation ? 'on' : ''}`}
+            aria-hidden="true"
+          />
         </button>
-        <button className="setting-row" onClick={() => toggle('notifications')}>
+        <button
+          className="setting-row"
+          onClick={() => toggle('notifications')}
+          role="switch"
+          aria-checked={privacy.notifications}
+        >
           <BellRing />
           <span>
             <strong>Notifications</strong>
             <small>Get reminders and updates</small>
           </span>
-          <span className={`switch ${privacy.notifications ? 'on' : ''}`} />
+          <span className={`switch ${privacy.notifications ? 'on' : ''}`} aria-hidden="true" />
         </button>
       </div>
       <button className="primary-button wide" onClick={() => navigate('/interests')}>

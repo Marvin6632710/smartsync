@@ -39,13 +39,15 @@ export default function SettingsPage() {
         <button
           className="setting-row"
           onClick={() => setPrivacy((p) => ({ ...p, notifications: !p.notifications }))}
+          role="switch"
+          aria-checked={privacy.notifications}
         >
           <Bell />
           <span>
             <strong>Notifications</strong>
             <small>Local prototype notifications</small>
           </span>
-          <span className={`switch ${privacy.notifications ? 'on' : ''}`} />
+          <span className={`switch ${privacy.notifications ? 'on' : ''}`} aria-hidden="true" />
         </button>
       </div>
       <div className="panel danger-panel">

@@ -18,29 +18,50 @@ export default function PrivacyPage() {
         </p>
       </section>
       <div className="settings-card">
-        <button className="setting-row" onClick={() => toggle('anonymousMode')}>
+        <button
+          className="setting-row"
+          onClick={() => toggle('anonymousMode')}
+          role="switch"
+          aria-checked={privacy.anonymousMode}
+        >
           <EyeOff />
           <span>
             <strong>Anonymous mode</strong>
             <small>Hide your display name in local activity interactions</small>
           </span>
-          <span className={`switch ${privacy.anonymousMode ? 'on' : ''}`} />
+          <span className={`switch ${privacy.anonymousMode ? 'on' : ''}`} aria-hidden="true" />
         </button>
-        <button className="setting-row" onClick={() => toggle('locationPermission')}>
+        <button
+          className="setting-row"
+          onClick={() => toggle('locationPermission')}
+          role="switch"
+          aria-checked={privacy.locationPermission}
+        >
           <LocateFixed />
           <span>
             <strong>Location permission</strong>
             <small>Enable or disable location-based prototype behavior</small>
           </span>
-          <span className={`switch ${privacy.locationPermission ? 'on' : ''}`} />
+          <span
+            className={`switch ${privacy.locationPermission ? 'on' : ''}`}
+            aria-hidden="true"
+          />
         </button>
-        <button className="setting-row" onClick={() => toggle('approximateLocation')}>
+        <button
+          className="setting-row"
+          onClick={() => toggle('approximateLocation')}
+          role="switch"
+          aria-checked={privacy.approximateLocation}
+        >
           <MapPinned />
           <span>
             <strong>Approximate location</strong>
             <small>Prefer general nearby area instead of precise coordinates</small>
           </span>
-          <span className={`switch ${privacy.approximateLocation ? 'on' : ''}`} />
+          <span
+            className={`switch ${privacy.approximateLocation ? 'on' : ''}`}
+            aria-hidden="true"
+          />
         </button>
       </div>
       <section className="panel">
