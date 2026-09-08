@@ -5,8 +5,9 @@ import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
 
 export default function NotificationsPage() {
-  const { notifications, markNotificationRead } = useApp()
+  const { notifications, markNotificationRead, markAllNotificationsRead } = useApp()
   const navigate = useNavigate()
+  const hasUnread = notifications.some((n) => !n.read)
   const open = (n) => {
     markNotificationRead(n.id)
     if (n.activityId) navigate(`/activity/${n.activityId}`)
@@ -17,6 +18,15 @@ export default function NotificationsPage() {
       <div className="title-row">
         <BackButton />
         <h2>Notifications</h2>
+        {hasUnread && (
+          <button
+            className="text-button"
+            style={{ marginLeft: 'auto' }}
+            onClick={markAllNotificationsRead}
+          >
+            Mark all read
+          </button>
+        )}
       </div>
       <div className="chip-row category-row scroll-row">
         <span className="filter-chip active">

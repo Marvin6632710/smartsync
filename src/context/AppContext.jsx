@@ -622,6 +622,14 @@ export function AppProvider({ children }) {
   }
 
   // =========================================================
+  // MARK ALL NOTIFICATIONS READ
+  // =========================================================
+
+  function markAllNotificationsRead() {
+    setNotifications((previous) => previous.map((notification) => ({ ...notification, read: true })))
+  }
+
+  // =========================================================
   // RESET PROTOTYPE
   // =========================================================
 
@@ -700,6 +708,7 @@ export function AppProvider({ children }) {
     // NOTIFICATIONS
     notifications,
     markNotificationRead,
+    markAllNotificationsRead,
 
     // USER ACTIVITY ALERTS
     followedUserIds,
