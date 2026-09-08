@@ -7,7 +7,7 @@ import { useApp } from '../context/AppContext'
 export default function ActivityDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { recommendations, joinedIds, joinActivity, leaveActivity } = useApp()
+  const { recommendations, joinedIds, joinActivity, leaveActivity, cancelActivity } = useApp()
   const a = recommendations.find((item) => item.id === id)
 
   if (!a) {
@@ -24,7 +24,15 @@ export default function ActivityDetailsPage() {
   }
 
   const joined = joinedIds.includes(id)
+  const isHost = a.createdBy === 'me'
   const fill = Math.max(0, Math.min(100, Math.round((a.participants / Math.max(a.capacity, 1)) * 100)))
+
+  const handleCancel = () => {
+    if (window.confirm(`Cancel ${a.title}? This removes the activity for everyone.`)) {
+      cancelActivity(id)
+      navigate('/home')
+    }
+  }
 
   return (
     <div className="page-content">
@@ -69,9 +77,14 @@ export default function ActivityDetailsPage() {
         <button className="secondary-button" onClick={() => navigate(`/activity/${id}/participants`)}><Users size={17}/> View participants</button>
       </section>
 
-      {a.createdBy === 'me' && <button className="secondary-button wide" onClick={() => navigate(`/activity/${id}/edit`)}><Edit3 size={17}/> Edit activity</button>}
+      {isHost && <button className="secondary-button wide" onClick={() => navigate(`/activity/${id}/edit`)}><Edit3 size={17}/> Edit activity</button>}
 
-      {joined ? (
+      {isHost ? (
+        <div className="action-stack">
+          <button className="primary-button wide" onClick={() => navigate(`/activity/${id}/chat`)}><MessageCircle size={18}/> Open chat</button>
+          <button className="danger-button wide" onClick={handleCancel}>Cancel activity</button>
+        </div>
+      ) : joined ? (
         <div className="action-stack">
           <button className="primary-button wide" onClick={() => navigate(`/activity/${id}/chat`)}><MessageCircle size={18}/> Open chat</button>
           <button className="danger-button wide" onClick={() => leaveActivity(id)}>Leave activity</button>

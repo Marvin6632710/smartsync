@@ -841,6 +841,62 @@ export function AppProvider({ children }) {
 
 
   // =========================================================
+  // CANCEL ACTIVITY
+  //
+  // For the host only. Leaving would orphan the activity
+  // (it stays listed with no owner interaction available),
+  // so hosts cancel/delete it instead.
+  // =========================================================
+
+  function cancelActivity(id) {
+
+    const activity =
+      activities.find(
+        (item) =>
+          item.id === id
+      )
+
+    if (!activity || activity.createdBy !== 'me') {
+      return
+    }
+
+
+    setActivities(
+      (previous) =>
+        previous.filter(
+          (item) =>
+            item.id !== id
+        )
+    )
+
+
+    setJoinedIds(
+      (previous) =>
+        previous.filter(
+          (activityId) =>
+            activityId !== id
+        )
+    )
+
+
+    pushCelebration({
+
+      emoji:
+        '🗑️',
+
+      title:
+        'Activity cancelled',
+
+      body:
+        `${activity.title} was removed.`,
+
+    })
+
+  }
+
+
+
+  // =========================================================
   // CREATE ACTIVITY
   // =========================================================
 
@@ -1307,6 +1363,7 @@ export function AppProvider({ children }) {
     joinedIds,
     joinActivity,
     leaveActivity,
+    cancelActivity,
 
 
     // CREATE / UPDATE
