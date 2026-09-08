@@ -4,9 +4,12 @@ import BackButton from '../components/BackButton'
 import { interests } from '../data/mockData'
 import { useApp } from '../context/AppContext'
 
+const MIN_INTERESTS = 3
+
 export default function EditProfilePage() {
   const { user, setUser } = useApp()
   const [form, setForm] = useState(user)
+  const [error, setError] = useState('')
   const navigate = useNavigate()
   const toggle = (i) =>
     setForm((f) => ({
@@ -21,6 +24,10 @@ export default function EditProfilePage() {
         className="form-card"
         onSubmit={(e) => {
           e.preventDefault()
+          if (form.interests.length < MIN_INTERESTS) {
+            setError(`Pick at least ${MIN_INTERESTS} interests.`)
+            return
+          }
           setUser(form)
           navigate('/profile')
         }}
@@ -60,6 +67,10 @@ export default function EditProfilePage() {
         </label>
         <div>
           <span className="label-like">Interests</span>
+          <div className="selection-summary">
+            <span className="tiny-chip">{form.interests.length} selected</span>
+            <span className="helper-text">Minimum {MIN_INTERESTS}</span>
+          </div>
           <div className="interest-grid small-grid">
             {interests.map((i) => (
               <button
@@ -73,7 +84,10 @@ export default function EditProfilePage() {
             ))}
           </div>
         </div>
-        <button className="primary-button wide">Save profile</button>
+        {error && <p className="form-error">{error}</p>}
+        <button className="primary-button wide" disabled={form.interests.length < MIN_INTERESTS}>
+          Save profile
+        </button>
       </form>
     </div>
   )
