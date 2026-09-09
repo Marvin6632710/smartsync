@@ -1,12 +1,13 @@
 import React from 'react'
 import { BrainCircuit, Check } from 'lucide-react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
 import { recommendationWeights } from '../services/recommendationService'
 
 export default function RecommendationDetailsPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { recommendations } = useApp()
   const a = recommendations.find((x) => x.id === id)
   if (!a)
@@ -52,6 +53,9 @@ export default function RecommendationDetailsPage() {
           ))}
         </div>
         <p className="helper-text">Every activity is scored against these six signals.</p>
+        <button className="secondary-button wide" onClick={() => navigate('/weights')}>
+          Adjust these weights
+        </button>
       </section>
     </div>
   )

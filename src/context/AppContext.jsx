@@ -20,7 +20,7 @@ import {
   watchNotifications,
 } from '../firebase/notifications'
 import { recordCategoryHistory, watchPeers } from '../firebase/users'
-import { rankActivities } from '../services/recommendationService'
+import { rankActivities, recommendationWeights } from '../services/recommendationService'
 import { distanceBetween } from '../utils/geo'
 import { loadStorage, saveStorage } from '../utils/storage'
 
@@ -51,6 +51,14 @@ export function AppProvider({ children }) {
   // they stay in localStorage rather than costing a Firestore write on every
   // slider drag.
   const [filters, setFilters] = useState(() => loadStorage('smartsync:filters', defaultFilters))
+
+  // Scoring weights are adjustable and kept per device, for the same reason
+  // filters are: they change how *you* see the list, not what anyone else
+  // sees. Any missing key falls back to the shipped default, so a stored set
+  // written by an older version cannot silently zero a signal.
+  const [weights, setWeights] = useState(() =>
+    loadStorage('smartsync:weights', recommendationWeights),
+  )
   const [celebration, setCelebration] = useState(null)
 
   // A minute-resolution clock. Whether an activity has started is a fact about
@@ -98,6 +106,10 @@ export function AppProvider({ children }) {
   useEffect(() => {
     saveStorage('smartsync:filters', filters)
   }, [filters])
+
+  useEffect(() => {
+    saveStorage('smartsync:weights', weights)
+  }, [weights])
 
   // ---------------------------------------------------------------- live data
 
@@ -199,7 +211,10 @@ export function AppProvider({ children }) {
   // Scored once, over everything. Previously only active activities were
   // ranked, so an activity you had joined and the host then cancelled lost its
   // match score and rendered as "--%" in your own list.
-  const scored = useMemo(() => rankActivities(user, located, peers), [user, located, peers])
+  const scored = useMemo(
+    () => rankActivities(user, located, peers, weights),
+    [user, located, peers, weights],
+  )
 
   // Activities are fetched from a day ago onwards so that ones you joined stay
   // reachable after they happen. That window is a storage decision, not a
@@ -475,6 +490,10 @@ export function AppProvider({ children }) {
     filters,
     setFilters,
     resetFilters: () => setFilters(defaultFilters),
+
+    weights,
+    setWeights,
+    resetWeights: () => setWeights(recommendationWeights),
 
     celebration,
     pushCelebration,

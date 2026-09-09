@@ -41,6 +41,14 @@ export default function SettingsPage() {
           </span>
           <ChevronRight size={17} />
         </button>
+        <button className="setting-row" onClick={() => navigate('/weights')}>
+          <SlidersHorizontal size={18} />
+          <span>
+            <strong>Matching weights</strong>
+            <small>See and adjust how activities are scored</small>
+          </span>
+          <ChevronRight size={17} />
+        </button>
         <button className="setting-row" onClick={() => navigate('/messages')}>
           <MessageCircle size={18} />
           <span>

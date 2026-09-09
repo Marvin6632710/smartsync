@@ -54,6 +54,7 @@ const routeTitles = {
   profile: 'Profile',
   settings: 'Settings',
   privacy: 'Privacy',
+  weights: 'Matching weights',
   joined: 'Joined',
   404: 'Not found',
 }

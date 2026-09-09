@@ -2669,3 +2669,74 @@ select:focus-visible {
   font-size: var(--t-tiny);
   line-height: 1.35;
 }
+
+/* ==========================================================================
+   Signal weights
+   ========================================================================== */
+
+.weight-row {
+  display: grid;
+  gap: 6px;
+}
+
+.weight-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.weight-head strong {
+  font-size: var(--t-small);
+  font-weight: var(--w-medium);
+}
+
+.weight-preview-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+/* The 1fr track defaults to min-width:auto, so a long title would push the
+   score pill out of the card instead of wrapping. */
+.weight-preview-row > div {
+  min-width: 0;
+}
+
+.weight-preview-row strong {
+  display: block;
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}
+
+.weight-preview-row p {
+  margin: 0;
+  font-size: var(--t-tiny);
+  color: var(--ink-soft);
+}
+
+.weight-preview-row .rank {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent);
+  font-size: var(--t-tiny);
+  font-weight: var(--w-semibold);
+}
+
+/* Range inputs default to the platform's own blue, which is the one control
+   in the app that ignores the palette. `accent-color` recolours the native
+   widget without rebuilding it, so keyboard support and the OS's own touch
+   target survive. */
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
