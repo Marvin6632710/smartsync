@@ -226,16 +226,36 @@ service cloud.firestore {
       // ----------------------------------------------------------- messages
 
       match /messages/{messageId} {
-        function isParticipant() {
-          return signedIn() && request.auth.uid in
-            get(/databases/$(database)/documents/activities/$(activityId))
-              .data.participantUids;
+        function activity() {
+          return get(/databases/$(database)/documents/activities/$(activityId)).data;
         }
 
-        // Activity chat is strictly for people who actually joined.
-        allow read: if isParticipant();
+        function isParticipant() {
+          return signedIn() && request.auth.uid in activity().participantUids;
+        }
+
+        // Activity chat is tied to the activity, and does not outlive it by
+        // much: thirty days after it starts, the thread stops being readable
+        // and writable by anybody.
+        //
+        // This is retention enforced by the database, not a filter in the
+        // client — a distinction that matters, because a client-side filter
+        // is decoration that anyone can step around by querying directly.
+        //
+        // It is expiry of *access*, not deletion. Actually removing the
+        // documents needs a scheduled job, and scheduled jobs on Firebase
+        // mean Cloud Functions, which mean the paid plan. Saying "the chat
+        // is deleted" would therefore be a lie; saying "nobody can reach it
+        // any more, and here is the rule that stops them" is true and
+        // checkable. Two tests cover it.
+        function withinRetention() {
+          return activity().startsAt > request.time - duration.value(30, 'd');
+        }
+
+        allow read: if isParticipant() && withinRetention();
 
         allow create: if isParticipant()
+          && withinRetention()
           && request.resource.data.senderId == request.auth.uid
           && isString(request.resource.data.text, 2000);
 

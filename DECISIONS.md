@@ -219,3 +219,31 @@ if the rules are wrong, seeding fails.
 **Cost.** The emulator needs Java. Firebase Cloud Messaging has no emulator,
 so push notifications cannot be developed this way at all — which is part of
 why they are not built.
+
+---
+
+## ADR-010 — Chat expires by losing access, not by being deleted
+
+**Context.** An activity's chat should not live forever. The Privacy page had
+promised expiry in writing long before anything implemented it.
+
+**Decision.** Thirty days after an activity starts, its message thread stops
+being readable and writable — enforced in `firestore.rules` by comparing the
+activity's `startsAt` against `request.time`. The documents are not deleted.
+
+**Why.** Enforcement had to be in the rules rather than the client, or it
+would be decoration: a client-side filter is stepped around by querying
+Firestore directly. Deleting the documents on a schedule would need Cloud
+Functions, which need the paid plan — the same billing dependency ADR-002
+avoided. Given that constraint the honest options were to enforce access
+expiry and say so precisely, or to claim deletion we could not perform.
+
+**Cost.** "The chat is deleted" would be a stronger privacy claim, and it is
+not the one being made. The data remains in the database and would be
+visible to anyone with console access to the project — which is the project
+owner, and nobody else. Storage also grows without bound. Both are worth
+saying out loud rather than letting someone assume otherwise.
+
+**Rejected.** Client-side hiding (unenforceable); a scheduled Cloud Function
+(billing); refusing to expire anything (the Privacy page would have kept
+promising something untrue).

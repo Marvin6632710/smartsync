@@ -15,6 +15,21 @@ import { db } from './config'
 // Firestore quota.
 const MESSAGE_PAGE = 200
 
+/**
+ * How long an activity's chat stays open after it starts.
+ *
+ * Mirrored in firestore.rules, which is where it is actually enforced — the
+ * rules cannot import from here. This copy exists so the interface can close
+ * the thread and say why, instead of letting the user type a message that the
+ * database was always going to refuse.
+ */
+export const CHAT_RETENTION_DAYS = 30
+
+export function isChatClosed(activity, now = Date.now()) {
+  if (!activity || !Number.isFinite(activity.startsAt)) return false
+  return now - activity.startsAt > CHAT_RETENTION_DAYS * 24 * 60 * 60 * 1000
+}
+
 const messagesRef = (activityId) => collection(db, 'activities', activityId, 'messages')
 
 export function watchMessages(activityId, callback, onError) {

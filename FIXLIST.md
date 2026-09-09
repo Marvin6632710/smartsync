@@ -52,7 +52,7 @@ digging through git.
   compatibilityWeights (70/15/15); the arbitrary floors are gone
 - M-03 DONE — the notification preference is honoured. **Regressed during the
   Firebase migration and re-fixed on 2026-09-09 with a different design.**
-  Notifications are now written into the *recipient's* inbox by the *sender*,
+  Notifications are now written into the _recipient's_ inbox by the _sender_,
   so a preference living in the recipient's private profile had nowhere to
   run — nobody but its owner could read it. `notificationsEnabled` therefore
   sits on the public profile, is checked by the sender, and is enforced by the
@@ -78,8 +78,16 @@ digging through git.
 - L-04 DONE — 41 tests over the recommendation service, including fuzzing.
 - L-06 DONE — README rewritten against the real application.
 
-Remaining: L-02 (tunable weights panel), L-03 (chat expiry — the timestamp
-half is done, retention is not), L-05 (evaluation against baselines).
+- L-02 DONE — six sliders over the scoring signals, ranking reorders live.
+- L-03 DONE — chat closes 30 days after the activity, enforced in the rules.
+  Access expiry rather than deletion, because scheduled deletion needs the
+  paid plan; ADR-010 states that plainly rather than overclaiming.
+- L-05 DONE — see EVALUATION.md. The model reaches 34.5% precision@5 against
+  16.3% for the best single signal, and the ablation found three of the six
+  signals contributing nothing.
+
+**All of Quick, Medium and Large is now complete.** What remains is
+operational (B-05 onwards) and the written deliverables (D-02 onwards).
 
 ---
 
@@ -174,14 +182,14 @@ All Quick items are complete.
 
 ## Large — 2+ hrs each
 
-| #    | Status   | Fix                                                                                                                                                    | Time  |
-| ---- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
-| L-01 | **DONE** | **Enforce location permission + approximate location** — real browser permission prompt; approximate rounds to ~1 km before storing.                   | 2 hrs |
-| L-02 | todo     | **Tunable weights panel** — makes the algorithm inspectable and demoable.                                                                              | 2 hrs |
-| L-03 | partial  | **Timestamps + chat expiry** — timestamps are real server timestamps; retention/expiry is not implemented, and the Privacy page no longer promises it. | 3 hrs |
-| L-04 | **DONE** | **Tests over the recommendation service** — 41 tests including a fuzzer, which found a real crash on non-string category data.                         | 3 hrs |
-| L-05 | todo     | **Evaluation vs random and interest-only baselines** — the answer to "how do you know it works".                                                       | 4 hrs |
-| L-06 | **DONE** | **README rewrite to match reality** — now documents the real architecture, the data and security models, and how to run it.                            | 1 hr  |
+| #    | Status   | Fix                                                                                                                                                                                                              | Time  |
+| ---- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| L-01 | **DONE** | **Enforce location permission + approximate location** — real browser permission prompt; approximate rounds to ~1 km before storing.                                                                             | 2 hrs |
+| L-02 | **DONE** | **Tunable weights panel** — six sliders under Settings, ranking reorders live; the same mechanism the evaluation harness ablates with.                                                                           | 2 hrs |
+| L-03 | **DONE** | **Timestamps + chat expiry** — real server timestamps, and threads close 30 days after the activity, enforced in the rules rather than filtered in the client. Access expiry, not deletion; see ADR-010 for why. | 3 hrs |
+| L-04 | **DONE** | **Tests over the recommendation service** — 41 tests including a fuzzer, which found a real crash on non-string category data.                                                                                   | 3 hrs |
+| L-05 | **DONE** | **Evaluation vs baselines** — 34.5% P@5 against 16.3% for the best single signal and 5.0% random, plus a per-signal ablation showing three of six signals contribute nothing. See EVALUATION.md.                 | 4 hrs |
+| L-06 | **DONE** | **README rewrite to match reality** — now documents the real architecture, the data and security models, and how to run it.                                                                                      | 1 hr  |
 
 ## Backend & operations
 
@@ -196,30 +204,30 @@ Not application code. Several of these can only be done by a human with a
 Google account — marked **you**. B-01 to B-03 block everything else: deploy
 on day one while a broken deployment is cheap to fix.
 
-| #    | Status | Task                                                                                                                                                                                                                 | Owner   |
-| ---- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| B-01 | **DONE** | **Create the Firebase project** — enable Email/Password auth, create Firestore in `asia-southeast1`. README §3.                                                                                                      | **you** |
-| B-02 | **DONE** | **Publish security rules to production** — `npm run deploy:rules`. Rules behave differently against a real project than an emulator; verify before trusting them.                                                    | **you** |
-| B-03 | **DONE** | **First production deploy** — `npm run deploy`, confirm the live URL loads and sign-up works.                                                                                                                        | **you** |
+| #    | Status            | Task                                                                                                                                                                                                                                                                                                                        | Owner   |
+| ---- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| B-01 | **DONE**          | **Create the Firebase project** — enable Email/Password auth, create Firestore in `asia-southeast1`. README §3.                                                                                                                                                                                                             | **you** |
+| B-02 | **DONE**          | **Publish security rules to production** — `npm run deploy:rules`. Rules behave differently against a real project than an emulator; verify before trusting them.                                                                                                                                                           | **you** |
+| B-03 | **DONE**          | **First production deploy** — `npm run deploy`, confirm the live URL loads and sign-up works.                                                                                                                                                                                                                               | **you** |
 | B-04 | **DONE (iPhone)** | **Real-device verification** — confirmed working on iPhone Safari 2026-09-09, which was the largest untested surface in the project. Android remains unchecked; if a device is to hand, the parts most worth a second look are the date and time pickers and the map's location prompt, which diverge most between engines. | **you** |
-| B-05 | todo   | **Seed a realistic production dataset** — 15–20 activities across all categories over the coming fortnight, at real Bangkok locations. Three activities looks like a prototype however good the code is.             |         |
-| B-06 | todo   | **Network failure states** — Firestore queues writes offline; confirm the UI reads as deliberate rather than broken, and that nothing spins forever.                                                                 |         |
-| B-07 | todo   | **Quota sanity check** — Spark plan allows 50k reads/day. Confirm a demo session is nowhere near it, and don't leave tabs holding listeners open overnight.                                                          |         |
-| B-08 | todo   | **Data export** — `firebase firestore:export` before the defence, so a bad write is recoverable.                                                                                                                     |         |
-| B-09 | todo   | **Accessibility sweep** — keyboard-only run through the main flow plus a contrast check. Cheap, and often explicitly on the rubric.                                                                                  |         |
+| B-05 | todo              | **Seed a realistic production dataset** — 15–20 activities across all categories over the coming fortnight, at real Bangkok locations. Three activities looks like a prototype however good the code is.                                                                                                                    |         |
+| B-06 | todo              | **Network failure states** — Firestore queues writes offline; confirm the UI reads as deliberate rather than broken, and that nothing spins forever.                                                                                                                                                                        |         |
+| B-07 | todo              | **Quota sanity check** — Spark plan allows 50k reads/day. Confirm a demo session is nowhere near it, and don't leave tabs holding listeners open overnight.                                                                                                                                                                 |         |
+| B-08 | todo              | **Data export** — `firebase firestore:export` before the defence, so a bad write is recoverable.                                                                                                                                                                                                                            |         |
+| B-09 | todo              | **Accessibility sweep** — keyboard-only run through the main flow plus a contrast check. Cheap, and often explicitly on the rubric.                                                                                                                                                                                         |         |
 
 ## Evaluation & deliverables
 
 The written and demonstrated work. D-01 is the highest-value remaining item
 in the entire project.
 
-| #    | Status | Task                                                                                                                                                                                                                                                            | Time   |
-| ---- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| D-01 | todo   | **Algorithm evaluation → `EVALUATION.md`** (same as L-05). Synthetic population with known preferences; compare random vs interest-only vs the full weighted model on precision@5 and MRR; add a per-signal ablation. The answer to "how do you know it works". | 4 hrs  |
-| D-02 | todo   | **Written demo script, rehearsed three times, timed.** Which account, which activity, which two windows, in what order. Improvising the click path is the most common way a good project demos badly.                                                           | 2 hrs  |
-| D-03 | todo   | **Recorded backup demo video** — so a wifi failure at the venue does not become a failed defence.                                                                                                                                                               | 1 hr   |
-| D-04 | todo   | **Report and slides** to the department template. Check the brief for required artefacts (SRS, UML, test matrix) — most can be pulled straight out of this repo.                                                                                                | —      |
-| D-05 | todo   | **Read `DECISIONS.md` before walking in.** It is written against the questions a panel actually asks.                                                                                                                                                           | 30 min |
+| #    | Status   | Task                                                                                                                                                                                                                                                            | Time   |
+| ---- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| D-01 | **DONE** | **Algorithm evaluation → `EVALUATION.md`** (same as L-05). Synthetic population with known preferences; compare random vs interest-only vs the full weighted model on precision@5 and MRR; add a per-signal ablation. The answer to "how do you know it works". | 4 hrs  |
+| D-02 | todo     | **Written demo script, rehearsed three times, timed.** Which account, which activity, which two windows, in what order. Improvising the click path is the most common way a good project demos badly.                                                           | 2 hrs  |
+| D-03 | todo     | **Recorded backup demo video** — so a wifi failure at the venue does not become a failed defence.                                                                                                                                                               | 1 hr   |
+| D-04 | todo     | **Report and slides** to the department template. Check the brief for required artefacts (SRS, UML, test matrix) — most can be pulled straight out of this repo.                                                                                                | —      |
+| D-05 | todo     | **Read `DECISIONS.md` before walking in.** It is written against the questions a panel actually asks.                                                                                                                                                           | 30 min |
 
 ---
 

@@ -87,7 +87,8 @@ export default function PrivacyPage() {
         <p>
           Your email, your real name while anonymous mode is on, and your stored position live in a
           part of your profile the database will not serve to anyone but you. Activity chats are
-          readable only by people who joined that activity.
+          readable only by people who joined that activity, and close 30 days after it — after that
+          nobody can open the thread, including us.
         </p>
       </section>
     </div>

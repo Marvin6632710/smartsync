@@ -53,6 +53,7 @@ const activityFixture = (hostId, overrides = {}) => ({
   lng: 100.6597,
   date: '2030-01-01',
   time: '19:00',
+  startsAt: new Date('2030-01-01T19:00:00Z'),
   timeBand: 'Evening',
   capacity: 4,
   participantUids: [hostId],
@@ -371,6 +372,37 @@ describe('activity chat', () => {
         text: '',
       }),
     )
+  })
+
+  test('a thread closes thirty days after the activity', async () => {
+    // Retention is enforced by the database rather than filtered in the
+    // client, so it holds against someone querying Firestore directly.
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const longAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000)
+      await setDoc(doc(context.firestore(), 'activities', 'act1'), {
+        ...activityFixture(ALICE),
+        startsAt: longAgo,
+      })
+    })
+    await assertFails(getDocs(collection(asAlice(), 'activities', 'act1', 'messages')))
+    await assertFails(
+      addDoc(collection(asAlice(), 'activities', 'act1', 'messages'), {
+        senderId: ALICE,
+        senderName: 'Alice',
+        text: 'still here?',
+      }),
+    )
+  })
+
+  test('a thread inside the retention window is still open', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const recently = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+      await setDoc(doc(context.firestore(), 'activities', 'act1'), {
+        ...activityFixture(ALICE),
+        startsAt: recently,
+      })
+    })
+    await assertSucceeds(getDocs(collection(asAlice(), 'activities', 'act1', 'messages')))
   })
 
   test('messages cannot be edited after the fact', async () => {

@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Lock, Send } from 'lucide-react'
+import { Archive, Lock, Send } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
+import { CHAT_RETENTION_DAYS, isChatClosed } from '../firebase/messages'
 import { useThread } from '../hooks/useThread'
 import { formatMessageTime } from '../utils/time'
 
@@ -17,10 +18,13 @@ export default function ChatPage() {
 
   const activity = activities.find((item) => item.id === id)
   const joined = joinedIds.includes(id)
+  const closed = isChatClosed(activity)
   // The security rules reject reads from non-participants, so the listener is
   // only opened once membership is established — otherwise every non-member
   // visit would log a permission error.
-  const { messages, loading } = useThread(id, joined)
+  // Not opened on a closed thread: the rules refuse the read, so the only
+  // thing a listener would achieve is a permission error in the console.
+  const { messages, loading } = useThread(id, joined && !closed)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
@@ -45,6 +49,24 @@ export default function ChatPage() {
           <Lock size={28} />
           <h3>Join first to unlock chat</h3>
           <p>Activity chat is only readable by people who joined.</p>
+          <button className="primary-button" onClick={() => navigate(`/activity/${id}`)}>
+            Open activity
+          </button>
+        </div>
+      </div>
+    )
+
+  if (closed)
+    return (
+      <div className="page-content">
+        <BackButton />
+        <div className="empty-state">
+          <Archive size={28} />
+          <h3>This chat has closed</h3>
+          <p>
+            Activity chats stay open for {CHAT_RETENTION_DAYS} days after the activity, then close
+            for everyone who was there.
+          </p>
           <button className="primary-button" onClick={() => navigate(`/activity/${id}`)}>
             Open activity
           </button>

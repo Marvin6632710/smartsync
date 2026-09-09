@@ -225,6 +225,9 @@ determined user can call Firestore directly without going through the UI:
 - Activity chat is readable and writable only by participants, messages
   cannot claim another sender, and the thread is append-only — no silent
   edits, no deleting evidence.
+- Chat closes 30 days after the activity. This is enforced by the rules, not
+  filtered in the app, so it holds against anyone querying the database
+  directly. It expires _access_, not the documents — see ADR-010.
 - Notifications can be sent by anyone (that is how "Alex joined your
   activity" works) but only in a fixed shape and only as unread, so nobody
   can forge a pre-read system message.
@@ -233,6 +236,12 @@ determined user can call Firestore directly without going through the UI:
 All of this is covered by tests — see below.
 
 ## 8. How recommendations work
+
+Measured, not asserted: `EVALUATION.md` reports precision@5, MRR and NDCG
+against random, popularity, distance and interest-only baselines, plus a
+per-signal ablation. Run it with `npm run evaluate`. The weights are also
+adjustable in the app under Settings → Matching weights, with the ranking
+reordering live.
 
 Each activity is scored out of 100 for the current user:
 
@@ -281,3 +290,6 @@ Honest about what is not there:
   Chromium; nothing has been run on an Android device.
 - **Past activities are not archived.** Anything that started more than a day
   ago simply stops being fetched.
+- **Chat is closed, not deleted.** After 30 days nobody can read a thread, but
+  the documents still exist. Real deletion needs a scheduled job, which on
+  Firebase means Cloud Functions and the paid plan.
