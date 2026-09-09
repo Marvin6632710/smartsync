@@ -177,6 +177,12 @@ h4 {
   letter-spacing: -0.01em;
   line-height: 1.3;
 }
+/* <strong> and <b> default to 700 in every browser. Cap them at the
+   scale's heaviest weight so no bare <strong> can reintroduce bold. */
+strong,
+b {
+  font-weight: var(--w-semibold);
+}
 p {
   line-height: 1.5;
   color: var(--text-2);
@@ -1019,10 +1025,15 @@ select:focus-visible {
 .score-card {
   text-align: center;
 }
+/* Sits below the icon rather than hanging off its baseline. */
+.score-card .eyebrow {
+  display: block;
+  margin-top: 6px;
+}
 .score-card > strong {
   display: block;
   margin: 8px 0 4px;
-  font-size: 38px;
+  font-size: var(--t-display);
   font-weight: var(--w-semibold);
   letter-spacing: -0.02em;
   color: var(--accent);
