@@ -186,6 +186,7 @@ All Quick items are complete.
 ## Backend & operations
 
 **Deployed 2026-09-09 — live at <https://smartsync-c1f07.web.app>**
+Confirmed working on iPhone Safari the same day.
 (Firebase project `smartsync-c1f07`, Firestore Standard in `asia-southeast1`.)
 Verified in production: sign-up, onboarding, activity creation with real
 coordinates, and that unauthenticated reads and writes are refused by the
@@ -200,7 +201,7 @@ on day one while a broken deployment is cheap to fix.
 | B-01 | **DONE** | **Create the Firebase project** — enable Email/Password auth, create Firestore in `asia-southeast1`. README §3.                                                                                                      | **you** |
 | B-02 | **DONE** | **Publish security rules to production** — `npm run deploy:rules`. Rules behave differently against a real project than an emulator; verify before trusting them.                                                    | **you** |
 | B-03 | **DONE** | **First production deploy** — `npm run deploy`, confirm the live URL loads and sign-up works.                                                                                                                        | **you** |
-| B-04 | todo   | **Real-device verification** — iPhone Safari and one Android. `100dvh`, date/time inputs, the geolocation prompt and the keyboard covering inputs all differ from Chromium. Largest untested surface in the project. | **you** |
+| B-04 | **DONE (iPhone)** | **Real-device verification** — confirmed working on iPhone Safari 2026-09-09, which was the largest untested surface in the project. Android remains unchecked; if a device is to hand, the parts most worth a second look are the date and time pickers and the map's location prompt, which diverge most between engines. | **you** |
 | B-05 | todo   | **Seed a realistic production dataset** — 15–20 activities across all categories over the coming fortnight, at real Bangkok locations. Three activities looks like a prototype however good the code is.             |         |
 | B-06 | todo   | **Network failure states** — Firestore queues writes offline; confirm the UI reads as deliberate rather than broken, and that nothing spins forever.                                                                 |         |
 | B-07 | todo   | **Quota sanity check** — Spark plan allows 50k reads/day. Confirm a demo session is nowhere near it, and don't leave tabs holding listeners open overnight.                                                          |         |

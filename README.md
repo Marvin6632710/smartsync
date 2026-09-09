@@ -277,6 +277,7 @@ Honest about what is not there:
 - **No photo uploads.** Avatars are generated initials.
 - **No place search.** Hosts place a pin on a map rather than typing an
   address and having it geocoded.
-- **Verified on Chromium.** Not yet tested on Safari or a physical iPhone.
+- **Android is untested.** Confirmed working on iPhone Safari and on
+  Chromium; nothing has been run on an Android device.
 - **Past activities are not archived.** Anything that started more than a day
   ago simply stops being fetched.
