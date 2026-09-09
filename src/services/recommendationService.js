@@ -76,12 +76,32 @@ export function calculateRecommendationScore(user, activity, weights) {
   const time = preferred && preferred === key(activity?.timeBand) ? 1 : 0.55
 
   const historyCategories = (user?.historyCategories || []).map(key)
-  const history = category && historyCategories.includes(category) ? 1 : 0.5
+  // Revealed preference: what you keep doing that you did NOT say you liked.
+  //
+  // Measurement showed 59% of a person's history categories are already among
+  // their stated interests, so in its original form the signal spent most of
+  // its weight repeating the interest term — and the ablation had it actively
+  // hurting. Excluding what interests already cover leaves it saying the one
+  // thing they cannot: the gap between what someone claims and what they do.
+  //
+  // Honest about the evidence: this stops history hurting, and averaged +0.8
+  // precision@5 points over seven populations, but with a standard deviation
+  // of 1.2 — the direction is supported, the magnitude is not.
+  const history =
+    category && historyCategories.includes(category) && !interests.includes(category) ? 1 : 0.5
 
   const participants = Number(activity?.participants) || 0
   const capacity = Number(activity?.capacity) || 1
   const popularity = clamp(Math.max(0, participants) / Math.max(capacity, 1))
-  const behavior = activity?.similarUsersJoined ? 1 : 0.45
+
+  // Continuous, not a yes/no at a threshold. The binary version answered
+  // "is anyone here at least 50% compatible with you", which measurement
+  // showed was true for only 9% of activities — so on the other 91% it
+  // contributed the same constant to everything and could not separate two
+  // activities at all. The compatibility scores were already being computed
+  // and then discarded in favour of a boolean.
+  const similarity = activity?.participantSimilarity
+  const behavior = Number.isFinite(similarity) ? clamp(similarity) : 0.45
 
   const w = resolveWeights(weights)
   const weighted =
@@ -92,11 +112,22 @@ export function calculateRecommendationScore(user, activity, weights) {
     popularity * w.popularity +
     behavior * w.behavior
 
-  // Normalised by the weight total rather than assuming it is 100. Once a
-  // user can move the sliders the total is whatever they made it, and an
-  // unnormalised score would drift outside 0-100 and stop meaning "percent".
-  const total = w.interest + w.distance + w.time + w.history + w.popularity + w.behavior
-  return total > 0 ? Math.round((weighted / total) * 100) : 0
+  // Normalised by the best score actually obtainable, not by the weight total.
+  //
+  // Two reasons it cannot be the total. Once a user can move the sliders the
+  // total is whatever they made it, so an unnormalised score would drift
+  // outside 0-100 and stop meaning "percent". And the interest and history
+  // terms can no longer both be maximal — history only counts where interests
+  // do not already say the same thing — so dividing by the total capped the
+  // best possible match at 93%. A percentage nobody can ever score is a worse
+  // number than one they can.
+  const bestInterestAndHistory = Math.max(
+    w.interest + 0.5 * w.history, // in a stated interest; history adds nothing
+    0.75 * w.interest + w.history, // matched on a tag; history is free to speak
+  )
+  const achievable = bestInterestAndHistory + w.distance + w.time + w.popularity + w.behavior
+  if (achievable <= 0) return 0
+  return Math.min(100, Math.round((weighted / achievable) * 100))
 }
 
 export function getRecommendationReasons(user, activity) {
@@ -144,30 +175,52 @@ export function getRecommendationReasons(user, activity) {
 export const SIMILAR_USER_THRESHOLD = 50
 
 /**
- * Was this activity joined by anyone actually similar to the user?
+ * How much like this user are the people already going?
  *
- * This used to be a boolean hand-typed into mockData, so the collaborative
- * term of the score was decorative — it never responded to who the user is
- * or who joined. Derived from real compatibility against the joined peers.
+ * Returns the best compatibility among them as a 0-1 value, or null when
+ * nobody else has joined — which is genuinely unknown rather than zero, and
+ * the scorer treats it as such.
+ *
+ * The best match rather than the average, deliberately: one person you would
+ * actually get on with is a better reason to go than a room of mild ones, and
+ * averaging lets a crowd of strangers wash that person out.
+ *
+ * Peers whose profile is not loaded are skipped rather than counted as
+ * incompatible — not knowing someone is not evidence against them.
+ */
+export function computeParticipantSimilarity(user, activity, peers = []) {
+  const others = (activity?.participantUids || []).filter((id) => id !== user?.uid)
+  if (others.length === 0) return null
+
+  const scores = others
+    .map((id) => peers.find((peer) => peer.uid === id))
+    .filter(Boolean)
+    .map((peer) => calculateUserCompatibility(user, peer).score)
+
+  return scores.length ? Math.max(...scores) / 100 : null
+}
+
+/**
+ * Whether anyone genuinely similar has joined — the threshold form, kept
+ * because "similar people are going" is a claim worth making or not making,
+ * not a number to show a user.
  */
 export function computeSimilarUsersJoined(user, activity, peers = []) {
-  const joinedPeerIds = (activity?.participantUids || []).filter((id) => id !== user?.uid)
-  if (joinedPeerIds.length === 0) return false
-
-  return joinedPeerIds.some((id) => {
-    const peer = peers.find((p) => p.uid === id)
-    if (!peer) return false
-    return calculateUserCompatibility(user, peer).score >= SIMILAR_USER_THRESHOLD
-  })
+  const similarity = computeParticipantSimilarity(user, activity, peers)
+  return similarity !== null && similarity * 100 >= SIMILAR_USER_THRESHOLD
 }
 
 export function rankActivities(user, activities, peers = [], weights) {
   return [...activities]
     .map((activity) => {
-      // Computed before scoring, since both the score and the reasons read it.
+      // Computed once before scoring: the score reads the continuous value and
+      // the reasons read the thresholded one, and deriving both from a single
+      // pass avoids scoring every peer twice.
+      const similarity = computeParticipantSimilarity(user, activity, peers)
       const enriched = {
         ...activity,
-        similarUsersJoined: computeSimilarUsersJoined(user, activity, peers),
+        participantSimilarity: similarity,
+        similarUsersJoined: similarity !== null && similarity * 100 >= SIMILAR_USER_THRESHOLD,
       }
 
       return {

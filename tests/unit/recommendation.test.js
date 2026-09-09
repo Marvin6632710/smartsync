@@ -11,6 +11,7 @@ import { describe, expect, test } from 'vitest'
 import {
   calculateRecommendationScore,
   calculateUserCompatibility,
+  computeParticipantSimilarity,
   computeSimilarUsersJoined,
   getRecommendationReasons,
   jaccardIndex,
@@ -57,7 +58,7 @@ describe('score bounds', () => {
   test('a perfect match on every signal scores 100', () => {
     const score = calculateRecommendationScore(
       user({ historyCategories: ['Football'] }),
-      activity({ distanceKm: 0, participants: 10, capacity: 10, similarUsersJoined: true }),
+      activity({ distanceKm: 0, participants: 10, capacity: 10, participantSimilarity: 1 }),
     )
     expect(score).toBe(100)
   })
@@ -133,10 +134,26 @@ describe('time signal', () => {
 })
 
 describe('history and popularity signals', () => {
-  test('a previously joined category scores higher', () => {
-    const seen = calculateRecommendationScore(user({ historyCategories: ['Football'] }), activity())
-    const unseen = calculateRecommendationScore(user({ historyCategories: [] }), activity())
-    expect(seen).toBeGreaterThan(unseen)
+  test('history only counts where interests do not already say it', () => {
+    // The signal is revealed preference. A category you already listed as an
+    // interest is scored by the interest term; counting it twice was measured
+    // to make the ranking worse, not better.
+    const alsoAnInterest = user({ interests: ['Football'], historyCategories: ['Football'] })
+    const onlyInHistory = user({ interests: ['Gaming'], historyCategories: ['Football'] })
+    const neither = user({ interests: ['Gaming'], historyCategories: [] })
+
+    const football = activity({ category: 'Football', tags: [] })
+    // Same interests, differing only in whether history adds anything.
+    expect(calculateRecommendationScore(onlyInHistory, football)).toBeGreaterThan(
+      calculateRecommendationScore(neither, football),
+    )
+    // And a stated interest is not double-counted through history.
+    expect(calculateRecommendationScore(alsoAnInterest, football)).toBe(
+      calculateRecommendationScore(
+        user({ interests: ['Football'], historyCategories: [] }),
+        football,
+      ),
+    )
   })
 
   test('a fuller activity scores higher', () => {
@@ -252,6 +269,76 @@ describe('user compatibility', () => {
   test('survives missing profiles', () => {
     expect(() => calculateUserCompatibility(null, null)).not.toThrow()
     expect(calculateUserCompatibility({}, {}).score).toBe(0)
+  })
+})
+
+describe('participant similarity (the continuous collaborative signal)', () => {
+  const peers = [
+    {
+      uid: 'twin',
+      interests: ['Football', 'Gaming'],
+      preferredTime: 'Evening',
+      historyCategories: ['Football'],
+    },
+    { uid: 'stranger', interests: ['Knitting'], preferredTime: 'Morning', historyCategories: [] },
+  ]
+
+  test('is null when nobody else has joined', () => {
+    // Genuinely unknown, not zero — the scorer must not read "empty" as
+    // "full of people unlike you".
+    expect(
+      computeParticipantSimilarity(user(), activity({ participantUids: [] }), peers),
+    ).toBeNull()
+    expect(
+      computeParticipantSimilarity(user(), activity({ participantUids: ['me'] }), peers),
+    ).toBeNull()
+  })
+
+  test('is null when no joined peer has a loaded profile', () => {
+    expect(
+      computeParticipantSimilarity(user(), activity({ participantUids: ['ghost'] }), peers),
+    ).toBeNull()
+  })
+
+  test('reports the best match, not the average', () => {
+    // One person worth meeting should not be diluted by a crowd of strangers.
+    const both = computeParticipantSimilarity(
+      user(),
+      activity({ participantUids: ['twin', 'stranger'] }),
+      peers,
+    )
+    const twinOnly = computeParticipantSimilarity(
+      user(),
+      activity({ participantUids: ['twin'] }),
+      peers,
+    )
+    expect(both).toBe(twinOnly)
+  })
+
+  test('is between 0 and 1', () => {
+    const value = computeParticipantSimilarity(
+      user(),
+      activity({ participantUids: ['twin'] }),
+      peers,
+    )
+    expect(value).toBeGreaterThanOrEqual(0)
+    expect(value).toBeLessThanOrEqual(1)
+  })
+
+  test('discriminates where the boolean could not', () => {
+    // Both of these are below the threshold, so the old yes/no scored them
+    // identically. The point of the change is that they no longer are.
+    const near = calculateRecommendationScore(user(), activity({ participantSimilarity: 0.45 }))
+    const far = calculateRecommendationScore(user(), activity({ participantSimilarity: 0.05 }))
+    expect(near).toBeGreaterThan(far)
+  })
+
+  test('an unknown similarity scores between the extremes', () => {
+    const unknown = calculateRecommendationScore(user(), activity({ participantSimilarity: null }))
+    const best = calculateRecommendationScore(user(), activity({ participantSimilarity: 1 }))
+    const worst = calculateRecommendationScore(user(), activity({ participantSimilarity: 0 }))
+    expect(unknown).toBeLessThan(best)
+    expect(unknown).toBeGreaterThan(worst)
   })
 })
 

@@ -52,7 +52,11 @@ function mulberry32(a) {
   }
 }
 
-const SEED = 20260909
+// Overridable so a result can be checked against several populations rather
+// than trusted from one. A half-point difference on a single seed is noise
+// until it survives a few.
+const SEED = Number(process.env.EVAL_SEED) || 20260909
+const QUICK = process.env.EVAL_QUICK === '1'
 const N_USERS = 400
 const N_ACTIVITIES = 200
 const CATEGORIES = [
@@ -342,6 +346,11 @@ function main() {
       `| ${signal.padEnd(24)} | ${pct(ablated.p5)}% | ${ablated.ndcg.toFixed(3)}   | ${delta >= 0 ? '+' : ''}${delta.toFixed(1)} pts (${arrow}) |`,
     )
   }
+  if (QUICK) {
+    console.log()
+    return
+  }
+
   // ── why the weak signals are weak ────────────────────────────────────────
   // "This signal does not help" is a result; "this signal cannot help, and
   // here is the reason" is a finding. Both are cheap to measure.
