@@ -77,7 +77,9 @@ npm run dev
 ```
 
 Open the URL Vite prints. Sign in with any seeded account — the password for
-all of them is `demo1234`:
+all of them is `demo1234`. These are emulator-only accounts that exist solely
+on your machine; the live site uses the same email addresses with a different
+password that is not in this repository (see section 4).
 
 | Email                  | Who            |
 | ---------------------- | -------------- |
@@ -151,15 +153,11 @@ weeks" would leave the app looking empty on the day it has to be shown.
 | `june@smartsync.demo`  | Gaming, Movies, Hangouts |
 | `pim@smartsync.demo`   | Basketball, Food, Events |
 
-Password for all of them: `demo1234`.
-
-> **These are public credentials on a public site.** They are written in this
-> file and in `scripts/seed-production.mjs`, so anyone reading the repository
-> can sign in as them and create or cancel demo activities. That is an
-> acceptable trade for throwaway accounts holding no real data, but it is a
-> deliberate choice rather than an oversight. To use something unpublished,
-> set `SEED_PASSWORD` before seeding, and change the existing accounts from
-> the Firebase console under Authentication.
+The password is **not written down in this repository**, deliberately — these
+are live accounts on a site anyone can reach, and a password committed to a
+public repo is a password everyone has. It is in
+`demo-credentials.local.txt`, which is gitignored, and the seed script
+requires it as `SEED_PASSWORD` rather than falling back to a default.
 
 Signing in as two of them side by side is the clearest demonstration the app
 has: the same eighteen activities rank completely differently. Football Night

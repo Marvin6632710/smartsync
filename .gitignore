@@ -8,6 +8,9 @@ dist
 .env.*
 !.env.example
 
+# Live demo account password — deliberately not in the repository
+demo-credentials.local.txt
+
 # Firebase CLI local state and emulator exports
 .firebase/
 firebase-debug.log

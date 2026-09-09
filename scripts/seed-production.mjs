@@ -58,13 +58,20 @@ const app = initializeApp({
 })
 const auth = getAuth(app)
 const db = getFirestore(app)
-// Overridable, because this file is committed to a public repository and the
-// site it seeds is on the open internet. `demo1234` is fine for throwaway
-// demo accounts holding no real data, but anyone reading the repo can sign in
-// as them. Set SEED_PASSWORD to use something that is not published:
+// Required, not defaulted. This file is in a public repository and the site
+// it seeds is on the open internet, so a hardcoded fallback would be a
+// published password for live accounts. It lives in
+// demo-credentials.local.txt, which is gitignored.
 //
 //   SEED_PASSWORD='...' node scripts/seed-production.mjs --confirm
-const PASSWORD = process.env.SEED_PASSWORD || 'demo1234'
+const PASSWORD = process.env.SEED_PASSWORD
+if (!PASSWORD) {
+  console.error(
+    '\nSet SEED_PASSWORD before seeding the live project.' +
+      '\nThe demo account password is in demo-credentials.local.txt.\n',
+  )
+  process.exit(1)
+}
 
 // ── people ──────────────────────────────────────────────────────────────────
 
@@ -556,9 +563,7 @@ async function main() {
     console.log('  1 notification to the host')
   }
 
-  console.log(
-    `\nDone. Password for every demo account: ${process.env.SEED_PASSWORD ? '(from SEED_PASSWORD)' : PASSWORD}`,
-  )
+  console.log('\nDone. Demo accounts (password from SEED_PASSWORD):')
   people.forEach((p) => console.log(`  ${p.email}`))
   process.exit(0)
 }
