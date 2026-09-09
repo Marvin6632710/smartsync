@@ -6,8 +6,8 @@ Work one item at a time, verify the app still runs, commit, then move on.
 ## Status
 
 **The tables below carry the per-item status — check there first.**
-Summary: the whole Quick tier (Q-01 … Q-15) is done, plus M-01, M-02,
-M-03, M-04, M-10 and M-11. Everything else is unstarted.
+Summary: the whole Quick tier (Q-01 … Q-15) is done, and all of Medium
+except M-09. All of Large is unstarted.
 
 The list below is a changelog of *what* each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
@@ -40,13 +40,19 @@ digging through git.
   toasts stay ungated as immediate feedback
 - M-04 DONE — notifications store createdAt and render relative ages that
   update each minute; SCHEMA_VERSION bumped to 2 for the shape change
+- M-05 DONE — Search, Map and AI Picks now read filteredActivities, each with
+  a shared FiltersEmptyState offering a one-tap Clear filters
+- M-06 DONE — distance field on create and edit; updateActivity coerces it to
+  a number (verified 9.5km -> 74%, 0.5km -> 88%)
+- M-07 DONE — similarUsersJoined derived from Jaccard compatibility over the
+  peers who joined, threshold 50; hand-typed booleans removed from mockData
+- M-08 DONE — window.confirm replaced with an in-app ConfirmDialog
+  (Escape/backdrop/cancel dismiss, focus trap and restore)
 
-Remaining work, re-verified 2026-09-11: distance is still hardcoded to
-1.5 km on create (M-06), the Messages/Notifications filter chips are still
-inert spans (M-09), `filteredActivities` is still only wired into HomePage
-(M-05), `window.confirm` still appears in 2 places (M-08), and
-`similarUsersJoined` is still hand-typed in mockData (M-07). All of Large
-is unstarted.
+Remaining work, re-verified 2026-09-11: the Messages/Notifications filter
+chips are still inert spans (M-09). All of Large is unstarted — L-04
+(tests over the recommendation service) is the natural next one now that
+the scoring signals are all real.
 
 ### Also done, not on the original list
 - **react-router-dom v6 → v7** — fixes 2 moderate CVEs (open redirect via
@@ -94,10 +100,10 @@ All Quick items are complete.
 | M-02 | **DONE** | **Jaccard similarity** — replace magic numbers (`shared.length * 22`, caps at 70/98) in `calculateUserCompatibility`. | 30 min |
 | M-03 | **DONE** | **Enforce `privacy.notifications`** — saved, never read. Gate every setNotifications push. | 30 min |
 | M-04 | **DONE** | **Static timestamps** — notifications say "Now" forever. | 45 min |
-| M-05 | todo | **Filters only affect one section of one page** — wire `filteredActivities` into Search, Map, AI Picks. | 45 min |
-| M-06 | todo | **Distance field on create** — every created activity is hardcoded 1.5 km, and 20% of the score is distance. | 45 min |
-| M-07 | todo | **Compute `similarUsersJoined`** — currently a hand-typed boolean; the collaborative signal is fake. Derive from calculateUserCompatibility over joinedUserIds. | 60 min |
-| M-08 | todo | **Replace `window.confirm`** — native dialog breaks the phone illusion. | 60 min |
+| M-05 | **DONE** | **Filters only affect one section of one page** — wire `filteredActivities` into Search, Map, AI Picks. | 45 min |
+| M-06 | **DONE** | **Distance field on create** — every created activity is hardcoded 1.5 km, and 20% of the score is distance. | 45 min |
+| M-07 | **DONE** | **Compute `similarUsersJoined`** — currently a hand-typed boolean; the collaborative signal is fake. Derive from calculateUserCompatibility over joinedUserIds. | 60 min |
+| M-08 | **DONE** | **Replace `window.confirm`** — native dialog breaks the phone illusion. | 60 min |
 | M-09 | todo | **Wire Messages/Notifications filter chips** — currently inert spans. | 60 min |
 | M-10 | **DONE** | **Consolidate the two colour systems** — styles.css vars vs hardcoded hex in MapPage / UserMatchingPage / RecommendationsPage. | 90 min |
 | M-11 | **DONE** | **Empty state when filters match nothing** | 20 min |

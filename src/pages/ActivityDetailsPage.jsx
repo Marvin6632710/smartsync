@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { CalendarDays, Check, Clock3, Edit3, MapPin, MessageCircle, Users } from 'lucide-react'
 import CategoryIcon from '../components/CategoryIcon'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useNavigate, useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
@@ -9,6 +10,9 @@ export default function ActivityDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { recommendations, joinedIds, joinActivity, leaveActivity, cancelActivity } = useApp()
+  // Declared before the not-found early return: hooks must run
+  // unconditionally on every render.
+  const [cancelOpen, setCancelOpen] = useState(false)
   const a = recommendations.find((item) => item.id === id)
 
   if (!a) {
@@ -33,11 +37,10 @@ export default function ActivityDetailsPage() {
     Math.min(100, Math.round((a.participants / Math.max(a.capacity, 1)) * 100)),
   )
 
-  const handleCancel = () => {
-    if (window.confirm(`Cancel ${a.title}? This removes the activity for everyone.`)) {
-      cancelActivity(id)
-      navigate('/home')
-    }
+  const confirmCancel = () => {
+    setCancelOpen(false)
+    cancelActivity(id)
+    navigate('/home')
   }
 
   return (
@@ -124,7 +127,7 @@ export default function ActivityDetailsPage() {
           <button className="primary-button wide" onClick={() => navigate(`/activity/${id}/chat`)}>
             <MessageCircle size={18} /> Open chat
           </button>
-          <button className="danger-button wide" onClick={handleCancel}>
+          <button className="danger-button wide" onClick={() => setCancelOpen(true)}>
             Cancel activity
           </button>
         </div>
@@ -146,6 +149,17 @@ export default function ActivityDetailsPage() {
           {a.participants >= a.capacity ? 'Full' : 'Join activity'}
         </button>
       )}
+
+      <ConfirmDialog
+        open={cancelOpen}
+        title="Cancel this activity?"
+        body={`${a.title} will be removed for everyone who joined. This can't be undone.`}
+        confirmLabel="Cancel activity"
+        cancelLabel="Keep it"
+        tone="danger"
+        onConfirm={confirmCancel}
+        onCancel={() => setCancelOpen(false)}
+      />
     </div>
   )
 }

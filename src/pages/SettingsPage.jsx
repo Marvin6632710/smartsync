@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Bell,
   ChevronRight,
@@ -9,11 +9,13 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useApp } from '../context/AppContext'
 
 export default function SettingsPage() {
   const navigate = useNavigate()
   const { privacy, setPrivacy, resetPrototype } = useApp()
+  const [resetOpen, setResetOpen] = useState(false)
   return (
     <div className="page-content">
       <BackButton />
@@ -62,15 +64,24 @@ export default function SettingsPage() {
         <p className="helper-text">
           Reset localStorage data back to the original SmartSync demo content.
         </p>
-        <button
-          className="danger-button wide"
-          onClick={() => {
-            if (window.confirm('Reset SmartSync prototype data?')) resetPrototype()
-          }}
-        >
+        <button className="danger-button wide" onClick={() => setResetOpen(true)}>
           <RotateCcw size={17} /> Reset prototype
         </button>
       </div>
+
+      <ConfirmDialog
+        open={resetOpen}
+        title="Reset prototype data?"
+        body="Your activities, chats and profile changes will be discarded and the original demo content restored."
+        confirmLabel="Reset"
+        cancelLabel="Keep my data"
+        tone="danger"
+        onConfirm={() => {
+          setResetOpen(false)
+          resetPrototype()
+        }}
+        onCancel={() => setResetOpen(false)}
+      />
     </div>
   )
 }

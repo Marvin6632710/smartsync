@@ -1990,6 +1990,54 @@ select:focus-visible {
   background: var(--surface);
 }
 
+/* =========================================================
+   CONFIRM DIALOG
+   ========================================================= */
+
+.dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(16, 18, 26, 0.4);
+  animation: fadeIn 0.15s ease;
+}
+.dialog {
+  width: 100%;
+  max-width: 320px;
+  padding: 18px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  animation: dialogIn 0.18s ease;
+}
+.dialog h3 {
+  margin: 0 0 6px;
+  font-size: var(--t-h2);
+}
+.dialog p {
+  margin: 0 0 16px;
+  font-size: var(--t-sm);
+}
+.dialog .button-row > * {
+  flex: 1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
 .celebration-toast {
   position: absolute;
   top: 66px;
