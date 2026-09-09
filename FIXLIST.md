@@ -19,8 +19,30 @@ Work one item at a time, verify the app still runs, commit, then move on.
 - Q-13 DONE — onKeyDown added to the 3 role="button" divs
 - Q-14 DONE — notifications capped at 50 via shared pushNotification helper
 - Q-15 DONE — role="switch" + aria-checked added to all 8 toggle rows
+- M-10 DONE — one colour system; inline `<style>` blocks removed from
+  MapPage / UserMatchingPage / RecommendationsPage, all colour now from tokens
 
-All Quick items complete. Medium/Large items below are unstarted.
+All Quick items complete, plus M-10. Remaining Medium/Large items are unstarted
+(verified 2026-09-10: `historyCategories` still absent from AppContext, distance
+still hardcoded to 1.5 km on create, filter chips still inert spans,
+`filteredActivities` still only wired into HomePage, `window.confirm` still in 2
+places, notification timestamps still hardcoded `'Now'`).
+
+### Also done, not on the original list
+- **react-router-dom v6 → v7** — fixes 2 moderate CVEs (open redirect via
+  backslash in Link/useNavigate; constructor injection in SSR hydration).
+  `npm audit` now reports 0 vulnerabilities.
+- **ESLint + Prettier tooling** — `npm run lint`, `format`, `format:check`;
+  `eslint.config.js` with react + react-hooks rules. Project is lint-clean.
+- **Visual design rebuilt onto one token system** — neutral palette with a
+  single indigo accent, semantic + per-category colours, 4-step radius and
+  7-step type scales. Emoji replaced with lucide icons throughout (map markers,
+  toasts) via a shared `CategoryIcon`. Map redrawn as a legible schematic.
+  ~200 lines of dead CSS removed.
+- **Responsive frame** — holds real phone proportions (~1:2.14) on desktop and
+  tablet, fills the screen on phones, and handles landscape phones and short
+  windows (which previously pushed the bottom nav off screen and made onboarding
+  unfinishable). `100dvh` so mobile browser chrome doesn't hide the nav.
 
 ---
 
