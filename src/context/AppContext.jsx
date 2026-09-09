@@ -374,6 +374,22 @@ export function AppProvider({ children }) {
       return
     }
 
+    // CLOSE THE LEARNING LOOP
+    //
+    // historyCategories drives 15% of the recommendation score but nothing
+    // ever wrote to it, so the "behaviour" signal was frozen at whatever the
+    // seed data said. Joining is the behaviour worth learning from, so record
+    // the category here. Leaving deliberately does NOT remove it — you did
+    // attend that category, and un-learning on leave would make the signal
+    // flip-flop.
+
+    if (activity.category) {
+      setUser((previous) => ({
+        ...previous,
+        historyCategories: [...new Set([...(previous.historyCategories || []), activity.category])],
+      }))
+    }
+
     // CREATE NOTIFICATION
 
     pushNotification({
