@@ -200,10 +200,18 @@ export function AppProvider({ children }) {
   // =========================================================
   // ADD NOTIFICATION
   //
+  // Single gate for privacy.notifications: the setting was written and
+  // rendered but never read, so turning notifications off did nothing.
+  // Every push goes through here, so honouring it once covers them all.
+  //
+  // Toasts are deliberately NOT gated — they are immediate feedback for
+  // an action the user just took, not a notification they opted out of.
+  //
   // Prepends and caps the list at MAX_NOTIFICATIONS.
   // =========================================================
 
   function pushNotification(notification) {
+    if (!privacy.notifications) return
     setNotifications((previous) => [notification, ...previous].slice(0, MAX_NOTIFICATIONS))
   }
 
