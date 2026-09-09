@@ -11,16 +11,26 @@ export const recommendationWeights = {
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value))
 
+// Every comparison in this file is done on lowercased strings, and the values
+// arrive from a database that other people write to. `(value || '')` is not a
+// guard — a number or an object passes it straight through and then throws on
+// .toLowerCase(). Coercing first is, and it costs nothing.
+const key = (value) => (value === null || value === undefined ? '' : String(value).toLowerCase())
+
 export function calculateRecommendationScore(user, activity) {
   // `activity` is guarded as carefully as `user`. It was only guarded on the
   // category line, so a missing activity threw on the very next read.
-  const interests = (user?.interests || []).map((item) => String(item).toLowerCase())
-  const category = (activity?.category || '').toLowerCase()
-  const interest = interests.includes(category)
-    ? 1
-    : interests.some((i) => activity?.tags?.map((t) => String(t).toLowerCase()).includes(i))
-      ? 0.75
-      : 0.2
+  const interests = (user?.interests || []).map(key)
+  const category = key(activity?.category)
+  const tags = Array.isArray(activity?.tags) ? activity.tags.map(key) : []
+  // An empty category must not match an empty interest entry — that would
+  // score "we know nothing about either" as a direct interest hit.
+  const interest =
+    category && interests.includes(category)
+      ? 1
+      : interests.some((i) => i && tags.includes(i))
+        ? 0.75
+        : 0.2
 
   // Distance is now measured from the user's real position, which means it
   // can genuinely be unknown (location not granted, or not yet resolved).
@@ -29,15 +39,15 @@ export function calculateRecommendationScore(user, activity) {
   // now scores neutrally: no reward, no penalty.
   const distanceKm = activity?.distanceKm
   const distance = Number.isFinite(distanceKm) ? clamp(1 - Math.max(0, distanceKm - 1) / 12) : 0.5
-  const preferred = (user?.preferredTime || '').toLowerCase()
-  const time = preferred && preferred === (activity?.timeBand || '').toLowerCase() ? 1 : 0.55
+  const preferred = key(user?.preferredTime)
+  const time = preferred && preferred === key(activity?.timeBand) ? 1 : 0.55
 
-  const historyCategories = (user?.historyCategories || []).map((item) =>
-    String(item).toLowerCase(),
-  )
-  const history = historyCategories.includes(category) ? 1 : 0.5
+  const historyCategories = (user?.historyCategories || []).map(key)
+  const history = category && historyCategories.includes(category) ? 1 : 0.5
 
-  const popularity = clamp((activity?.participants || 0) / Math.max(activity?.capacity || 1, 1))
+  const participants = Number(activity?.participants) || 0
+  const capacity = Number(activity?.capacity) || 1
+  const popularity = clamp(Math.max(0, participants) / Math.max(capacity, 1))
   const behavior = activity?.similarUsersJoined ? 1 : 0.45
 
   const weighted =
@@ -53,10 +63,10 @@ export function calculateRecommendationScore(user, activity) {
 
 export function getRecommendationReasons(user, activity) {
   const reasons = []
-  const interests = (user?.interests || []).map((item) => String(item).toLowerCase())
-  const category = (activity?.category || '').toLowerCase()
-  const preferredTime = (user?.preferredTime || '').toLowerCase()
-  const timeBand = (activity?.timeBand || '').toLowerCase()
+  const interests = (user?.interests || []).map(key)
+  const category = key(activity?.category)
+  const preferredTime = key(user?.preferredTime)
+  const timeBand = key(activity?.timeBand)
 
   if (category && interests.includes(category))
     reasons.push(`Matches your ${activity.category} interest`)
@@ -74,13 +84,14 @@ export function getRecommendationReasons(user, activity) {
   if (preferredTime && preferredTime === timeBand)
     reasons.push(`Fits your preferred ${timeBand} time`)
 
-  if (
-    category &&
-    (user?.historyCategories || []).map((x) => String(x).toLowerCase()).includes(category)
-  )
+  if (category && (user?.historyCategories || []).map(key).includes(category))
     reasons.push('Similar to activities you joined before')
   if (activity?.similarUsersJoined) reasons.push('Similar users are joining')
-  if ((activity?.participants || 0) / Math.max(activity?.capacity || 1, 1) >= 0.6)
+  if (
+    Math.max(0, Number(activity?.participants) || 0) /
+      Math.max(Number(activity?.capacity) || 1, 1) >=
+    0.6
+  )
     reasons.push('Popular with the community')
   // Five, not four: there are exactly five signals, and capping at four
   // silently hid the collaborative one on the strongest matches — the very
@@ -140,7 +151,7 @@ export const compatibilityWeights = {
 // .toLowerCase() so a non-string that reaches us from corrupt persisted
 // state degrades instead of throwing — the same crash-guard reasoning as
 // Q-01 elsewhere in this file.
-const toKeySet = (list) => new Set((list || []).map((x) => String(x).toLowerCase()))
+const toKeySet = (list) => new Set((Array.isArray(list) ? list : []).map(key))
 
 /**
  * Jaccard index: |A ∩ B| / |A ∪ B|. Two empty sets score 0 rather than

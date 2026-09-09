@@ -6,8 +6,14 @@ Work one item at a time, verify the app still runs, commit, then move on.
 ## Status
 
 **The tables below carry the per-item status — check there first.**
-Summary: the whole Quick tier (Q-01 … Q-15) is done, and all of Medium
-except M-09. All of Large is unstarted.
+Summary: Quick (Q-01 … Q-15) and Medium (M-01 … M-11) are complete.
+Large: L-01, L-04 and L-06 are done; L-02, L-03 and L-05 remain.
+
+> **Scope change, 2026-09-09.** This list was written against a prototype.
+> The project is now a real multi-user application on Firebase — accounts,
+> a shared database, live chat, real maps and GPS. Several items were
+> resolved by that migration rather than as standalone fixes; those say so.
+> See the "Backend migration" section below, and README.md for how to run it.
 
 The list below is a changelog of *what* each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
@@ -49,10 +55,53 @@ digging through git.
 - M-08 DONE — window.confirm replaced with an in-app ConfirmDialog
   (Escape/backdrop/cancel dismiss, focus trap and restore)
 
-Remaining work, re-verified 2026-09-11: the Messages/Notifications filter
-chips are still inert spans (M-09). All of Large is unstarted — L-04
-(tests over the recommendation service) is the natural next one now that
-the scoring signals are all real.
+- M-09 DONE — Messages and Notifications chips filter for real. Chips that
+  nothing could back ("Unread", with no per-thread read state) were dropped
+  rather than left as controls that could never tell the truth.
+- L-01 DONE — location permission is the browser's own prompt, and the
+  position is really stored. "Approximate location" rounds to ~1 km *before*
+  storing, so the precise fix never leaves the device.
+- L-04 DONE — 41 tests over the recommendation service, including fuzzing.
+- L-06 DONE — README rewritten against the real application.
+
+Remaining: L-02 (tunable weights panel), L-03 (chat expiry — the timestamp
+half is done, retention is not), L-05 (evaluation against baselines).
+
+---
+
+## Backend migration
+
+The prototype had no server, no accounts and no shared data. It now has all
+three. Details in README.md; the parts worth knowing here:
+
+- **Firebase Auth + Cloud Firestore**, with the full emulator suite so the
+  backend runs locally with no Firebase account, credentials or billing.
+- **firestore.rules** enforces every constraint the UI implies, and **61
+  tests attack those rules as a hostile client**. Two real holes were found
+  and fixed by redesign:
+  - Membership was a subcollection plus a counter. Rules evaluate each write
+    independently and cannot see sibling writes in a batch, so "increment
+    because I joined" and "increment because I felt like it" were
+    indistinguishable — anyone could fill any activity and lock others out.
+    Membership is now one array on the activity document, which makes each
+    change atomically checkable.
+  - Hard-deleting an activity stranded its messages as unreachable orphans
+    and erased the chat history of everyone who joined. Hosts cancel now.
+- **Real distance.** Computed from the device's GPS position to the
+  activity's coordinate. Distance was previously typed into a form by the
+  host, which is not a property of an activity at all — it differs for
+  everyone looking at it. This supersedes M-06.
+- **Real dates**, so they sort and compare. Time band is derived from the
+  start time rather than being a second field that could contradict it.
+- **Anonymous mode is enforced, not cosmetic.** The name leaves the public
+  profile document; it is not merely hidden at render time.
+- **Three bugs found only by walking through the app**: sign-in bounced
+  established users back into onboarding (the private profile arrives after
+  the public one, and the redirect used `replace`); every chat thread was
+  stuck on "No messages yet" (subscribe and unsubscribe were split across two
+  effects sharing a ref, which StrictMode tore down without rebuilding); and
+  every new account was named "New user" (the auth observer built the profile
+  before `updateProfile` had set the display name).
 
 ### Also done, not on the original list
 - **react-router-dom v6 → v7** — fixes 2 moderate CVEs (open redirect via
@@ -104,7 +153,7 @@ All Quick items are complete.
 | M-06 | **DONE** | **Distance field on create** — every created activity is hardcoded 1.5 km, and 20% of the score is distance. | 45 min |
 | M-07 | **DONE** | **Compute `similarUsersJoined`** — currently a hand-typed boolean; the collaborative signal is fake. Derive from calculateUserCompatibility over joinedUserIds. | 60 min |
 | M-08 | **DONE** | **Replace `window.confirm`** — native dialog breaks the phone illusion. | 60 min |
-| M-09 | todo | **Wire Messages/Notifications filter chips** — currently inert spans. | 60 min |
+| M-09 | **DONE** | **Wire Messages/Notifications filter chips** — currently inert spans. | 60 min |
 | M-10 | **DONE** | **Consolidate the two colour systems** — styles.css vars vs hardcoded hex in MapPage / UserMatchingPage / RecommendationsPage. | 90 min |
 | M-11 | **DONE** | **Empty state when filters match nothing** | 20 min |
 
@@ -112,18 +161,30 @@ All Quick items are complete.
 
 | # | Status | Fix | Time |
 |---|---|---|---|
-| L-01 | todo | **Enforce location permission + approximate location** — the privacy differentiator, currently decorative. | 2 hrs |
+| L-01 | **DONE** | **Enforce location permission + approximate location** — real browser permission prompt; approximate rounds to ~1 km before storing. | 2 hrs |
 | L-02 | todo | **Tunable weights panel** — makes the algorithm inspectable and demoable. | 2 hrs |
-| L-03 | todo | **Timestamps + chat expiry** — the Privacy page already promises this in writing. | 3 hrs |
-| L-04 | todo | **Tests over the recommendation service** — pure functions, easiest possible thing to test. | 3 hrs |
+| L-03 | partial | **Timestamps + chat expiry** — timestamps are real server timestamps; retention/expiry is not implemented, and the Privacy page no longer promises it. | 3 hrs |
+| L-04 | **DONE** | **Tests over the recommendation service** — 41 tests including a fuzzer, which found a real crash on non-string category data. | 3 hrs |
 | L-05 | todo | **Evaluation vs random and interest-only baselines** — the answer to "how do you know it works". | 4 hrs |
-| L-06 | todo | **README rewrite to match reality** — currently claims configurable weights (constants) and a behaviour signal that never updates. | 1 hr |
+| L-06 | **DONE** | **README rewrite to match reality** — now documents the real architecture, the data and security models, and how to run it. | 1 hr |
 
 ---
 
 ## Notes for the defence
 
-- The recommendation engine is where the marks are. Priority: M-01, M-07, M-02, L-04, L-05, L-02.
-- Privacy is the stated differentiator but the controls are decorative. M-03, L-01, L-03 fix that.
-- Score floor is ~40% because every signal has a non-zero fallback. Observed range on seed data is 49–96. Be ready to justify the fallbacks as priors, or lower them.
-- Known limitations are a strength if disclosed first, a weakness if discovered.
+- The recommendation engine is where the marks are, and every signal now runs
+  on real data: real distance from GPS, history that updates when you join,
+  and a collaborative signal derived from actual compatibility. L-05
+  (evaluation against random and interest-only baselines) is the strongest
+  remaining item — it is the answer to "how do you know it works".
+- Privacy is the stated differentiator and the controls are now real. Be
+  ready to explain *why* the public/private split exists: Firestore has no
+  field-level read rules, so separate documents are the only way to make it
+  enforceable rather than cosmetic.
+- Score floor is ~40% because every signal has a non-zero fallback. Be ready
+  to justify the fallbacks as priors, or lower them.
+- The security rules are worth demoing. `npm test` runs 61 tests that behave
+  like a hostile client; two of them describe holes that existed and were
+  closed by redesign, which is a better story than "we wrote rules".
+- Known limitations are a strength if disclosed first, a weakness if
+  discovered. README.md ends with an honest list.
