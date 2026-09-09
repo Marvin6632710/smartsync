@@ -2,6 +2,8 @@
 
 Find nearby activities, join them, and meet people by doing things together.
 
+**Live: <https://smartsync-c1f07.web.app>**
+
 SmartSync is a real multi-user web application: people create accounts, host
 activities at real places, join each other's, and chat with the group. It is
 built with React and Vite on the front end and Firebase (Authentication and

@@ -185,15 +185,21 @@ All Quick items are complete.
 
 ## Backend & operations
 
+**Deployed 2026-09-09 — live at <https://smartsync-c1f07.web.app>**
+(Firebase project `smartsync-c1f07`, Firestore Standard in `asia-southeast1`.)
+Verified in production: sign-up, onboarding, activity creation with real
+coordinates, and that unauthenticated reads and writes are refused by the
+security rules.
+
 Not application code. Several of these can only be done by a human with a
 Google account — marked **you**. B-01 to B-03 block everything else: deploy
 on day one while a broken deployment is cheap to fix.
 
 | #    | Status | Task                                                                                                                                                                                                                 | Owner   |
 | ---- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| B-01 | todo   | **Create the Firebase project** — enable Email/Password auth, create Firestore in `asia-southeast1`. README §3.                                                                                                      | **you** |
-| B-02 | todo   | **Publish security rules to production** — `npm run deploy:rules`. Rules behave differently against a real project than an emulator; verify before trusting them.                                                    | **you** |
-| B-03 | todo   | **First production deploy** — `npm run deploy`, confirm the live URL loads and sign-up works.                                                                                                                        | **you** |
+| B-01 | **DONE** | **Create the Firebase project** — enable Email/Password auth, create Firestore in `asia-southeast1`. README §3.                                                                                                      | **you** |
+| B-02 | **DONE** | **Publish security rules to production** — `npm run deploy:rules`. Rules behave differently against a real project than an emulator; verify before trusting them.                                                    | **you** |
+| B-03 | **DONE** | **First production deploy** — `npm run deploy`, confirm the live URL loads and sign-up works.                                                                                                                        | **you** |
 | B-04 | todo   | **Real-device verification** — iPhone Safari and one Android. `100dvh`, date/time inputs, the geolocation prompt and the keyboard covering inputs all differ from Chromium. Largest untested surface in the project. | **you** |
 | B-05 | todo   | **Seed a realistic production dataset** — 15–20 activities across all categories over the coming fortnight, at real Bangkok locations. Three activities looks like a prototype however good the code is.             |         |
 | B-06 | todo   | **Network failure states** — Firestore queues writes offline; confirm the UI reads as deliberate rather than broken, and that nothing spins forever.                                                                 |         |
