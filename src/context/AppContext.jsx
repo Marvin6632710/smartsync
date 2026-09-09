@@ -316,7 +316,7 @@ export function AppProvider({ children }) {
 
       read: false,
 
-      time: 'Now',
+      createdAt: Date.now(),
     }
 
     pushNotification(notification)
@@ -413,7 +413,7 @@ export function AppProvider({ children }) {
 
       read: false,
 
-      time: 'Now',
+      createdAt: Date.now(),
     })
 
     pushCelebration({
@@ -557,7 +557,7 @@ export function AppProvider({ children }) {
 
       read: false,
 
-      time: 'Now',
+      createdAt: Date.now(),
     })
 
     pushCelebration({

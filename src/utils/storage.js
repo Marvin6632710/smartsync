@@ -5,7 +5,9 @@ const VERSION_KEY = `${STORAGE_PREFIX}schemaVersion`
 // satisfy (e.g. renamed/removed fields in mockData.js, a changed activity
 // or user shape). A mismatch wipes all smartsync: keys so the app re-seeds
 // from mockData.js instead of crashing or silently misbehaving on stale data.
-const SCHEMA_VERSION = 1
+// 2 — notifications moved from a hardcoded `time` string to a `createdAt`
+//     timestamp, so stored notifications from v1 have no age to render.
+const SCHEMA_VERSION = 2
 
 function ensureSchemaVersion() {
   try {

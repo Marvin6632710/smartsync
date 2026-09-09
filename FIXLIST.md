@@ -6,8 +6,8 @@ Work one item at a time, verify the app still runs, commit, then move on.
 ## Status
 
 **The tables below carry the per-item status — check there first.**
-Summary: the whole Quick tier (Q-01 … Q-15) is done, plus M-10 and M-11.
-Everything else is unstarted.
+Summary: the whole Quick tier (Q-01 … Q-15) is done, plus M-01, M-02,
+M-03, M-04, M-10 and M-11. Everything else is unstarted.
 
 The list below is a changelog of *what* each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
@@ -32,12 +32,21 @@ digging through git.
   MapPage / UserMatchingPage / RecommendationsPage, all colour now from tokens
 - M-11 DONE — empty state when filters match nothing, with a one-tap
   Clear filters recovery; filter defaults now defined once in AppContext
+- M-01 DONE — joining records the activity category in historyCategories,
+  so the 15% history signal finally learns (verified: 49% -> 57% on join)
+- M-02 DONE — Jaccard index for interests and history against named
+  compatibilityWeights (70/15/15); the arbitrary floors are gone
+- M-03 DONE — privacy.notifications is now read, gating pushNotification;
+  toasts stay ungated as immediate feedback
+- M-04 DONE — notifications store createdAt and render relative ages that
+  update each minute; SCHEMA_VERSION bumped to 2 for the shape change
 
-All Quick items complete, plus M-10 and M-11. Remaining Medium/Large items are unstarted
-(verified 2026-09-10: `historyCategories` still absent from AppContext, distance
-still hardcoded to 1.5 km on create, filter chips still inert spans,
-`filteredActivities` still only wired into HomePage, `window.confirm` still in 2
-places, notification timestamps still hardcoded `'Now'`).
+Remaining work, re-verified 2026-09-11: distance is still hardcoded to
+1.5 km on create (M-06), the Messages/Notifications filter chips are still
+inert spans (M-09), `filteredActivities` is still only wired into HomePage
+(M-05), `window.confirm` still appears in 2 places (M-08), and
+`similarUsersJoined` is still hand-typed in mockData (M-07). All of Large
+is unstarted.
 
 ### Also done, not on the original list
 - **react-router-dom v6 → v7** — fixes 2 moderate CVEs (open redirect via
@@ -81,10 +90,10 @@ All Quick items are complete.
 
 | # | Status | Fix | Time |
 |---|---|---|---|
-| M-01 | todo | **Close the learning loop** — joining never updates `historyCategories`, which drives 15% of the score. Push category on join. | 30 min |
-| M-02 | todo | **Jaccard similarity** — replace magic numbers (`shared.length * 22`, caps at 70/98) in `calculateUserCompatibility`. | 30 min |
-| M-03 | todo | **Enforce `privacy.notifications`** — saved, never read. Gate every setNotifications push. | 30 min |
-| M-04 | todo | **Static timestamps** — notifications say "Now" forever. | 45 min |
+| M-01 | **DONE** | **Close the learning loop** — joining never updates `historyCategories`, which drives 15% of the score. Push category on join. | 30 min |
+| M-02 | **DONE** | **Jaccard similarity** — replace magic numbers (`shared.length * 22`, caps at 70/98) in `calculateUserCompatibility`. | 30 min |
+| M-03 | **DONE** | **Enforce `privacy.notifications`** — saved, never read. Gate every setNotifications push. | 30 min |
+| M-04 | **DONE** | **Static timestamps** — notifications say "Now" forever. | 45 min |
 | M-05 | todo | **Filters only affect one section of one page** — wire `filteredActivities` into Search, Map, AI Picks. | 45 min |
 | M-06 | todo | **Distance field on create** — every created activity is hardcoded 1.5 km, and 20% of the score is distance. | 45 min |
 | M-07 | todo | **Compute `similarUsersJoined`** — currently a hand-typed boolean; the collaborative signal is fake. Derive from calculateUserCompatibility over joinedUserIds. | 60 min |

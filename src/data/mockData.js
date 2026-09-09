@@ -244,6 +244,10 @@ export const initialMessages = {
   ],
 }
 
+// Seeded relative to load so the demo starts with believable ages rather
+// than frozen strings. Once persisted, these keep ageing across sessions.
+const seededAt = Date.now()
+
 export const initialNotifications = [
   {
     id: 'n1',
@@ -252,7 +256,7 @@ export const initialNotifications = [
     body: 'Football Night at Rama IX fits your interests.',
     activityId: 'a1',
     read: false,
-    time: '10 min ago',
+    createdAt: seededAt - 10 * 60_000,
   },
   {
     id: 'n2',
@@ -261,7 +265,7 @@ export const initialNotifications = [
     body: 'Your activity begins this evening.',
     activityId: 'a1',
     read: false,
-    time: '1 hr ago',
+    createdAt: seededAt - 60 * 60_000,
   },
   {
     id: 'n3',
@@ -270,6 +274,6 @@ export const initialNotifications = [
     body: 'Alex posted an update.',
     activityId: 'a1',
     read: true,
-    time: '2 hrs ago',
+    createdAt: seededAt - 2 * 60 * 60_000,
   },
 ]
