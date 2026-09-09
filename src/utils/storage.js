@@ -23,11 +23,32 @@ function ensureSchemaVersion() {
 
 ensureSchemaVersion()
 
+/**
+ * Does the stored value have the same broad shape as the fallback?
+ *
+ * The try/catch below only fires when the text fails to parse. Valid JSON of
+ * the wrong shape — an object where an array is expected — parses fine and
+ * then throws later during render. The fallback already describes the
+ * expected shape, so compare against it rather than hand-writing a schema.
+ *
+ * This is deliberately coarse: it catches container mismatches, not missing
+ * fields. Components guard their own field reads.
+ */
+function looksLike(value, fallback) {
+  if (Array.isArray(fallback)) return Array.isArray(value)
+  if (fallback === null) return true
+  if (typeof fallback === 'object') {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+  }
+  return typeof value === typeof fallback
+}
+
 export function loadStorage(key, fallback) {
   try {
     const raw = localStorage.getItem(key)
     if (!raw) return fallback
-    return JSON.parse(raw)
+    const parsed = JSON.parse(raw)
+    return looksLike(parsed, fallback) ? parsed : fallback
   } catch {
     return fallback
   }

@@ -87,7 +87,7 @@ export default function ProfilePage() {
           </div>
         </div>
         <div className="chip-row">
-          {user.interests.map((i) => (
+          {(user.interests || []).map((i) => (
             <span className="tiny-chip" key={i}>
               {i}
             </span>

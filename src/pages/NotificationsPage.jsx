@@ -58,7 +58,7 @@ export default function NotificationsPage() {
             key={n.id}
             onClick={() => open(n)}
           >
-            <div className="avatar small">{n.title.slice(0, 1)}</div>
+            <div className="avatar small">{(n.title || '?').slice(0, 1)}</div>
             <div>
               <strong>{n.title}</strong>
               <p>{n.body}</p>

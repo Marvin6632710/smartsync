@@ -59,7 +59,7 @@ export default function HomePage() {
           <h3>Made for your vibe</h3>
         </div>
         <div className="chip-row">
-          {user.interests.slice(0, 5).map((interest) => (
+          {(user.interests || []).slice(0, 5).map((interest) => (
             <span className="tiny-chip" key={interest}>
               {interest}
             </span>

@@ -35,7 +35,7 @@ export default function MessagesPage() {
               key={a.id}
               onClick={() => navigate(`/activity/${a.id}/chat`)}
             >
-              <div className="avatar small">{a.category.slice(0, 1)}</div>
+              <div className="avatar small">{(a.category || '?').slice(0, 1)}</div>
               <div>
                 <strong>{a.title}</strong>
                 <p>{last ? `${last.sender}: ${last.text}` : 'No messages yet'}</p>
