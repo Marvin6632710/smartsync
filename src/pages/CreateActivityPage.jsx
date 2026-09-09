@@ -11,6 +11,7 @@ const initial = {
   time: '7:00 PM',
   timeBand: 'Evening',
   location: 'Bangkok',
+  distanceKm: 2,
   capacity: 10,
 }
 export default function CreateActivityPage() {
@@ -27,6 +28,11 @@ export default function CreateActivityPage() {
     }
     if (Number(form.capacity) < 2) {
       setError('Maximum participants must be at least 2.')
+      return
+    }
+    const distance = Number(form.distanceKm)
+    if (!Number.isFinite(distance) || distance <= 0) {
+      setError('Distance must be a positive number of kilometres.')
       return
     }
     const id = createActivity(form)
@@ -93,6 +99,18 @@ export default function CreateActivityPage() {
             placeholder="Bangkok location"
           />
         </label>
+        <label>
+          Distance from you (km)
+          <input
+            type="number"
+            min="0.1"
+            max="50"
+            step="0.1"
+            value={form.distanceKm}
+            onChange={(e) => set('distanceKm', e.target.value)}
+          />
+        </label>
+        <p className="helper-text">Roughly how far away it is — this is 20% of the match score.</p>
         <label>
           Maximum participants
           <input

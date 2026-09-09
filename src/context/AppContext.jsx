@@ -605,7 +605,12 @@ export function AppProvider({ children }) {
 
           ...updates,
 
+          // Both come off number inputs as strings. Everything else stores
+          // them as numbers, and string comparison would silently misorder
+          // distances ("10" < "9"), so coerce on the way in.
           capacity: Math.max(activity.participants, Number(updates.capacity ?? activity.capacity)),
+
+          distanceKm: Number(updates.distanceKm ?? activity.distanceKm),
         }
       }),
     )

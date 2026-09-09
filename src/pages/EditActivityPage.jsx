@@ -28,6 +28,11 @@ export default function EditActivityPage() {
       setError('Activity name and description are required.')
       return
     }
+    const distance = Number(form.distanceKm)
+    if (!Number.isFinite(distance) || distance <= 0) {
+      setError('Distance must be a positive number of kilometres.')
+      return
+    }
     if (Number(form.capacity) < minCapacity) {
       setError(`Capacity can't be below the current ${existing.participants} participants.`)
       return
@@ -87,6 +92,17 @@ export default function EditActivityPage() {
         <label>
           Location
           <input value={form.location || ''} onChange={(e) => set('location', e.target.value)} />
+        </label>
+        <label>
+          Distance from you (km)
+          <input
+            type="number"
+            min="0.1"
+            max="50"
+            step="0.1"
+            value={form.distanceKm ?? ''}
+            onChange={(e) => set('distanceKm', e.target.value)}
+          />
         </label>
         <label>
           Capacity
