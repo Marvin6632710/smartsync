@@ -9,6 +9,11 @@
  * Safe to run more than once: an activity whose title and host already exist
  * is skipped rather than duplicated.
  *
+ * Pass --refresh to re-date the activities that are already there, keeping
+ * the same spread relative to today. Activities that have already started are
+ * hidden from discovery, so a demo set seeded weeks earlier quietly empties
+ * out. Run this the night before showing the app to anybody.
+ *
  * Dates are spread across roughly five weeks with a deliberate cluster around
  * the SP1 defence. Past activities are hidden from discovery, so seeding only
  * "the next two weeks" would leave the app looking empty on the very day it
@@ -37,6 +42,8 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore'
+
+const REFRESH = process.argv.includes('--refresh')
 
 if (!process.argv.includes('--confirm')) {
   console.error('\nThis writes to the LIVE project. Re-run with --confirm if that is intended.\n')
@@ -461,12 +468,32 @@ async function main() {
     ),
   )
 
-  console.log('\nActivities')
+  // For --refresh: where each existing activity lives, so it can be re-dated.
+  const existingRefs = new Map(
+    (await getDocs(query(collection(db, 'activities'), where('status', '==', 'active')))).docs.map(
+      (d) => [`${d.data().title}::${d.data().hostId}`, d.id],
+    ),
+  )
+
+  console.log(REFRESH ? '\nActivities (refreshing dates)' : '\nActivities')
   const created = []
   for (const a of activities) {
     const host = await signIn(a.host)
-    if (existing.has(`${a.title}::${host.uid}`)) {
-      console.log(`  skipped  ${a.title} (already there)`)
+    const key = `${a.title}::${host.uid}`
+    if (existing.has(key)) {
+      if (REFRESH) {
+        const date = dateFor(a.day)
+        await updateDoc(doc(db, 'activities', existingRefs.get(key)), {
+          date,
+          time: a.time,
+          startsAt: Timestamp.fromDate(new Date(`${date}T${a.time}`)),
+          timeBand: band(a.time),
+          updatedAt: serverTimestamp(),
+        })
+        console.log(`  re-dated ${date}  ${a.title}`)
+      } else {
+        console.log(`  skipped  ${a.title} (already there)`)
+      }
       continue
     }
     const date = dateFor(a.day)

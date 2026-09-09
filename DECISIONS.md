@@ -267,3 +267,140 @@ saying out loud rather than letting someone assume otherwise.
 **Rejected.** Client-side hiding (unenforceable); a scheduled Cloud Function
 (billing); refusing to expire anything (the Privacy page would have kept
 promising something untrue).
+
+---
+
+# Questions you will be asked
+
+Read this before you walk in. Each answer is short on purpose — say the short
+version, and let them ask for more. Every one is backed by something in this
+repository, so you are never guessing.
+
+### "Why Firebase? Why not build your own backend?"
+
+Live updates are the feature most of the app depends on — the participant
+count, the chat, the notification bell. Firestore gives real-time listeners as
+a primitive; on Postgres you build a WebSocket layer and invent a subscription
+protocol. Authentication is a solved problem that is easy to get subtly wrong.
+
+**Own the trade honestly:** a custom backend would have demonstrated more
+breadth. The choice bought depth — a measured recommendation engine and a
+tested security model — instead. That is ADR-001, and it is a defensible
+trade rather than an avoidance.
+
+### "What stops someone joining an activity fifty times, or overselling it?"
+
+The database, not the interface. Membership is a single array on the activity
+document, and the rules check that any change adds or removes exactly the
+caller and never exceeds capacity.
+
+**The good part of this answer is that it was wrong first.** The original
+design had a participants subcollection plus a counter. Rules evaluate each
+write independently and cannot see sibling writes in a batch, so "increment
+because I joined" and "increment because I felt like it" were
+indistinguishable — anyone could fill any activity and lock everyone out. A
+security rule test caught it and the design changed. ADR-003.
+
+### "What if two people take the last place at the same moment?"
+
+Exactly one wins. `arrayUnion` is resolved on the server before the capacity
+rule is evaluated, so the second request is rejected rather than the activity
+being oversold. This was run ten times concurrently and gave one winner every
+time, with the roster never exceeding capacity.
+
+### "Is anonymous mode real, or are you just hiding the name?"
+
+Real. The name genuinely leaves the document other people can read — Firestore
+has no field-level read rules, so the private fields live in a separate
+document only the owner can read. ADR-005.
+
+**Also worth volunteering:** an audit found it was only doing half the job.
+The host's name is copied onto each activity for cheap listing, and turning on
+anonymity rewrote the profile but left the real name on every hosted activity.
+It now sweeps those too. Say this before they find it.
+
+### "How do you know your recommendations are any good?"
+
+Measured, not asserted. Against a synthetic population of 400 people whose
+true preferences are known, over seven independent populations: **39.3%
+precision@5, against 18.0% for the best single signal and 5.2% for random.**
+
+Then say the uncomfortable half: **three of the six signals earn nothing.**
+History was scoring the same fact as interest — 59% overlap — so it was
+changed to measure only what interests do not say. Popularity is still in the
+model and the evidence says it is not paying for itself.
+
+If asked why you did not simply retune the weights: because the search ran
+against our own simulation, and adopting its answer would tune the product to
+a generator rather than to people. EVALUATION.md §5.
+
+### "Can I see the algorithm?"
+
+Settings → Matching weights. Six sliders, ranking reorders live. It is the
+same mechanism the evaluation harness uses to ablate each signal, so what they
+can try is exactly what was measured.
+
+### "Who can read the chat?"
+
+Only people who joined that activity, enforced in the rules — a non-participant
+querying the database directly is refused, which was verified against the live
+project. Threads also close 30 days after the activity.
+
+**Be precise:** that is expiry of _access_, not deletion. Scheduled deletion
+needs Cloud Functions and the paid plan. Claiming "the chat is deleted" would
+be false; "nobody can open it, and here is the rule" is true and checkable.
+ADR-010.
+
+### "How did you test it?"
+
+118 tests. 47 over the recommendation engine — pure functions, no database
+needed — and 71 that attack the security rules as a hostile client. The rule
+tests have caught three real holes, which is the point of writing them.
+
+Beyond that: 16 authenticated attacks run against the live project, a fuzzer
+over the scorer, and an integrity sweep checking invariants on the real data.
+
+### "What was the hardest bug?"
+
+Pick one and tell it as a story. Good candidates:
+
+- **The stored XSS.** Leaflet builds markers from an HTML string inserted with
+  `innerHTML`, and the activity category was interpolated into it. JSX escapes
+  attribute values; a template literal does not, and the two read almost
+  identically. A host could have run script on every viewer's session. Fixed
+  by whitelisting against the fixed category vocabulary and constraining the
+  category in the rules.
+- **The join that looked like it worked offline.** Firestore queues the write
+  and applies it locally, so the count went up and the button changed — but
+  `await` never resolves offline, so there was no confirmation and the success
+  message fired minutes later on reconnect.
+
+### "How would this scale?"
+
+It would not, in one specific place, and you should name it before they do:
+every signed-in client downloads every user profile to compute compatibility.
+Fine for a cohort, absurd for a city. Scoring also runs on the client, so it
+is visible to anyone who opens devtools. Both are in ADR-006 with the reason —
+server-side scoring needs Cloud Functions and the paid plan.
+
+### "What would you do differently?"
+
+- Build the security rules and their tests **first**. Two of the three holes
+  they caught were designed in, not typed in, and would have been cheaper to
+  find before the data model set around them.
+- Not denormalise the host's name onto activities without a plan for keeping
+  it in step. That one decision caused both a stale-data bug and a privacy
+  leak.
+- Give the collaborative signal something content features cannot say. It is
+  computed from interests, times and history — the very things the other
+  signals already use — which is why it earns nothing.
+
+### "What doesn't it do?"
+
+Answer this one first, unprompted, at the end of the demo. README section 11:
+no push notifications to a closed phone, no photo uploads, no address search,
+Android untested, chat closed rather than deleted, and anonymity is not
+retroactive for messages already sent.
+
+Known limitations disclosed first are a strength. Discovered by the panel,
+they are a weakness.
