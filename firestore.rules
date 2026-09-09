@@ -1,0 +1,232 @@
+rules_version = '2';
+
+// =============================================================================
+// SmartSync security rules
+//
+// Design principle: the client is untrusted. Every constraint the UI relies on
+// (you can only join once, a full activity cannot be joined, only the host can
+// edit, chat is for participants only) is enforced here too, because anyone
+// can call Firestore directly without going through the UI.
+//
+// Privacy model: users/{uid} is the PUBLIC profile, readable by any signed-in
+// user, because discovery and compatibility matching genuinely need it.
+// Anything that must not be public — email, real name while anonymous mode is
+// on, precise location — lives in users/{uid}/private/profile, readable only
+// by its owner. Firestore has no field-level read rules, so separating the
+// documents is the only way to make this real rather than cosmetic.
+//
+// Membership model: participants are a `participantUids` array on the activity
+// document itself, NOT a subcollection. This is a correctness requirement, not
+// a preference. Rules evaluate each write on its own against pre-write state
+// and cannot see sibling writes in the same batch, so a design that kept the
+// roster and a counter in two documents could not distinguish "incrementing
+// because I joined" from "incrementing because I felt like it" — anyone could
+// inflate an activity to full and lock others out. Holding the roster in one
+// field makes each membership change atomically verifiable here.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------- helpers
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function touches(allowed) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+
+    function isString(value, maxLen) {
+      return value is string && value.size() > 0 && value.size() <= maxLen;
+    }
+
+    function isTagList(value, maxItems) {
+      return value is list && value.size() <= maxItems;
+    }
+
+    // ------------------------------------------------------------------ users
+
+    function validPublicProfile(data) {
+      return isString(data.name, 60)
+        && isString(data.username, 40)
+        && data.bio is string && data.bio.size() <= 300
+        && isTagList(data.interests, 20)
+        && isTagList(data.historyCategories, 40)
+        && data.preferredTime is string
+        && data.anonymous is bool
+        && data.uid == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      // Public profile: readable by any signed-in user. This is what powers
+      // peer discovery, participant lists and compatibility scoring.
+      allow read: if signedIn();
+
+      allow create: if isSelf(uid) && validPublicProfile(request.resource.data);
+
+      allow update: if isSelf(uid)
+        && validPublicProfile(request.resource.data)
+        && request.resource.data.uid == resource.data.uid;
+
+      allow delete: if isSelf(uid);
+
+      // Private half of the profile. Never readable by anyone else.
+      match /private/{docId} {
+        allow read, write: if isSelf(uid);
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if isSelf(uid);
+        // Anyone signed in may notify a user ("Bob joined your activity" has
+        // to be written by Bob), but only with a well-formed unread message,
+        // so a sender cannot forge a pre-read system notification.
+        allow create: if signedIn()
+          && isString(request.resource.data.title, 120)
+          && request.resource.data.body is string
+          && request.resource.data.body.size() <= 300
+          && request.resource.data.read == false;
+        allow update: if isSelf(uid) && touches(['read']);
+        allow delete: if isSelf(uid);
+      }
+
+      match /following/{targetId} {
+        allow read, write: if isSelf(uid);
+      }
+    }
+
+    // ------------------------------------------------------------- activities
+
+    function validActivity(data) {
+      return isString(data.title, 100)
+        && data.description is string && data.description.size() <= 1000
+        && isString(data.category, 40)
+        && isString(data.locationName, 120)
+        && data.lat is number && data.lat >= -90 && data.lat <= 90
+        && data.lng is number && data.lng >= -180 && data.lng <= 180
+        && data.capacity is int && data.capacity >= 2 && data.capacity <= 500
+        && data.timeBand is string
+        && isTagList(data.tags, 10)
+        && data.status in ['active', 'cancelled']
+        && data.participantUids is list
+        && data.participantUids.size() <= data.capacity
+        // A roster with the same uid twice would let one person consume every
+        // seat, so duplicates are rejected outright.
+        && data.participantUids.size() == data.participantUids.toSet().size();
+    }
+
+    function joinersAdded() {
+      return request.resource.data.participantUids.toSet()
+        .difference(resource.data.participantUids.toSet());
+    }
+
+    function joinersRemoved() {
+      return resource.data.participantUids.toSet()
+        .difference(request.resource.data.participantUids.toSet());
+    }
+
+    function rosterIsClean() {
+      return request.resource.data.participantUids is list
+        && request.resource.data.participantUids.size()
+           == request.resource.data.participantUids.toSet().size();
+    }
+
+    // Exactly one person added, and it is the caller, and there is room.
+    function joinsSelf() {
+      return joinersAdded().hasOnly([request.auth.uid])
+        && joinersAdded().size() == 1
+        && joinersRemoved().size() == 0
+        && request.resource.data.participantUids.size() <= resource.data.capacity
+        && resource.data.status == 'active';
+    }
+
+    // Exactly one person removed, and it is the caller. The host may not
+    // leave their own activity — that would orphan it; they delete instead.
+    function leavesSelf() {
+      return joinersRemoved().hasOnly([request.auth.uid])
+        && joinersRemoved().size() == 1
+        && joinersAdded().size() == 0
+        && request.auth.uid != resource.data.hostId;
+    }
+
+    // A host may remove any participant except themselves.
+    function hostRemovesParticipant() {
+      return resource.data.hostId == request.auth.uid
+        && joinersAdded().size() == 0
+        && joinersRemoved().size() == 1
+        && !joinersRemoved().hasAny([resource.data.hostId]);
+    }
+
+    match /activities/{activityId} {
+      // Discovery requires reading activities you have not joined.
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && request.resource.data.hostId == request.auth.uid
+        // A host starts as the sole participant of their own activity.
+        && request.resource.data.participantUids == [request.auth.uid]
+        && validActivity(request.resource.data);
+
+      // Two disjoint kinds of update:
+      //
+      // 1. The host editing their own activity. May not touch the roster
+      //    (membership is earned by joining, not granted by the host), may not
+      //    hand the activity to someone else, and may not shrink capacity
+      //    below the people already in.
+      // 2. Anyone joining or leaving, or a host removing a participant. Only
+      //    the roster and updatedAt may move, and the delta must be exactly
+      //    the caller — which is checkable here precisely because it is a
+      //    single field on a single document.
+      allow update: if signedIn() && (
+        (
+          resource.data.hostId == request.auth.uid
+          && request.resource.data.hostId == resource.data.hostId
+          && request.resource.data.participantUids == resource.data.participantUids
+          && request.resource.data.capacity >= resource.data.participantUids.size()
+          && validActivity(request.resource.data)
+        ) || (
+          touches(['participantUids', 'updatedAt'])
+          && rosterIsClean()
+          && (joinsSelf() || leavesSelf() || hostRemovesParticipant())
+        )
+      );
+
+      // No hard delete. Deleting the activity document would strand its
+      // messages subcollection as unreachable orphans, and would erase the
+      // chat history of everyone who joined. Hosts cancel instead (a status
+      // change through the host-edit branch above), which removes it from
+      // discovery while leaving it intact for the people who were going.
+      allow delete: if false;
+
+      // ----------------------------------------------------------- messages
+
+      match /messages/{messageId} {
+        function isParticipant() {
+          return signedIn() && request.auth.uid in
+            get(/databases/$(database)/documents/activities/$(activityId))
+              .data.participantUids;
+        }
+
+        // Activity chat is strictly for people who actually joined.
+        allow read: if isParticipant();
+
+        allow create: if isParticipant()
+          && request.resource.data.senderId == request.auth.uid
+          && isString(request.resource.data.text, 2000);
+
+        // Append-only: no silent edits, no deleting evidence.
+        allow update, delete: if false;
+      }
+    }
+
+    // Anything not matched above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
