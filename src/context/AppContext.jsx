@@ -207,6 +207,22 @@ export function AppProvider({ children }) {
 
   // ------------------------------------------------------------------ actions
 
+  /**
+   * Sends a notification to somebody else, honouring their choice not to
+   * receive them.
+   *
+   * The rules enforce this too, but checking here matters: without it the
+   * write is rejected, `attempt` reports a failure, and the user is told
+   * their join did not work when it did. Never let a notification failure
+   * surface as a failure of the thing that triggered it.
+   */
+  function notifyUser(recipientId, payload) {
+    if (!recipientId || recipientId === uid) return
+    const recipient = peers.find((peer) => peer.uid === recipientId)
+    if (recipient?.notificationsEnabled === false) return
+    pushNotification(recipientId, payload).catch(() => {})
+  }
+
   async function joinActivity(id) {
     const activity = activities.find((item) => item.id === id)
     if (!activity || joinedIds.includes(id)) return
@@ -218,14 +234,12 @@ export function AppProvider({ children }) {
     recordCategoryHistory(uid, user.historyCategories, activity.category)
 
     // A real notification to a real other person.
-    if (activity.hostId !== uid) {
-      pushNotification(activity.hostId, {
-        type: 'activity',
-        title: 'Someone joined',
-        body: `${user.name} joined ${activity.title}.`,
-        activityId: id,
-      })
-    }
+    notifyUser(activity.hostId, {
+      type: 'activity',
+      title: 'Someone joined',
+      body: `${user.name} joined ${activity.title}.`,
+      activityId: id,
+    })
 
     pushCelebration({
       icon: 'check',
@@ -254,16 +268,14 @@ export function AppProvider({ children }) {
     if (ok === null) return
 
     // Everyone who was going deserves to be told.
-    ;(activity.participantUids || [])
-      .filter((participantId) => participantId !== uid)
-      .forEach((participantId) =>
-        pushNotification(participantId, {
-          type: 'activity',
-          title: 'Activity cancelled',
-          body: `${activity.title} was cancelled by the host.`,
-          activityId: id,
-        }),
-      )
+    ;(activity.participantUids || []).forEach((participantId) =>
+      notifyUser(participantId, {
+        type: 'activity',
+        title: 'Activity cancelled',
+        body: `${activity.title} was cancelled by the host.`,
+        activityId: id,
+      }),
+    )
 
     pushCelebration({
       icon: 'trash',
@@ -302,16 +314,14 @@ export function AppProvider({ children }) {
       failure: "Couldn't send",
     })
     if (ok === null || !activity) return
-    ;(activity.participantUids || [])
-      .filter((participantId) => participantId !== uid)
-      .forEach((participantId) =>
-        pushNotification(participantId, {
-          type: 'chat',
-          title: `New message in ${activity.title}`,
-          body: `${user.name}: ${String(text).slice(0, 80)}`,
-          activityId,
-        }),
-      )
+    ;(activity.participantUids || []).forEach((participantId) =>
+      notifyUser(participantId, {
+        type: 'chat',
+        title: `New message in ${activity.title}`,
+        body: `${user.name}: ${String(text).slice(0, 80)}`,
+        activityId,
+      }),
+    )
   }
 
   function toggleUserNotifications(targetUser) {

@@ -40,6 +40,7 @@ const publicProfile = (uid, name) => ({
   preferredTime: 'Evening',
   historyCategories: [],
   anonymous: false,
+  notificationsEnabled: true,
 })
 
 const activityFixture = (hostId, overrides = {}) => ({
@@ -141,6 +142,12 @@ describe('profile privacy', () => {
 
   test('a user cannot reassign their own uid', async () => {
     await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), { uid: BOB }))
+  })
+
+  test('the notification preference must stay a boolean', async () => {
+    await assertFails(
+      updateDoc(doc(asAlice(), 'users', ALICE), { notificationsEnabled: 'yes please' }),
+    )
   })
 
   test('over-long bios are rejected', async () => {
@@ -384,6 +391,24 @@ describe('notifications', () => {
 
   test('another user can notify them', async () => {
     await assertSucceeds(
+      addDoc(collection(asBob(), 'users', ALICE, 'notifications'), {
+        type: 'activity',
+        title: 'Bob joined',
+        body: 'Bob joined your football night',
+        read: false,
+      }),
+    )
+  })
+
+  test('a user who turned notifications off cannot be notified', async () => {
+    // Enforced by the rules, not by the sending client's good manners.
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', ALICE), {
+        ...publicProfile(ALICE, 'Alice'),
+        notificationsEnabled: false,
+      })
+    })
+    await assertFails(
       addDoc(collection(asBob(), 'users', ALICE, 'notifications'), {
         type: 'activity',
         title: 'Bob joined',

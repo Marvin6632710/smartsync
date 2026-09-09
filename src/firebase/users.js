@@ -65,6 +65,13 @@ export async function createUserProfile(uid, { name, email, username }) {
     preferredTime: '',
     historyCategories: [],
     anonymous: false,
+    // Deliberately on the PUBLIC profile, unlike every other privacy setting.
+    // A notification is written into the recipient's inbox by the sender, so
+    // the sender — and the security rules — must be able to read whether the
+    // recipient wants one. Kept in the private half it could not be honoured
+    // by anybody except its owner, which is how it quietly became decorative
+    // again after the move to Firestore.
+    notificationsEnabled: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
@@ -148,6 +155,11 @@ export function recordCategoryHistory(uid, existing, category) {
   return updatePublicProfile(uid, {
     historyCategories: [...new Set([...(existing || []), category])],
   })
+}
+
+/** See the note on the field in createUserProfile for why this is public. */
+export function setNotificationsEnabled(uid, enabled) {
+  return updatePublicProfile(uid, { notificationsEnabled: Boolean(enabled) })
 }
 
 export function saveLocation(uid, location) {

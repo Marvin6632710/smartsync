@@ -254,6 +254,7 @@ async function main() {
       preferredTime: person.preferredTime,
       historyCategories: person.historyCategories,
       anonymous: false,
+      notificationsEnabled: true,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })

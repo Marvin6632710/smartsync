@@ -60,6 +60,7 @@ service cloud.firestore {
         && isTagList(data.historyCategories, 40)
         && data.preferredTime is string
         && data.anonymous is bool
+        && data.notificationsEnabled is bool
         && data.uid == request.auth.uid;
     }
 
@@ -86,11 +87,18 @@ service cloud.firestore {
         // Anyone signed in may notify a user ("Bob joined your activity" has
         // to be written by Bob), but only with a well-formed unread message,
         // so a sender cannot forge a pre-read system notification.
+        //
+        // The recipient's own preference is enforced here rather than left to
+        // the sending client. That is the whole reason `notificationsEnabled`
+        // sits on the public profile: a setting only its owner can read is a
+        // setting nobody else can honour.
         allow create: if signedIn()
           && isString(request.resource.data.title, 120)
           && request.resource.data.body is string
           && request.resource.data.body.size() <= 300
-          && request.resource.data.read == false;
+          && request.resource.data.read == false
+          && get(/databases/$(database)/documents/users/$(uid))
+               .data.notificationsEnabled == true;
         allow update: if isSelf(uid) && touches(['read']);
         allow delete: if isSelf(uid);
       }

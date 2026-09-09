@@ -89,7 +89,13 @@ export function AuthProvider({ children }) {
       // The private half wins where both exist: `realName` is the truth,
       // `name` is only what the world is allowed to see.
       realName: privateProfile?.realName || publicProfile.name,
-      privacy: { ...defaultPrivacy, ...(privateProfile?.privacy || {}) },
+      privacy: {
+        ...defaultPrivacy,
+        ...(privateProfile?.privacy || {}),
+        // Read from the public half — screens should not have to know that
+        // this one setting lives somewhere different from its neighbours.
+        notifications: publicProfile.notificationsEnabled ?? true,
+      },
       location: privateProfile?.location || null,
       onboarded: privateProfile?.onboarded ?? false,
     }

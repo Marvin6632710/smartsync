@@ -50,8 +50,14 @@ digging through git.
   so the 15% history signal finally learns (verified: 49% -> 57% on join)
 - M-02 DONE — Jaccard index for interests and history against named
   compatibilityWeights (70/15/15); the arbitrary floors are gone
-- M-03 DONE — privacy.notifications is now read, gating pushNotification;
-  toasts stay ungated as immediate feedback
+- M-03 DONE — the notification preference is honoured. **Regressed during the
+  Firebase migration and re-fixed on 2026-09-09 with a different design.**
+  Notifications are now written into the *recipient's* inbox by the *sender*,
+  so a preference living in the recipient's private profile had nowhere to
+  run — nobody but its owner could read it. `notificationsEnabled` therefore
+  sits on the public profile, is checked by the sender, and is enforced by the
+  security rules, so "off" means the notification is never written rather than
+  merely hidden. Toasts stay ungated as immediate feedback for your own action.
 - M-04 DONE — notifications store createdAt and render relative ages that
   update each minute; SCHEMA_VERSION bumped to 2 for the shape change
 - M-05 DONE — Search, Map and AI Picks now read filteredActivities, each with

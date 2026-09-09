@@ -3,7 +3,7 @@ import { BellRing, LocateFixed, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useDeviceLocation } from '../hooks/useDeviceLocation'
-import { updatePrivateProfile } from '../firebase/users'
+import { setNotificationsEnabled, updatePrivateProfile } from '../firebase/users'
 
 export default function PermissionPage() {
   const navigate = useNavigate()
@@ -79,7 +79,7 @@ export default function PermissionPage() {
         </button>
         <button
           className="setting-row"
-          onClick={() => setPrivacy({ notifications: !privacy.notifications })}
+          onClick={() => setNotificationsEnabled(user.uid, !privacy.notifications)}
           role="switch"
           aria-checked={privacy.notifications}
         >

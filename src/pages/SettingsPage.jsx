@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
-import { updatePrivateProfile } from '../firebase/users'
+import { setNotificationsEnabled } from '../firebase/users'
 
 export default function SettingsPage() {
   const navigate = useNavigate()
@@ -51,11 +51,7 @@ export default function SettingsPage() {
         </button>
         <button
           className="setting-row"
-          onClick={() =>
-            updatePrivateProfile(user.uid, {
-              privacy: { ...privacy, notifications: !privacy.notifications },
-            })
-          }
+          onClick={() => setNotificationsEnabled(user.uid, !privacy.notifications)}
           role="switch"
           aria-checked={privacy.notifications}
         >
