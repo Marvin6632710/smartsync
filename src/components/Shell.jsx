@@ -34,7 +34,7 @@ const tabs = [
   { to: '/home', label: 'Discover', icon: Compass },
   { to: '/map', label: 'Map', icon: Map },
   { to: '/recommendations', label: 'AI Picks', icon: Sparkles },
-  { to: '/messages', label: 'Inbox', icon: MessageSquare },
+  { to: '/messages', label: 'Messages', icon: MessageSquare },
   { to: '/profile', label: 'Profile', icon: User },
 ]
 
@@ -45,7 +45,7 @@ const routeTitles = {
   activity: 'Activity',
   create: 'Create activity',
   filters: 'Filters',
-  recommendations: 'Recommendations',
+  recommendations: 'AI Picks',
   matching: 'People match',
   messages: 'Messages',
   notifications: 'Notifications',
