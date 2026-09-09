@@ -1,4 +1,6 @@
-import { formatDistance } from '../utils/geo'
+// Explicit extension: Vite resolves either form, but Node's ESM loader does
+// not, and this module is imported directly by scripts/evaluate.mjs.
+import { formatDistance } from '../utils/geo.js'
 
 export const recommendationWeights = {
   interest: 35,
@@ -9,6 +11,37 @@ export const recommendationWeights = {
   behavior: 5,
 }
 
+/**
+ * The six signals, in the order they are presented to a user.
+ *
+ * Exported so the settings screen and the evaluation harness both describe
+ * them the same way, rather than each keeping its own copy of the labels.
+ */
+export const signalLabels = {
+  interest: 'Matches your interests',
+  distance: 'Close to you',
+  time: 'Fits your preferred time',
+  history: 'Like things you have joined',
+  popularity: 'Popular with others',
+  behavior: 'Similar people are going',
+}
+
+/**
+ * Weights are a parameter, not a constant.
+ *
+ * Two things need to vary them: the settings screen, where changing one and
+ * watching the ranking reorder is the clearest way to show what the algorithm
+ * is doing; and the evaluation harness, which zeroes each in turn to measure
+ * what that signal is actually contributing. A module-level constant could
+ * support neither.
+ *
+ * Missing keys fall back to the defaults, so a partially-specified set is
+ * safe rather than silently scoring those signals as zero.
+ */
+function resolveWeights(weights) {
+  return weights ? { ...recommendationWeights, ...weights } : recommendationWeights
+}
+
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value))
 
 // Every comparison in this file is done on lowercased strings, and the values
@@ -17,7 +50,7 @@ const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value))
 // .toLowerCase(). Coercing first is, and it costs nothing.
 const key = (value) => (value === null || value === undefined ? '' : String(value).toLowerCase())
 
-export function calculateRecommendationScore(user, activity) {
+export function calculateRecommendationScore(user, activity, weights) {
   // `activity` is guarded as carefully as `user`. It was only guarded on the
   // category line, so a missing activity threw on the very next read.
   const interests = (user?.interests || []).map(key)
@@ -50,15 +83,20 @@ export function calculateRecommendationScore(user, activity) {
   const popularity = clamp(Math.max(0, participants) / Math.max(capacity, 1))
   const behavior = activity?.similarUsersJoined ? 1 : 0.45
 
+  const w = resolveWeights(weights)
   const weighted =
-    interest * recommendationWeights.interest +
-    distance * recommendationWeights.distance +
-    time * recommendationWeights.time +
-    history * recommendationWeights.history +
-    popularity * recommendationWeights.popularity +
-    behavior * recommendationWeights.behavior
+    interest * w.interest +
+    distance * w.distance +
+    time * w.time +
+    history * w.history +
+    popularity * w.popularity +
+    behavior * w.behavior
 
-  return Math.round(weighted)
+  // Normalised by the weight total rather than assuming it is 100. Once a
+  // user can move the sliders the total is whatever they made it, and an
+  // unnormalised score would drift outside 0-100 and stop meaning "percent".
+  const total = w.interest + w.distance + w.time + w.history + w.popularity + w.behavior
+  return total > 0 ? Math.round((weighted / total) * 100) : 0
 }
 
 export function getRecommendationReasons(user, activity) {
@@ -123,7 +161,7 @@ export function computeSimilarUsersJoined(user, activity, peers = []) {
   })
 }
 
-export function rankActivities(user, activities, peers = []) {
+export function rankActivities(user, activities, peers = [], weights) {
   return [...activities]
     .map((activity) => {
       // Computed before scoring, since both the score and the reasons read it.
@@ -134,7 +172,7 @@ export function rankActivities(user, activities, peers = []) {
 
       return {
         ...enriched,
-        matchScore: calculateRecommendationScore(user, enriched),
+        matchScore: calculateRecommendationScore(user, enriched, weights),
         reasons: getRecommendationReasons(user, enriched),
       }
     })
