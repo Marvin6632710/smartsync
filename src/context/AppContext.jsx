@@ -5,6 +5,7 @@ import {
   initialNotifications,
   initialUser,
   mockActivities,
+  mockUsers,
 } from '../data/mockData'
 
 import { loadStorage, saveStorage } from '../utils/storage'
@@ -220,7 +221,10 @@ export function AppProvider({ children }) {
   // =========================================================
 
   const recommendations = useMemo(() => {
-    return rankActivities(user, activities)
+    // mockUsers is the peer directory the collaborative signal is derived
+    // from. Passed in rather than imported by the service so the scoring
+    // stays pure and testable.
+    return rankActivities(user, activities, mockUsers)
   }, [user, activities])
 
   // =========================================================
@@ -522,8 +526,6 @@ export function AppProvider({ children }) {
       createdBy: 'me',
 
       host: user.name,
-
-      similarUsersJoined: false,
 
       joinedUserIds: ['me'],
 

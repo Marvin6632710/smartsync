@@ -56,18 +56,51 @@ export function getRecommendationReasons(user, activity) {
   if (activity.similarUsersJoined) reasons.push('Similar users are joining')
   if ((activity.participants || 0) / Math.max(activity.capacity || 1, 1) >= 0.6)
     reasons.push('Popular with the community')
-  return reasons.slice(0, 4).length
-    ? reasons.slice(0, 4)
+  // Five, not four: there are exactly five signals, and capping at four
+  // silently hid the collaborative one on the strongest matches — the very
+  // activities where it is most worth showing.
+  return reasons.slice(0, 5).length
+    ? reasons.slice(0, 5)
     : ['Matches your current discovery preferences']
 }
 
-export function rankActivities(user, activities) {
+// A peer counts as "similar" at or above this compatibility. Named so the
+// collaborative signal can be justified rather than eyeballed.
+export const SIMILAR_USER_THRESHOLD = 50
+
+/**
+ * Was this activity joined by anyone actually similar to the user?
+ *
+ * This used to be a boolean hand-typed into mockData, so the collaborative
+ * term of the score was decorative — it never responded to who the user is
+ * or who joined. Derived from real compatibility against the joined peers.
+ */
+export function computeSimilarUsersJoined(user, activity, peers = []) {
+  const joinedPeerIds = (activity?.joinedUserIds || []).filter((id) => id !== 'me')
+  if (joinedPeerIds.length === 0) return false
+
+  return joinedPeerIds.some((id) => {
+    const peer = peers.find((p) => p.id === id)
+    if (!peer) return false
+    return calculateUserCompatibility(user, peer).score >= SIMILAR_USER_THRESHOLD
+  })
+}
+
+export function rankActivities(user, activities, peers = []) {
   return [...activities]
-    .map((activity) => ({
-      ...activity,
-      matchScore: calculateRecommendationScore(user, activity),
-      reasons: getRecommendationReasons(user, activity),
-    }))
+    .map((activity) => {
+      // Computed before scoring, since both the score and the reasons read it.
+      const enriched = {
+        ...activity,
+        similarUsersJoined: computeSimilarUsersJoined(user, activity, peers),
+      }
+
+      return {
+        ...enriched,
+        matchScore: calculateRecommendationScore(user, enriched),
+        reasons: getRecommendationReasons(user, enriched),
+      }
+    })
     .sort((a, b) => b.matchScore - a.matchScore)
 }
 
