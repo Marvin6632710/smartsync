@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { BellRing, LocateFixed, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -24,9 +24,19 @@ export default function PermissionPage() {
     await request()
   }
 
-  const finish = () => {
-    updatePrivateProfile(user.uid, { onboarded: true })
-    navigate('/home', { replace: true })
+  const [finishing, setFinishing] = useState(false)
+
+  // Awaited, not fired-and-forgotten. Routing is gated on `onboarded`, so
+  // navigating before the write lands means the gate still reads false and
+  // bounces straight back to interest selection.
+  const finish = async () => {
+    setFinishing(true)
+    try {
+      await updatePrivateProfile(user.uid, { onboarded: true })
+      navigate('/home', { replace: true })
+    } finally {
+      setFinishing(false)
+    }
   }
 
   return (
@@ -91,8 +101,8 @@ export default function PermissionPage() {
         You can skip location — activities still work, they just will not be sorted by distance.
       </p>
 
-      <button className="primary-button wide" onClick={finish}>
-        {user.onboarded ? 'Done' : 'Enter SmartSync'}
+      <button className="primary-button wide" onClick={finish} disabled={finishing}>
+        {finishing ? 'Setting up…' : user.onboarded ? 'Done' : 'Enter SmartSync'}
       </button>
     </div>
   )

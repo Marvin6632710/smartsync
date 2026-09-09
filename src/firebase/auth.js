@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth'
 
 import { auth } from './config'
+import { ensureUserProfile, updateDisplayName } from './users'
 
 /**
  * Firebase error codes are precise but unreadable ("auth/invalid-credential").
@@ -38,9 +39,20 @@ export function authErrorMessage(error) {
 
 export async function signUp({ email, password, name }) {
   const credential = await createUserWithEmailAndPassword(auth, email.trim(), password)
+  const displayName = String(name || '').trim() || 'New user'
+
   // Kept in sync with the Firestore profile so the Auth record is not a
   // nameless row in the console.
-  if (name) await updateProfile(credential.user, { displayName: name.trim() })
+  await updateProfile(credential.user, { displayName })
+
+  // Creating the account immediately wakes the auth observer, which builds a
+  // profile from `displayName` — still null at that instant, so it produced a
+  // user literally called "New user". Rather than depend on which of the two
+  // wins the race, write the real name here explicitly: ensure the documents
+  // exist, then set the name over whatever the observer may have created.
+  await ensureUserProfile(credential.user.uid, { name: displayName, email: credential.user.email })
+  await updateDisplayName(credential.user.uid, displayName, false)
+
   return credential.user
 }
 
