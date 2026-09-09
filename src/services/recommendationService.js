@@ -71,16 +71,41 @@ export function rankActivities(user, activities) {
     .sort((a, b) => b.matchScore - a.matchScore)
 }
 
+export const compatibilityWeights = {
+  interests: 70,
+  time: 15,
+  history: 15,
+}
+
+/**
+ * Jaccard index: |A ∩ B| / |A ∪ B|. Two empty sets score 0 rather than
+ * NaN — no shared evidence is not the same as perfect agreement.
+ */
+export function jaccardIndex(listA, listB) {
+  const a = new Set((listA || []).map((x) => String(x).toLowerCase()))
+  const b = new Set((listB || []).map((x) => String(x).toLowerCase()))
+  const union = new Set([...a, ...b])
+  if (union.size === 0) return 0
+  const intersection = [...a].filter((x) => b.has(x))
+  return intersection.length / union.size
+}
+
 export function calculateUserCompatibility(currentUser, otherUser) {
   const a = new Set((currentUser?.interests || []).map((x) => x.toLowerCase()))
   const b = new Set((otherUser?.interests || []).map((x) => x.toLowerCase()))
   const shared = [...a].filter((x) => b.has(x))
-  const base = Math.min(70, shared.length * 22)
-  const time = currentUser?.preferredTime === otherUser?.preferredTime ? 15 : 5
-  const activity = (currentUser?.historyCategories || []).some((x) =>
-    (otherUser?.historyCategories || []).includes(x),
-  )
-    ? 15
-    : 7
-  return { score: Math.min(98, base + time + activity), shared }
+
+  // Jaccard rather than a per-match bonus: `shared.length * 22` ignored how
+  // many interests each person has, so someone listing everything scored as
+  // "compatible" with everyone. Dividing by the union penalises that.
+  const interests = jaccardIndex([...a], [...b]) * compatibilityWeights.interests
+  const time =
+    currentUser?.preferredTime && currentUser.preferredTime === otherUser?.preferredTime
+      ? compatibilityWeights.time
+      : 0
+  const history =
+    jaccardIndex(currentUser?.historyCategories, otherUser?.historyCategories) *
+    compatibilityWeights.history
+
+  return { score: Math.round(interests + time + history), shared }
 }
