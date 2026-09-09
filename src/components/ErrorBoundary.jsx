@@ -28,8 +28,10 @@ export default class ErrorBoundary extends React.Component {
   }
 
   handleResetData = () => {
-    // Escape hatch for corrupt persisted state, which is the most likely
-    // cause of a crash that survives a retry.
+    // Only device-local view preferences live here now — accounts, activities
+    // and messages are in Firestore and are untouched by this. It stays as an
+    // escape hatch because a corrupt saved filter is still enough to break a
+    // render, and it is the only local state that can.
     try {
       Object.keys(localStorage)
         .filter((key) => key.startsWith('smartsync:'))
@@ -48,8 +50,8 @@ export default class ErrorBoundary extends React.Component {
         <div className="empty-state">
           <h2>Something went wrong</h2>
           <p>
-            SmartSync hit an unexpected error on this screen. Your saved activities and messages are
-            safe.
+            SmartSync hit an unexpected error on this screen. Your account, activities and messages
+            are stored on the server and are not affected.
           </p>
 
           <div className="button-row wrap">
@@ -57,7 +59,7 @@ export default class ErrorBoundary extends React.Component {
               Try again
             </button>
             <button className="secondary-button" onClick={this.handleResetData}>
-              Reset demo data
+              Reset local settings
             </button>
           </div>
 

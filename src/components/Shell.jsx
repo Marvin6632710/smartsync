@@ -13,6 +13,7 @@ import {
   RotateCcw,
   Sparkles,
   Trash2,
+  WifiOff,
   User,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -75,7 +76,7 @@ function CelebrationToast({ celebration }) {
 export default function Shell() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { notifications, celebration, dataError } = useApp()
+  const { notifications, celebration, dataError, offline } = useApp()
   const { user } = useAuth()
   const unread = notifications.filter((n) => !n.read).length
   const simpleTitle = location.pathname.split('/')[1] || 'home'
@@ -107,6 +108,16 @@ export default function Shell() {
             </button>
           </div>
         </header>
+
+        {/* Offline is a normal state here, not an error: Firestore serves
+            reads from cache and queues writes. Saying so is the difference
+            between "this app still works" and "did my join actually save?" */}
+        {offline && (
+          <div className="offline-banner" role="status">
+            <WifiOff size={15} />
+            <span>Offline — changes will sync when you reconnect.</span>
+          </div>
+        )}
 
         {/* A listener failure used to be invisible: the screens simply showed
             "nothing here", which reads as "there is nothing" rather than "we

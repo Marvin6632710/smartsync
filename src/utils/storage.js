@@ -1,13 +1,17 @@
 const STORAGE_PREFIX = 'smartsync:'
 const VERSION_KEY = `${STORAGE_PREFIX}schemaVersion`
 
-// Bump this whenever a stored shape changes in a way older data can't
-// satisfy (e.g. renamed/removed fields in mockData.js, a changed activity
-// or user shape). A mismatch wipes all smartsync: keys so the app re-seeds
-// from mockData.js instead of crashing or silently misbehaving on stale data.
-// 2 — notifications moved from a hardcoded `time` string to a `createdAt`
-//     timestamp, so stored notifications from v1 have no age to render.
-const SCHEMA_VERSION = 2
+// Since the move to Firestore this file holds exactly one thing: the user's
+// discovery filters, which are a per-device view preference rather than
+// account data. Everything that used to live here — the user, activities,
+// messages, notifications — is now on the server.
+//
+// The version gate is kept because a stored filter shape that no longer
+// matches is still enough to break a render, and wiping one key is cheaper
+// than defending every read of it.
+// 3 — filters lost their `date` field when weekday-name filtering was
+//     replaced by real dates.
+const SCHEMA_VERSION = 3
 
 function ensureSchemaVersion() {
   try {

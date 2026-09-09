@@ -9,7 +9,7 @@ export default function NotFoundPage() {
       <div className="empty-state">
         <Compass size={34} />
         <h2>Page not found</h2>
-        <p>SmartSync could not find this route, but the prototype is still running safely.</p>
+        <p>That page does not exist. Everything else is still running normally.</p>
         <button className="primary-button" onClick={() => navigate('/home')}>
           Back to discovery
         </button>

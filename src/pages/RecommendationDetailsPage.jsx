@@ -26,13 +26,13 @@ export default function RecommendationDetailsPage() {
         <span className="eyebrow">Score</span>
         <strong>{a.matchScore}%</strong>
         <h2>{a.title}</h2>
-        <p>Local SmartSync score.</p>
+        <p>How well this matches your profile.</p>
       </section>
 
       <section className="panel">
         <h3>Reasons</h3>
         <ul className="reason-list">
-          {a.reasons.map((r) => (
+          {(a.reasons || []).map((r) => (
             <li key={r}>
               <Check size={15} />
               {r}
@@ -51,7 +51,7 @@ export default function RecommendationDetailsPage() {
             </div>
           ))}
         </div>
-        <p className="helper-text">Prototype logic only.</p>
+        <p className="helper-text">Every activity is scored against these six signals.</p>
       </section>
     </div>
   )

@@ -53,6 +53,48 @@ export function AppProvider({ children }) {
   const [filters, setFilters] = useState(() => loadStorage('smartsync:filters', defaultFilters))
   const [celebration, setCelebration] = useState(null)
 
+  // A minute-resolution clock. Whether an activity has started is a fact about
+  // the current time, not about the data, so it has to be re-evaluated while
+  // the screen sits open — otherwise a football match that kicked off ten
+  // minutes ago stays advertised as joinable until someone reloads.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(tick)
+  }, [])
+
+  // Firestore keeps working without a connection: reads come from its local
+  // cache and writes queue until it can reach the server. That is genuinely
+  // useful on patchy campus wifi, but it is invisible — a join looks exactly
+  // like a confirmed one — so the state has to be said out loud.
+  const [browserOffline, setBrowserOffline] = useState(
+    () => typeof navigator !== 'undefined' && !navigator.onLine,
+  )
+  // Firestore's own answer to "can I reach the server right now". More
+  // trustworthy than navigator.onLine, which only knows whether a network
+  // interface exists and says nothing about whether the backend is up.
+  // Stays null until the first server response, because before that
+  // `fromCache` only means "we have not heard back yet" — loading, not
+  // offline — and treating it as offline flashes the banner on every start.
+  //
+  // The two signals cover different failures, and their speed differs:
+  // losing the device's connection fires the browser event immediately, while
+  // a server that stops responding on a live network takes about a minute to
+  // surface, since Firestore has to let its connection time out first.
+  // Measured, not assumed.
+  const [serverReachable, setServerReachable] = useState(null)
+  const offline = browserOffline || serverReachable === false
+  useEffect(() => {
+    const goOffline = () => setBrowserOffline(true)
+    const goOnline = () => setBrowserOffline(false)
+    window.addEventListener('offline', goOffline)
+    window.addEventListener('online', goOnline)
+    return () => {
+      window.removeEventListener('offline', goOffline)
+      window.removeEventListener('online', goOnline)
+    }
+  }, [])
+
   useEffect(() => {
     saveStorage('smartsync:filters', filters)
   }, [filters])
@@ -73,14 +115,18 @@ export function AppProvider({ children }) {
     setThreadPreviews({})
     setDataError(null)
     setActivitiesLoaded(false)
+    setServerReachable(null)
   }
 
   useEffect(() => {
     if (!uid) return undefined
     const stops = [
-      watchActivities((next) => {
+      watchActivities((next, meta) => {
         setActivities(next)
         setActivitiesLoaded(true)
+        setServerReachable((previous) =>
+          meta.fromCache ? (previous === null ? null : false) : true,
+        )
       }, setDataError),
       watchPeers(uid, setPeers, setDataError),
       watchNotifications(uid, setNotifications, setDataError),
@@ -155,13 +201,23 @@ export function AppProvider({ children }) {
   // match score and rendered as "--%" in your own list.
   const scored = useMemo(() => rankActivities(user, located, peers), [user, located, peers])
 
-  const visibleActivities = useMemo(
-    () => scored.filter((a) => a.status === 'active' || joinedIds.includes(a.id)),
-    [scored, joinedIds],
+  // Activities are fetched from a day ago onwards so that ones you joined stay
+  // reachable after they happen. That window is a storage decision, not a
+  // product one: something that already started must not be offered as a plan.
+  const timed = useMemo(
+    () => scored.map((a) => ({ ...a, isPast: Number.isFinite(a.startsAt) && a.startsAt < now })),
+    [scored, now],
   )
 
+  const visibleActivities = useMemo(
+    () => timed.filter((a) => a.status === 'active' || joinedIds.includes(a.id)),
+    [timed, joinedIds],
+  )
+
+  // Discovery is upcoming activities only. Past and cancelled ones remain in
+  // `visibleActivities`, so your own history still renders.
   const recommendations = useMemo(
-    () => visibleActivities.filter((a) => a.status === 'active'),
+    () => visibleActivities.filter((a) => a.status === 'active' && !a.isPast),
     [visibleActivities],
   )
 
@@ -224,11 +280,43 @@ export function AppProvider({ children }) {
   }
 
   async function joinActivity(id) {
-    const activity = activities.find((item) => item.id === id)
+    const activity = visibleActivities.find((item) => item.id === id)
     if (!activity || joinedIds.includes(id)) return
+    if (activity.isPast) {
+      pushCelebration({
+        icon: 'alert',
+        tone: 'warning',
+        title: 'This already happened',
+        body: `${activity.title} has already started.`,
+      })
+      return
+    }
+
+    // Not awaited. Firestore applies the write to its local cache immediately,
+    // so the roster on screen has already changed; waiting for the server
+    // means an offline user gets no confirmation at all and then a stale toast
+    // minutes later when the connection returns. Confirm what they can already
+    // see, and correct it if the server disagrees.
+    const pending = joinActivityDoc(id, uid)
+
+    recordCategoryHistory(uid, user.historyCategories, activity.category)
+    notifyUser(activity.hostId, {
+      type: 'activity',
+      title: 'Someone joined',
+      body: `${user.name} joined ${activity.title}.`,
+      activityId: id,
+    })
+    pushCelebration({
+      icon: 'check',
+      tone: 'success',
+      title: offline ? 'Joined — will sync' : 'You are in',
+      body: offline
+        ? `${activity.title} will be confirmed when you reconnect.`
+        : `${activity.title} added to your list.`,
+    })
 
     try {
-      await joinActivityDoc(id, uid)
+      await pending
     } catch (error) {
       // Not routed through `attempt`, because its generic "you do not have
       // permission" is actively misleading here. The rules refuse a join for
@@ -256,25 +344,6 @@ export function AppProvider({ children }) {
       }
       return
     }
-
-    // Joining is the behaviour worth learning from, so record the category.
-    // Leaving deliberately does not un-learn it — you did show interest.
-    recordCategoryHistory(uid, user.historyCategories, activity.category)
-
-    // A real notification to a real other person.
-    notifyUser(activity.hostId, {
-      type: 'activity',
-      title: 'Someone joined',
-      body: `${user.name} joined ${activity.title}.`,
-      activityId: id,
-    })
-
-    pushCelebration({
-      icon: 'check',
-      tone: 'success',
-      title: 'You are in',
-      body: `${activity.title} added to your list.`,
-    })
   }
 
   async function leaveActivity(id) {
@@ -377,6 +446,7 @@ export function AppProvider({ children }) {
   const value = {
     // Signed out is not "still loading" — it is a settled state with no data.
     loading: Boolean(uid) && !activitiesLoaded,
+    offline,
     dataError,
 
     activities: visibleActivities,

@@ -68,7 +68,11 @@ export function watchActivities(callback, onError) {
   const cutoff = Timestamp.fromMillis(Date.now() - HISTORY_WINDOW_MS)
   return onSnapshot(
     query(activitiesRef, where('startsAt', '>=', cutoff), orderBy('startsAt', 'asc')),
-    (snap) => callback(snap.docs.map(normalise)),
+    // includeMetadataChanges so the listener also fires when only the
+    // connection state changes. Without it, going offline is silent until
+    // some document happens to change — which offline it never will.
+    { includeMetadataChanges: true },
+    (snap) => callback(snap.docs.map(normalise), { fromCache: snap.metadata.fromCache }),
     onError,
   )
 }

@@ -30,7 +30,13 @@ export default function ActivityCard({ activity, compact = false }) {
             <CategoryIcon category={activity.category} size={12} />
             {activity.category}
           </span>
-          <span className="match-pill">{activity.matchScore ?? '--'}% match</span>
+          {/* A past activity only ever appears in your own history, where a
+              match score is meaningless — what matters is that it is over. */}
+          {activity.isPast ? (
+            <span className="match-pill ended-pill">Ended</span>
+          ) : (
+            <span className="match-pill">{activity.matchScore ?? '--'}% match</span>
+          )}
         </div>
         <div className="activity-title-block">
           <h3>{activity.title}</h3>

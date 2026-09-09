@@ -4,10 +4,11 @@ import { useNavigate } from 'react-router-dom'
 
 import ActivityCard from '../components/ActivityCard'
 import FiltersEmptyState from '../components/FiltersEmptyState'
+import ActivitiesLoading from '../components/ActivitiesLoading'
 import { useApp } from '../context/AppContext'
 
 export default function RecommendationsPage() {
-  const { filteredActivities } = useApp()
+  const { filteredActivities, loading } = useApp()
   const navigate = useNavigate()
 
   const top = filteredActivities[0]
@@ -81,7 +82,9 @@ export default function RecommendationsPage() {
         </div>
 
         <div className="stack">
-          {filteredActivities.length === 0 ? (
+          {loading ? (
+            <ActivitiesLoading />
+          ) : filteredActivities.length === 0 ? (
             <FiltersEmptyState />
           ) : (
             filteredActivities.map((activity) => (

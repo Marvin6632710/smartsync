@@ -73,7 +73,7 @@ function FlyToMe({ target }) {
 }
 
 export default function MapPage() {
-  const { filteredActivities } = useApp()
+  const { filteredActivities, loading } = useApp()
   const { user } = useAuth()
   const { request, busy } = useDeviceLocation()
   const navigate = useNavigate()
@@ -176,7 +176,7 @@ export default function MapPage() {
           </button>
         )}
 
-        {located.length === 0 && (
+        {!loading && located.length === 0 && (
           <div className="map-empty">
             <FiltersEmptyState body="No activities match your filters, so the map has nothing to show." />
           </div>

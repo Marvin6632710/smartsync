@@ -3,11 +3,12 @@ import { Search } from 'lucide-react'
 import ActivityCard from '../components/ActivityCard'
 import BackButton from '../components/BackButton'
 import FiltersEmptyState from '../components/FiltersEmptyState'
+import ActivitiesLoading from '../components/ActivitiesLoading'
 import { useApp } from '../context/AppContext'
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
-  const { filteredActivities } = useApp()
+  const { filteredActivities, loading } = useApp()
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return filteredActivities
@@ -32,6 +33,7 @@ export default function SearchPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search activity or place"
+          aria-label="Search activities"
         />
       </div>
       <div className="stack list-stack">
@@ -41,7 +43,9 @@ export default function SearchPage() {
 
         {/* Two different dead ends, and conflating them is misleading: the
             filters can hide everything before the query is even considered. */}
-        {filteredActivities.length === 0 ? (
+        {loading ? (
+          <ActivitiesLoading rows={2} />
+        ) : filteredActivities.length === 0 ? (
           <FiltersEmptyState body="Your filters are hiding every activity, so there is nothing to search." />
         ) : (
           results.length === 0 && (

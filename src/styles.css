@@ -2534,3 +2534,138 @@ select:focus-visible {
   color: var(--danger, #dc2626);
   box-shadow: none;
 }
+
+/* ==========================================================================
+   Long-text defence
+   ==========================================================================
+   User-supplied strings have no obligation to contain spaces. A single long
+   word — a URL, a place name, or somebody testing the limits — has no break
+   opportunity, so without this it overflows its card and is clipped at the
+   edge with no ellipsis, which reads as a broken layout rather than long
+   text. `anywhere` rather than `break-word` so it also shrinks the box's
+   min-content width and cannot force a horizontal scrollbar. */
+
+.activity-card h3,
+.activity-card p,
+.meta-grid span,
+.detail-hero h2,
+.detail-hero p,
+.detail-facts span,
+.message-bubble p,
+.message-thread strong,
+.message-thread p,
+.notification-card strong,
+.notification-card p,
+.person-card h3,
+.person-card p,
+.profile-center h2,
+.profile-center p,
+.preview-copy strong,
+.empty-state h3,
+.empty-state p {
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
+   Past activities
+   ========================================================================== */
+
+.past-banner {
+  background: rgba(100, 116, 139, 0.14);
+  color: var(--ink-soft);
+}
+
+.match-pill.ended-pill {
+  background: rgba(100, 116, 139, 0.14);
+  color: var(--ink-soft);
+}
+
+/* ==========================================================================
+   Loading skeletons
+   ========================================================================== */
+
+.card-skeleton {
+  display: grid;
+  gap: 9px;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.skeleton-line {
+  display: block;
+  height: 11px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    rgba(100, 116, 139, 0.1) 25%,
+    rgba(100, 116, 139, 0.18) 37%,
+    rgba(100, 116, 139, 0.1) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-sweep 1.3s ease-in-out infinite;
+}
+
+.skeleton-line.wide {
+  width: 72%;
+  height: 14px;
+}
+.skeleton-line.short {
+  width: 40%;
+}
+
+@keyframes skeleton-sweep {
+  from {
+    background-position: 100% 50%;
+  }
+  to {
+    background-position: 0 50%;
+  }
+}
+
+/* A sweeping gradient is decoration; it must not be forced on anyone who has
+   asked for less motion. The skeleton still communicates "loading" by shape. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line {
+    animation: none;
+  }
+}
+
+/* Visible to screen readers only — the skeleton itself is aria-hidden, so the
+   loading state needs a text equivalent. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Card titles are clamped so one very long title cannot set the height of a
+   whole list. The full title is always shown on the activity's own page. */
+.activity-card h3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Offline is a normal, recoverable state — informational, not alarming, so it
+   is deliberately not styled like the error banner above it. */
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 6px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(100, 116, 139, 0.12);
+  color: var(--ink-soft);
+  font-size: var(--t-tiny);
+  line-height: 1.35;
+}

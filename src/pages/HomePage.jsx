@@ -3,12 +3,13 @@ import { ArrowRight, Filter, Map, Search, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import ActivityCard from '../components/ActivityCard'
 import FiltersEmptyState from '../components/FiltersEmptyState'
+import ActivitiesLoading from '../components/ActivitiesLoading'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const { filteredActivities, recommendations, joinedIds, threadPreviews } = useApp()
+  const { filteredActivities, recommendations, joinedIds, threadPreviews, loading } = useApp()
   const { user } = useAuth()
   const top = recommendations.slice(0, 2)
   const heroPick = recommendations[0]
@@ -142,7 +143,9 @@ export default function HomePage() {
           <span className="count-chip">{filteredActivities.length}</span>
         </div>
         <div className="stack">
-          {filteredActivities.length === 0 ? (
+          {loading ? (
+            <ActivitiesLoading />
+          ) : filteredActivities.length === 0 ? (
             <FiltersEmptyState />
           ) : (
             filteredActivities

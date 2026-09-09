@@ -40,6 +40,7 @@ export default function ActivityDetailsPage() {
   const joined = joinedIds.includes(id)
   const isHost = a.hostId === user.uid
   const isCancelled = a.status === 'cancelled'
+  const isPast = Boolean(a.isPast)
   const fill = Math.max(
     0,
     Math.min(100, Math.round((a.participants / Math.max(a.capacity, 1)) * 100)),
@@ -66,6 +67,9 @@ export default function ActivityDetailsPage() {
         <h2>{a.title}</h2>
         {isCancelled && (
           <p className="cancelled-banner">This activity was cancelled by the host.</p>
+        )}
+        {!isCancelled && isPast && (
+          <p className="cancelled-banner past-banner">This activity has already taken place.</p>
         )}
         <p>{a.description}</p>
         <div className="detail-facts">
@@ -134,7 +138,7 @@ export default function ActivityDetailsPage() {
         </button>
       )}
 
-      {isCancelled ? (
+      {isCancelled || isPast ? (
         <button className="secondary-button wide" onClick={() => navigate(`/activity/${id}/chat`)}>
           <MessageCircle size={18} /> Open chat
         </button>
