@@ -77,13 +77,19 @@ export const compatibilityWeights = {
   history: 15,
 }
 
+// Normalises a list into a comparable set. String() rather than a bare
+// .toLowerCase() so a non-string that reaches us from corrupt persisted
+// state degrades instead of throwing — the same crash-guard reasoning as
+// Q-01 elsewhere in this file.
+const toKeySet = (list) => new Set((list || []).map((x) => String(x).toLowerCase()))
+
 /**
  * Jaccard index: |A ∩ B| / |A ∪ B|. Two empty sets score 0 rather than
  * NaN — no shared evidence is not the same as perfect agreement.
  */
 export function jaccardIndex(listA, listB) {
-  const a = new Set((listA || []).map((x) => String(x).toLowerCase()))
-  const b = new Set((listB || []).map((x) => String(x).toLowerCase()))
+  const a = toKeySet(listA)
+  const b = toKeySet(listB)
   const union = new Set([...a, ...b])
   if (union.size === 0) return 0
   const intersection = [...a].filter((x) => b.has(x))
@@ -91,8 +97,8 @@ export function jaccardIndex(listA, listB) {
 }
 
 export function calculateUserCompatibility(currentUser, otherUser) {
-  const a = new Set((currentUser?.interests || []).map((x) => x.toLowerCase()))
-  const b = new Set((otherUser?.interests || []).map((x) => x.toLowerCase()))
+  const a = toKeySet(currentUser?.interests)
+  const b = toKeySet(otherUser?.interests)
   const shared = [...a].filter((x) => b.has(x))
 
   // Jaccard rather than a per-match bonus: `shared.length * 22` ignored how

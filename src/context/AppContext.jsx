@@ -542,6 +542,22 @@ export function AppProvider({ children }) {
 
     setJoinedIds((previous) => [...new Set([...previous, id])])
 
+    // LEARN FROM IT TOO
+    //
+    // Creating auto-joins, so it has to feed historyCategories the same way
+    // joinActivity does — otherwise hosting a Movies night teaches the
+    // engine nothing while joining someone else's does, and hosting is if
+    // anything the stronger signal of interest.
+
+    if (newActivity.category) {
+      setUser((previous) => ({
+        ...previous,
+        historyCategories: [
+          ...new Set([...(previous.historyCategories || []), newActivity.category]),
+        ],
+      }))
+    }
+
     // CREATE NOTIFICATION
 
     pushNotification({
