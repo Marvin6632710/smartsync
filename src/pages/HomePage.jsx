@@ -1,12 +1,13 @@
 import React from 'react'
-import { ArrowRight, Filter, Map, Search, Sparkles } from 'lucide-react'
+import { ArrowRight, Filter, Map, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import ActivityCard from '../components/ActivityCard'
 import { useApp } from '../context/AppContext'
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const { user, filteredActivities, recommendations, privacy, joinedIds, messages } = useApp()
+  const { user, filteredActivities, recommendations, privacy, joinedIds, messages, resetFilters } =
+    useApp()
   const top = recommendations.slice(0, 2)
   const heroPick = recommendations[0]
   const activeChats = joinedIds.filter((id) => (messages[id] || []).length > 0).length
@@ -139,9 +140,20 @@ export default function HomePage() {
           <span className="count-chip">{filteredActivities.length}</span>
         </div>
         <div className="stack">
-          {filteredActivities.slice(0, 5).map((activity) => (
-            <ActivityCard key={activity.id} activity={activity} compact />
-          ))}
+          {filteredActivities.length === 0 ? (
+            <div className="empty-state">
+              <SlidersHorizontal size={26} />
+              <h3>No activities match your filters</h3>
+              <p>Try widening the distance, or clear the filters to see everything nearby.</p>
+              <button className="secondary-button" onClick={resetFilters}>
+                Clear filters
+              </button>
+            </div>
+          ) : (
+            filteredActivities
+              .slice(0, 5)
+              .map((activity) => <ActivityCard key={activity.id} activity={activity} compact />)
+          )}
         </div>
       </section>
     </div>

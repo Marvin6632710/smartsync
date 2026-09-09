@@ -21,8 +21,10 @@ Work one item at a time, verify the app still runs, commit, then move on.
 - Q-15 DONE — role="switch" + aria-checked added to all 8 toggle rows
 - M-10 DONE — one colour system; inline `<style>` blocks removed from
   MapPage / UserMatchingPage / RecommendationsPage, all colour now from tokens
+- M-11 DONE — empty state when filters match nothing, with a one-tap
+  Clear filters recovery; filter defaults now defined once in AppContext
 
-All Quick items complete, plus M-10. Remaining Medium/Large items are unstarted
+All Quick items complete, plus M-10 and M-11. Remaining Medium/Large items are unstarted
 (verified 2026-09-10: `historyCategories` still absent from AppContext, distance
 still hardcoded to 1.5 km on create, filter chips still inert spans,
 `filteredActivities` still only wired into HomePage, `window.confirm` still in 2

@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { interests } from '../data/mockData'
-import { useApp } from '../context/AppContext'
+import { defaultFilters, useApp } from '../context/AppContext'
 
 export default function FilterPage() {
   const { filters, setFilters } = useApp()
@@ -10,15 +10,8 @@ export default function FilterPage() {
   const navigate = useNavigate()
   const set = (k, v) => setDraft((f) => ({ ...f, [k]: v }))
   const reset = () => {
-    const d = {
-      category: 'All',
-      maxDistance: 10,
-      date: 'Any',
-      timeBand: 'Any',
-      availableOnly: true,
-    }
-    setDraft(d)
-    setFilters(d)
+    setDraft(defaultFilters)
+    setFilters(defaultFilters)
   }
   return (
     <div className="page-content">

@@ -18,6 +18,16 @@ const AppContext = createContext(null)
 // session.
 const MAX_NOTIFICATIONS = 50
 
+// Single source of truth — previously duplicated in the initial state,
+// resetPrototype and FilterPage's own reset.
+export const defaultFilters = {
+  category: 'All',
+  maxDistance: 10,
+  date: 'Any',
+  timeBand: 'Any',
+  availableOnly: true,
+}
+
 export function AppProvider({ children }) {
   // =========================================================
   // USER
@@ -79,15 +89,7 @@ export function AppProvider({ children }) {
   // FILTERS
   // =========================================================
 
-  const [filters, setFilters] = useState(() =>
-    loadStorage('smartsync:filters', {
-      category: 'All',
-      maxDistance: 10,
-      date: 'Any',
-      timeBand: 'Any',
-      availableOnly: true,
-    }),
-  )
+  const [filters, setFilters] = useState(() => loadStorage('smartsync:filters', defaultFilters))
 
   // =========================================================
   // CELEBRATION / POPUP
@@ -639,6 +641,10 @@ export function AppProvider({ children }) {
   // MARK ALL NOTIFICATIONS READ
   // =========================================================
 
+  function resetFilters() {
+    setFilters(defaultFilters)
+  }
+
   function markAllNotificationsRead() {
     setNotifications((previous) =>
       previous.map((notification) => ({ ...notification, read: true })),
@@ -672,17 +678,7 @@ export function AppProvider({ children }) {
       notifications: true,
     })
 
-    setFilters({
-      category: 'All',
-
-      maxDistance: 10,
-
-      date: 'Any',
-
-      timeBand: 'Any',
-
-      availableOnly: true,
-    })
+    setFilters(defaultFilters)
 
     pushCelebration({
       icon: 'rotate',
@@ -738,6 +734,7 @@ export function AppProvider({ children }) {
     // FILTERS
     filters,
     setFilters,
+    resetFilters,
 
     // RESET
     resetPrototype,
