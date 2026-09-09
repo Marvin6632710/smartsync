@@ -1,7 +1,15 @@
 # SmartSync — Fix List
 
-Working checklist for the SP1 final defence. ~2 weeks.
+Working checklist for the SP1 final defence (Wed 23 Sep 2026).
 Work one item at a time, verify the app still runs, commit, then move on.
+
+Four tiers now. **Quick / Medium / Large** are application work — UI, logic
+and the recommendation engine. **Backend & operations (B)** and **Evaluation
+& deliverables (D)** cover everything that is not code you write in `src/`,
+which the original list had nowhere to track.
+
+Phasing and dates live in [ROADMAP.md](ROADMAP.md). Why the architecture is
+the way it is lives in [DECISIONS.md](DECISIONS.md).
 
 ## Status
 
@@ -15,7 +23,7 @@ Large: L-01, L-04 and L-06 are done; L-02, L-03 and L-05 remain.
 > resolved by that migration rather than as standalone fixes; those say so.
 > See the "Backend migration" section below, and README.md for how to run it.
 
-The list below is a changelog of *what* each fix actually changed, not a
+The list below is a changelog of _what_ each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
 digging through git.
 
@@ -59,7 +67,7 @@ digging through git.
   nothing could back ("Unread", with no per-thread read state) were dropped
   rather than left as controls that could never tell the truth.
 - L-01 DONE — location permission is the browser's own prompt, and the
-  position is really stored. "Approximate location" rounds to ~1 km *before*
+  position is really stored. "Approximate location" rounds to ~1 km _before_
   storing, so the precise fix never leaves the device.
 - L-04 DONE — 41 tests over the recommendation service, including fuzzing.
 - L-06 DONE — README rewritten against the real application.
@@ -104,6 +112,7 @@ three. Details in README.md; the parts worth knowing here:
   before `updateProfile` had set the display name).
 
 ### Also done, not on the original list
+
 - **react-router-dom v6 → v7** — fixes 2 moderate CVEs (open redirect via
   backslash in Link/useNavigate; constructor injection in SSR hydration).
   `npm audit` now reports 0 vulnerabilities.
@@ -126,47 +135,78 @@ three. Details in README.md; the parts worth knowing here:
 Q-01 to Q-03 predate this table (see the changelog above); they are done too.
 All Quick items are complete.
 
-| # | Status | Fix | Time |
-|---|---|---|---|
-| Q-04 | **DONE** | **Host can leave own activity** — orphans it; your name stays as host. Hide Leave when `createdBy === 'me'`; offer Cancel/Delete instead. | 10 min |
-| Q-05 | **DONE** | **Edit Profile lets you remove every interest** — onboarding demands 3, the editor allows 0. Wrecks scoring. Add the same minimum. | 10 min |
+| #    | Status   | Fix                                                                                                                                                    | Time   |
+| ---- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| Q-04 | **DONE** | **Host can leave own activity** — orphans it; your name stays as host. Hide Leave when `createdBy === 'me'`; offer Cancel/Delete instead.              | 10 min |
+| Q-05 | **DONE** | **Edit Profile lets you remove every interest** — onboarding demands 3, the editor allows 0. Wrecks scoring. Add the same minimum.                     | 10 min |
 | Q-06 | **DONE** | **Capacity can drop below participants** — edit an 8-person activity to capacity 2 and it reads "Full" at 8/2. Floor capacity at current participants. | 10 min |
-| Q-07 | **DONE** | **`timeBand` not editable** — missing from EditActivityPage, though it's 15% of the score. | 15 min |
-| Q-08 | **DONE** | **Storage versioning** — changes to mockData.js are invisible to anyone with old localStorage. Add SCHEMA_VERSION; discard and re-seed on mismatch. | 15 min |
-| Q-09 | **DONE** | **Prettier across the project** — 8 files are single-line, 3 are hugely spread out. Do in its own commit, before other logic changes. | 15 min |
-| Q-10 | **DONE** | **Chat doesn't scroll to newest message** — add ref + scrollIntoView in ChatPage. | 15 min |
-| Q-11 | **DONE** | **Mark-all-read missing** — bell badge only clears by opening every item. | 15 min |
-| Q-12 | **DONE** | **Dead Profile controls** — promo card + 2 icon buttons with no handlers. Wire or delete. | 10 min |
-| Q-13 | **DONE** | **No keyboard handlers** — 3 `role="button"` divs, zero onKeyDown in the project. | 15 min |
-| Q-14 | **DONE** | **Notification list grows forever** — never trimmed. | 15 min |
-| Q-15 | **DONE** | **Switches have no ARIA** — 6 toggles, none with role="switch" or aria-checked. | 15 min |
+| Q-07 | **DONE** | **`timeBand` not editable** — missing from EditActivityPage, though it's 15% of the score.                                                             | 15 min |
+| Q-08 | **DONE** | **Storage versioning** — changes to mockData.js are invisible to anyone with old localStorage. Add SCHEMA_VERSION; discard and re-seed on mismatch.    | 15 min |
+| Q-09 | **DONE** | **Prettier across the project** — 8 files are single-line, 3 are hugely spread out. Do in its own commit, before other logic changes.                  | 15 min |
+| Q-10 | **DONE** | **Chat doesn't scroll to newest message** — add ref + scrollIntoView in ChatPage.                                                                      | 15 min |
+| Q-11 | **DONE** | **Mark-all-read missing** — bell badge only clears by opening every item.                                                                              | 15 min |
+| Q-12 | **DONE** | **Dead Profile controls** — promo card + 2 icon buttons with no handlers. Wire or delete.                                                              | 10 min |
+| Q-13 | **DONE** | **No keyboard handlers** — 3 `role="button"` divs, zero onKeyDown in the project.                                                                      | 15 min |
+| Q-14 | **DONE** | **Notification list grows forever** — never trimmed.                                                                                                   | 15 min |
+| Q-15 | **DONE** | **Switches have no ARIA** — 6 toggles, none with role="switch" or aria-checked.                                                                        | 15 min |
 
 ## Medium — 30–90 min each
 
-| # | Status | Fix | Time |
-|---|---|---|---|
-| M-01 | **DONE** | **Close the learning loop** — joining never updates `historyCategories`, which drives 15% of the score. Push category on join. | 30 min |
-| M-02 | **DONE** | **Jaccard similarity** — replace magic numbers (`shared.length * 22`, caps at 70/98) in `calculateUserCompatibility`. | 30 min |
-| M-03 | **DONE** | **Enforce `privacy.notifications`** — saved, never read. Gate every setNotifications push. | 30 min |
-| M-04 | **DONE** | **Static timestamps** — notifications say "Now" forever. | 45 min |
-| M-05 | **DONE** | **Filters only affect one section of one page** — wire `filteredActivities` into Search, Map, AI Picks. | 45 min |
-| M-06 | **DONE** | **Distance field on create** — every created activity is hardcoded 1.5 km, and 20% of the score is distance. | 45 min |
+| #    | Status   | Fix                                                                                                                                                             | Time   |
+| ---- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| M-01 | **DONE** | **Close the learning loop** — joining never updates `historyCategories`, which drives 15% of the score. Push category on join.                                  | 30 min |
+| M-02 | **DONE** | **Jaccard similarity** — replace magic numbers (`shared.length * 22`, caps at 70/98) in `calculateUserCompatibility`.                                           | 30 min |
+| M-03 | **DONE** | **Enforce `privacy.notifications`** — saved, never read. Gate every setNotifications push.                                                                      | 30 min |
+| M-04 | **DONE** | **Static timestamps** — notifications say "Now" forever.                                                                                                        | 45 min |
+| M-05 | **DONE** | **Filters only affect one section of one page** — wire `filteredActivities` into Search, Map, AI Picks.                                                         | 45 min |
+| M-06 | **DONE** | **Distance field on create** — every created activity is hardcoded 1.5 km, and 20% of the score is distance.                                                    | 45 min |
 | M-07 | **DONE** | **Compute `similarUsersJoined`** — currently a hand-typed boolean; the collaborative signal is fake. Derive from calculateUserCompatibility over joinedUserIds. | 60 min |
-| M-08 | **DONE** | **Replace `window.confirm`** — native dialog breaks the phone illusion. | 60 min |
-| M-09 | **DONE** | **Wire Messages/Notifications filter chips** — currently inert spans. | 60 min |
-| M-10 | **DONE** | **Consolidate the two colour systems** — styles.css vars vs hardcoded hex in MapPage / UserMatchingPage / RecommendationsPage. | 90 min |
-| M-11 | **DONE** | **Empty state when filters match nothing** | 20 min |
+| M-08 | **DONE** | **Replace `window.confirm`** — native dialog breaks the phone illusion.                                                                                         | 60 min |
+| M-09 | **DONE** | **Wire Messages/Notifications filter chips** — currently inert spans.                                                                                           | 60 min |
+| M-10 | **DONE** | **Consolidate the two colour systems** — styles.css vars vs hardcoded hex in MapPage / UserMatchingPage / RecommendationsPage.                                  | 90 min |
+| M-11 | **DONE** | **Empty state when filters match nothing**                                                                                                                      | 20 min |
 
 ## Large — 2+ hrs each
 
-| # | Status | Fix | Time |
-|---|---|---|---|
-| L-01 | **DONE** | **Enforce location permission + approximate location** — real browser permission prompt; approximate rounds to ~1 km before storing. | 2 hrs |
-| L-02 | todo | **Tunable weights panel** — makes the algorithm inspectable and demoable. | 2 hrs |
-| L-03 | partial | **Timestamps + chat expiry** — timestamps are real server timestamps; retention/expiry is not implemented, and the Privacy page no longer promises it. | 3 hrs |
-| L-04 | **DONE** | **Tests over the recommendation service** — 41 tests including a fuzzer, which found a real crash on non-string category data. | 3 hrs |
-| L-05 | todo | **Evaluation vs random and interest-only baselines** — the answer to "how do you know it works". | 4 hrs |
-| L-06 | **DONE** | **README rewrite to match reality** — now documents the real architecture, the data and security models, and how to run it. | 1 hr |
+| #    | Status   | Fix                                                                                                                                                    | Time  |
+| ---- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
+| L-01 | **DONE** | **Enforce location permission + approximate location** — real browser permission prompt; approximate rounds to ~1 km before storing.                   | 2 hrs |
+| L-02 | todo     | **Tunable weights panel** — makes the algorithm inspectable and demoable.                                                                              | 2 hrs |
+| L-03 | partial  | **Timestamps + chat expiry** — timestamps are real server timestamps; retention/expiry is not implemented, and the Privacy page no longer promises it. | 3 hrs |
+| L-04 | **DONE** | **Tests over the recommendation service** — 41 tests including a fuzzer, which found a real crash on non-string category data.                         | 3 hrs |
+| L-05 | todo     | **Evaluation vs random and interest-only baselines** — the answer to "how do you know it works".                                                       | 4 hrs |
+| L-06 | **DONE** | **README rewrite to match reality** — now documents the real architecture, the data and security models, and how to run it.                            | 1 hr  |
+
+## Backend & operations
+
+Not application code. Several of these can only be done by a human with a
+Google account — marked **you**. B-01 to B-03 block everything else: deploy
+on day one while a broken deployment is cheap to fix.
+
+| #    | Status | Task                                                                                                                                                                                                                 | Owner   |
+| ---- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| B-01 | todo   | **Create the Firebase project** — enable Email/Password auth, create Firestore in `asia-southeast1`. README §3.                                                                                                      | **you** |
+| B-02 | todo   | **Publish security rules to production** — `npm run deploy:rules`. Rules behave differently against a real project than an emulator; verify before trusting them.                                                    | **you** |
+| B-03 | todo   | **First production deploy** — `npm run deploy`, confirm the live URL loads and sign-up works.                                                                                                                        | **you** |
+| B-04 | todo   | **Real-device verification** — iPhone Safari and one Android. `100dvh`, date/time inputs, the geolocation prompt and the keyboard covering inputs all differ from Chromium. Largest untested surface in the project. | **you** |
+| B-05 | todo   | **Seed a realistic production dataset** — 15–20 activities across all categories over the coming fortnight, at real Bangkok locations. Three activities looks like a prototype however good the code is.             |         |
+| B-06 | todo   | **Network failure states** — Firestore queues writes offline; confirm the UI reads as deliberate rather than broken, and that nothing spins forever.                                                                 |         |
+| B-07 | todo   | **Quota sanity check** — Spark plan allows 50k reads/day. Confirm a demo session is nowhere near it, and don't leave tabs holding listeners open overnight.                                                          |         |
+| B-08 | todo   | **Data export** — `firebase firestore:export` before the defence, so a bad write is recoverable.                                                                                                                     |         |
+| B-09 | todo   | **Accessibility sweep** — keyboard-only run through the main flow plus a contrast check. Cheap, and often explicitly on the rubric.                                                                                  |         |
+
+## Evaluation & deliverables
+
+The written and demonstrated work. D-01 is the highest-value remaining item
+in the entire project.
+
+| #    | Status | Task                                                                                                                                                                                                                                                            | Time   |
+| ---- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| D-01 | todo   | **Algorithm evaluation → `EVALUATION.md`** (same as L-05). Synthetic population with known preferences; compare random vs interest-only vs the full weighted model on precision@5 and MRR; add a per-signal ablation. The answer to "how do you know it works". | 4 hrs  |
+| D-02 | todo   | **Written demo script, rehearsed three times, timed.** Which account, which activity, which two windows, in what order. Improvising the click path is the most common way a good project demos badly.                                                           | 2 hrs  |
+| D-03 | todo   | **Recorded backup demo video** — so a wifi failure at the venue does not become a failed defence.                                                                                                                                                               | 1 hr   |
+| D-04 | todo   | **Report and slides** to the department template. Check the brief for required artefacts (SRS, UML, test matrix) — most can be pulled straight out of this repo.                                                                                                | —      |
+| D-05 | todo   | **Read `DECISIONS.md` before walking in.** It is written against the questions a panel actually asks.                                                                                                                                                           | 30 min |
 
 ---
 
@@ -178,7 +218,7 @@ All Quick items are complete.
   (evaluation against random and interest-only baselines) is the strongest
   remaining item — it is the answer to "how do you know it works".
 - Privacy is the stated differentiator and the controls are now real. Be
-  ready to explain *why* the public/private split exists: Firestore has no
+  ready to explain _why_ the public/private split exists: Firestore has no
   field-level read rules, so separate documents are the only way to make it
   enforceable rather than cosmetic.
 - Score floor is ~40% because every signal has a non-zero fallback. Be ready
