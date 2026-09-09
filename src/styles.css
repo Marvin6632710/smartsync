@@ -1356,10 +1356,25 @@ select:focus-visible {
   align-items: center;
   gap: 12px;
 }
+/* A 1fr grid track defaults to min-width:auto, so a long title or message
+   preview refuses to shrink and pushes the trailing column (the timestamp)
+   outside the card. These let the text column shrink and truncate instead. */
+.nomad-thread > div,
+.nomad-note > div {
+  min-width: 0;
+}
+.nomad-thread > span,
+.nomad-note > small {
+  white-space: nowrap;
+}
 .nomad-thread strong,
 .nomad-note strong {
+  display: block;
   font-size: var(--t-h3);
   font-weight: var(--w-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .nomad-thread p,
 .nomad-note p {
