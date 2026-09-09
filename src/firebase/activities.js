@@ -3,7 +3,9 @@ import {
   arrayRemove,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -11,6 +13,7 @@ import {
   Timestamp,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore'
 
 import { db } from './config'
@@ -146,10 +149,46 @@ export function leaveActivity(activityId, uid) {
 }
 
 /**
+ * Rewrites the host's name and avatar on every activity they host.
+ *
+ * Those two fields are copied onto the activity so a list can be rendered
+ * without resolving every host, and a copy that is never refreshed goes stale
+ * the moment the original changes. That was not merely untidy: turning on
+ * anonymous mode rewrote the profile document but left the real name sitting
+ * on each hosted activity, readable by any signed-in stranger. The privacy
+ * setting was doing half of what it claimed.
+ *
+ * Batched, so either every activity is updated or none is — a partial sweep
+ * would leave anonymity applied to some of a person's activities and not
+ * others, which is arguably worse than not applying it at all.
+ */
+export async function syncHostIdentity(uid, { name, avatar }) {
+  const mine = await getDocs(query(activitiesRef, where('hostId', '==', uid)))
+  if (mine.empty) return
+  const batch = writeBatch(db)
+  mine.docs.forEach((entry) =>
+    batch.update(entry.ref, { hostName: name, hostAvatar: avatar, updatedAt: serverTimestamp() }),
+  )
+  await batch.commit()
+}
+
+/**
  * Hosts cancel rather than delete. See firestore.rules — a hard delete would
  * orphan the message subcollection and erase the chat history of everyone who
  * had joined.
  */
+/**
+ * Removes an activity nobody else joined.
+ *
+ * Distinct from cancelling: with only the host on the roster there is nobody
+ * whose plans are being changed and nothing to announce, so leaving a
+ * tombstone in everyone's history would be noise. The rules allow this only
+ * while the host is the sole participant.
+ */
+export function deleteActivity(activityId) {
+  return deleteDoc(activityDoc(activityId))
+}
+
 export function cancelActivity(activityId) {
   return updateDoc(activityDoc(activityId), {
     status: 'cancelled',

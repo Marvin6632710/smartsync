@@ -250,10 +250,14 @@ determined user can call Firestore directly without going through the UI:
 - Your email, your real name while anonymous mode is on, and your stored
   position live in a document nobody else can read. Firestore has no
   field-level read rules, so this separation is the only way to make it real
-  rather than cosmetic.
+  rather than cosmetic. Turning on anonymous mode also rewrites the copy of
+  your name held on every activity you host — see ADR-005, including what it
+  deliberately does not cover.
 - Only a host can edit their activity, and they cannot add participants,
   invent a roster, hand the activity to somebody else, or cut capacity below
-  the people already in.
+  the people already in. A host can delete an activity only while nobody else
+  has joined; once anyone has, it can only be cancelled, so their plans and
+  chat history survive.
 - You can only add or remove _yourself_ from a roster, only once (duplicates
   are rejected, or one person could take every seat), and only if there is
   room and the activity is still active.
@@ -328,3 +332,5 @@ Honest about what is not there:
 - **Chat is closed, not deleted.** After 30 days nobody can read a thread, but
   the documents still exist. Real deletion needs a scheduled job, which on
   Firebase means Cloud Functions and the paid plan.
+- **Anonymity is not retroactive for chat.** It covers your profile and the
+  activities you host, but messages keep the name they were sent under.

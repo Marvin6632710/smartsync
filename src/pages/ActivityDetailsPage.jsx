@@ -12,7 +12,8 @@ import { formatActivityDate, formatClock } from '../utils/time'
 export default function ActivityDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { activities, joinedIds, joinActivity, leaveActivity, cancelActivity } = useApp()
+  const { activities, joinedIds, joinActivity, leaveActivity, cancelActivity, removeActivity } =
+    useApp()
   const { user } = useAuth()
   // Declared before the not-found early return: hooks must run
   // unconditionally on every render.
@@ -41,6 +42,9 @@ export default function ActivityDetailsPage() {
   const isHost = a.hostId === user.uid
   const isCancelled = a.status === 'cancelled'
   const isPast = Boolean(a.isPast)
+  // Nobody else has joined, so there is nobody to notify — this is a removal,
+  // not a cancellation, and calling it "cancel" would overstate what happened.
+  const isEmpty = (a.participantUids || []).length <= 1
   const fill = Math.max(
     0,
     Math.min(100, Math.round((a.participants / Math.max(a.capacity, 1)) * 100)),
@@ -48,7 +52,8 @@ export default function ActivityDetailsPage() {
 
   const confirmCancel = () => {
     setCancelOpen(false)
-    cancelActivity(id)
+    if (isEmpty) removeActivity(id)
+    else cancelActivity(id)
     navigate('/home')
   }
 
@@ -148,7 +153,7 @@ export default function ActivityDetailsPage() {
             <MessageCircle size={18} /> Open chat
           </button>
           <button className="danger-button wide" onClick={() => setCancelOpen(true)}>
-            Cancel activity
+            {isEmpty ? 'Delete activity' : 'Cancel activity'}
           </button>
         </div>
       ) : joined ? (
@@ -172,9 +177,13 @@ export default function ActivityDetailsPage() {
 
       <ConfirmDialog
         open={cancelOpen}
-        title="Cancel this activity?"
-        body={`Everyone who joined ${a.title} will be told it is off. The chat stays available to them.`}
-        confirmLabel="Cancel activity"
+        title={isEmpty ? 'Delete this activity?' : 'Cancel this activity?'}
+        body={
+          isEmpty
+            ? `Nobody else has joined ${a.title}, so it will simply be removed.`
+            : `Everyone who joined ${a.title} will be told it is off. The chat stays available to them.`
+        }
+        confirmLabel={isEmpty ? 'Delete' : 'Cancel activity'}
         cancelLabel="Keep it"
         tone="danger"
         onConfirm={confirmCancel}

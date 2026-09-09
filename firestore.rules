@@ -130,6 +130,11 @@ service cloud.firestore {
         && data.lat is number && data.lat >= -90 && data.lat <= 90
         && data.lng is number && data.lng >= -180 && data.lng <= 180
         && data.capacity is int && data.capacity >= 2 && data.capacity <= 500
+        // Every query for activities filters on startsAt, so a document
+        // without one is invisible to the app but still occupies the
+        // collection. An integrity sweep found exactly that, written through
+        // the REST API while the rules were not looking for it.
+        && data.startsAt is timestamp
         && data.timeBand is string
         && isTagList(data.tags, 10)
         && data.status in ['active', 'cancelled']
@@ -216,12 +221,22 @@ service cloud.firestore {
         )
       );
 
-      // No hard delete. Deleting the activity document would strand its
-      // messages subcollection as unreachable orphans, and would erase the
-      // chat history of everyone who joined. Hosts cancel instead (a status
-      // change through the host-edit branch above), which removes it from
-      // discovery while leaving it intact for the people who were going.
-      allow delete: if false;
+      // A host may delete an activity that never got going — one where they
+      // are still the only person on the roster. There is nobody whose plans
+      // it would erase and, in practice, no conversation to strand.
+      //
+      // Anything anyone else has joined must be cancelled instead. Deleting
+      // it would leave the messages subcollection unreachable (deleting a
+      // document does not delete what lives beneath it) and would take other
+      // people's chat history with it. See ADR-004.
+      //
+      // Residual risk, stated rather than hidden: a host who posted messages
+      // to their own empty activity and then deleted it orphans those
+      // messages. That is a negligible amount of data and only ever their
+      // own words.
+      allow delete: if signedIn()
+        && resource.data.hostId == request.auth.uid
+        && resource.data.participantUids == [request.auth.uid];
 
       // ----------------------------------------------------------- messages
 

@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext'
 import {
   cancelActivity as cancelActivityDoc,
   createActivity as createActivityDoc,
+  deleteActivity as deleteActivityDoc,
   joinActivity as joinActivityDoc,
   leaveActivity as leaveActivityDoc,
   updateActivity as updateActivityDoc,
@@ -200,13 +201,31 @@ export function AppProvider({ children }) {
   // Distance is computed from where the user actually is, not typed into a
   // form. Unknown location leaves distanceKm null, which the scorer treats as
   // "no information" rather than "zero kilometres away".
+  // Everyone whose profile we hold, including ourselves.
+  const directory = useMemo(() => {
+    const map = new Map()
+    if (user) map.set(user.uid, user)
+    peers.forEach((peer) => map.set(peer.uid, peer))
+    return map
+  }, [user, peers])
+
   const located = useMemo(() => {
     const from = user?.location || null
-    return activities.map((activity) => ({
-      ...activity,
-      distanceKm: from ? distanceBetween(from, { lat: activity.lat, lng: activity.lng }) : null,
-    }))
-  }, [activities, user?.location])
+    return activities.map((activity) => {
+      const host = directory.get(activity.hostId)
+      return {
+        ...activity,
+        // The host's name and avatar are copied onto the activity so a list
+        // renders without resolving every host. The copy is swept when
+        // someone renames or goes anonymous, but preferring the live profile
+        // here means the screen is right even in the window before that sweep
+        // lands — and right anyway if it ever fails.
+        hostName: host?.name || activity.hostName,
+        hostAvatar: host?.avatar || activity.hostAvatar,
+        distanceKm: from ? distanceBetween(from, { lat: activity.lat, lng: activity.lng }) : null,
+      }
+    })
+  }, [activities, directory, user?.location])
 
   // Scored once, over everything. Previously only active activities were
   // ranked, so an activity you had joined and the host then cancelled lost its
@@ -397,6 +416,25 @@ export function AppProvider({ children }) {
     })
   }
 
+  /**
+   * Removes an activity nobody else joined. Cancelling is for activities with
+   * other people in them, where the point is that they are told; here there
+   * is nobody to tell, so a cancelled tombstone would just be clutter in the
+   * host's own history.
+   */
+  async function removeActivity(id) {
+    const activity = activities.find((item) => item.id === id)
+    if (!activity || activity.hostId !== uid) return
+    const ok = await attempt(() => deleteActivityDoc(id), { failure: "Couldn't delete" })
+    if (ok === null) return
+    pushCelebration({
+      icon: 'trash',
+      tone: 'danger',
+      title: 'Activity deleted',
+      body: `${activity.title} was removed.`,
+    })
+  }
+
   async function createActivity(data) {
     const id = await attempt(() => createActivityDoc(user, data), {
       failure: "Couldn't create activity",
@@ -473,6 +511,7 @@ export function AppProvider({ children }) {
     joinActivity,
     leaveActivity,
     cancelActivity,
+    removeActivity,
     createActivity,
     updateActivity,
 

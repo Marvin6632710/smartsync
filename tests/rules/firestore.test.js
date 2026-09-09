@@ -165,11 +165,23 @@ describe('activity ownership', () => {
     await assertFails(updateDoc(doc(asBob(), 'activities', 'act1'), { title: 'Hijacked' }))
   })
 
-  test('nobody can hard-delete an activity, not even its host', async () => {
-    // Deleting would strand the message subcollection and erase the chat
-    // history of everyone who joined. Hosts cancel instead.
-    await assertFails(deleteDoc(doc(asBob(), 'activities', 'act1')))
+  test('a host can delete an activity nobody else joined', async () => {
+    await assertSucceeds(deleteDoc(doc(asAlice(), 'activities', 'act1')))
+  })
+
+  test('a host cannot delete one that other people joined', async () => {
+    // Their plans and their chat history are not the host's to erase.
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'activities', 'act1'),
+        activityFixture(ALICE, { participantUids: [ALICE, BOB] }),
+      )
+    })
     await assertFails(deleteDoc(doc(asAlice(), 'activities', 'act1')))
+  })
+
+  test('a non-host cannot delete an activity', async () => {
+    await assertFails(deleteDoc(doc(asBob(), 'activities', 'act1')))
   })
 
   test('the host can cancel their activity', async () => {
@@ -217,6 +229,8 @@ describe('activity field validation', () => {
   test('rejects absurd capacity', () => rejects({ capacity: 100000 }))
   test('rejects an unknown status', () => rejects({ status: 'promoted' }))
   test('rejects an off-vocabulary category', () => rejects({ category: 'Knitting' }))
+  test('rejects an activity with no start time', () => rejects({ startsAt: null }))
+  test('rejects a start time that is not a timestamp', () => rejects({ startsAt: '2030-01-01' }))
   test('rejects a category carrying an HTML payload', () =>
     // This exact string escaped a Leaflet marker's data-category attribute.
     rejects({ category: '" onmouseover=alert(1) x="' }))

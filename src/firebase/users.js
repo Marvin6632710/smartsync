@@ -9,6 +9,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 
+import { syncHostIdentity } from './activities'
 import { db } from './config'
 
 export const ANONYMOUS_NAME = 'Anonymous user'
@@ -125,13 +126,14 @@ export function updatePrivateProfile(uid, patch) {
 
 /** Renaming has to land in both documents at once, or they disagree. */
 export async function updateDisplayName(uid, realName, anonymous) {
+  const identity = publicIdentity({ realName, anonymous })
   const batch = writeBatch(db)
-  batch.update(publicDoc(uid), {
-    ...publicIdentity({ realName, anonymous }),
-    updatedAt: serverTimestamp(),
-  })
+  batch.update(publicDoc(uid), { ...identity, updatedAt: serverTimestamp() })
   batch.set(privateDoc(uid), { realName }, { merge: true })
   await batch.commit()
+  // The activities carry their own copy of the name; without this a rename
+  // is visible on the profile and nowhere else.
+  await syncHostIdentity(uid, identity)
 }
 
 /**
@@ -139,14 +141,14 @@ export async function updateDisplayName(uid, realName, anonymous) {
  * the setting real: the name genuinely leaves the readable document.
  */
 export async function setAnonymousMode(uid, anonymous, realName) {
+  const identity = publicIdentity({ realName, anonymous })
   const batch = writeBatch(db)
-  batch.update(publicDoc(uid), {
-    ...publicIdentity({ realName, anonymous }),
-    anonymous,
-    updatedAt: serverTimestamp(),
-  })
+  batch.update(publicDoc(uid), { ...identity, anonymous, updatedAt: serverTimestamp() })
   batch.set(privateDoc(uid), { privacy: { anonymousMode: anonymous } }, { merge: true })
   await batch.commit()
+  // Without this the setting is cosmetic: the profile says "Anonymous user"
+  // while every activity the person hosts still carries their real name.
+  await syncHostIdentity(uid, identity)
 }
 
 /** Records a category the user engaged with, feeding the history signal. */

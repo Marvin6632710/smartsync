@@ -97,8 +97,9 @@ plan, reintroducing exactly the billing dependency ADR-002 avoided).
 
 **Context.** A host needs to be able to call off an activity.
 
-**Decision.** Cancelling sets `status: 'cancelled'`. `allow delete` is
-`false` for everyone, including the host.
+**Decision.** Cancelling sets `status: 'cancelled'`. A host may hard-delete an
+activity **only while they are still the only person on the roster**;
+anything anyone else has joined can only be cancelled.
 
 **Why.** Deleting a Firestore document does not delete its subcollections. A
 deleted activity would strand its `messages` subcollection as documents no
@@ -106,13 +107,22 @@ rule can reach — unreachable, undeletable, and still counting against
 storage. It would also erase the chat history of everyone who had joined,
 which is their conversation as much as the host's.
 
+The narrow delete exists because "I created this by mistake" is a real thing
+people do, and leaving a cancelled tombstone in their own history for an
+activity nobody ever saw is noise rather than a record.
+
 **Cost.** Cancelled activities accumulate forever. The discovery query
 already filters them out and only fetches from the last day onwards, so this
 is a storage question, not a correctness one — but a production system would
-need an archival job.
+need an archival job. And a host who posted messages to their own empty
+activity before deleting it orphans those messages: a negligible amount of
+data, and only ever their own words, but it is a real hole in the guarantee
+rather than none.
 
-**Rejected.** Recursive client-side delete (racy, and rules would have to
-permit message deletion, breaking the append-only guarantee).
+**Rejected.** Blanket `allow delete: if false` — safest, but it meant a
+mistyped activity could never be removed, only tombstoned. Recursive
+client-side delete (racy, and rules would have to permit message deletion,
+breaking the append-only guarantee).
 
 ---
 
@@ -134,11 +144,21 @@ private fields in a different document. Doing anonymity at render time
 instead would be theatre: anyone can read the database directly and would see
 the real name sitting there.
 
-**Cost.** Two documents to keep in step. Renaming and toggling anonymity are
-therefore batched writes, and the sign-in path has to wait for both halves
-before routing (a bug found the hard way).
+**Cost.** Several places to keep in step, and the audit above shows how easy
+one is to miss. Renaming and toggling anonymity are batched writes plus a
+sweep of the host's activities, and the sign-in path has to wait for both
+profile halves before routing (a bug found the hard way).
 
-**Rejected.** Hiding fields in the UI (cosmetic, not privacy).
+**Not covered, deliberately.** Messages keep the sender name they were sent
+with. Going anonymous does not rewrite what you already said, because a
+conversation is a record of who said what at the time, and silently rewriting
+history would be a worse property than the one it fixes. Anonymity applies to
+your profile, your hosted activities, and everything you do from then on.
+
+**Rejected.** Hiding fields in the UI (cosmetic, not privacy). Dropping the
+denormalised host name entirely — tempting, since the client already holds
+every profile, but that reintroduces a lookup on a path that may not always
+load the whole directory.
 
 ---
 
