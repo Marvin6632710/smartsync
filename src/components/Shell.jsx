@@ -77,10 +77,7 @@ export default function Shell() {
   const { notifications, celebration, user } = useApp()
   const unread = notifications.filter((n) => !n.read).length
   const simpleTitle = location.pathname.split('/')[1] || 'home'
-  const title = routeTitles[simpleTitle] || 'SmartSync'
-  const isMainView = ['/home', '/map', '/messages', '/profile', '/recommendations'].includes(
-    location.pathname,
-  )
+  const title = routeTitles[simpleTitle] || 'Discover'
 
   return (
     <div className="app-shell">
@@ -95,7 +92,7 @@ export default function Shell() {
           </button>
           <div className="topbar-copy">
             <span className="eyebrow">SmartSync</span>
-            <h1>{isMainView ? 'SmartSync' : title}</h1>
+            <h1>{title}</h1>
           </div>
           <div className="topbar-meta">
             <button
