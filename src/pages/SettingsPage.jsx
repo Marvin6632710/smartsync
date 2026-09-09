@@ -2,24 +2,28 @@ import React, { useState } from 'react'
 import {
   Bell,
   ChevronRight,
+  LogOut,
   MessageCircle,
-  RotateCcw,
   ShieldCheck,
   SlidersHorizontal,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import ConfirmDialog from '../components/ConfirmDialog'
-import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
+import { updatePrivateProfile } from '../firebase/users'
 
 export default function SettingsPage() {
   const navigate = useNavigate()
-  const { privacy, setPrivacy, resetPrototype } = useApp()
-  const [resetOpen, setResetOpen] = useState(false)
+  const { user, signOut } = useAuth()
+  const [signOutOpen, setSignOutOpen] = useState(false)
+  const privacy = user.privacy
+
   return (
     <div className="page-content">
       <BackButton />
       <h2>Settings</h2>
+
       <div className="settings-card">
         <button className="setting-row" onClick={() => navigate('/privacy')}>
           <ShieldCheck size={18} />
@@ -41,46 +45,49 @@ export default function SettingsPage() {
           <MessageCircle size={18} />
           <span>
             <strong>Activity messages</strong>
-            <small>Temporary local conversations</small>
+            <small>Chats for activities you joined</small>
           </span>
           <ChevronRight size={17} />
         </button>
         <button
           className="setting-row"
-          onClick={() => setPrivacy((p) => ({ ...p, notifications: !p.notifications }))}
+          onClick={() =>
+            updatePrivateProfile(user.uid, {
+              privacy: { ...privacy, notifications: !privacy.notifications },
+            })
+          }
           role="switch"
           aria-checked={privacy.notifications}
         >
           <Bell size={18} />
           <span>
             <strong>Notifications</strong>
-            <small>Local prototype notifications</small>
+            <small>Joins, messages and activity updates</small>
           </span>
           <span className={`switch ${privacy.notifications ? 'on' : ''}`} aria-hidden="true" />
         </button>
       </div>
-      <div className="panel danger-panel">
-        <h3>Prototype data</h3>
-        <p className="helper-text">
-          Reset localStorage data back to the original SmartSync demo content.
-        </p>
-        <button className="danger-button wide" onClick={() => setResetOpen(true)}>
-          <RotateCcw size={17} /> Reset prototype
+
+      <div className="panel">
+        <h3>Account</h3>
+        <p className="helper-text">Signed in as {user.email}.</p>
+        <button className="danger-button wide" onClick={() => setSignOutOpen(true)}>
+          <LogOut size={17} /> Sign out
         </button>
       </div>
 
       <ConfirmDialog
-        open={resetOpen}
-        title="Reset prototype data?"
-        body="Your activities, chats and profile changes will be discarded and the original demo content restored."
-        confirmLabel="Reset"
-        cancelLabel="Keep my data"
+        open={signOutOpen}
+        title="Sign out?"
+        body="You will need your email and password to sign back in. Nothing is deleted."
+        confirmLabel="Sign out"
+        cancelLabel="Stay signed in"
         tone="danger"
         onConfirm={() => {
-          setResetOpen(false)
-          resetPrototype()
+          setSignOutOpen(false)
+          signOut()
         }}
-        onCancel={() => setResetOpen(false)}
+        onCancel={() => setSignOutOpen(false)}
       />
     </div>
   )

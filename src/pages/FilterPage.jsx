@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
-import { interests } from '../data/mockData'
+import { categories } from '../data/categories'
 import { defaultFilters, useApp } from '../context/AppContext'
 
 export default function FilterPage() {
@@ -22,7 +22,7 @@ export default function FilterPage() {
           Category
           <select value={draft.category} onChange={(e) => set('category', e.target.value)}>
             <option>All</option>
-            {interests.map((i) => (
+            {categories.map((i) => (
               <option key={i}>{i}</option>
             ))}
           </select>
@@ -36,17 +36,6 @@ export default function FilterPage() {
             value={draft.maxDistance}
             onChange={(e) => set('maxDistance', Number(e.target.value))}
           />
-        </label>
-        <label>
-          Date
-          <select value={draft.date} onChange={(e) => set('date', e.target.value)}>
-            <option>Any</option>
-            <option>Today</option>
-            <option>Tomorrow</option>
-            <option>Friday</option>
-            <option>Saturday</option>
-            <option>Sunday</option>
-          </select>
         </label>
         <label>
           Time

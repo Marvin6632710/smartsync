@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 
 const toastIcons = {
   sparkles: Sparkles,
@@ -74,7 +75,8 @@ function CelebrationToast({ celebration }) {
 export default function Shell() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { notifications, celebration, user } = useApp()
+  const { notifications, celebration } = useApp()
+  const { user } = useAuth()
   const unread = notifications.filter((n) => !n.read).length
   const simpleTitle = location.pathname.split('/')[1] || 'home'
   const title = routeTitles[simpleTitle] || 'Discover'

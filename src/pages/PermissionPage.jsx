@@ -1,12 +1,33 @@
 import React from 'react'
 import { BellRing, LocateFixed, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
+import { useDeviceLocation } from '../hooks/useDeviceLocation'
+import { updatePrivateProfile } from '../firebase/users'
 
 export default function PermissionPage() {
   const navigate = useNavigate()
-  const { privacy, setPrivacy } = useApp()
-  const toggle = (key) => setPrivacy((p) => ({ ...p, [key]: !p[key] }))
+  const { user } = useAuth()
+  const { request, clear, busy, error } = useDeviceLocation()
+  const privacy = user.privacy
+
+  const setPrivacy = (patch) =>
+    updatePrivateProfile(user.uid, { privacy: { ...privacy, ...patch } })
+
+  // The location switch is not a preference that is merely recorded — it
+  // triggers the browser's real permission prompt and stores a real position.
+  const toggleLocation = async () => {
+    if (privacy.locationPermission) {
+      await clear()
+      return
+    }
+    await request()
+  }
+
+  const finish = () => {
+    updatePrivateProfile(user.uid, { onboarded: true })
+    navigate('/home', { replace: true })
+  }
 
   return (
     <div className="standalone-page onboarding-page">
@@ -18,27 +39,28 @@ export default function PermissionPage() {
       <div className="settings-card">
         <button
           className="setting-row"
-          onClick={() => toggle('locationPermission')}
+          onClick={toggleLocation}
           role="switch"
           aria-checked={privacy.locationPermission}
+          disabled={busy}
         >
           <LocateFixed size={18} />
           <span>
             <strong>Location</strong>
-            <small>Show nearby activities</small>
+            <small>{busy ? 'Asking your device…' : 'Rank activities by how near they are'}</small>
           </span>
           <span className={`switch ${privacy.locationPermission ? 'on' : ''}`} aria-hidden="true" />
         </button>
         <button
           className="setting-row"
-          onClick={() => toggle('approximateLocation')}
+          onClick={() => setPrivacy({ approximateLocation: !privacy.approximateLocation })}
           role="switch"
           aria-checked={privacy.approximateLocation}
         >
           <ShieldCheck size={18} />
           <span>
             <strong>Approximate location</strong>
-            <small>Hide exact position</small>
+            <small>Store your area, never your exact position</small>
           </span>
           <span
             className={`switch ${privacy.approximateLocation ? 'on' : ''}`}
@@ -47,20 +69,30 @@ export default function PermissionPage() {
         </button>
         <button
           className="setting-row"
-          onClick={() => toggle('notifications')}
+          onClick={() => setPrivacy({ notifications: !privacy.notifications })}
           role="switch"
           aria-checked={privacy.notifications}
         >
           <BellRing size={18} />
           <span>
             <strong>Notifications</strong>
-            <small>Get reminders and updates</small>
+            <small>Get told when someone joins or messages</small>
           </span>
           <span className={`switch ${privacy.notifications ? 'on' : ''}`} aria-hidden="true" />
         </button>
       </div>
-      <button className="primary-button wide" onClick={() => navigate('/interests')}>
-        Continue
+
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <p className="helper-text">
+        You can skip location — activities still work, they just will not be sorted by distance.
+      </p>
+
+      <button className="primary-button wide" onClick={finish}>
+        {user.onboarded ? 'Done' : 'Enter SmartSync'}
       </button>
     </div>
   )

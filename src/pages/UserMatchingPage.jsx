@@ -1,19 +1,22 @@
-import React from 'react'
-import { Bell, Check, Clock3, Sparkles, UserRoundCheck } from 'lucide-react'
+import React, { useMemo } from 'react'
+import { Bell, Check, Clock3, Sparkles, UserRoundCheck, UsersRound } from 'lucide-react'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
-import { mockUsers } from '../data/mockData'
+import { useAuth } from '../context/AuthContext'
 import { calculateUserCompatibility } from '../services/recommendationService'
 
 export default function UserMatchingPage() {
-  const { user, followedUserIds, toggleUserNotifications } = useApp()
+  const { peers, followedUserIds, toggleUserNotifications } = useApp()
+  const { user } = useAuth()
 
-  const matches = mockUsers
-    .map((matchedUser) => ({
-      ...matchedUser,
-      ...calculateUserCompatibility(user, matchedUser),
-    }))
-    .sort((a, b) => b.score - a.score)
+  // Real people who signed up, scored against the real profile.
+  const matches = useMemo(
+    () =>
+      peers
+        .map((peer) => ({ ...peer, ...calculateUserCompatibility(user, peer) }))
+        .sort((a, b) => b.score - a.score),
+    [peers, user],
+  )
 
   return (
     <div className="page-content">
@@ -25,25 +28,32 @@ export default function UserMatchingPage() {
         <p className="helper-text">Follow people whose activities you want to hear about.</p>
       </section>
 
+      {matches.length === 0 && (
+        <div className="empty-state">
+          <UsersRound size={30} />
+          <h3>No one else yet</h3>
+          <p>
+            When other people join SmartSync they will show up here, ranked by how well you match.
+          </p>
+        </div>
+      )}
+
       <div className="stack">
         {matches.map((matchedUser) => {
-          const notificationsOn = followedUserIds.includes(matchedUser.id)
+          const notificationsOn = followedUserIds.includes(matchedUser.uid)
 
           return (
-            <section className="new-match-card" key={matchedUser.id}>
+            <section className="new-match-card" key={matchedUser.uid}>
               <div className="new-match-top">
                 <div className="avatar match-avatar">{matchedUser.avatar}</div>
-
                 <div className="match-user-copy">
                   <div className="match-name-row">
                     <h3>{matchedUser.name}</h3>
-
                     <span className="match-pill">
                       <UserRoundCheck size={13} />
                       {matchedUser.score}%
                     </span>
                   </div>
-
                   <p>
                     {matchedUser.shared.length > 0
                       ? `${matchedUser.shared.length} shared ${
@@ -55,7 +65,7 @@ export default function UserMatchingPage() {
               </div>
 
               <div className="chip-row">
-                {matchedUser.interests.map((interest) => (
+                {(matchedUser.interests || []).map((interest) => (
                   <span className="tiny-chip" key={interest}>
                     {interest}
                   </span>
@@ -71,10 +81,9 @@ export default function UserMatchingPage() {
                         .join(' · ')
                     : 'Similar interests'}
                 </span>
-
                 <span>
                   <Clock3 size={13} />
-                  {matchedUser.preferredTime}
+                  {matchedUser.preferredTime || 'Any time'}
                 </span>
               </div>
 
@@ -87,7 +96,6 @@ export default function UserMatchingPage() {
                       : `Get alerted when ${matchedUser.name} posts an activity.`}
                   </p>
                 </div>
-
                 <button
                   className={notificationsOn ? 'notify-user-button enabled' : 'notify-user-button'}
                   onClick={() => toggleUserNotifications(matchedUser)}
@@ -95,13 +103,11 @@ export default function UserMatchingPage() {
                 >
                   {notificationsOn ? (
                     <>
-                      <Check size={15} />
-                      Following
+                      <Check size={15} /> Following
                     </>
                   ) : (
                     <>
-                      <Bell size={15} />
-                      Notify me
+                      <Bell size={15} /> Notify me
                     </>
                   )}
                 </button>

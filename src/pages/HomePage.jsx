@@ -4,20 +4,22 @@ import { useNavigate } from 'react-router-dom'
 import ActivityCard from '../components/ActivityCard'
 import FiltersEmptyState from '../components/FiltersEmptyState'
 import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const { user, filteredActivities, recommendations, privacy, joinedIds, messages } = useApp()
+  const { filteredActivities, recommendations, joinedIds, threadPreviews } = useApp()
+  const { user } = useAuth()
   const top = recommendations.slice(0, 2)
   const heroPick = recommendations[0]
-  const activeChats = joinedIds.filter((id) => (messages[id] || []).length > 0).length
+  const activeChats = joinedIds.filter((id) => threadPreviews[id]).length
 
   return (
     <div className="page-content">
       <section className="hero-card">
         <div className="hero-badge-row">
           <span className="floating-pill">
-            {privacy.anonymousMode ? 'Anonymous mode' : `Hi, ${user.name}`}
+            {user.anonymous ? 'Anonymous mode' : `Hi, ${user.realName}`}
           </span>
           <span className="floating-pill accent">Top match {heroPick?.matchScore || '--'}%</span>
         </div>

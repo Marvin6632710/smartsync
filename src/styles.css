@@ -10,8 +10,15 @@
 
 :root {
   font-family:
-    ui-sans-serif, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica,
-    Arial, sans-serif;
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    'SF Pro Text',
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -2291,4 +2298,205 @@ select:focus-visible {
   font-size: var(--t-xs);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* ==========================================================================
+   Authentication
+   ========================================================================== */
+
+.auth-page {
+  justify-content: center;
+  gap: 18px;
+}
+
+.auth-card {
+  width: 100%;
+  gap: 10px;
+}
+
+.auth-switch {
+  font-size: var(--t-small);
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.auth-switch a {
+  color: var(--accent);
+  font-weight: var(--w-medium);
+  text-decoration: none;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
+}
+
+.form-notice {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--ink-soft);
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.field-hint {
+  display: block;
+  margin: -4px 0 2px;
+  font-size: var(--t-tiny);
+  color: var(--ink-soft);
+}
+
+/* ==========================================================================
+   Boot screen
+   ========================================================================== */
+
+.boot-screen {
+  justify-content: center;
+  gap: 16px;
+}
+
+.brand-orb.pulsing {
+  animation: orb-pulse 1.4s ease-in-out infinite;
+}
+
+.boot-label {
+  font-size: var(--t-small);
+  color: var(--ink-soft);
+}
+
+@keyframes orb-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(0.95);
+  }
+}
+
+/* Respect a reduced-motion preference rather than animating regardless. */
+@media (prefers-reduced-motion: reduce) {
+  .brand-orb.pulsing {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
+   Maps (Leaflet)
+   ========================================================================== */
+
+/* Leaflet's own panes sit at z-index 400-700, which would paint the map over
+   the bottom navigation and the toast layer. Containing it to its own stacking
+   context keeps the app chrome on top without touching Leaflet's internals. */
+.smart-map .leaflet-container,
+.picker-map .leaflet-container {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+  font: inherit;
+  background: var(--map-land);
+}
+
+.leaflet-container a {
+  color: var(--accent);
+}
+
+.smart-map .leaflet-control-attribution {
+  font-size: 9px;
+  background: rgba(var(--bg-rgb), 0.82);
+  color: var(--ink-soft);
+}
+
+.leaflet-activity-pin .pin-body {
+  display: block;
+  width: 20px;
+  height: 20px;
+  margin: 4px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  background: var(--accent);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.28);
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.leaflet-activity-pin.selected .pin-body {
+  transform: scale(1.28);
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.5);
+}
+
+.leaflet-me-pin span {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 2px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.22);
+}
+
+.leaflet-pin .leaflet-pin-dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.3);
+}
+
+/* ==========================================================================
+   Location picker
+   ========================================================================== */
+
+.location-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.picker-map {
+  height: 190px;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+}
+
+.picker-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.picker-actions .helper-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* ==========================================================================
+   Activity status
+   ========================================================================== */
+
+.cancelled-banner {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger, #dc2626);
+  font-size: var(--t-small);
+  font-weight: var(--w-medium);
+}
+
+.host-chip {
+  margin-left: 6px;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
 }

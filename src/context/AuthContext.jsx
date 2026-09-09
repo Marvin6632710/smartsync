@@ -26,6 +26,12 @@ export function AuthProvider({ children }) {
   const [publicProfile, setPublicProfile] = useState(null)
   const [privateProfile, setPrivateProfile] = useState(null)
   const [profileError, setProfileError] = useState(null)
+  // Whether each listener has reported back at least once. Tracked separately
+  // from the data itself because the two documents arrive independently, and
+  // routing that reads `onboarded` before the private half lands would send
+  // an established user back through setup — with a replace navigation, so
+  // the mistake would stick rather than correct itself a frame later.
+  const [loaded, setLoaded] = useState({ pub: false, priv: false })
 
   useEffect(() => {
     return observeAuth(async (firebaseUser) => {
@@ -33,8 +39,10 @@ export function AuthProvider({ children }) {
       if (!firebaseUser) {
         setPublicProfile(null)
         setPrivateProfile(null)
+        setLoaded({ pub: false, priv: false })
         return
       }
+      setLoaded({ pub: false, priv: false })
       try {
         // Covers accounts created before the profile write landed, and any
         // account created outside the sign-up form.
@@ -50,8 +58,22 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!authUser) return undefined
-    const stopPublic = watchUserProfile(authUser.uid, setPublicProfile, setProfileError)
-    const stopPrivate = watchPrivateProfile(authUser.uid, setPrivateProfile, setProfileError)
+    const stopPublic = watchUserProfile(
+      authUser.uid,
+      (profile) => {
+        setPublicProfile(profile)
+        setLoaded((current) => ({ ...current, pub: true }))
+      },
+      setProfileError,
+    )
+    const stopPrivate = watchPrivateProfile(
+      authUser.uid,
+      (profile) => {
+        setPrivateProfile(profile)
+        setLoaded((current) => ({ ...current, priv: true }))
+      },
+      setProfileError,
+    )
     return () => {
       stopPublic()
       stopPrivate()
@@ -79,9 +101,10 @@ export function AuthProvider({ children }) {
     status,
     authUser,
     user,
-    // The profile documents can lag the auth state by a frame or two after
-    // sign-up; screens should wait rather than render a half-built user.
-    profileReady: Boolean(user),
+    // Both halves must have reported before any screen renders: the routing
+    // decision depends on fields from each, and acting on half the profile
+    // sends people to the wrong place.
+    profileReady: Boolean(user) && loaded.pub && loaded.priv,
     profileError,
     signUp,
     signIn,

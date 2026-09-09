@@ -49,3 +49,20 @@ export function sendMessage(activityId, user, text) {
     createdAt: serverTimestamp(),
   })
 }
+
+/** Newest message only — enough for an inbox preview, one document per thread. */
+export function watchLatestMessage(activityId, callback, onError) {
+  return onSnapshot(
+    query(messagesRef(activityId), orderBy('createdAt', 'desc'), limit(1)),
+    (snap) => {
+      const first = snap.docs[0]
+      if (!first) {
+        callback(null)
+        return
+      }
+      const data = first.data()
+      callback({ id: first.id, ...data, createdAt: data.createdAt?.toMillis?.() ?? Date.now() })
+    },
+    onError,
+  )
+}

@@ -2,6 +2,8 @@ import React from 'react'
 import { ArrowUpRight, Clock3, MapPin, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import CategoryIcon from './CategoryIcon'
+import { formatDistance } from '../utils/geo'
+import { formatActivityDate, formatClock } from '../utils/time'
 
 export default function ActivityCard({ activity, compact = false }) {
   const navigate = useNavigate()
@@ -39,10 +41,15 @@ export default function ActivityCard({ activity, compact = false }) {
       <div className="activity-body">
         <div className="meta-grid">
           <span>
-            <MapPin size={14} /> {activity.distanceKm} km · {activity.location}
+            <MapPin size={14} />{' '}
+            {/* Distance is unknown until the user shares their location, and
+                showing nothing is more honest than showing a made-up number. */}
+            {activity.distanceKm != null
+              ? `${formatDistance(activity.distanceKm)} · ${activity.locationName}`
+              : activity.locationName}
           </span>
           <span>
-            <Clock3 size={14} /> {activity.date} · {activity.time}
+            <Clock3 size={14} /> {formatActivityDate(activity.date)} · {formatClock(activity.time)}
           </span>
           <span>
             <Users size={14} /> {activity.participants}/{activity.capacity} joined

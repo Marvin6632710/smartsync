@@ -4,8 +4,13 @@ import ActivityCard from '../components/ActivityCard'
 import { useApp } from '../context/AppContext'
 
 export default function JoinedActivitiesPage() {
-  const { recommendations, joinedIds } = useApp()
-  const joined = recommendations.filter((a) => joinedIds.includes(a.id))
+  // From `activities`: an activity you joined that the host later cancelled
+  // still belongs in your history, and recommendations drops those.
+  const { activities, joinedIds } = useApp()
+  const joined = activities
+    .filter((a) => joinedIds.includes(a.id))
+    // Your own commitments read best soonest-first, not best-match-first.
+    .sort((a, b) => (a.startsAt || 0) - (b.startsAt || 0))
   return (
     <div className="page-content">
       <BackButton />

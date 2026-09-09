@@ -1,11 +1,18 @@
 import React from 'react'
 import { EyeOff, LocateFixed, MapPinned, ShieldCheck } from 'lucide-react'
 import BackButton from '../components/BackButton'
-import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
+import { useDeviceLocation } from '../hooks/useDeviceLocation'
+import { setAnonymousMode, updatePrivateProfile } from '../firebase/users'
 
 export default function PrivacyPage() {
-  const { privacy, setPrivacy } = useApp()
-  const toggle = (k) => setPrivacy((p) => ({ ...p, [k]: !p[k] }))
+  const { user } = useAuth()
+  const { request, clear, busy, error } = useDeviceLocation()
+  const privacy = user.privacy
+
+  const setPrivacy = (patch) =>
+    updatePrivateProfile(user.uid, { privacy: { ...privacy, ...patch } })
+
   return (
     <div className="page-content">
       <BackButton />
@@ -13,47 +20,48 @@ export default function PrivacyPage() {
         <span className="eyebrow">User-controlled privacy</span>
         <h2>Privacy controls</h2>
         <p className="helper-text">
-          These controls are stored locally. The prototype does not send precise GPS data to a
-          backend.
+          These settings change what other people can actually read about you, not just what this
+          app chooses to display.
         </p>
       </section>
       <div className="settings-card">
         <button
           className="setting-row"
-          onClick={() => toggle('anonymousMode')}
+          onClick={() => setAnonymousMode(user.uid, !user.anonymous, user.realName)}
           role="switch"
-          aria-checked={privacy.anonymousMode}
+          aria-checked={user.anonymous}
         >
           <EyeOff size={18} />
           <span>
             <strong>Anonymous mode</strong>
-            <small>Hide your display name in local activity interactions</small>
+            <small>Your real name is removed from the profile others can read</small>
           </span>
-          <span className={`switch ${privacy.anonymousMode ? 'on' : ''}`} aria-hidden="true" />
+          <span className={`switch ${user.anonymous ? 'on' : ''}`} aria-hidden="true" />
         </button>
         <button
           className="setting-row"
-          onClick={() => toggle('locationPermission')}
+          onClick={() => (privacy.locationPermission ? clear() : request())}
           role="switch"
           aria-checked={privacy.locationPermission}
+          disabled={busy}
         >
           <LocateFixed size={18} />
           <span>
-            <strong>Location permission</strong>
-            <small>Enable or disable location-based prototype behavior</small>
+            <strong>Location</strong>
+            <small>{busy ? 'Asking your device…' : 'Used to sort activities by distance'}</small>
           </span>
           <span className={`switch ${privacy.locationPermission ? 'on' : ''}`} aria-hidden="true" />
         </button>
         <button
           className="setting-row"
-          onClick={() => toggle('approximateLocation')}
+          onClick={() => setPrivacy({ approximateLocation: !privacy.approximateLocation })}
           role="switch"
           aria-checked={privacy.approximateLocation}
         >
           <MapPinned size={18} />
           <span>
             <strong>Approximate location</strong>
-            <small>Prefer general nearby area instead of precise coordinates</small>
+            <small>Round your position to about a kilometre before storing it</small>
           </span>
           <span
             className={`switch ${privacy.approximateLocation ? 'on' : ''}`}
@@ -61,17 +69,25 @@ export default function PrivacyPage() {
           />
         </button>
       </div>
+
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Privacy principle</span>
-            <h3>Temporary by design</h3>
+            <span className="eyebrow">How this works</span>
+            <h3>Enforced, not just hidden</h3>
           </div>
           <ShieldCheck size={20} />
         </div>
         <p>
-          Activity chats are tied to activities in this prototype. A production backend can enforce
-          chat expiry and controlled data retention after activities finish.
+          Your email, your real name while anonymous mode is on, and your stored position live in a
+          part of your profile the database will not serve to anyone but you. Activity chats are
+          readable only by people who joined that activity.
         </p>
       </section>
     </div>

@@ -5,15 +5,22 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useNavigate, useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
+import { formatDistance } from '../utils/geo'
+import { formatActivityDate, formatClock } from '../utils/time'
 
 export default function ActivityDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { recommendations, joinedIds, joinActivity, leaveActivity, cancelActivity } = useApp()
+  const { activities, joinedIds, joinActivity, leaveActivity, cancelActivity } = useApp()
+  const { user } = useAuth()
   // Declared before the not-found early return: hooks must run
   // unconditionally on every render.
   const [cancelOpen, setCancelOpen] = useState(false)
-  const a = recommendations.find((item) => item.id === id)
+  // Read from `activities`, not `recommendations`: a cancelled activity is
+  // dropped from recommendations but the people who joined it still need to
+  // be able to open it and see that it was called off.
+  const a = activities.find((item) => item.id === id)
 
   if (!a) {
     return (
@@ -31,7 +38,8 @@ export default function ActivityDetailsPage() {
   }
 
   const joined = joinedIds.includes(id)
-  const isHost = a.createdBy === 'me'
+  const isHost = a.hostId === user.uid
+  const isCancelled = a.status === 'cancelled'
   const fill = Math.max(
     0,
     Math.min(100, Math.round((a.participants / Math.max(a.capacity, 1)) * 100)),
@@ -56,19 +64,23 @@ export default function ActivityDetailsPage() {
           <span className="match-pill">{a.matchScore}% match</span>
         </div>
         <h2>{a.title}</h2>
+        {isCancelled && (
+          <p className="cancelled-banner">This activity was cancelled by the host.</p>
+        )}
         <p>{a.description}</p>
         <div className="detail-facts">
           <span>
             <MapPin size={14} />
-            {a.location} · {a.distanceKm} km
+            {a.locationName}
+            {a.distanceKm != null && ` · ${formatDistance(a.distanceKm)}`}
           </span>
           <span>
             <CalendarDays size={14} />
-            {a.date}
+            {formatActivityDate(a.date)}
           </span>
           <span>
             <Clock3 size={14} />
-            {a.time}
+            {formatClock(a.time)}
           </span>
           <span>
             <Users size={14} />
@@ -91,7 +103,7 @@ export default function ActivityDetailsPage() {
           </button>
         </div>
         <ul className="reason-list">
-          {a.reasons.map((r) => (
+          {(a.reasons || []).map((r) => (
             <li key={r}>
               <Check size={15} />
               {r}
@@ -104,7 +116,7 @@ export default function ActivityDetailsPage() {
         <div className="section-heading">
           <div>
             <span className="eyebrow">Host</span>
-            <h3>{a.host}</h3>
+            <h3>{a.hostName}</h3>
           </div>
         </div>
         <p className="helper-text">See who else is going.</p>
@@ -122,7 +134,11 @@ export default function ActivityDetailsPage() {
         </button>
       )}
 
-      {isHost ? (
+      {isCancelled ? (
+        <button className="secondary-button wide" onClick={() => navigate(`/activity/${id}/chat`)}>
+          <MessageCircle size={18} /> Open chat
+        </button>
+      ) : isHost ? (
         <div className="action-stack">
           <button className="primary-button wide" onClick={() => navigate(`/activity/${id}/chat`)}>
             <MessageCircle size={18} /> Open chat
@@ -153,7 +169,7 @@ export default function ActivityDetailsPage() {
       <ConfirmDialog
         open={cancelOpen}
         title="Cancel this activity?"
-        body={`${a.title} will be removed for everyone who joined. This can't be undone.`}
+        body={`Everyone who joined ${a.title} will be told it is off. The chat stays available to them.`}
         confirmLabel="Cancel activity"
         cancelLabel="Keep it"
         tone="danger"

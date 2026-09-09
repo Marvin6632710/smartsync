@@ -2,13 +2,15 @@ import React from 'react'
 import { useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
-import { mockUsers } from '../data/mockData'
+import { useAuth } from '../context/AuthContext'
 
 export default function ParticipantsPage() {
   const { id } = useParams()
-  const { activities, joinedIds, user, privacy } = useApp()
-  const a = activities.find((x) => x.id === id)
-  if (!a)
+  const { activities, peers } = useApp()
+  const { user } = useAuth()
+  const activity = activities.find((item) => item.id === id)
+
+  if (!activity)
     return (
       <div className="page-content">
         <BackButton />
@@ -17,38 +19,40 @@ export default function ParticipantsPage() {
         </div>
       </div>
     )
-  const participants = mockUsers.filter((u) => (a.joinedUserIds || []).includes(u.id))
-  if (joinedIds.includes(id))
-    participants.push({
-      ...user,
-      name: privacy.anonymousMode ? 'Anonymous participant' : user.name,
-    })
+
+  // Real people, resolved from the roster on the activity itself. A uid with
+  // no matching profile is still shown — someone is on the roster, and
+  // silently dropping them would make the count disagree with the list.
+  const directory = [user, ...peers]
+  const participants = (activity.participantUids || []).map((uid) => {
+    const person = directory.find((entry) => entry?.uid === uid)
+    return person || { uid, name: 'SmartSync user', avatar: '?', interests: [] }
+  })
+
   return (
     <div className="page-content">
       <BackButton />
-      <span className="eyebrow">{a.title}</span>
+      <span className="eyebrow">{activity.title}</span>
       <h2>Participants</h2>
       <p className="helper-text">
-        {a.participants}/{a.capacity} spots are currently represented in the prototype.
+        {activity.participants} of {activity.capacity} spots taken.
       </p>
       <div className="stack">
-        {participants.map((p, index) => (
-          <div className="person-card" key={`${p.id}-${index}`}>
-            <div className="avatar">{p.avatar || 'AN'}</div>
+        {participants.map((person) => (
+          <div className="person-card" key={person.uid}>
+            <div className="avatar">{person.avatar || '?'}</div>
             <div>
-              <h3>{p.name}</h3>
-              <p>{(p.interests || []).slice(0, 3).join(' · ') || 'Activity participant'}</p>
+              <h3>
+                {person.name}
+                {person.uid === activity.hostId && (
+                  <span className="tiny-chip host-chip">Host</span>
+                )}
+                {person.uid === user.uid && <span className="tiny-chip">You</span>}
+              </h3>
+              <p>{(person.interests || []).slice(0, 3).join(' · ') || 'Activity participant'}</p>
             </div>
           </div>
         ))}
-        {a.participants > participants.length && (
-          <div className="panel">
-            <p className="helper-text">
-              + {a.participants - participants.length} additional mock participants represented by
-              the participant count.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   )

@@ -3,15 +3,19 @@ import { Edit3, Settings, Share2, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import ActivityCard from '../components/ActivityCard'
 import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 
 export default function ProfilePage() {
-  const { user, privacy, joinedIds, recommendations, pushCelebration } = useApp()
+  const { joinedIds, activities, recommendations, pushCelebration } = useApp()
+  const { user } = useAuth()
   const navigate = useNavigate()
-  const joined = recommendations.filter((a) => joinedIds.includes(a.id))
+  // From `activities`, not `recommendations`: a cancelled activity you joined
+  // still belongs in your list, and recommendations excludes those.
+  const joined = activities.filter((a) => joinedIds.includes(a.id))
   const best = recommendations[0]
 
   const shareProfile = async () => {
-    const shareText = `${user.name} (${user.username}) is on SmartSync. ${user.bio}`
+    const shareText = `${user.name} (${user.username}) is on SmartSync. ${user.bio}`.trim()
     try {
       if (navigator.share) {
         await navigator.share({ title: 'SmartSync profile', text: shareText })
@@ -57,8 +61,11 @@ export default function ProfilePage() {
           </div>
         </div>
         <div className="profile-center">
-          <div className="avatar xl">{privacy.anonymousMode ? 'AN' : user.avatar}</div>
-          <h2>{privacy.anonymousMode ? 'Anonymous user' : user.name}</h2>
+          {/* `name` and `avatar` are already the display-safe values — the
+              public profile itself is rewritten when anonymous mode is on,
+              rather than the real name being hidden at render time. */}
+          <div className="avatar xl">{user.avatar}</div>
+          <h2>{user.name}</h2>
           <p>{user.bio}</p>
           <div className="profile-handle">{user.username}</div>
         </div>

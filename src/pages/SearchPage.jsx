@@ -12,7 +12,7 @@ export default function SearchPage() {
     const q = query.trim().toLowerCase()
     if (!q) return filteredActivities
     return filteredActivities.filter((a) =>
-      [a.title, a.category, a.location, a.description].some((field) =>
+      [a.title, a.category, a.locationName, a.description].some((field) =>
         (field || '').toLowerCase().includes(q),
       ),
     )

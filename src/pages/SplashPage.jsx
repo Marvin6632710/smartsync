@@ -25,13 +25,12 @@ export default function SplashPage() {
           <ShieldCheck size={12} /> Privacy first
         </span>
       </div>
-      <button className="primary-button wide" onClick={() => navigate('/onboarding')}>
-        Get started <ArrowRight size={17} />
+      <button className="primary-button wide" onClick={() => navigate('/signup')}>
+        Create account <ArrowRight size={17} />
       </button>
-      <button className="text-button" onClick={() => navigate('/home')}>
-        Open app
+      <button className="text-button" onClick={() => navigate('/signin')}>
+        I already have an account
       </button>
-      <span className="prototype-label">Senior project prototype</span>
     </div>
   )
 }

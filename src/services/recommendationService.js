@@ -1,3 +1,5 @@
+import { formatDistance } from '../utils/geo'
+
 export const recommendationWeights = {
   interest: 35,
   distance: 20,
@@ -20,7 +22,13 @@ export function calculateRecommendationScore(user, activity) {
       ? 0.75
       : 0.2
 
-  const distance = clamp(1 - Math.max(0, (activity?.distanceKm || 0) - 1) / 12)
+  // Distance is now measured from the user's real position, which means it
+  // can genuinely be unknown (location not granted, or not yet resolved).
+  // `|| 0` used to turn "unknown" into "zero kilometres away", handing every
+  // activity full marks on 20% of the score for a fact nobody knew. Unknown
+  // now scores neutrally: no reward, no penalty.
+  const distanceKm = activity?.distanceKm
+  const distance = Number.isFinite(distanceKm) ? clamp(1 - Math.max(0, distanceKm - 1) / 12) : 0.5
   const preferred = (user?.preferredTime || '').toLowerCase()
   const time = preferred && preferred === (activity?.timeBand || '').toLowerCase() ? 1 : 0.55
 
@@ -55,8 +63,9 @@ export function getRecommendationReasons(user, activity) {
 
   // ?? not ||: a 0 km activity is the nearest possible, but || treated it as
   // missing and skipped the reason entirely.
-  const distanceKm = activity?.distanceKm ?? null
-  if (distanceKm !== null && distanceKm <= 3) reasons.push(`Only ${distanceKm} km away`)
+  const distanceKm = activity?.distanceKm
+  if (Number.isFinite(distanceKm) && distanceKm <= 3)
+    reasons.push(`Only ${formatDistance(distanceKm)} away`)
 
   // Both sides must actually have a time. Comparing the empty-string
   // fallbacks made "no time either side" look like a match, which both
@@ -93,11 +102,11 @@ export const SIMILAR_USER_THRESHOLD = 50
  * or who joined. Derived from real compatibility against the joined peers.
  */
 export function computeSimilarUsersJoined(user, activity, peers = []) {
-  const joinedPeerIds = (activity?.joinedUserIds || []).filter((id) => id !== 'me')
+  const joinedPeerIds = (activity?.participantUids || []).filter((id) => id !== user?.uid)
   if (joinedPeerIds.length === 0) return false
 
   return joinedPeerIds.some((id) => {
-    const peer = peers.find((p) => p.id === id)
+    const peer = peers.find((p) => p.uid === id)
     if (!peer) return false
     return calculateUserCompatibility(user, peer).score >= SIMILAR_USER_THRESHOLD
   })
