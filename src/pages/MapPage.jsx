@@ -2,19 +2,25 @@ import React, { useMemo, useState } from 'react'
 import { ChevronRight, Clock3, List, LocateFixed, Search, Sparkles, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import CategoryIcon from '../components/CategoryIcon'
+import FiltersEmptyState from '../components/FiltersEmptyState'
 import { useApp } from '../context/AppContext'
 
 const categoryKey = (value) => (value || '').toLowerCase()
 
 export default function MapPage() {
-  const { recommendations } = useApp()
+  const { filteredActivities } = useApp()
   const navigate = useNavigate()
 
-  const [selectedId, setSelectedId] = useState(recommendations[0]?.id || null)
+  const [selectedId, setSelectedId] = useState(filteredActivities[0]?.id || null)
 
   const selectedActivity = useMemo(() => {
-    return recommendations.find((activity) => activity.id === selectedId) || recommendations[0]
-  }, [recommendations, selectedId])
+    // Falling back to the first match matters: the selected pin can be
+    // filtered out from under us, and a stale selection would keep showing
+    // a card for an activity no longer on the map.
+    return (
+      filteredActivities.find((activity) => activity.id === selectedId) || filteredActivities[0]
+    )
+  }, [filteredActivities, selectedId])
 
   return (
     <div className="smart-map-page">
@@ -62,7 +68,7 @@ export default function MapPage() {
           </button>
         )}
 
-        {recommendations.map((activity, index) => {
+        {filteredActivities.map((activity, index) => {
           const isSelected = selectedId === activity.id
 
           return (
@@ -89,6 +95,14 @@ export default function MapPage() {
           <div className="user-location-pulse" />
           <div className="user-location-dot" />
         </div>
+
+        {/* Without this a filtered-out map is just empty terrain, which reads
+            as broken rather than filtered. */}
+        {filteredActivities.length === 0 && (
+          <div className="map-empty">
+            <FiltersEmptyState body="No activities to plot on the map right now." />
+          </div>
+        )}
 
         <button
           className="map-round-button map-ai-button"

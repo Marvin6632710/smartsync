@@ -1814,6 +1814,20 @@ select:focus-visible {
   animation: userPulse 2s ease-out infinite;
 }
 
+.map-empty {
+  position: absolute;
+  z-index: 23;
+  left: 14px;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.map-empty .empty-state {
+  background: var(--surface);
+  border-style: solid;
+  box-shadow: var(--shadow-lg);
+}
+
 .map-list-button {
   position: absolute;
   z-index: 25;

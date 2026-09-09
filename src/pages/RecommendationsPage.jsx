@@ -3,13 +3,14 @@ import { ChevronRight, Sparkles, UsersRound } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 import ActivityCard from '../components/ActivityCard'
+import FiltersEmptyState from '../components/FiltersEmptyState'
 import { useApp } from '../context/AppContext'
 
 export default function RecommendationsPage() {
-  const { recommendations } = useApp()
+  const { filteredActivities } = useApp()
   const navigate = useNavigate()
 
-  const top = recommendations[0]
+  const top = filteredActivities[0]
 
   return (
     <div className="page-content">
@@ -76,13 +77,17 @@ export default function RecommendationsPage() {
             <h2>Activities</h2>
           </div>
 
-          <span className="count-chip">{recommendations.length}</span>
+          <span className="count-chip">{filteredActivities.length}</span>
         </div>
 
         <div className="stack">
-          {recommendations.map((activity) => (
-            <ActivityCard key={activity.id} activity={activity} />
-          ))}
+          {filteredActivities.length === 0 ? (
+            <FiltersEmptyState />
+          ) : (
+            filteredActivities.map((activity) => (
+              <ActivityCard key={activity.id} activity={activity} />
+            ))
+          )}
         </div>
       </section>
     </div>
