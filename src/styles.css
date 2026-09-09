@@ -2500,3 +2500,37 @@ select:focus-visible {
   background: rgba(var(--accent-rgb), 0.12);
   color: var(--accent);
 }
+
+/* ==========================================================================
+   Error surfaces
+   ========================================================================== */
+
+.data-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 6px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger, #dc2626);
+  font-size: var(--t-tiny);
+  line-height: 1.35;
+}
+
+.data-error-banner span {
+  flex: 1;
+  min-width: 0;
+}
+
+.data-error-banner .text-button {
+  flex-shrink: 0;
+  color: inherit;
+  font-weight: var(--w-medium);
+}
+
+.brand-orb.warning-orb {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--danger, #dc2626);
+  box-shadow: none;
+}

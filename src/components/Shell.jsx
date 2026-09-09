@@ -75,7 +75,7 @@ function CelebrationToast({ celebration }) {
 export default function Shell() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { notifications, celebration } = useApp()
+  const { notifications, celebration, dataError } = useApp()
   const { user } = useAuth()
   const unread = notifications.filter((n) => !n.read).length
   const simpleTitle = location.pathname.split('/')[1] || 'home'
@@ -107,6 +107,20 @@ export default function Shell() {
             </button>
           </div>
         </header>
+
+        {/* A listener failure used to be invisible: the screens simply showed
+            "nothing here", which reads as "there is nothing" rather than "we
+            could not load it". Non-blocking, because whatever did load is
+            still worth showing. */}
+        {dataError && (
+          <div className="data-error-banner" role="alert">
+            <AlertTriangle size={15} />
+            <span>Couldn&apos;t load the latest data. Check your connection.</span>
+            <button className="text-button" onClick={() => window.location.reload()}>
+              Retry
+            </button>
+          </div>
+        )}
 
         {celebration && <CelebrationToast celebration={celebration} />}
 

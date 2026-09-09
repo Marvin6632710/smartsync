@@ -215,6 +215,10 @@ describe('activity field validation', () => {
   test('rejects capacity below two', () => rejects({ capacity: 1 }))
   test('rejects absurd capacity', () => rejects({ capacity: 100000 }))
   test('rejects an unknown status', () => rejects({ status: 'promoted' }))
+  test('rejects an off-vocabulary category', () => rejects({ category: 'Knitting' }))
+  test('rejects a category carrying an HTML payload', () =>
+    // This exact string escaped a Leaflet marker's data-category attribute.
+    rejects({ category: '" onmouseover=alert(1) x="' }))
   test('rejects a roster the host is not on', () => rejects({ participantUids: [ALICE] }))
   test('rejects a roster larger than capacity', () =>
     rejects({ capacity: 2, participantUids: [BOB, ALICE, CAROL] }))

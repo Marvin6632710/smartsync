@@ -6,6 +6,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import CategoryIcon from '../components/CategoryIcon'
+import { categories } from '../data/categories'
 import FiltersEmptyState from '../components/FiltersEmptyState'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -13,7 +14,24 @@ import { useDeviceLocation } from '../hooks/useDeviceLocation'
 import { formatDistance } from '../utils/geo'
 
 const BANGKOK = [13.7563, 100.5018]
-const categoryKey = (value) => (value || '').toLowerCase()
+
+const KNOWN_CATEGORIES = new Set(categories.map((c) => c.toLowerCase()))
+
+/**
+ * Normalises a category for use as a CSS hook.
+ *
+ * Leaflet builds markers from an HTML *string*, which it inserts with
+ * innerHTML — so anything interpolated into it is executed as markup, not
+ * escaped as text the way JSX would. A category is attacker-controlled (a
+ * host can write any string to it), and `" onmouseover=alert(1) x="` fits
+ * inside the length the rules allow. Whitelisting against the fixed
+ * vocabulary means no attacker-controlled character can reach that string at
+ * all, which is a stronger guarantee than escaping correctly every time.
+ */
+const categoryKey = (value) => {
+  const key = String(value || '').toLowerCase()
+  return KNOWN_CATEGORIES.has(key) ? key : 'other'
+}
 
 // Styled by our own CSS rather than Leaflet's bundled PNG, which bundlers
 // break, and which could not carry the per-category colour anyway.

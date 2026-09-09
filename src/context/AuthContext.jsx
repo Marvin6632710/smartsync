@@ -80,6 +80,23 @@ export function AuthProvider({ children }) {
     }
   }, [authUser])
 
+  /**
+   * Re-attempts profile creation after a failure. Exposed so the UI can offer
+   * a way out rather than stranding the user on a spinner.
+   */
+  const retryProfile = async () => {
+    if (!authUser) return
+    setProfileError(null)
+    try {
+      await ensureUserProfile(authUser.uid, {
+        name: authUser.displayName,
+        email: authUser.email,
+      })
+    } catch (error) {
+      setProfileError(error)
+    }
+  }
+
   const user = useMemo(() => {
     if (!authUser || !publicProfile) return null
     return {
@@ -112,6 +129,7 @@ export function AuthProvider({ children }) {
     // sends people to the wrong place.
     profileReady: Boolean(user) && loaded.pub && loaded.priv,
     profileError,
+    retryProfile,
     signUp,
     signIn,
     signOut: signOutUser,

@@ -110,10 +110,22 @@ service cloud.firestore {
 
     // ------------------------------------------------------------- activities
 
+    // The category vocabulary, mirrored from src/data/categories.js. Kept in
+    // both places deliberately: the client copy drives the UI, and this copy
+    // stops anything else being written at all. An arbitrary category string
+    // reached a Leaflet marker's innerHTML, which made it an injection point,
+    // so this is a security control and not merely tidiness.
+    function isKnownCategory(value) {
+      return value in [
+        'Football', 'Basketball', 'Running', 'Gym', 'Study', 'Coffee',
+        'Gaming', 'Hangouts', 'Cycling', 'Movies', 'Food', 'Events'
+      ];
+    }
+
     function validActivity(data) {
       return isString(data.title, 100)
         && data.description is string && data.description.size() <= 1000
-        && isString(data.category, 40)
+        && isKnownCategory(data.category)
         && isString(data.locationName, 120)
         && data.lat is number && data.lat >= -90 && data.lat <= 90
         && data.lng is number && data.lng >= -180 && data.lng <= 180

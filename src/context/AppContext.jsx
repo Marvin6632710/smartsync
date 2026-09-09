@@ -226,8 +226,36 @@ export function AppProvider({ children }) {
   async function joinActivity(id) {
     const activity = activities.find((item) => item.id === id)
     if (!activity || joinedIds.includes(id)) return
-    const ok = await attempt(() => joinActivityDoc(id, uid), { failure: "Couldn't join" })
-    if (ok === null) return
+
+    try {
+      await joinActivityDoc(id, uid)
+    } catch (error) {
+      // Not routed through `attempt`, because its generic "you do not have
+      // permission" is actively misleading here. The rules refuse a join for
+      // two reasons a user can understand and act on: somebody took the last
+      // place first (a real race — verified to happen), or the host cancelled
+      // it underneath them.
+      if (error?.code === 'permission-denied') {
+        const fresh = activities.find((item) => item.id === id) || activity
+        const full = (fresh.participants || 0) >= (fresh.capacity || 0)
+        pushCelebration({
+          icon: 'alert',
+          tone: 'warning',
+          title: full ? 'Someone got the last place' : 'Cannot join this activity',
+          body: full
+            ? `${activity.title} filled up just now.`
+            : `${activity.title} is no longer open to join.`,
+        })
+      } else {
+        pushCelebration({
+          icon: 'alert',
+          tone: 'warning',
+          title: "Couldn't join",
+          body: 'Please try again.',
+        })
+      }
+      return
+    }
 
     // Joining is the behaviour worth learning from, so record the category.
     // Leaving deliberately does not un-learn it — you did show interest.

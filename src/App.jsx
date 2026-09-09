@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import BootScreen from './components/BootScreen'
+import ProfileErrorScreen from './components/ProfileErrorScreen'
 import Shell from './components/Shell'
 import { useAuth } from './context/AuthContext'
 
@@ -41,7 +42,7 @@ const EditActivityPage = lazy(() => import('./pages/EditActivityPage'))
  * the app where a signed-out visitor can reach a screen that assumes a user.
  */
 export default function App() {
-  const { status, user, profileReady } = useAuth()
+  const { status, user, profileReady, profileError, retryProfile, signOut } = useAuth()
 
   // Stage 1 — session still resolving from disk.
   if (status === 'loading') return <BootScreen label="Starting SmartSync…" />
@@ -57,6 +58,12 @@ export default function App() {
       </Routes>
     )
   }
+
+  // Signed in, but the profile could not be built. Checked before the loading
+  // state, or a failure is indistinguishable from a slow network and the user
+  // waits on a spinner that will never resolve.
+  if (profileError && !profileReady)
+    return <ProfileErrorScreen error={profileError} onRetry={retryProfile} onSignOut={signOut} />
 
   // Signed in, but the profile documents have not arrived yet.
   if (!profileReady) return <BootScreen label="Loading your profile…" />
