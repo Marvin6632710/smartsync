@@ -16,13 +16,14 @@ Cloud Firestore) on the back end.
 1. [What it does](#1-what-it-does)
 2. [Running it locally without a Firebase account](#2-running-it-locally-without-a-firebase-account)
 3. [Connecting your own Firebase project](#3-connecting-your-own-firebase-project)
-4. [Deploying](#4-deploying)
-5. [Project structure](#5-project-structure)
-6. [Data model](#6-data-model)
-7. [Security model](#7-security-model)
-8. [How recommendations work](#8-how-recommendations-work)
-9. [Testing](#9-testing)
-10. [Known limits](#10-known-limits)
+4. [Demo accounts on the live site](#4-demo-accounts-on-the-live-site)
+5. [Deploying](#5-deploying)
+6. [Project structure](#6-project-structure)
+7. [Data model](#7-data-model)
+8. [Security model](#8-security-model)
+9. [How recommendations work](#9-how-recommendations-work)
+10. [Testing](#10-testing)
+11. [Known limits](#11-known-limits)
 
 ---
 
@@ -130,7 +131,41 @@ npm run deploy:rules
 > `firestore.rules`. It is still kept out of git because it differs per
 > environment.
 
-## 4. Deploying
+## 4. Demo accounts on the live site
+
+`npm run seed:production -- --confirm` loads demo content into the live
+project: six accounts, eighteen activities at real Bangkok locations spread
+over about five weeks, some joins and a chat thread. It is safe to run more
+than once — anything already there is skipped rather than duplicated.
+
+The dates deliberately reach well past the defence. Activities that have
+already started are hidden from discovery, so seeding only "the next two
+weeks" would leave the app looking empty on the day it has to be shown.
+
+| Email                  | Interests                |
+| ---------------------- | ------------------------ |
+| `you@smartsync.demo`   | Football, Gaming, Coffee |
+| `alex@smartsync.demo`  | Football, Gaming, Gym    |
+| `maya@smartsync.demo`  | Coffee, Study, Movies    |
+| `narin@smartsync.demo` | Running, Cycling, Food   |
+| `june@smartsync.demo`  | Gaming, Movies, Hangouts |
+| `pim@smartsync.demo`   | Basketball, Food, Events |
+
+Password for all of them: `demo1234`.
+
+> **These are public credentials on a public site.** They are written in this
+> file and in `scripts/seed-production.mjs`, so anyone reading the repository
+> can sign in as them and create or cancel demo activities. That is an
+> acceptable trade for throwaway accounts holding no real data, but it is a
+> deliberate choice rather than an oversight. To use something unpublished,
+> set `SEED_PASSWORD` before seeding, and change the existing accounts from
+> the Firebase console under Authentication.
+
+Signing in as two of them side by side is the clearest demonstration the app
+has: the same eighteen activities rank completely differently. Football Night
+is Min Khant's top match at 84% and sits at 39% for Maya.
+
+## 5. Deploying
 
 ```bash
 npm run deploy
@@ -139,7 +174,7 @@ npm run deploy
 That builds the app and pushes both the static site and the security rules to
 Firebase Hosting. The console prints the live URL.
 
-## 5. Project structure
+## 6. Project structure
 
 ```
 src/
@@ -168,7 +203,7 @@ Screens never import `firebase/*` directly — they go through the two
 contexts. `recommendationService.js` is deliberately pure: it takes data and
 returns numbers, so it can be tested without a database.
 
-## 6. Data model
+## 7. Data model
 
 ```
 users/{uid}                       PUBLIC — any signed-in user can read
@@ -205,7 +240,7 @@ makes each change atomically checkable.
 strand its message subcollection as unreachable orphans and erase the chat
 history of everyone who had joined.
 
-## 7. Security model
+## 8. Security model
 
 Everything the interface implies is enforced in `firestore.rules`, because a
 determined user can call Firestore directly without going through the UI:
@@ -235,7 +270,7 @@ determined user can call Firestore directly without going through the UI:
 
 All of this is covered by tests — see below.
 
-## 8. How recommendations work
+## 9. How recommendations work
 
 Measured, not asserted: `EVALUATION.md` reports precision@5, MRR and NDCG
 against random, popularity, distance and interest-only baselines, plus a
@@ -262,7 +297,7 @@ you compatible with everybody.
 An unknown distance scores neutrally rather than as zero kilometres — no
 reward and no penalty for a fact nobody knows yet.
 
-## 9. Testing
+## 10. Testing
 
 ```bash
 npm test
@@ -277,7 +312,7 @@ npm run lint
 npm run format:check
 ```
 
-## 10. Known limits
+## 11. Known limits
 
 Honest about what is not there:
 
