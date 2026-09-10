@@ -4,11 +4,20 @@ import ActivityCard from '../components/ActivityCard'
 import BackButton from '../components/BackButton'
 import FiltersEmptyState from '../components/FiltersEmptyState'
 import ActivitiesLoading from '../components/ActivitiesLoading'
-import { useApp } from '../context/AppContext'
+import { defaultFilters, useApp } from '../context/AppContext'
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
-  const { filteredActivities, loading } = useApp()
+  const { filteredActivities, recommendations, loading, filters, resetFilters } = useApp()
+
+  // Search runs over what the filters allow, not over everything. If a filter
+  // is narrowing the set, saying only "nothing matches that word" is
+  // misleading — no word can find a coffee morning while the category is
+  // pinned to Basketball, so "try another word" is advice that cannot work.
+  const filtersActive = Object.keys(defaultFilters).some(
+    (key) => filters[key] !== defaultFilters[key],
+  )
+  const hiddenByFilters = recommendations.length - filteredActivities.length
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return filteredActivities
@@ -52,7 +61,20 @@ export default function SearchPage() {
             <div className="empty-state">
               <Search size={30} />
               <h3>No results</h3>
-              <p>Nothing matches “{query.trim()}”. Try another word.</p>
+              {filtersActive ? (
+                <>
+                  <p>
+                    Nothing matches “{query.trim()}” among the {filteredActivities.length}{' '}
+                    {filteredActivities.length === 1 ? 'activity' : 'activities'} your filters allow
+                    {hiddenByFilters > 0 && `, with ${hiddenByFilters} hidden`}.
+                  </p>
+                  <button className="secondary-button" onClick={resetFilters}>
+                    Clear filters and search everything
+                  </button>
+                </>
+              ) : (
+                <p>Nothing matches “{query.trim()}”. Try another word.</p>
+              )}
             </div>
           )
         )}

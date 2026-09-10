@@ -329,3 +329,6 @@ In order, on <https://smartsync-c1f07.web.app>:
 10. **Delete it** → says Delete, not Cancel, because nobody else joined
 11. **Privacy → anonymous mode on** → your name changes everywhere
 12. **Turn wifi off**, join something → offline banner, "will sync"
+13. **Set a category filter, then search for something in another category** →
+    the empty state says the filters are hiding things and offers to clear
+    them, rather than telling you to try another word
