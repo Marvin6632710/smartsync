@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { BellRing, LocateFixed, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import SignOutLink from '../components/SignOutLink'
 import { useAuth } from '../context/AuthContext'
 import { useDeviceLocation } from '../hooks/useDeviceLocation'
 import { useSaveProfile } from '../hooks/useSaveProfile'
@@ -107,6 +108,8 @@ export default function PermissionPage() {
       <button className="primary-button wide" onClick={finish} disabled={finishing}>
         {finishing ? 'Setting up…' : user.onboarded ? 'Done' : 'Enter SmartSync'}
       </button>
+
+      {!user.onboarded && <SignOutLink />}
     </div>
   )
 }

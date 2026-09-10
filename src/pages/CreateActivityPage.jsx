@@ -11,7 +11,12 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 const initial = {
   title: '',
-  category: 'Football',
+  // Deliberately empty rather than defaulting to the first category. A
+  // default here is not a convenience: category is what matching runs on, so
+  // a study session published as Football by somebody who never opened the
+  // dropdown is wrong for them, wrong for everybody it is then recommended
+  // to, and teaches their own history the wrong thing.
+  category: '',
   description: '',
   date: today(),
   time: '19:00',
@@ -35,6 +40,12 @@ export default function CreateActivityPage() {
     event.preventDefault()
     if (!form.title.trim() || !form.description.trim()) {
       setError('Please complete the activity name and description.')
+      return
+    }
+    if (!form.category) {
+      setError(
+        'Pick a category. It is what matching runs on, so a wrong one hides your activity from the people it suits.',
+      )
       return
     }
     if (!form.locationName.trim()) {
@@ -99,6 +110,7 @@ export default function CreateActivityPage() {
         <label>
           Category
           <select value={form.category} onChange={(e) => set('category', e.target.value)}>
+            <option value="">Choose a category…</option>
             {categories.map((option) => (
               <option key={option}>{option}</option>
             ))}

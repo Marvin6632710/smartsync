@@ -1,5 +1,10 @@
 import { useCallback, useState } from 'react'
-import { currentUid } from '../firebase/auth'
+import { currentUid, refreshCredential } from '../firebase/auth'
+
+// How many times a transient denial buys a re-subscribe. Two, because one was
+// not enough: a fresh sign-up that follows a sign-out in the same page was
+// still refused on the second attempt, and landed on the error screen.
+const MAX_RETRIES = 2
 
 /**
  * Guards a Firestore listener's error callback against the noise of switching
@@ -19,10 +24,11 @@ import { currentUid } from '../firebase/auth'
  * the watch stream reattaches carrying the token Firestore has just rejected.
  * Nothing is wrong with those listeners; they simply need to be made again.
  *
- * So: errors from a session that has ended are dropped, the first
- * permission-denied under a live session buys exactly one re-subscribe, and
- * anything after that is passed through to the caller — a rule that genuinely
- * refuses this user must surface, not be retried forever in silence.
+ * So: errors from a session that has ended are dropped, and a
+ * permission-denied under a live session buys a fresh credential and a
+ * re-subscribe, twice. Anything after that is passed through to the caller —
+ * a rule that genuinely refuses this user must surface, not be retried
+ * forever in silence.
  *
  * Usage: spread `attempt` into the effect's dependency array so bumping it
  * re-subscribes, and wrap each error callback in `guard`.
@@ -33,8 +39,12 @@ export function useListenerRetry(uid) {
   const guard = useCallback(
     (onError) => (error) => {
       if (currentUid() !== uid) return
-      if (error?.code === 'permission-denied' && attempt < 1) {
-        window.setTimeout(() => setAttempt(1), 400)
+      if (error?.code === 'permission-denied' && attempt < MAX_RETRIES) {
+        // Ask for a new token first, then re-subscribe. Every listener in the
+        // group reports the same denial at the same moment and each lands
+        // here, so this is written to be idempotent: they all set the same
+        // attempt number, and React collapses that to one re-render.
+        refreshCredential().then(() => setAttempt(attempt + 1))
         return
       }
       onError?.(error)

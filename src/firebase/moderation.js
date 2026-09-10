@@ -133,11 +133,6 @@ export function watchRole(uid, callback, onError) {
   )
 }
 
-/** Appoint or dismiss a moderator. Admin only, and never for yourself. */
-export function setUserRole(uid, role, suspended = false) {
-  return setDoc(doc(db, 'roles', uid), { role, suspended }, { merge: true })
-}
-
 /**
  * Suspends or restores an account.
  *

@@ -214,7 +214,8 @@ admin. The first one is made by hand, once, in the Firebase console.
 
 From there the admin appoints moderators the same way, with `role` set to
 `moderator` instead — there is no screen for that yet, and the limits section
-below says so.
+below says so. Suspending, un-suspending, taking activities down and putting
+them back all happen inside the app; only granting a rank does not.
 
 To check it worked without a queue to look at: the Moderation row appears in
 Settings only for a moderator or an admin, and `/moderation` shows "This

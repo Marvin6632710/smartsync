@@ -2986,3 +2986,11 @@ input[type='range'] {
   font-size: var(--t-tiny);
   padding: 8px 12px;
 }
+
+/* A quiet way out, centred under a primary action. */
+.wide-centre {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 14px;
+}

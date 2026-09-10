@@ -83,6 +83,26 @@ export function currentUid() {
   return auth.currentUser?.uid || null
 }
 
+/**
+ * Forces a fresh ID token from the auth service.
+ *
+ * The reason this exists: Firestore's watch stream can reattach carrying a
+ * credential that has just been revoked — after a sign-out, or after a
+ * sign-up that followed one — and every listener on it is refused. Waiting a
+ * fixed number of milliseconds and hoping is not a fix; asking for a new
+ * token and then re-subscribing addresses the actual cause.
+ *
+ * Resolves either way. A failure here is not worth reporting on its own: the
+ * caller is about to retry a listener that will report its own error.
+ */
+export async function refreshCredential() {
+  try {
+    await auth.currentUser?.getIdToken(true)
+  } catch {
+    // Nothing useful to do — the retry will surface anything that persists.
+  }
+}
+
 export function observeAuth(callback) {
   return onAuthStateChanged(auth, callback)
 }

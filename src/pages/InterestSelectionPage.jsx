@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import SignOutLink from '../components/SignOutLink'
 import { categories, MIN_INTERESTS, timeBands } from '../data/categories'
 import { useAuth } from '../context/AuthContext'
 import { updatePublicProfile } from '../firebase/users'
@@ -83,6 +84,8 @@ export default function InterestSelectionPage() {
       >
         {busy ? 'Saving…' : 'Continue'} <ArrowRight size={17} />
       </button>
+
+      <SignOutLink />
     </div>
   )
 }
