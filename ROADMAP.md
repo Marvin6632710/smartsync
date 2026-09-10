@@ -27,10 +27,12 @@ Not a feature list — the things that would be hard to claim without evidence.
 group chat, real GPS distance and real maps. Two people in different places
 see each other's activities and each other's messages.
 
-**A security model that has been attacked.** 155 rule tests behave like a
+**A security model that has been attacked.** 210 rule tests behave like a
 hostile client, plus 16 authenticated attacks run against the live project.
-Six genuine holes have been found and fixed by redesign rather than patching —
-three by the tests, three by walking the running app as each kind of user:
+Fifteen genuine holes have been found and fixed by redesign rather than
+patching — three by the feature tests, three by walking the running app as
+each kind of user, and nine by the authority matrix, every one of which was a
+collision between two rules that were each correct on their own:
 
 - membership could be inflated by anyone, because rules cannot see sibling
   writes in a batch
@@ -44,6 +46,18 @@ three by the tests, three by walking the running app as each kind of user:
   themselves, which was always refused, but bury the complaint
 - a suspended moderator kept every moderation power, so suspending one who was
   abusing the queue took nothing away from them
+- an admin could not suspend a fellow admin but could delete their role row,
+  which is demotion by another name and strictly worse
+- a suspended account could still write notifications straight into anybody's
+  list — the one collection everyone may write to, and so the way around every
+  other rule
+- somebody you had blocked could reach you the same way
+- a suspended host kept accepting strangers, because their existing activities
+  stayed live and joinable
+- a moderator could rule on a report they had filed themselves
+- a report named the thing reported, not the person answerable, so suspending
+  from a message report wrote a role document keyed by the message
+- and a reporter could name anyone as the author of a message they quoted
 
 **Moderation with limits on the moderators.** Reports go to a queue inside the
 app, worked by moderators and admins whose powers are bounded by the rules:

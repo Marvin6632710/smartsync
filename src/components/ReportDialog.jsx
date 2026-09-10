@@ -90,6 +90,13 @@ export default function ReportDialog({ open, subject, onClose }) {
     const sent = await submitReport({
       targetType: subject.type,
       targetId: subject.id,
+      // Who is answerable, as opposed to what was reported. For a person the
+      // two are the same; for an activity it is the host, and for a message
+      // its sender. This is the field a moderator's Suspend button acts on,
+      // and the rules verify it against the activity or the message itself —
+      // so a report cannot quote one person and blame another.
+      subjectId: subject.subjectId || subject.id,
+      activityId: subject.activityId,
       reason,
       detail,
       context: subject.context,

@@ -655,6 +655,11 @@ export function AppProvider({ children }) {
     filteredActivities,
     removedActivities,
     peers: visiblePeers,
+    // Unfiltered, for the moderation queue only. Blocking must not hide
+    // somebody from the person reviewing a report about them — that would be
+    // the same hole as blocking a moderator to escape moderation, just
+    // wearing a name instead of a rule.
+    directory,
 
     joinedIds,
     joinActivity,

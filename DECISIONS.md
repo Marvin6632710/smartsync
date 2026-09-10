@@ -308,14 +308,35 @@ could be turned against its users:
 - Admin is console-only, so compromising any in-app account — moderator or
   admin — cannot mint more admins.
 
+**Two things that only appeared when the ranks were tested against each
+other**, and both are the reason this ADR is worth reading:
+
+- *Suspension had to reach the accounts a person hosts.* Somebody is suspended
+  because they may be a danger to the people they would be meeting — and their
+  existing activities stayed live, in discovery, still accepting strangers. The
+  suspension protected nobody from the thing it was for. The rules now refuse a
+  join when the host is suspended, and suspending an account stands down
+  everything it is hosting, telling everyone who had joined. The client could
+  not have done this filtering itself: roles are readable only by their owner
+  and by moderators, so discovery genuinely cannot tell.
+- *A report had to name a person, not a thing.* Reports recorded what was
+  reported — a user, an activity, a message — and the Suspend button acted on
+  that id. For a message report that id is a message, so suspending wrote a
+  role document keyed by message and suspended nobody. Reports now carry
+  `subjectId`: the person answerable. The rules verify it against the activity
+  or the message itself, so a reporter cannot quote one person's message and
+  name somebody else as its sender.
+
 **Cost.** Bootstrapping the first admin is a manual step in the console, and
 there is no in-app screen for appointing moderators yet: an admin appoints one
-by writing the role document. Suspension is also blunt — it is not scoped to a
-single activity or a single conversation. And a moderator can still read a
-report filed about themselves, and so learn who filed it: Firestore has no
-field-level read rules and refuses a whole query if any document in it fails,
-so hiding those is a courtesy in the client, not a control. What is enforced is
-that they cannot act on it.
+by writing the role document. Suspension is blunt — it is not scoped to a
+single activity or conversation, and standing down a host's activities is not
+reversed when the suspension is lifted; an admin restores them one at a time,
+which is deliberate but is extra work after a mistake. And a moderator can
+still read a report filed about themselves, and so learn who filed it:
+Firestore has no field-level read rules and refuses a whole query if any
+document in it fails, so hiding those is a courtesy in the client, not a
+control. What is enforced is that they cannot act on it.
 
 **Rejected.** A single `isAdmin` flag (no room for the routine work); storing
 the role on the user profile (self-grantable); letting moderators undo each
@@ -416,10 +437,17 @@ UI:
   they host. They could never have suspended themselves, but before this they
   could have dismissed the complaint — the same power, exercised quietly.
 - A moderator cannot suspend another moderator or an admin, so they cannot
-  disable the people who could review them.
+  disable the people who could review them. An admin cannot suspend a fellow
+  admin, or delete their role row — deleting it is demotion by another name.
+- A moderator cannot rule on a report they filed themselves. Prosecutor and
+  judge is the other half of the conflict of interest, and it is the half
+  that is easy to forget.
 - A moderator cannot undo a takedown. An admin can, and both decisions stay on
   the record: the activity carries the restore, the report carries the
   removal.
+- A suspended account exercises no rank at all. It keeps the rank, so the
+  suspension is reversible, but a suspended moderator moderates nothing —
+  otherwise suspending one who was abusing the queue would take nothing away.
 - `admin` cannot be created from inside the app at all. It is written in the
   Firebase console, so compromising any account in the app cannot mint one.
 
@@ -430,16 +458,25 @@ client, which is a courtesy and not a control. ADR-011 says so in writing.
 
 ### "How did you test it?"
 
-204 tests. 49 over the recommendation engine — pure functions, no database
-needed — and 155 that attack the security rules as a hostile client.
+259 tests. 49 over the recommendation engine — pure functions, no database
+needed — 155 attacking the security rules feature by feature, and 55 more in
+`roles-matrix.test.js` that test the one thing cutting across every feature:
+who may do what to whom, at every combination of the caller's rank, the
+target's rank, and the relationship between them.
 
 Be precise about what found what. Three holes were caught by the rule tests
-themselves. Three more were caught by driving the running app as each kind of
-user and then pinned with tests that fail against the old rules — a host could
-write their own removed activity back to `active`; a moderator could dismiss a
-report about themselves; a suspended moderator kept every moderation power.
-Tests are one instrument, not the only one, and saying which found which is
-more useful than a single number.
+feature by feature. Three more were caught by driving the running app as each
+kind of user. Nine more were caught by the matrix, and they are the
+interesting ones, because every single one is a **collision** — two rules that
+are each correct alone and wrong together. An admin who could not suspend a
+fellow admin could delete their role row instead, which is demotion. A
+suspended account could still write notifications directly into anyone's
+list, which is every other rule bypassed. A suspended host kept accepting
+strangers. Somebody you blocked could still reach you through a notification.
+A moderator could rule on a report they filed themselves.
+
+None of those is visible from reading a single rule, which is the argument for
+having written the matrix at all.
 
 Beyond that: 16 authenticated attacks run against the live project, a fuzzer
 over the scorer, and an integrity sweep checking invariants on the real data.

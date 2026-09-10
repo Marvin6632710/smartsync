@@ -604,10 +604,26 @@ describe('reports', () => {
     reporterId: BOB,
     targetType: 'user',
     targetId: ALICE,
+    // Who is answerable for the thing reported. For a user report that is the
+    // person themselves; for an activity it is the host; for a message, its
+    // sender. The rules verify it rather than taking the reporter's word,
+    // because this is the field the queue suspends. roles-matrix.test.js has
+    // the forgery attempts.
+    subjectId: ALICE,
     reason: 'harassment',
     detail: 'Sent me abusive messages in the chat.',
     status: 'open',
     ...over,
+  })
+
+  test('a report has to say who is answerable for it', async () => {
+    // Built by deleting the key rather than setting it to undefined: the
+    // Firestore SDK rejects undefined values client-side, which assertFails
+    // does not count, so that version of this test proved nothing.
+    const withoutSubject = report()
+    delete withoutSubject.subjectId
+    await assertFails(addDoc(collection(asBob(), 'reports'), withoutSubject))
+    await assertFails(addDoc(collection(asBob(), 'reports'), report({ subjectId: '' })))
   })
 
   test('a signed-in user can file a report', async () => {

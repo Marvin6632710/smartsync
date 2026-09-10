@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -77,11 +78,30 @@ export const REPORT_REASONS = [
  * gives a reviewer nothing to act on, and by the time anyone reads it the
  * chat may have closed.
  */
-export function fileReport({ reporterId, targetType, targetId, reason, detail, context }) {
+export function fileReport({
+  reporterId,
+  targetType,
+  targetId,
+  subjectId,
+  activityId,
+  reason,
+  detail,
+  context,
+}) {
   return addDoc(collection(db, 'reports'), {
     reporterId,
     targetType,
+    // What was reported.
     targetId,
+    // Who is answerable for it — the person, the activity's host, or the
+    // message's sender. The rules check this against the real document, so it
+    // is safe for the queue to act on. Suspension used to act on `targetId`,
+    // which for a message report is a message id: reporting a message wrote a
+    // roles document against the message and suspended nobody.
+    subjectId,
+    // Only message reports carry this, and only so the rules can find the
+    // message to verify `subjectId` against.
+    ...(activityId ? { activityId } : {}),
     reason,
     detail: String(detail || '').slice(0, 1000),
     context: String(context || '').slice(0, 500),
@@ -252,6 +272,71 @@ export async function removeActivity(activityId, { moderatorId, reason }) {
         }),
       ),
   )
+}
+
+/**
+ * Every account currently suspended, for the review list.
+ *
+ * A moderation system that can suspend but not un-suspend is not finished:
+ * without this the only way back was the Firebase console, which is not a
+ * place a moderator should have to go.
+ *
+ * Readable by moderators because the roles rules allow it — and a list query
+ * is allowed precisely because `isModerator()` does not depend on which
+ * document is being read, so it either holds for all of them or none.
+ */
+export function watchSuspended(callback, onError) {
+  return onSnapshot(
+    query(collection(db, 'roles'), where('suspended', '==', true)),
+    (snap) => callback(snap.docs.map((d) => ({ uid: d.id, ...d.data() }))),
+    onError,
+  )
+}
+
+/** Lifts a suspension. The rules decide whether this caller may. */
+export function liftSuspension(uid) {
+  return setSuspended(uid, false)
+}
+
+/**
+ * Suspends an account and stands down everything it is hosting.
+ *
+ * The suspension alone is not enough, and this is the sharpest collision in
+ * the whole design. Somebody is suspended precisely because they may be a
+ * danger to the people they would be meeting — and their existing activities
+ * would otherwise stay live, still in discovery, still accepting strangers.
+ * The rules refuse those joins now, but a listing you cannot join and are
+ * never told why about is a worse experience than one that is honestly gone.
+ *
+ * The client could not do this filtering on its own even if it wanted to:
+ * roles are readable only by their owner and by moderators, so discovery
+ * genuinely cannot tell that a host is suspended.
+ *
+ * Each takedown records the real reason and notifies whoever had joined, so
+ * nobody turns up to something that is not happening. Lifting the suspension
+ * does not bring them back — an admin restores them one at a time, which is
+ * the same review any other reversal gets.
+ */
+export async function suspendAccount(uid, { moderatorId }) {
+  await setSuspended(uid, true)
+
+  const hosted = await getDocs(query(collection(db, 'activities'), where('hostId', '==', uid)))
+  const standing = hosted.docs.filter((d) => d.data().status === 'active')
+
+  // Settled rather than awaited in sequence: one failure must not leave the
+  // rest of somebody's activities live after they have been suspended.
+  const results = await Promise.allSettled(
+    standing.map((d) =>
+      removeActivity(d.id, {
+        moderatorId,
+        reason: 'The host\u2019s account was suspended',
+      }),
+    ),
+  )
+  return {
+    stoodDown: results.filter((r) => r.status === 'fulfilled').length,
+    failed: results.filter((r) => r.status === 'rejected').length,
+  }
 }
 
 /**

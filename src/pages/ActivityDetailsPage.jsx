@@ -212,6 +212,8 @@ export default function ActivityDetailsPage() {
             setReporting({
               type: 'activity',
               id: a.id,
+              // The host is the person answerable for an activity.
+              subjectId: a.hostId,
               name: a.title,
               label: 'this activity',
               context: `${a.title} at ${a.locationName}, hosted by ${a.hostName}`,

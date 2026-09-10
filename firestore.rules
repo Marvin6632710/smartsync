@@ -89,8 +89,17 @@ service cloud.firestore {
     // Suspension is a state, not a role: it can sit on anybody. A suspended
     // account can still read — being told why you cannot post is the point —
     // but cannot create, join, or say anything.
+    //
+    // Written to take a uid rather than always meaning "me", because the
+    // sharpest question suspension raises is about somebody else: is the host
+    // of the activity I am about to join suspended?
+    function accountSuspended(uid) {
+      return exists(/databases/$(database)/documents/roles/$(uid))
+        && get(/databases/$(database)/documents/roles/$(uid)).data.suspended == true;
+    }
+
     function isSuspended() {
-      return signedIn() && hasRoleDoc() && roleDoc(request.auth.uid).suspended == true;
+      return signedIn() && accountSuspended(request.auth.uid);
     }
 
     // Has `ownerId` blocked `otherId`? Their block list is private, but rules
@@ -100,15 +109,46 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/users/$(ownerId)/blocked/$(otherId));
     }
 
-    // Is this report about the caller — either about them directly, or about
-    // something they are hosting?
+    // Is this report about the caller?
+    //
+    // `subjectId` is the person answerable for whatever was reported — the
+    // person themselves, the host of the activity, or the sender of the
+    // message. It is verified against reality when the report is created (see
+    // namesTheRightPerson), so it can be trusted here and by the queue, which
+    // suspends `subjectId` and not `targetId`. Reporting a message used to
+    // suspend the message: `targetId` is a message id, and a roles document
+    // was being written against it.
+    //
+    // The two fallbacks keep reports filed before `subjectId` existed
+    // reviewable, rather than freezing them into the queue forever.
     function aboutMe(report) {
-      return report.targetId == request.auth.uid
+      return ('subjectId' in report && report.subjectId == request.auth.uid)
+        || report.targetId == request.auth.uid
         || (
           report.targetType == 'activity'
           && exists(/databases/$(database)/documents/activities/$(report.targetId))
           && get(/databases/$(database)/documents/activities/$(report.targetId))
                .data.hostId == request.auth.uid
+        );
+    }
+
+    // Does the report point at the person actually responsible for the thing
+    // being reported? Checked at creation, because `subjectId` decides who
+    // gets suspended: without this a reporter could quote one person's
+    // message and name somebody else as its sender.
+    function namesTheRightPerson(r) {
+      return (r.targetType == 'user' && r.subjectId == r.targetId)
+        || (
+          r.targetType == 'activity'
+          && exists(/databases/$(database)/documents/activities/$(r.targetId))
+          && get(/databases/$(database)/documents/activities/$(r.targetId)).data.hostId
+               == r.subjectId
+        )
+        || (
+          r.targetType == 'message'
+          && exists(/databases/$(database)/documents/activities/$(r.activityId)/messages/$(r.targetId))
+          && get(/databases/$(database)/documents/activities/$(r.activityId)/messages/$(r.targetId))
+               .data.senderId == r.subjectId
         );
     }
 
@@ -162,7 +202,16 @@ service cloud.firestore {
         // the sending client. That is the whole reason `notificationsEnabled`
         // sits on the public profile: a setting only its owner can read is a
         // setting nobody else can honour.
+        //
+        // Two limits that are easy to miss, because notifications are the one
+        // collection anybody may write to. That makes them the way around
+        // every other rule: no activity, no message, just a direct write into
+        // somebody's list. A suspended account cannot do it, and neither can
+        // somebody the recipient has blocked — blocking is meant to stop them
+        // reaching you, and this is reaching you.
         allow create: if signedIn()
+          && !isSuspended()
+          && !hasBlocked(uid, request.auth.uid)
           && isString(request.resource.data.title, 120)
           && request.resource.data.body is string
           && request.resource.data.body.size() <= 300
@@ -254,6 +303,15 @@ service cloud.firestore {
         && request.resource.data.participantUids.size() <= resource.data.capacity
         && resource.data.status == 'active'
         && !isSuspended()
+        // Nobody joins a suspended host. Somebody is suspended precisely
+        // because they may be a danger to the people they would be meeting,
+        // and without this their existing activities stayed live and kept
+        // accepting strangers — the suspension protecting nobody from the
+        // thing it was for. The client cannot enforce this on its own either:
+        // roles are readable only by their owner and by moderators, so
+        // discovery genuinely cannot tell, and this rule is the only place
+        // the answer is known.
+        && !accountSuspended(resource.data.hostId)
         // A host who blocked you does not have to host you. Enforced here
         // rather than by hiding the activity, because hiding is a client-side
         // courtesy and this is the part that has to actually hold.
@@ -451,7 +509,15 @@ service cloud.firestore {
           )
         );
 
-      allow delete: if isAdmin() && uid != request.auth.uid;
+      // Deleting the row is demotion by another name — no row means an
+      // ordinary user. So it carries the same limit as editing one: an admin
+      // may dismiss a moderator this way, and may not erase a fellow admin.
+      // Without the rank check, "an admin cannot suspend another admin" would
+      // be true and useless, because they could delete them instead, which is
+      // strictly worse.
+      allow delete: if isAdmin()
+        && uid != request.auth.uid
+        && rankOf(uid) != 'admin';
     }
 
     // ---------------------------------------------------------------- reports
@@ -474,6 +540,8 @@ service cloud.firestore {
         && request.resource.data.reporterId == request.auth.uid
         && request.resource.data.targetType in ['user', 'activity', 'message']
         && isString(request.resource.data.targetId, 200)
+        && isString(request.resource.data.subjectId, 200)
+        && namesTheRightPerson(request.resource.data)
         && request.resource.data.reason in
              ['harassment', 'inappropriate', 'spam', 'fake', 'safety', 'other']
         && request.resource.data.detail is string
@@ -487,12 +555,20 @@ service cloud.firestore {
         && touches(['status', 'reviewedBy', 'reviewedAt', 'outcome'])
         && request.resource.data.status in ['open', 'actioned', 'dismissed']
         && request.resource.data.reviewedBy == request.auth.uid
-        // Nobody closes a report about themselves. A moderator could never
-        // suspend themselves — that rule is in /roles — but without this they
+        // Nobody closes a report they are a party to — on either side.
+        //
+        // Being the subject is the obvious half: a moderator could never
+        // suspend themselves, that rule is in /roles, but without this they
         // could mark the complaint dismissed and bury it, which is the same
-        // power exercised quietly. Covers their activities too: a takedown
-        // request about something you are hosting is not yours to dismiss.
-        && !aboutMe(resource.data);
+        // power exercised quietly. Their own activities and their own messages
+        // count as themselves.
+        //
+        // Being the reporter is the half that is easy to forget. A moderator
+        // who reports somebody and then rules on it is prosecutor and judge,
+        // and the record would show a decision that looks independent and is
+        // not.
+        && !aboutMe(resource.data)
+        && resource.data.reporterId != request.auth.uid;
 
       allow delete: if false;
     }

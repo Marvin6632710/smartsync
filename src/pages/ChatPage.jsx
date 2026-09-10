@@ -130,6 +130,11 @@ export default function ChatPage() {
                       setReporting({
                         type: 'message',
                         id: message.id,
+                        // Whoever sent it, and where it lives — the rules read
+                        // the message itself to confirm the sender, so a
+                        // report cannot name somebody who did not write it.
+                        subjectId: message.senderId,
+                        activityId: id,
                         name: message.senderName,
                         avatar: message.senderAvatar,
                         label: 'this message',

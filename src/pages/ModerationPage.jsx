@@ -1,16 +1,26 @@
 import React, { useEffect, useState } from 'react'
-import { CheckCircle2, Flag, RotateCcw, ShieldAlert, Trash2, UserRoundX } from 'lucide-react'
+import {
+  CheckCircle2,
+  Flag,
+  RotateCcw,
+  ShieldAlert,
+  Trash2,
+  UserRoundCheck,
+  UserRoundX,
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import {
+  liftSuspension,
   removeActivity,
   resolveReport,
   restoreActivity,
-  setSuspended,
+  suspendAccount,
   watchOpenReports,
+  watchSuspended,
 } from '../firebase/moderation'
 import { REPORT_REASONS } from '../firebase/moderation'
 import { formatRelativeTime } from '../utils/time'
@@ -29,7 +39,7 @@ const reasonLabel = (key) => REPORT_REASONS.find((r) => r.key === key)?.label ||
  */
 export default function ModerationPage() {
   const { user } = useAuth()
-  const { pushCelebration, peers, activities, removedActivities } = useApp()
+  const { pushCelebration, directory, activities, removedActivities } = useApp()
   const navigate = useNavigate()
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
@@ -39,6 +49,13 @@ export default function ModerationPage() {
   // something back, the same way a moderator has to say why they took it down.
   const [restoreReasons, setRestoreReasons] = useState({})
   const [restoring, setRestoring] = useState(null)
+  const [suspended, setSuspendedList] = useState([])
+  const [lifting, setLifting] = useState(null)
+
+  useEffect(() => {
+    if (!user.isModerator) return undefined
+    return watchSuspended(setSuspendedList, () => setSuspendedList([]))
+  }, [user.isModerator])
 
   useEffect(() => {
     if (!user.isModerator) return undefined
@@ -68,7 +85,13 @@ export default function ModerationPage() {
       </div>
     )
 
-  const nameFor = (uid) => peers.find((p) => p.uid === uid)?.name || 'SmartSync user'
+  // Two things this has to get right. Yourself, because "Taken down by
+  // SmartSync user" when it was you is worse than no attribution — and you are
+  // never in your own peer list. And people you have blocked, which is why it
+  // reads the full directory rather than the filtered peer list: blocking
+  // somebody must not blank out the queue entry about them, or blocking the
+  // reviewers would be a way to become unreviewable.
+  const nameFor = (uid) => (uid === user.uid ? 'you' : directory.get(uid)?.name || 'SmartSync user')
 
   // Repeats matter more than any single report: three people flagging the
   // same thing is a different signal from one person flagging it once. Counted
@@ -79,16 +102,22 @@ export default function ModerationPage() {
   const hostOf = (activityId) =>
     [...activities, ...removedActivities].find((a) => a.id === activityId)?.hostId
 
+  // Who a report is about. Reports filed before this field existed fall back
+  // to what the rules fall back to, so an old report still resolves.
+  const subjectOf = (report) =>
+    report.subjectId ||
+    (report.targetType === 'activity' ? hostOf(report.targetId) : report.targetId)
+
   // A report about you is not yours to judge, and neither is one about
   // something you are hosting. It stays in the queue for everybody else — an
   // admin, another moderator — so nothing is buried by hiding it here. The
   // rules refuse the write as well, so this is the courtesy and not the
   // control.
-  const aboutMe = (report) =>
-    report.targetId === user.uid ||
-    (report.targetType === 'activity' && hostOf(report.targetId) === user.uid)
+  const aboutMe = (report) => subjectOf(report) === user.uid
 
-  const queue = reports.filter((report) => !aboutMe(report))
+  // Nor one you filed yourself: reporting somebody and then ruling on it makes
+  // you both parties, and the rules refuse that write too.
+  const queue = reports.filter((report) => !aboutMe(report) && report.reporterId !== user.uid)
 
   const act = async () => {
     const { report, kind } = acting
@@ -100,8 +129,14 @@ export default function ModerationPage() {
           reason: `${reasonLabel(report.reason)} — reported by a user`,
         })
       }
+      let stoodDown = 0
       if (kind === 'suspend') {
-        await setSuspended(report.targetId, true)
+        // The person answerable, never the thing reported. For a message
+        // report `targetId` is a message id, and this used to write a roles
+        // document against it — suspending nobody and quietly littering the
+        // roles collection with rows keyed by message.
+        const outcome = await suspendAccount(subjectOf(report), { moderatorId: user.uid })
+        stoodDown = outcome.stoodDown
       }
       await resolveReport(report.id, {
         status: kind === 'dismiss' ? 'dismissed' : 'actioned',
@@ -117,7 +152,10 @@ export default function ModerationPage() {
         icon: 'check',
         tone: 'success',
         title: kind === 'dismiss' ? 'Report dismissed' : 'Action taken',
-        body: 'The decision is recorded against the report.',
+        body:
+          stoodDown > 0
+            ? `Recorded against the report. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} they were hosting stood down, and everyone who joined has been told.`
+            : 'The decision is recorded against the report.',
       })
     } catch (actionError) {
       pushCelebration({
@@ -158,6 +196,31 @@ export default function ModerationPage() {
     }
   }
 
+  const lift = async (account) => {
+    setLifting(account.uid)
+    try {
+      await liftSuspension(account.uid)
+      pushCelebration({
+        icon: 'check',
+        tone: 'success',
+        title: 'Suspension lifted',
+        body: `${nameFor(account.uid)} can post again, and has been told. Anything taken down while they were suspended stays down.`,
+      })
+    } catch (liftError) {
+      pushCelebration({
+        icon: 'alert',
+        tone: 'warning',
+        title: "Couldn't lift that",
+        body:
+          liftError?.code === 'permission-denied'
+            ? 'Only an admin can act on a moderator.'
+            : 'Try again.',
+      })
+    } finally {
+      setLifting(null)
+    }
+  }
+
   return (
     <div className="page-content">
       <BackButton />
@@ -191,7 +254,10 @@ export default function ModerationPage() {
               <h3>{reasonLabel(report.reason)}</h3>
               {report.context && <p className="report-context">{report.context}</p>}
               {report.detail && <p className="report-detail-text">“{report.detail}”</p>}
-              <p className="report-meta">Reported by {nameFor(report.reporterId)}</p>
+              <p className="report-meta">
+                Reported by {nameFor(report.reporterId)}
+                {report.targetType !== 'user' && ` · about ${nameFor(subjectOf(report))}`}
+              </p>
 
               <div className="report-actions">
                 {report.targetType === 'activity' && (
@@ -237,6 +303,54 @@ export default function ModerationPage() {
           </div>
         )}
       </div>
+
+      {/* Suspensions have to be reversible from here. A moderator who could
+          only ever apply one would be sending every mistake to whoever has
+          Firebase console access. Ranks apply as everywhere else: a moderator
+          may lift an ordinary user, only an admin may act on a moderator. */}
+      {suspended.length > 0 && (
+        <>
+          <section className="headline-block">
+            <span className="eyebrow">Suspended</span>
+            <h2>Accounts on hold</h2>
+            <p className="helper-text">
+              They can still read SmartSync. They cannot create, join or message, and nothing they
+              host accepts new people.
+            </p>
+          </section>
+
+          <div className="stack list-stack">
+            {suspended.map((account) => {
+              const outranksMe = account.role !== 'user' && !user.isAdmin
+              return (
+                <article className="report-card" key={account.uid}>
+                  <header>
+                    <span className="report-kind">
+                      <UserRoundX size={13} /> {account.role}
+                    </span>
+                  </header>
+                  <h3>{nameFor(account.uid)}</h3>
+                  {outranksMe && (
+                    <p className="report-context">
+                      A moderator. Only an admin can lift this suspension.
+                    </p>
+                  )}
+                  <div className="report-actions">
+                    <button
+                      className="secondary-button"
+                      disabled={outranksMe || lifting === account.uid}
+                      onClick={() => lift(account)}
+                    >
+                      <UserRoundCheck size={15} />{' '}
+                      {lifting === account.uid ? 'Lifting…' : 'Lift suspension'}
+                    </button>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        </>
+      )}
 
       {/* Undoing a takedown is an admin's job and nobody else's, so the list
           only appears for one. A moderator seeing a queue of decisions they
@@ -321,7 +435,7 @@ export default function ModerationPage() {
           acting?.kind === 'remove'
             ? 'It disappears for everyone, including the people who joined, and they are all told. The host cannot undo this — only an admin can.'
             : acting?.kind === 'suspend'
-              ? 'They can still sign in and read, but cannot create activities, join anything, or send messages.'
+              ? `${nameFor(subjectOf(acting.report))} can still sign in and read, but cannot create activities, join anything, or send messages. Anything they are hosting is taken down and everyone who joined is told — lifting the suspension later does not bring those back.`
               : 'The report stays on record, marked as needing no action.'
         }
         confirmLabel={
