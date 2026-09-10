@@ -481,7 +481,7 @@ server-side scoring needs Cloud Functions and the paid plan.
 
 ### "What doesn't it do?"
 
-Answer this one first, unprompted, at the end of the demo. README section 11:
+Answer this one first, unprompted, at the end of the demo. README section 12:
 no push notifications to a closed phone, no photo uploads, no address search,
 Android untested, chat closed rather than deleted, and anonymity is not
 retroactive for messages already sent.

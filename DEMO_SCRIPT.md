@@ -176,7 +176,7 @@ Stop talking. Take questions.
 | Wifi dies                                      | Switch to the recorded video. Do not debug in front of the panel.                                                  |
 | A screen looks empty                           | You forgot the `--refresh` step. Say so plainly and use the phone, which will have cached data.                    |
 | An action seems not to work                    | Firestore queues writes offline and the app shows an offline banner. Point at it — it is a feature, not a failure. |
-| Someone asks for a feature that does not exist | "That is on the roadmap and here is why it is not built" beats improvising. README section 11 lists them.          |
+| Someone asks for a feature that does not exist | "That is on the roadmap and here is why it is not built" beats improvising. README section 12 lists them.          |
 | You lose your place                            | Go back to the two-window comparison. It is the strongest thing you have.                                          |
 
 ## Do not

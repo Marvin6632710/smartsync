@@ -18,12 +18,13 @@ Cloud Firestore) on the back end.
 3. [Connecting your own Firebase project](#3-connecting-your-own-firebase-project)
 4. [Demo accounts on the live site](#4-demo-accounts-on-the-live-site)
 5. [Deploying](#5-deploying)
-6. [Project structure](#6-project-structure)
-7. [Data model](#7-data-model)
-8. [Security model](#8-security-model)
-9. [How recommendations work](#9-how-recommendations-work)
-10. [Testing](#10-testing)
-11. [Known limits](#11-known-limits)
+6. [Making the first admin](#6-making-the-first-admin)
+7. [Project structure](#7-project-structure)
+8. [Data model](#8-data-model)
+9. [Security model](#9-security-model)
+10. [How recommendations work](#10-how-recommendations-work)
+11. [Testing](#11-testing)
+12. [Known limits](#12-known-limits)
 
 ---
 
@@ -181,7 +182,45 @@ npm run deploy
 That builds the app and pushes both the static site and the security rules to
 Firebase Hosting. The console prints the live URL.
 
-## 6. Project structure
+If you changed a query, deploy the indexes too — the moderation queue needs a
+composite index on `reports`, and without it the queue fails on a real project
+even though it works fine on the emulator:
+
+```bash
+npx firebase deploy --only firestore:indexes
+```
+
+## 6. Making the first admin
+
+There is deliberately no way to create an admin from inside the app. Not a
+sign-up flow, not a hidden screen, not another admin — the rules refuse it.
+That is the point: compromising any account in the app cannot produce a new
+admin. The first one is made by hand, once, in the Firebase console.
+
+1. Sign up in the app with the account you want to be the admin.
+2. Firebase console → **Authentication** → **Users**. Find that email and copy
+   its **User UID** (a long string like `kJ3n...`).
+3. Firebase console → **Firestore Database** → **Start collection**, if you do
+   not already have one, with the collection ID `roles`.
+4. Add a document whose **Document ID is that UID exactly** — not
+   auto-generated — with two fields:
+
+   | Field       | Type    | Value   |
+   | ----------- | ------- | ------- |
+   | `role`      | string  | `admin` |
+   | `suspended` | boolean | `false` |
+
+5. Reload the app. **Profile → Settings → Moderation** now appears.
+
+From there the admin appoints moderators the same way, with `role` set to
+`moderator` instead — there is no screen for that yet, and the limits section
+below says so.
+
+To check it worked without a queue to look at: the Moderation row appears in
+Settings only for a moderator or an admin, and `/moderation` shows "This
+screen is for moderators" to everyone else.
+
+## 7. Project structure
 
 ```
 src/
@@ -210,7 +249,7 @@ Screens never import `firebase/*` directly — they go through the two
 contexts. `recommendationService.js` is deliberately pure: it takes data and
 returns numbers, so it can be tested without a database.
 
-## 7. Data model
+## 8. Data model
 
 ```
 users/{uid}                       PUBLIC — any signed-in user can read
@@ -247,7 +286,7 @@ makes each change atomically checkable.
 strand its message subcollection as unreachable orphans and erase the chat
 history of everyone who had joined.
 
-## 8. Security model
+## 9. Security model
 
 Everything the interface implies is enforced in `firestore.rules`, because a
 determined user can call Firestore directly without going through the UI:
@@ -286,7 +325,7 @@ determined user can call Firestore directly without going through the UI:
 
 All of this is covered by tests — see below.
 
-## 9. How recommendations work
+## 10. How recommendations work
 
 Measured, not asserted: `EVALUATION.md` reports precision@5, MRR and NDCG
 against random, popularity, distance and interest-only baselines, plus a
@@ -313,7 +352,7 @@ you compatible with everybody.
 An unknown distance scores neutrally rather than as zero kilometres — no
 reward and no penalty for a fact nobody knows yet.
 
-## 10. Testing
+## 11. Testing
 
 ```bash
 npm test
@@ -328,7 +367,7 @@ npm run lint
 npm run format:check
 ```
 
-## 11. Known limits
+## 12. Known limits
 
 Honest about what is not there:
 
