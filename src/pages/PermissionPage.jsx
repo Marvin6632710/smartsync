@@ -3,16 +3,18 @@ import { BellRing, LocateFixed, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useDeviceLocation } from '../hooks/useDeviceLocation'
+import { useSaveProfile } from '../hooks/useSaveProfile'
 import { setNotificationsEnabled, updatePrivateProfile } from '../firebase/users'
 
 export default function PermissionPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { request, clear, busy, error } = useDeviceLocation()
+  const { save } = useSaveProfile()
   const privacy = user.privacy
 
   const setPrivacy = (patch) =>
-    updatePrivateProfile(user.uid, { privacy: { ...privacy, ...patch } })
+    save(() => updatePrivateProfile(user.uid, { privacy: { ...privacy, ...patch } }))
 
   // The location switch is not a preference that is merely recorded — it
   // triggers the browser's real permission prompt and stores a real position.
@@ -31,12 +33,13 @@ export default function PermissionPage() {
   // bounces straight back to interest selection.
   const finish = async () => {
     setFinishing(true)
-    try {
-      await updatePrivateProfile(user.uid, { onboarded: true })
-      navigate('/home', { replace: true })
-    } finally {
-      setFinishing(false)
-    }
+    const ok = await save(() => updatePrivateProfile(user.uid, { onboarded: true }), {
+      failure: "Couldn't finish setting up",
+    })
+    setFinishing(false)
+    // Only leave the screen if the write actually landed — otherwise the
+    // routing gate bounces straight back here and it looks like a dead button.
+    if (ok) navigate('/home', { replace: true })
   }
 
   return (
@@ -79,7 +82,7 @@ export default function PermissionPage() {
         </button>
         <button
           className="setting-row"
-          onClick={() => setNotificationsEnabled(user.uid, !privacy.notifications)}
+          onClick={() => save(() => setNotificationsEnabled(user.uid, !privacy.notifications))}
           role="switch"
           aria-checked={privacy.notifications}
         >

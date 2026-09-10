@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { categories, timeBands } from '../data/categories'
 import { useAuth } from '../context/AuthContext'
 import { updatePublicProfile } from '../firebase/users'
+import { useSaveProfile } from '../hooks/useSaveProfile'
 
 const MIN_INTERESTS = 3
 
@@ -13,6 +14,7 @@ export default function InterestSelectionPage() {
   const [selected, setSelected] = useState(user.interests || [])
   const [preferredTime, setPreferredTime] = useState(user.preferredTime || '')
   const [busy, setBusy] = useState(false)
+  const { save } = useSaveProfile()
 
   const toggle = (interest) =>
     setSelected((current) =>
@@ -21,12 +23,16 @@ export default function InterestSelectionPage() {
         : [...current, interest],
     )
 
-  const save = async () => {
+  const submit = async () => {
     setBusy(true)
-    await updatePublicProfile(user.uid, { interests: selected, preferredTime })
+    const ok = await save(
+      () => updatePublicProfile(user.uid, { interests: selected, preferredTime }),
+      { failure: "Couldn't save your interests" },
+    )
     setBusy(false)
-    // Already set up? This is an edit, so go back rather than through setup.
-    navigate(user.onboarded ? '/profile' : '/permissions', { replace: true })
+    // Only move on if it saved. Advancing regardless would drop the answers
+    // silently and leave the engine with nothing to rank on.
+    if (ok) navigate(user.onboarded ? '/profile' : '/permissions', { replace: true })
   }
 
   return (
@@ -75,7 +81,7 @@ export default function InterestSelectionPage() {
       <button
         className="primary-button wide"
         disabled={selected.length < MIN_INTERESTS || busy}
-        onClick={save}
+        onClick={submit}
       >
         {busy ? 'Saving…' : 'Continue'} <ArrowRight size={17} />
       </button>

@@ -12,11 +12,13 @@ import BackButton from '../components/BackButton'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { setNotificationsEnabled } from '../firebase/users'
+import { useSaveProfile } from '../hooks/useSaveProfile'
 
 export default function SettingsPage() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const [signOutOpen, setSignOutOpen] = useState(false)
+  const { save, saving } = useSaveProfile()
   const privacy = user.privacy
 
   return (
@@ -59,9 +61,10 @@ export default function SettingsPage() {
         </button>
         <button
           className="setting-row"
-          onClick={() => setNotificationsEnabled(user.uid, !privacy.notifications)}
+          onClick={() => save(() => setNotificationsEnabled(user.uid, !privacy.notifications))}
           role="switch"
           aria-checked={privacy.notifications}
+          disabled={saving}
         >
           <Bell size={18} />
           <span>

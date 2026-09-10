@@ -3,15 +3,17 @@ import { EyeOff, LocateFixed, MapPinned, ShieldCheck } from 'lucide-react'
 import BackButton from '../components/BackButton'
 import { useAuth } from '../context/AuthContext'
 import { useDeviceLocation } from '../hooks/useDeviceLocation'
+import { useSaveProfile } from '../hooks/useSaveProfile'
 import { setAnonymousMode, updatePrivateProfile } from '../firebase/users'
 
 export default function PrivacyPage() {
   const { user } = useAuth()
   const { request, clear, busy, error } = useDeviceLocation()
+  const { save, saving } = useSaveProfile()
   const privacy = user.privacy
 
   const setPrivacy = (patch) =>
-    updatePrivateProfile(user.uid, { privacy: { ...privacy, ...patch } })
+    save(() => updatePrivateProfile(user.uid, { privacy: { ...privacy, ...patch } }))
 
   return (
     <div className="page-content">
@@ -27,9 +29,14 @@ export default function PrivacyPage() {
       <div className="settings-card">
         <button
           className="setting-row"
-          onClick={() => setAnonymousMode(user.uid, !user.anonymous, user.realName)}
+          onClick={() =>
+            save(() => setAnonymousMode(user.uid, !user.anonymous, user.realName), {
+              failure: "Couldn't change anonymous mode",
+            })
+          }
           role="switch"
           aria-checked={user.anonymous}
+          disabled={saving}
         >
           <EyeOff size={18} />
           <span>
