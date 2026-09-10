@@ -5,6 +5,7 @@ import {
   LogOut,
   MessageCircle,
   ShieldCheck,
+  ShieldOff,
   SlidersHorizontal,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -40,6 +41,14 @@ export default function SettingsPage() {
           <span>
             <strong>Discovery preferences</strong>
             <small>Category, distance and availability</small>
+          </span>
+          <ChevronRight size={17} />
+        </button>
+        <button className="setting-row" onClick={() => navigate('/blocked')}>
+          <ShieldOff size={18} />
+          <span>
+            <strong>Blocked people</strong>
+            <small>Who you have blocked, and how to undo it</small>
           </span>
           <ChevronRight size={17} />
         </button>

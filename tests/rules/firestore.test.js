@@ -501,6 +501,157 @@ describe('notifications', () => {
   })
 })
 
+describe('blocking', () => {
+  const blockDoc = (db, ownerId, targetId) => doc(db, 'users', ownerId, 'blocked', targetId)
+
+  test('a user can block somebody', async () => {
+    await assertSucceeds(setDoc(blockDoc(asAlice(), ALICE, BOB), { name: 'Bob' }))
+  })
+
+  test('a user can read their own block list', async () => {
+    await assertSucceeds(getDocs(collection(asAlice(), 'users', ALICE, 'blocked')))
+  })
+
+  test('nobody else can read it', async () => {
+    // Publishing this would tell people they had been blocked and by whom,
+    // which is its own kind of harm. The rules read it with exists(), which
+    // sees past read permissions, so it is enforced without being exposed.
+    await assertFails(getDocs(collection(asBob(), 'users', ALICE, 'blocked')))
+  })
+
+  test('a user cannot block themselves', async () => {
+    // A self block would quietly make your own activities invisible to you.
+    await assertFails(setDoc(blockDoc(asAlice(), ALICE, ALICE), { name: 'Alice' }))
+  })
+
+  test('a user cannot write into somebody else s block list', async () => {
+    await assertFails(setDoc(blockDoc(asBob(), ALICE, CAROL), { name: 'Carol' }))
+  })
+
+  test('a block entry cannot be edited afterwards', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', ALICE, 'blocked', BOB), { name: 'Bob' })
+    })
+    await assertFails(updateDoc(blockDoc(asAlice(), ALICE, BOB), { name: 'Someone else' }))
+  })
+
+  test('a user can unblock', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', ALICE, 'blocked', BOB), { name: 'Bob' })
+    })
+    await assertSucceeds(deleteDoc(blockDoc(asAlice(), ALICE, BOB)))
+  })
+
+  test('a blocked user cannot join the blocker s activity', async () => {
+    // The part that has to actually hold. Hiding the activity from them is a
+    // client-side courtesy; this is the server refusing the interaction.
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', ALICE, 'blocked', BOB), { name: 'Bob' })
+    })
+    await assertFails(
+      updateDoc(doc(asBob(), 'activities', 'act1'), {
+        participantUids: [ALICE, BOB],
+        updatedAt: 1,
+      }),
+    )
+  })
+
+  test('somebody who was not blocked can still join', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', ALICE, 'blocked', CAROL), { name: 'Carol' })
+    })
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'activities', 'act1'), {
+        participantUids: [ALICE, BOB],
+        updatedAt: 1,
+      }),
+    )
+  })
+
+  test('being blocked by one host does not block you everywhere', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(doc(db, 'users', ALICE, 'blocked', BOB), { name: 'Bob' })
+      await setDoc(doc(db, 'activities', 'act2'), activityFixture(CAROL))
+    })
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'activities', 'act2'), {
+        participantUids: [CAROL, BOB],
+        updatedAt: 1,
+      }),
+    )
+  })
+})
+
+describe('reports', () => {
+  const report = (over = {}) => ({
+    reporterId: BOB,
+    targetType: 'user',
+    targetId: ALICE,
+    reason: 'harassment',
+    detail: 'Sent me abusive messages in the chat.',
+    status: 'open',
+    ...over,
+  })
+
+  test('a signed-in user can file a report', async () => {
+    await assertSucceeds(addDoc(collection(asBob(), 'reports'), report()))
+  })
+
+  test('a signed-out visitor cannot', async () => {
+    await assertFails(addDoc(collection(asGuest(), 'reports'), report()))
+  })
+
+  test('a report cannot be filed in somebody else s name', async () => {
+    await assertFails(addDoc(collection(asBob(), 'reports'), report({ reporterId: CAROL })))
+  })
+
+  test('rejects an unknown reason', async () => {
+    await assertFails(
+      addDoc(collection(asBob(), 'reports'), report({ reason: 'i just do not like them' })),
+    )
+  })
+
+  test('rejects an unknown target type', async () => {
+    await assertFails(addDoc(collection(asBob(), 'reports'), report({ targetType: 'everything' })))
+  })
+
+  test('rejects a report filed as already resolved', async () => {
+    // Otherwise somebody could bury a report by filing it closed.
+    await assertFails(addDoc(collection(asBob(), 'reports'), report({ status: 'resolved' })))
+  })
+
+  test('rejects an over-long description', async () => {
+    await assertFails(addDoc(collection(asBob(), 'reports'), report({ detail: 'x'.repeat(1001) })))
+  })
+
+  test('a reporter can read back their own report', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'reports', 'r1'), report())
+    })
+    await assertSucceeds(getDoc(doc(asBob(), 'reports', 'r1')))
+  })
+
+  test('the person reported cannot read it', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'reports', 'r1'), report())
+    })
+    await assertFails(getDoc(doc(asAlice(), 'reports', 'r1')))
+  })
+
+  test('a report cannot be edited or deleted, by anyone', async () => {
+    // Evidence the accused can alter or erase is not evidence — and neither
+    // is evidence the reporter can quietly withdraw.
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'reports', 'r1'), report())
+    })
+    await assertFails(updateDoc(doc(asBob(), 'reports', 'r1'), { detail: 'never mind' }))
+    await assertFails(deleteDoc(doc(asBob(), 'reports', 'r1')))
+    await assertFails(updateDoc(doc(asAlice(), 'reports', 'r1'), { status: 'resolved' }))
+    await assertFails(deleteDoc(doc(asAlice(), 'reports', 'r1')))
+  })
+})
+
 describe('following', () => {
   test('a user can follow someone', async () => {
     await assertSucceeds(setDoc(doc(asAlice(), 'users', ALICE, 'following', BOB), { at: 1 }))

@@ -1,7 +1,17 @@
 import React, { useState } from 'react'
-import { CalendarDays, Check, Clock3, Edit3, MapPin, MessageCircle, Users } from 'lucide-react'
+import {
+  CalendarDays,
+  Check,
+  Clock3,
+  Edit3,
+  Flag,
+  MapPin,
+  MessageCircle,
+  Users,
+} from 'lucide-react'
 import CategoryIcon from '../components/CategoryIcon'
 import ConfirmDialog from '../components/ConfirmDialog'
+import ReportDialog from '../components/ReportDialog'
 import { useNavigate, useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
@@ -18,6 +28,7 @@ export default function ActivityDetailsPage() {
   // Declared before the not-found early return: hooks must run
   // unconditionally on every render.
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [reporting, setReporting] = useState(null)
   // Read from `activities`, not `recommendations`: a cancelled activity is
   // dropped from recommendations but the people who joined it still need to
   // be able to open it and see that it was called off.
@@ -174,6 +185,31 @@ export default function ActivityDetailsPage() {
           {a.participants >= a.capacity ? 'Full' : 'Join activity'}
         </button>
       )}
+
+      {/* Anyone can report an activity, including someone who has not joined
+          it — a misleading or unsafe listing is visible before you commit. */}
+      {!isHost && (
+        <button
+          className="text-button report-link"
+          onClick={() =>
+            setReporting({
+              type: 'activity',
+              id: a.id,
+              name: a.title,
+              label: 'this activity',
+              context: `${a.title} at ${a.locationName}, hosted by ${a.hostName}`,
+            })
+          }
+        >
+          <Flag size={15} /> Report this activity
+        </button>
+      )}
+
+      <ReportDialog
+        open={Boolean(reporting)}
+        subject={reporting}
+        onClose={() => setReporting(null)}
+      />
 
       <ConfirmDialog
         open={cancelOpen}

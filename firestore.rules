@@ -42,6 +42,13 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
     }
 
+    // Has `ownerId` blocked `otherId`? Their block list is private, but rules
+    // read through that — which is the point: blocking has to be enforceable
+    // by the server without publishing who blocked whom.
+    function hasBlocked(ownerId, otherId) {
+      return exists(/databases/$(database)/documents/users/$(ownerId)/blocked/$(otherId));
+    }
+
     function isString(value, maxLen) {
       return value is string && value.size() > 0 && value.size() <= maxLen;
     }
@@ -106,6 +113,21 @@ service cloud.firestore {
       match /following/{targetId} {
         allow read, write: if isSelf(uid);
       }
+
+      // Who this user has blocked. Private to them: publishing it would tell
+      // people they had been blocked, and by whom, which is its own kind of
+      // harm. The rules above read it with exists(), which sees past read
+      // permissions, so it is enforced without ever being exposed.
+      match /blocked/{targetId} {
+        allow read: if isSelf(uid);
+        // You may only block somebody else, and never yourself — a self block
+        // would quietly make your own activities invisible to you.
+        allow create: if isSelf(uid)
+          && targetId != uid
+          && isString(request.resource.data.name, 60);
+        allow update: if false;
+        allow delete: if isSelf(uid);
+      }
     }
 
     // ------------------------------------------------------------- activities
@@ -167,7 +189,11 @@ service cloud.firestore {
         && joinersAdded().size() == 1
         && joinersRemoved().size() == 0
         && request.resource.data.participantUids.size() <= resource.data.capacity
-        && resource.data.status == 'active';
+        && resource.data.status == 'active'
+        // A host who blocked you does not have to host you. Enforced here
+        // rather than by hiding the activity, because hiding is a client-side
+        // courtesy and this is the part that has to actually hold.
+        && !hasBlocked(resource.data.hostId, request.auth.uid);
     }
 
     // Exactly one person removed, and it is the caller. The host may not
@@ -277,6 +303,30 @@ service cloud.firestore {
         // Append-only: no silent edits, no deleting evidence.
         allow update, delete: if false;
       }
+    }
+
+    // ---------------------------------------------------------------- reports
+    //
+    // Write-only from the app's point of view. A reporter may file one and
+    // read back their own; nobody can read anyone else's, edit one, or delete
+    // one. Reports are evidence, and evidence that the accused can alter or
+    // erase is not evidence.
+    //
+    // There is no in-app moderator queue: reports are reviewed in the Firebase
+    // console. That is a real limitation and it is written down rather than
+    // implied — see the README.
+    match /reports/{reportId} {
+      allow read: if signedIn() && resource.data.reporterId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.targetType in ['user', 'activity', 'message']
+        && isString(request.resource.data.targetId, 200)
+        && request.resource.data.reason in
+             ['harassment', 'inappropriate', 'spam', 'fake', 'safety', 'other']
+        && request.resource.data.detail is string
+        && request.resource.data.detail.size() <= 1000
+        && request.resource.data.status == 'open';
+      allow update, delete: if false;
     }
 
     // Anything not matched above is denied.

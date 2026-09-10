@@ -20,6 +20,12 @@ import {
   watchFollowing,
   watchNotifications,
 } from '../firebase/notifications'
+import {
+  blockUser as blockUserDoc,
+  fileReport,
+  unblockUser as unblockUserDoc,
+  watchBlocked,
+} from '../firebase/moderation'
 import { recordCategoryHistory, watchPeers } from '../firebase/users'
 import { rankActivities, recommendationWeights } from '../services/recommendationService'
 import { distanceBetween } from '../utils/geo'
@@ -44,6 +50,7 @@ export function AppProvider({ children }) {
   const [peers, setPeers] = useState([])
   const [notifications, setNotifications] = useState([])
   const [followedUserIds, setFollowedUserIds] = useState([])
+  const [blocked, setBlocked] = useState([])
   const [threadPreviews, setThreadPreviews] = useState({})
   const [activitiesLoaded, setActivitiesLoaded] = useState(false)
   const [dataError, setDataError] = useState(null)
@@ -126,6 +133,7 @@ export function AppProvider({ children }) {
     setNotifications([])
     setFollowedUserIds([])
     setThreadPreviews({})
+    setBlocked([])
     setDataError(null)
     setActivitiesLoaded(false)
     setServerReachable(null)
@@ -144,6 +152,7 @@ export function AppProvider({ children }) {
       watchPeers(uid, setPeers, setDataError),
       watchNotifications(uid, setNotifications, setDataError),
       watchFollowing(uid, setFollowedUserIds, setDataError),
+      watchBlocked(uid, setBlocked, setDataError),
     ]
     return () => stops.forEach((stop) => stop())
   }, [uid])
@@ -201,6 +210,21 @@ export function AppProvider({ children }) {
   // Distance is computed from where the user actually is, not typed into a
   // form. Unknown location leaves distanceKm null, which the scorer treats as
   // "no information" rather than "zero kilometres away".
+  // Blocking is applied on the way out of the context, so no screen has to
+  // remember to do it. What it hides is a deliberate list rather than
+  // "everything": you keep activities you had already joined, because leaving
+  // is your decision to make and a commitment should not evaporate — but you
+  // stop being shown their activities, their profile and their messages.
+  const blockedIds = useMemo(() => new Set(blocked.map((b) => b.uid)), [blocked])
+
+  // The directory the matching screen ranks, and the one the scorer measures
+  // similarity against. Blocked people are removed once, here, so everything
+  // built on `peers` inherits the rule without having to know about it.
+  const visiblePeers = useMemo(
+    () => peers.filter((peer) => !blockedIds.has(peer.uid)),
+    [peers, blockedIds],
+  )
+
   // Everyone whose profile we hold, including ourselves.
   const directory = useMemo(() => {
     const map = new Map()
@@ -231,8 +255,8 @@ export function AppProvider({ children }) {
   // ranked, so an activity you had joined and the host then cancelled lost its
   // match score and rendered as "--%" in your own list.
   const scored = useMemo(
-    () => rankActivities(user, located, peers, weights),
-    [user, located, peers, weights],
+    () => rankActivities(user, located, visiblePeers, weights),
+    [user, located, visiblePeers, weights],
   )
 
   // Activities are fetched from a day ago onwards so that ones you joined stay
@@ -251,8 +275,20 @@ export function AppProvider({ children }) {
   // Discovery is upcoming activities only. Past and cancelled ones remain in
   // `visibleActivities`, so your own history still renders.
   const recommendations = useMemo(
-    () => visibleActivities.filter((a) => a.status === 'active' && !a.isPast),
-    [visibleActivities],
+    () =>
+      visibleActivities.filter(
+        (a) =>
+          a.status === 'active' &&
+          !a.isPast &&
+          // Nothing hosted by somebody you blocked is ever suggested to you,
+          // including things you had already joined. Those stay reachable
+          // through your own joined list and their own page — a commitment
+          // should not evaporate, and leaving is your decision to make — but
+          // being shown them again alongside fresh suggestions is exactly what
+          // blocking was meant to stop.
+          !blockedIds.has(a.hostId),
+      ),
+    [visibleActivities, blockedIds],
   )
 
   const filteredActivities = useMemo(() => {
@@ -500,6 +536,40 @@ export function AppProvider({ children }) {
 
   const isFollowingUser = (userId) => followedUserIds.includes(userId)
 
+  // ------------------------------------------------------------- moderation
+
+  async function blockPerson(target) {
+    if (!target?.uid || target.uid === uid) return
+    const ok = await attempt(() => blockUserDoc(uid, target), { failure: "Couldn't block" })
+    if (ok === null) return
+    pushCelebration({
+      icon: 'alert',
+      title: `${target.name} blocked`,
+      body: 'You will not see their activities, and they cannot join yours.',
+    })
+  }
+
+  async function unblockPerson(targetId) {
+    const person = blocked.find((b) => b.uid === targetId)
+    const ok = await attempt(() => unblockUserDoc(uid, targetId), { failure: "Couldn't unblock" })
+    if (ok === null) return
+    pushCelebration({ icon: 'check', title: `${person?.name || 'They'} unblocked` })
+  }
+
+  async function submitReport(report) {
+    const ok = await attempt(() => fileReport({ ...report, reporterId: uid }), {
+      failure: "Couldn't send the report",
+    })
+    if (ok === null) return false
+    pushCelebration({
+      icon: 'check',
+      tone: 'success',
+      title: 'Report sent',
+      body: 'Thank you. We review every report.',
+    })
+    return true
+  }
+
   const value = {
     // Signed out is not "still loading" — it is a settled state with no data.
     loading: Boolean(uid) && !activitiesLoaded,
@@ -509,7 +579,7 @@ export function AppProvider({ children }) {
     activities: visibleActivities,
     recommendations,
     filteredActivities,
-    peers,
+    peers: visiblePeers,
 
     joinedIds,
     joinActivity,
@@ -529,6 +599,13 @@ export function AppProvider({ children }) {
     followedUserIds,
     toggleUserNotifications,
     isFollowingUser,
+
+    blocked,
+    blockedIds,
+    isBlocked: (userId) => blockedIds.has(userId),
+    blockPerson,
+    unblockPerson,
+    submitReport,
 
     filters,
     setFilters,

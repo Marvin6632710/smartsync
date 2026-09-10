@@ -48,6 +48,10 @@ Cloud Firestore) on the back end.
 - **Privacy controls.** Anonymous mode genuinely removes your name from the
   profile document other people can read. Approximate location rounds your
   position to roughly a kilometre before it is stored at all.
+- **Blocking and reporting.** Block someone and you stop seeing their
+  activities, their profile and their messages — and the database refuses to
+  let them join anything you host. Report a person, an activity or a single
+  message, with the thing you were looking at attached.
 
 ## 2. Running it locally without a Firebase account
 
@@ -268,6 +272,11 @@ determined user can call Firestore directly without going through the UI:
 - Notifications can be sent by anyone (that is how "Alex joined your
   activity" works) but only in a fixed shape and only as unread, so nobody
   can forge a pre-read system message.
+- Your block list is private to you. Publishing it would tell people they had
+  been blocked and by whom, so the rules read it with `exists()` — which sees
+  past read permissions — and enforce blocking without ever exposing it.
+- Reports are immutable once filed, to everyone including the person who filed
+  them. Evidence either side can alter or quietly withdraw is not evidence.
 - Every path not explicitly allowed is denied.
 
 All of this is covered by tests — see below.
@@ -332,3 +341,10 @@ Honest about what is not there:
   Firebase means Cloud Functions and the paid plan.
 - **Anonymity is not retroactive for chat.** It covers your profile and the
   activities you host, but messages keep the name they were sent under.
+- **Reports have no in-app queue.** They are stored and reviewed through the
+  Firebase console; there is no moderator screen, and no automated action is
+  taken. The wording shown to a reporter says the report was sent and will be
+  reviewed, and deliberately promises nothing more than that.
+- **Blocking hides, it does not conceal.** Somebody you blocked cannot join
+  your activities or reach you, and you stop seeing them everywhere — but they
+  are not told, and their own view of public activity listings is unchanged.

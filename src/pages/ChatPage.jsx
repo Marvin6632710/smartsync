@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Archive, Lock, Send } from 'lucide-react'
+import { Archive, Flag, Lock, Send } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
+import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { CHAT_RETENTION_DAYS, isChatClosed } from '../firebase/messages'
@@ -11,9 +12,10 @@ import { formatMessageTime } from '../utils/time'
 export default function ChatPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { activities, joinedIds, sendMessage } = useApp()
+  const { activities, joinedIds, sendMessage, blockedIds } = useApp()
   const { user } = useAuth()
   const [text, setText] = useState('')
+  const [reporting, setReporting] = useState(null)
   const bottomRef = useRef(null)
 
   const activity = activities.find((item) => item.id === id)
@@ -109,16 +111,41 @@ export default function ChatPage() {
             <p>No messages yet. Start the conversation.</p>
           </div>
         )}
-        {messages.map((message) => (
-          <div
-            className={`message-bubble ${message.senderId === user.uid ? 'mine' : ''}`}
-            key={message.id}
-          >
-            <strong>{message.senderName}</strong>
-            <p>{message.text}</p>
-            <span>{formatMessageTime(message.createdAt)}</span>
-          </div>
-        ))}
+        {messages
+          // A blocked person's messages are hidden rather than replaced with a
+          // placeholder: "message hidden" still tells you they are talking
+          // about you, which is most of what blocking was meant to stop.
+          .filter((message) => !blockedIds.has(message.senderId))
+          .map((message) => {
+            const mine = message.senderId === user.uid
+            return (
+              <div className={`message-bubble ${mine ? 'mine' : ''}`} key={message.id}>
+                <strong>{message.senderName}</strong>
+                <p>{message.text}</p>
+                <span>{formatMessageTime(message.createdAt)}</span>
+                {!mine && (
+                  <button
+                    className="bubble-report"
+                    onClick={() =>
+                      setReporting({
+                        type: 'message',
+                        id: message.id,
+                        name: message.senderName,
+                        avatar: message.senderAvatar,
+                        label: 'this message',
+                        // Sent with the report, because the thread closes after
+                        // thirty days and a reviewer may arrive after it has.
+                        context: `"${message.text}" — ${message.senderName} in "${activity.title}"`,
+                      })
+                    }
+                    aria-label={`Report this message from ${message.senderName}`}
+                  >
+                    <Flag size={13} />
+                  </button>
+                )}
+              </div>
+            )
+          })}
         <div ref={bottomRef} />
       </div>
 
@@ -138,6 +165,12 @@ export default function ChatPage() {
           <Send size={18} />
         </button>
       </form>
+
+      <ReportDialog
+        open={Boolean(reporting)}
+        subject={reporting}
+        onClose={() => setReporting(null)}
+      />
     </div>
   )
 }

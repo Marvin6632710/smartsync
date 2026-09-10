@@ -24,6 +24,7 @@ import MessagesPage from './pages/MessagesPage'
 import NotificationsPage from './pages/NotificationsPage'
 import ProfilePage from './pages/ProfilePage'
 import EditProfilePage from './pages/EditProfilePage'
+import BlockedPage from './pages/BlockedPage'
 import SettingsPage from './pages/SettingsPage'
 import WeightsPage from './pages/WeightsPage'
 import PrivacyPage from './pages/PrivacyPage'
@@ -128,6 +129,7 @@ export default function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/weights" element={<WeightsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/blocked" element={<BlockedPage />} />
         <Route path="/joined" element={<JoinedActivitiesPage />} />
         <Route path="/404" element={<NotFoundPage />} />
       </Route>

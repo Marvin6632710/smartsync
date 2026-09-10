@@ -1,6 +1,8 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { Flag } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
+import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 
@@ -8,6 +10,7 @@ export default function ParticipantsPage() {
   const { id } = useParams()
   const { activities, peers } = useApp()
   const { user } = useAuth()
+  const [reporting, setReporting] = useState(null)
   const activity = activities.find((item) => item.id === id)
 
   if (!activity)
@@ -51,9 +54,35 @@ export default function ParticipantsPage() {
               </h3>
               <p>{(person.interests || []).slice(0, 3).join(' · ') || 'Activity participant'}</p>
             </div>
+            {/* Reporting belongs here, next to the people you are about to
+                meet in person, rather than buried in a settings screen. */}
+            {person.uid !== user.uid && (
+              <button
+                className="icon-button slim person-report"
+                onClick={() =>
+                  setReporting({
+                    type: 'user',
+                    id: person.uid,
+                    name: person.name,
+                    avatar: person.avatar,
+                    label: 'this person',
+                    context: `Participant in "${activity.title}"`,
+                  })
+                }
+                aria-label={`Report ${person.name}`}
+              >
+                <Flag size={16} />
+              </button>
+            )}
           </div>
         ))}
       </div>
+
+      <ReportDialog
+        open={Boolean(reporting)}
+        subject={reporting}
+        onClose={() => setReporting(null)}
+      />
     </div>
   )
 }

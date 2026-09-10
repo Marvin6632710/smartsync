@@ -2740,3 +2740,133 @@ input[type='range'] {
   width: 100%;
   accent-color: var(--accent);
 }
+
+/* ==========================================================================
+   Reporting and blocking
+   ==========================================================================
+   Deliberately quiet. These controls have to be findable the moment somebody
+   needs one, and invisible the rest of the time — a flag icon competing with
+   Join would be the wrong emphasis on every screen it appears. */
+
+.person-card {
+  /* The text column has to yield before the action does, or a long name
+     pushes the report button off the card. */
+  justify-content: space-between;
+}
+.person-card > div:not(.avatar) {
+  flex: 1;
+  min-width: 0;
+}
+
+.person-report {
+  flex-shrink: 0;
+  color: var(--ink-soft);
+}
+.person-report:hover {
+  color: var(--danger, #dc2626);
+}
+
+.report-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px auto 0;
+  color: var(--ink-soft);
+  font-size: var(--t-tiny);
+}
+.report-link:hover {
+  color: var(--danger, #dc2626);
+}
+
+.message-bubble {
+  position: relative;
+}
+.bubble-report {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+/* Revealed on hover or keyboard focus, so it is reachable without a pointer
+   but does not sit on every message shouting. */
+.message-bubble:hover .bubble-report,
+.bubble-report:focus-visible {
+  color: var(--ink-soft);
+}
+.bubble-report:hover {
+  color: var(--danger, #dc2626);
+}
+
+.report-dialog {
+  display: grid;
+  gap: 12px;
+  text-align: left;
+  max-height: min(86vh, 640px);
+  overflow-y: auto;
+}
+.report-dialog h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.report-subject {
+  margin: -6px 0 0;
+  font-size: var(--t-sm);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.report-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.report-reasons legend {
+  padding: 0 0 8px;
+  font-size: var(--t-tiny);
+  font-weight: var(--w-medium);
+  color: var(--ink-soft);
+}
+
+.report-detail {
+  display: grid;
+  gap: 5px;
+  font-size: var(--t-tiny);
+  font-weight: var(--w-medium);
+  color: var(--ink-soft);
+}
+.report-detail .optional {
+  font-weight: var(--w-regular);
+  opacity: 0.75;
+}
+.report-detail textarea {
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--ink);
+  padding: 9px 11px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  resize: vertical;
+}
+
+.report-note {
+  margin: 0;
+  font-size: var(--t-tiny);
+  line-height: 1.45;
+  color: var(--ink-soft);
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}

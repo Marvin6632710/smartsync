@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react'
-import { Bell, Check, Clock3, Sparkles, UserRoundCheck, UsersRound } from 'lucide-react'
+import React, { useMemo, useState } from 'react'
+import { Bell, Check, Clock3, Flag, Sparkles, UserRoundCheck, UsersRound } from 'lucide-react'
 import BackButton from '../components/BackButton'
+import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { calculateUserCompatibility } from '../services/recommendationService'
@@ -8,6 +9,7 @@ import { calculateUserCompatibility } from '../services/recommendationService'
 export default function UserMatchingPage() {
   const { peers, followedUserIds, toggleUserNotifications } = useApp()
   const { user } = useAuth()
+  const [reporting, setReporting] = useState(null)
 
   // Real people who signed up, scored against the real profile.
   const matches = useMemo(
@@ -49,6 +51,22 @@ export default function UserMatchingPage() {
                 <div className="match-user-copy">
                   <div className="match-name-row">
                     <h3>{matchedUser.name}</h3>
+                    <button
+                      className="icon-button slim person-report"
+                      onClick={() =>
+                        setReporting({
+                          type: 'user',
+                          id: matchedUser.uid,
+                          name: matchedUser.name,
+                          avatar: matchedUser.avatar,
+                          label: 'this person',
+                          context: `Suggested match, ${matchedUser.score}% compatibility`,
+                        })
+                      }
+                      aria-label={`Report or block ${matchedUser.name}`}
+                    >
+                      <Flag size={15} />
+                    </button>
                     <span className="match-pill">
                       <UserRoundCheck size={13} />
                       {matchedUser.score}%
@@ -116,6 +134,12 @@ export default function UserMatchingPage() {
           )
         })}
       </div>
+
+      <ReportDialog
+        open={Boolean(reporting)}
+        subject={reporting}
+        onClose={() => setReporting(null)}
+      />
     </div>
   )
 }

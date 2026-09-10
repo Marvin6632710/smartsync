@@ -55,6 +55,7 @@ const routeTitles = {
   settings: 'Settings',
   privacy: 'Privacy',
   weights: 'Matching weights',
+  blocked: 'Blocked people',
   joined: 'Joined',
   404: 'Not found',
 }

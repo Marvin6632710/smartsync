@@ -191,6 +191,19 @@ All Quick items are complete.
 | L-05 | **DONE** | **Evaluation vs baselines** — 34.5% P@5 against 16.3% for the best single signal and 5.0% random, plus a per-signal ablation showing three of six signals contribute nothing. See EVALUATION.md.                 | 4 hrs |
 | L-06 | **DONE** | **README rewrite to match reality** — now documents the real architecture, the data and security models, and how to run it.                                                                                      | 1 hr  |
 
+## Tier 1 — safety and reliability
+
+Added 2026-09-10 after a product review: SmartSync asks strangers to meet in
+person, and the app had no way to report anyone, block anyone, or record who
+actually turned up. These are not features so much as the conditions for
+letting real people use it.
+
+| #    | Status   | Task                                                                                                                                                                                                                                          |
+| ---- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T-01 | **DONE** | **Report and block** — report a person, activity or message with the context attached; blocking hides them everywhere and the rules refuse to let them join anything you host. Block lists are private, reports are immutable. 20 rule tests. |
+| T-02 | todo     | **Attendance and no-shows** — remind before it starts, confirm on the day, let the host mark who came. Feeds the recommendation engine, which currently learns from what you joined rather than what you attended.                            |
+| T-03 | todo     | **Recurring activities** — weekly football has to be recreated by hand every week, which is also why demo data goes stale.                                                                                                                    |
+
 ## Backend & operations
 
 **Deployed 2026-09-09 — live at <https://smartsync-c1f07.web.app>**
