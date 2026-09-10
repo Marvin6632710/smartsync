@@ -42,11 +42,74 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
     }
 
+    // ------------------------------------------------------------------ roles
+    //
+    // Roles live in their own collection, never on the profile a user can
+    // edit. That is the whole design: a role stored anywhere its holder can
+    // write is a role its holder can grant themselves.
+    //
+    // `admin` can only ever be set from the Firebase console. There is no
+    // in-app path to create one, so compromising a moderator — or an admin —
+    // cannot mint more admins. Moderators are grantable in-app by an admin,
+    // because that is routine work; admin is not.
+
+    function roleDoc(uid) {
+      return get(/databases/$(database)/documents/roles/$(uid)).data;
+    }
+
+    function hasRoleDoc() {
+      return exists(/databases/$(database)/documents/roles/$(request.auth.uid));
+    }
+
+    function myRole() {
+      return signedIn() && hasRoleDoc() ? roleDoc(request.auth.uid).role : 'user';
+    }
+
+    // A suspended account holds its rank but exercises none of it. Otherwise
+    // suspending a moderator who was abusing the queue would take nothing
+    // away from them: they would keep removing activities and suspending
+    // people while suspended themselves. The rank is kept rather than stripped
+    // so that lifting the suspension restores what they were, and so the
+    // record shows a suspended moderator rather than a demoted stranger.
+    function isAdmin() {
+      return myRole() == 'admin' && !isSuspended();
+    }
+
+    function isModerator() {
+      return (myRole() == 'moderator' || myRole() == 'admin') && !isSuspended();
+    }
+
+    // The rank of the person being acted ON, as opposed to myRole(), which is
+    // the rank of whoever is calling. Somebody with no row is an ordinary user.
+    function rankOf(uid) {
+      return exists(/databases/$(database)/documents/roles/$(uid))
+        ? roleDoc(uid).role : 'user';
+    }
+
+    // Suspension is a state, not a role: it can sit on anybody. A suspended
+    // account can still read — being told why you cannot post is the point —
+    // but cannot create, join, or say anything.
+    function isSuspended() {
+      return signedIn() && hasRoleDoc() && roleDoc(request.auth.uid).suspended == true;
+    }
+
     // Has `ownerId` blocked `otherId`? Their block list is private, but rules
     // read through that — which is the point: blocking has to be enforceable
     // by the server without publishing who blocked whom.
     function hasBlocked(ownerId, otherId) {
       return exists(/databases/$(database)/documents/users/$(ownerId)/blocked/$(otherId));
+    }
+
+    // Is this report about the caller — either about them directly, or about
+    // something they are hosting?
+    function aboutMe(report) {
+      return report.targetId == request.auth.uid
+        || (
+          report.targetType == 'activity'
+          && exists(/databases/$(database)/documents/activities/$(report.targetId))
+          && get(/databases/$(database)/documents/activities/$(report.targetId))
+               .data.hostId == request.auth.uid
+        );
     }
 
     function isString(value, maxLen) {
@@ -159,7 +222,7 @@ service cloud.firestore {
         && data.startsAt is timestamp
         && data.timeBand is string
         && isTagList(data.tags, 10)
-        && data.status in ['active', 'cancelled']
+        && data.status in ['active', 'cancelled', 'removed']
         && data.participantUids is list
         && data.participantUids.size() <= data.capacity
         // A roster with the same uid twice would let one person consume every
@@ -190,6 +253,7 @@ service cloud.firestore {
         && joinersRemoved().size() == 0
         && request.resource.data.participantUids.size() <= resource.data.capacity
         && resource.data.status == 'active'
+        && !isSuspended()
         // A host who blocked you does not have to host you. Enforced here
         // rather than by hiding the activity, because hiding is a client-side
         // courtesy and this is the part that has to actually hold.
@@ -218,9 +282,14 @@ service cloud.firestore {
       allow read: if signedIn();
 
       allow create: if signedIn()
+        && !isSuspended()
         && request.resource.data.hostId == request.auth.uid
         // A host starts as the sole participant of their own activity.
         && request.resource.data.participantUids == [request.auth.uid]
+        // Something new is active. 'removed' is a moderator's word, and a
+        // host cannot pre-write the record of a decision nobody has taken.
+        && request.resource.data.status == 'active'
+        && !('moderation' in request.resource.data)
         && validActivity(request.resource.data);
 
       // Two disjoint kinds of update:
@@ -239,11 +308,45 @@ service cloud.firestore {
           && request.resource.data.hostId == resource.data.hostId
           && request.resource.data.participantUids == resource.data.participantUids
           && request.resource.data.capacity >= resource.data.participantUids.size()
+          // A moderator's decision is not the host's to reverse. Once an
+          // activity is removed it is frozen to its host: they cannot put it
+          // back, cannot relabel it 'cancelled' to hide that it was taken
+          // down, and cannot keep editing it. Nothing above said so, and
+          // `validActivity` accepts every status, so until this line a host
+          // could simply write status back to 'active'. A rule test found it.
+          && resource.data.status != 'removed'
+          && request.resource.data.status in ['active', 'cancelled']
+          // Neither may a host forge a moderation record, or erase one.
+          && !request.resource.data.diff(resource.data)
+                .affectedKeys().hasAny(['moderation'])
           && validActivity(request.resource.data)
         ) || (
           touches(['participantUids', 'updatedAt'])
           && rosterIsClean()
           && (joinsSelf() || leavesSelf() || hostRemovesParticipant())
+        ) || (
+          // Moderation. A moderator may take an activity down and record why,
+          // and may do nothing else to it — not edit its details, not touch
+          // its roster, not hand it to somebody. Taking something down is a
+          // narrow power on purpose.
+          isModerator()
+          && touches(['status', 'moderation', 'updatedAt'])
+          && request.resource.data.moderation.by == request.auth.uid
+          && isString(request.resource.data.moderation.reason, 300)
+          && (
+            request.resource.data.status == 'removed'
+            // Putting something back is an admin's power, never a plain
+            // moderator's. A mistake has to be fixable — an unrecoverable
+            // takedown is its own kind of harm — but not by the same rank
+            // that might have made it, and never silently: the restore
+            // overwrites `moderation` with who did it and why, so the
+            // record shows both decisions in turn.
+            || (
+              isAdmin()
+              && resource.data.status == 'removed'
+              && request.resource.data.status == 'active'
+            )
+          )
         )
       );
 
@@ -260,9 +363,14 @@ service cloud.firestore {
       // to their own empty activity and then deleted it orphans those
       // messages. That is a negligible amount of data and only ever their
       // own words.
+      //
+      // A removed activity cannot be deleted by its host at all, even an empty
+      // one. Deleting it would erase the moderation record along with it,
+      // which is exactly what someone who had just been moderated would want.
       allow delete: if signedIn()
         && resource.data.hostId == request.auth.uid
-        && resource.data.participantUids == [request.auth.uid];
+        && resource.data.participantUids == [request.auth.uid]
+        && resource.data.status != 'removed';
 
       // ----------------------------------------------------------- messages
 
@@ -297,6 +405,7 @@ service cloud.firestore {
 
         allow create: if isParticipant()
           && withinRetention()
+          && !isSuspended()
           && request.resource.data.senderId == request.auth.uid
           && isString(request.resource.data.text, 2000);
 
@@ -305,18 +414,62 @@ service cloud.firestore {
       }
     }
 
+    // ------------------------------------------------------------------ roles
+    match /roles/{uid} {
+      // You can see your own role — the app needs it to decide whether to
+      // show the moderation screens — and moderators can see everyone's,
+      // which they need to do the job.
+      allow read: if isSelf(uid) || isModerator();
+
+      // Two ranks with different reach, and nobody may edit their own row: a
+      // person who can edit their own role can undo any limit placed on them,
+      // and an admin who can strip their own admin is one mis-tap from
+      // locking everyone out.
+      //
+      // An admin appoints and dismisses moderators, and suspends anybody
+      // except another admin. They still cannot mint an admin — that stays a
+      // console-only act, so compromising one account cannot make more.
+      //
+      // A moderator may suspend and restore ordinary users and nothing else.
+      // Suspension is the sharpest tool they have and the whole reason the
+      // rank exists: a moderator who could only take down one activity while
+      // the same account posted ten more would not be moderating anything.
+      // They cannot change anyone's role, and cannot touch a peer or a
+      // superior — acting on a fellow moderator is an admin's call.
+      allow create, update: if signedIn()
+        && uid != request.auth.uid
+        && request.resource.data.suspended is bool
+        && (
+          (
+            isAdmin()
+            && request.resource.data.role in ['user', 'moderator']
+            && rankOf(uid) != 'admin'
+          ) || (
+            isModerator()
+            && request.resource.data.role == 'user'
+            && rankOf(uid) == 'user'
+          )
+        );
+
+      allow delete: if isAdmin() && uid != request.auth.uid;
+    }
+
     // ---------------------------------------------------------------- reports
     //
-    // Write-only from the app's point of view. A reporter may file one and
-    // read back their own; nobody can read anyone else's, edit one, or delete
-    // one. Reports are evidence, and evidence that the accused can alter or
-    // erase is not evidence.
+    // A reporter may file one and read back their own. Moderators read all of
+    // them, because that is the queue. Nobody can edit the substance of a
+    // report or delete one: reports are evidence, and evidence the accused can
+    // alter or erase is not evidence.
     //
-    // There is no in-app moderator queue: reports are reviewed in the Firebase
-    // console. That is a real limitation and it is written down rather than
-    // implied — see the README.
+    // Residual risk, stated rather than hidden: a moderator can read a report
+    // filed about themselves, and so can learn who filed it. Firestore has no
+    // field-level read rules and a query is refused wholesale if any document
+    // in it fails, so excluding those from the queue is done in the client and
+    // is a courtesy, not a control. What is enforced here is the part that
+    // matters — they cannot act on it, in either direction.
     match /reports/{reportId} {
-      allow read: if signedIn() && resource.data.reporterId == request.auth.uid;
+      allow read: if signedIn()
+        && (resource.data.reporterId == request.auth.uid || isModerator());
       allow create: if signedIn()
         && request.resource.data.reporterId == request.auth.uid
         && request.resource.data.targetType in ['user', 'activity', 'message']
@@ -326,7 +479,22 @@ service cloud.firestore {
         && request.resource.data.detail is string
         && request.resource.data.detail.size() <= 1000
         && request.resource.data.status == 'open';
-      allow update, delete: if false;
+      // The report itself stays immutable to everybody. A moderator may
+      // record what they decided — and nothing else. Letting a reviewer edit
+      // the reason or the description would make the record worthless, and
+      // letting anyone delete it would make it disappearable.
+      allow update: if isModerator()
+        && touches(['status', 'reviewedBy', 'reviewedAt', 'outcome'])
+        && request.resource.data.status in ['open', 'actioned', 'dismissed']
+        && request.resource.data.reviewedBy == request.auth.uid
+        // Nobody closes a report about themselves. A moderator could never
+        // suspend themselves — that rule is in /roles — but without this they
+        // could mark the complaint dismissed and bury it, which is the same
+        // power exercised quietly. Covers their activities too: a takedown
+        // request about something you are hosting is not yours to dismiss.
+        && !aboutMe(resource.data);
+
+      allow delete: if false;
     }
 
     // Anything not matched above is denied.

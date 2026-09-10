@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import LocationPicker from '../components/LocationPicker'
 import { categories } from '../data/categories'
 import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 import { deriveTimeBand } from '../firebase/activities'
 import { formatClock } from '../utils/time'
 
@@ -25,6 +26,7 @@ export default function CreateActivityPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const { createActivity } = useApp()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
@@ -59,6 +61,22 @@ export default function CreateActivityPage() {
     setBusy(false)
     if (id) navigate(`/activity/${id}`)
   }
+
+  // The button that leads here is disabled while suspended, but the route is
+  // guessable — and a form somebody can fill in and never submit is worse
+  // than being told plainly at the top.
+  if (user.suspended)
+    return (
+      <div className="page-content">
+        <div className="empty-state">
+          <h3>Your account is suspended</h3>
+          <p>
+            You cannot create activities while your account is suspended. You can still read
+            SmartSync and follow the activities you already joined.
+          </p>
+        </div>
+      </div>
+    )
 
   return (
     <div className="page-content">

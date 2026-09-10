@@ -29,6 +29,7 @@ import {
 import { recordCategoryHistory, watchPeers } from '../firebase/users'
 import { rankActivities, recommendationWeights } from '../services/recommendationService'
 import { distanceBetween } from '../utils/geo'
+import { useListenerRetry } from '../hooks/useListenerRetry'
 import { loadStorage, saveStorage } from '../utils/storage'
 
 const AppContext = createContext(null)
@@ -125,6 +126,7 @@ export function AppProvider({ children }) {
   // for a frame. Clearing during render rather than in an effect is React's
   // recommended way to reset state when the thing it describes changes —
   // an effect would render the stale data once before wiping it.
+  const { attempt: listenerAttempt, guard, resetAttempts } = useListenerRetry(uid)
   const [loadedFor, setLoadedFor] = useState(uid)
   if (loadedFor !== uid) {
     setLoadedFor(uid)
@@ -137,25 +139,38 @@ export function AppProvider({ children }) {
     setDataError(null)
     setActivitiesLoaded(false)
     setServerReachable(null)
+    resetAttempts()
   }
 
   useEffect(() => {
     if (!uid) return undefined
+    // Same teardown race as AuthContext: a listener belonging to the account
+    // that just signed out can deliver a permission-denied after its stop
+    // function has run, which would otherwise be shown to whoever signed in
+    // next as their own data failing to load.
+    let live = true
+    const report = guard((error) => {
+      if (live) setDataError(error)
+    })
     const stops = [
       watchActivities((next, meta) => {
+        if (!live) return
         setActivities(next)
         setActivitiesLoaded(true)
         setServerReachable((previous) =>
           meta.fromCache ? (previous === null ? null : false) : true,
         )
-      }, setDataError),
-      watchPeers(uid, setPeers, setDataError),
-      watchNotifications(uid, setNotifications, setDataError),
-      watchFollowing(uid, setFollowedUserIds, setDataError),
-      watchBlocked(uid, setBlocked, setDataError),
+      }, report),
+      watchPeers(uid, setPeers, report),
+      watchNotifications(uid, setNotifications, report),
+      watchFollowing(uid, setFollowedUserIds, report),
+      watchBlocked(uid, setBlocked, report),
     ]
-    return () => stops.forEach((stop) => stop())
-  }, [uid])
+    return () => {
+      live = false
+      stops.forEach((stop) => stop())
+    }
+  }, [uid, listenerAttempt, guard])
 
   // ---------------------------------------------------------------- toasts
 
@@ -272,6 +287,12 @@ export function AppProvider({ children }) {
     [timed, joinedIds],
   )
 
+  // Everything a moderator has taken down, for the admin review queue. Derived
+  // from the listener that is already open, so seeing it costs no extra read —
+  // and the rules, not this line, are what keep the list to admins: anyone can
+  // already read activities, which is why removal is a status and not a secret.
+  const removedActivities = useMemo(() => timed.filter((a) => a.status === 'removed'), [timed])
+
   // Discovery is upcoming activities only. Past and cancelled ones remain in
   // `visibleActivities`, so your own history still renders.
   const recommendations = useMemo(
@@ -321,15 +342,30 @@ export function AppProvider({ children }) {
   const joinedKey = joinedIds.join(',')
   useEffect(() => {
     if (!uid || !joinedKey) return undefined
-    const stops = joinedKey
-      .split(',')
-      .map((id) =>
-        watchLatestMessage(id, (message) =>
-          setThreadPreviews((previous) => ({ ...previous, [id]: message })),
-        ),
-      )
-    return () => stops.forEach((stop) => stop())
-  }, [joinedKey, uid])
+    let live = true
+    const stops = joinedKey.split(',').map((id) =>
+      watchLatestMessage(
+        id,
+        (message) => {
+          if (live) setThreadPreviews((previous) => ({ ...previous, [id]: message }))
+        },
+        // A thread that genuinely cannot be read any more — the thirty-day
+        // retention window has closed on it — drops its preview rather than
+        // offering a line nobody can open. The same guard as above keeps an
+        // account switch from counting as that: without it, signing back in
+        // silently emptied every chat preview. Passing no handler at all,
+        // which is where this started, let the SDK log "Uncaught Error in
+        // snapshot listener" on every sign-out and told the app nothing.
+        guard(() => {
+          if (live) setThreadPreviews((previous) => ({ ...previous, [id]: null }))
+        }),
+      ),
+    )
+    return () => {
+      live = false
+      stops.forEach((stop) => stop())
+    }
+  }, [joinedKey, uid, guard])
 
   // ------------------------------------------------------------------ actions
 
@@ -342,6 +378,26 @@ export function AppProvider({ children }) {
    * their join did not work when it did. Never let a notification failure
    * surface as a failure of the thing that triggered it.
    */
+  /**
+   * Refuses an action that a suspension forbids, and says so.
+   *
+   * The rules stop these writes anyway, but a refusal that does not name the
+   * reason is worse than useless: joining while suspended used to produce
+   * "this activity is no longer open to join", which blames the activity for
+   * a limit on the account — with the banner saying otherwise directly above
+   * it. Returns true when the caller should stop.
+   */
+  function blockedBySuspension(what) {
+    if (!user?.suspended) return false
+    pushCelebration({
+      icon: 'alert',
+      tone: 'warning',
+      title: 'Your account is suspended',
+      body: `You cannot ${what} while your account is suspended. You can still read SmartSync.`,
+    })
+    return true
+  }
+
   function notifyUser(recipientId, payload) {
     if (!recipientId || recipientId === uid) return
     const recipient = peers.find((peer) => peer.uid === recipientId)
@@ -352,6 +408,7 @@ export function AppProvider({ children }) {
   async function joinActivity(id) {
     const activity = visibleActivities.find((item) => item.id === id)
     if (!activity || joinedIds.includes(id)) return
+    if (blockedBySuspension('join activities')) return
     if (activity.isPast) {
       pushCelebration({
         icon: 'alert',
@@ -400,13 +457,22 @@ export function AppProvider({ children }) {
       if (error?.code === 'permission-denied') {
         const fresh = activities.find((item) => item.id === id) || activity
         const full = (fresh.participants || 0) >= (fresh.capacity || 0)
+        const gone = fresh.status === 'removed'
+        const off = fresh.status === 'cancelled'
         pushCelebration({
           icon: 'alert',
           tone: 'warning',
           title: full ? 'Someone got the last place' : 'Cannot join this activity',
+          // The last case is deliberately vague. The remaining reason a join
+          // is refused is that the host has blocked you, and telling someone
+          // that is exactly the harm the block list is private to avoid.
           body: full
             ? `${activity.title} filled up just now.`
-            : `${activity.title} is no longer open to join.`,
+            : gone
+              ? `${activity.title} was removed by SmartSync.`
+              : off
+                ? `${activity.title} was cancelled by the host.`
+                : `${activity.title} is not open to you right now.`,
         })
       } else {
         pushCelebration({
@@ -476,6 +542,7 @@ export function AppProvider({ children }) {
   }
 
   async function createActivity(data) {
+    if (blockedBySuspension('create activities')) return null
     const id = await attempt(() => createActivityDoc(user, data), {
       failure: "Couldn't create activity",
     })
@@ -490,16 +557,23 @@ export function AppProvider({ children }) {
     return id
   }
 
+  // Returns whether the change actually landed, so the caller can decide
+  // whether to navigate away. It used to return nothing, and the edit screen
+  // navigated regardless — a refused save flashed a toast on the way out and
+  // left the page showing the unchanged activity, which reads as the app
+  // losing the edit rather than declining it.
   async function updateActivity(id, updates) {
     const ok = await attempt(() => updateActivityDoc(id, updates), {
       failure: "Couldn't save changes",
     })
-    if (ok === null) return
+    if (ok === null) return false
     pushCelebration({ icon: 'check', tone: 'success', title: 'Saved', body: 'Changes saved.' })
+    return true
   }
 
   async function sendMessage(activityId, text) {
     const activity = activities.find((item) => item.id === activityId)
+    if (blockedBySuspension('send messages')) return
     const ok = await attempt(() => sendMessageDoc(activityId, user, text), {
       failure: "Couldn't send",
     })
@@ -579,6 +653,7 @@ export function AppProvider({ children }) {
     activities: visibleActivities,
     recommendations,
     filteredActivities,
+    removedActivities,
     peers: visiblePeers,
 
     joinedIds,

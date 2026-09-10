@@ -41,6 +41,24 @@ export default function EditActivityPage() {
       </div>
     )
 
+  // A removed activity is frozen: the rules refuse every edit to it, so the
+  // form would only ever be a way to lose your typing. The details page no
+  // longer offers the button, but this route is guessable.
+  if (existing.status === 'removed')
+    return (
+      <div className="page-content">
+        <BackButton />
+        <div className="empty-state">
+          <h3>This activity was removed</h3>
+          <p>
+            {existing.moderation?.reason
+              ? `SmartSync removed it: ${existing.moderation.reason}. It cannot be edited or put back from here.`
+              : 'SmartSync removed it. It cannot be edited or put back from here.'}
+          </p>
+        </div>
+      </div>
+    )
+
   const minCapacity = Math.max(2, existing.participants)
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
 
@@ -60,7 +78,7 @@ export default function EditActivityPage() {
     }
     setError('')
     setBusy(true)
-    await updateActivity(id, {
+    const saved = await updateActivity(id, {
       title: form.title.trim(),
       description: form.description.trim(),
       category: form.category,
@@ -73,7 +91,9 @@ export default function EditActivityPage() {
       tags: [form.category, deriveTimeBand(form.time)].filter(Boolean),
     })
     setBusy(false)
-    navigate(`/activity/${id}`)
+    // Stay put if it did not save. The toast has already said why, and the
+    // typing is still on screen to try again with.
+    if (saved) navigate(`/activity/${id}`)
   }
 
   return (

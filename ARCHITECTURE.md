@@ -303,13 +303,15 @@ another account. The host reads "Anonymous user".
 | Render crash                     | `ErrorBoundary`                   | —                   |
 
 ```bash
-npm test           # 47 engine tests + 71 security rule tests
+npm test           # 49 engine tests + 155 security rule tests
 npm run evaluate   # does the ranking beat the baselines
 npm run lint
 ```
 
 The rule tests behave like a hostile client rather than a well-behaved one.
-They have caught three real holes, which is the point of writing them.
+They have caught three real holes on their own, and pin three more that were
+found by driving the app — each of those tests fails against the rules as they
+were before the fix, which is the only way to know a regression test is one.
 
 ---
 

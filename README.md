@@ -52,6 +52,11 @@ Cloud Firestore) on the back end.
   activities, their profile and their messages — and the database refuses to
   let them join anything you host. Report a person, an activity or a single
   message, with the thing you were looking at attached.
+- **Moderation.** Reports land in a queue moderators work from inside the app.
+  A moderator can take an activity down or suspend an account; an admin can
+  also appoint moderators and put a removed activity back. Every action
+  records who took it and why, nobody can act on a report about themselves,
+  and admin can only be granted from the Firebase console. See ADR-011.
 
 ## 2. Running it locally without a Firebase account
 
@@ -314,9 +319,9 @@ reward and no penalty for a fact nobody knows yet.
 npm test
 ```
 
-This boots the Firestore emulator and runs the security rule suite: 61 tests
-that behave like a hostile client and check the rules refuse them. It needs
-Java, like the emulators.
+This boots the Firestore emulator and runs both suites: 49 tests over the
+recommendation engine, and 155 that behave like a hostile client and check the
+rules refuse them. It needs Java, like the emulators.
 
 ```bash
 npm run lint
@@ -341,10 +346,16 @@ Honest about what is not there:
   Firebase means Cloud Functions and the paid plan.
 - **Anonymity is not retroactive for chat.** It covers your profile and the
   activities you host, but messages keep the name they were sent under.
-- **Reports have no in-app queue.** They are stored and reviewed through the
-  Firebase console; there is no moderator screen, and no automated action is
-  taken. The wording shown to a reporter says the report was sent and will be
-  reviewed, and deliberately promises nothing more than that.
+- **Moderation is manual, and the first admin is made by hand.** Nothing is
+  detected or actioned automatically — a human reads every report. There is no
+  screen for appointing moderators either: an admin does it by writing the
+  role document, and the very first admin has to be created in the Firebase
+  console, because there is deliberately no in-app path to that rank.
+- **A moderator can see a report filed about themselves.** They cannot act on
+  it — the rules refuse that — but they can read it, and so learn who filed
+  it. Firestore has no field-level read rules and refuses a whole query if any
+  document in it fails, so those reports are hidden from that reviewer's queue
+  in the client only. ADR-011.
 - **Blocking hides, it does not conceal.** Somebody you blocked cannot join
   your activities or reach you, and you stop seeing them everywhere — but they
   are not told, and their own view of public activity listings is unchanged.

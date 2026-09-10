@@ -1342,6 +1342,21 @@ select:focus-visible {
   padding-top: 10px;
 }
 
+/* Sits where the composer would, so a suspended reader is told why they
+   cannot type rather than finding an input that refuses them. */
+.chat-closed-note {
+  position: sticky;
+  bottom: 0;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: var(--t-tiny);
+  text-align: center;
+}
+
 /* =========================================================
    MESSAGES + NOTIFICATIONS
    ========================================================= */
@@ -2851,7 +2866,8 @@ input[type='range'] {
   font-weight: var(--w-regular);
   opacity: 0.75;
 }
-.report-detail textarea {
+.report-detail textarea,
+.report-detail input {
   font: inherit;
   font-size: var(--t-sm);
   color: var(--ink);
@@ -2869,4 +2885,104 @@ input[type='range'] {
   color: var(--ink-soft);
   border-top: 1px solid var(--line);
   padding-top: 10px;
+}
+
+/* ==========================================================================
+   Suspension and moderation
+   ========================================================================== */
+
+/* Louder than the offline bar, and deliberately so: offline is a passing
+   state the app recovers from, this is a decision somebody made about you. */
+.suspended-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 6px;
+  padding: 9px 11px;
+  border-radius: var(--r-sm);
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--danger, #dc2626);
+  font-size: var(--t-tiny);
+  line-height: 1.4;
+}
+
+.removed-banner {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--danger, #dc2626);
+}
+
+.report-card {
+  display: grid;
+  gap: 8px;
+  padding: 15px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.report-card header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-tiny);
+  color: var(--ink-soft);
+}
+.report-card header time {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.report-card h3 {
+  margin: 0;
+  font-size: var(--t-h3);
+}
+
+.report-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-soft, rgba(100, 116, 139, 0.12));
+  text-transform: capitalize;
+}
+
+/* The one thing on the card worth colouring: three people flagging the same
+   thing is a different signal from one person flagging it once. */
+.report-repeat {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--danger, #dc2626);
+  font-weight: var(--w-medium);
+}
+
+.report-context {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.report-detail-text {
+  margin: 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--line-strong, var(--line));
+  font-size: var(--t-sm);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+.report-meta {
+  margin: 0;
+  font-size: var(--t-tiny);
+  color: var(--ink-soft);
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+.report-actions button {
+  font-size: var(--t-tiny);
+  padding: 8px 12px;
 }

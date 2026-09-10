@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Plus,
   RotateCcw,
+  ShieldAlert,
   Sparkles,
   Trash2,
   WifiOff,
@@ -56,6 +57,7 @@ const routeTitles = {
   privacy: 'Privacy',
   weights: 'Matching weights',
   blocked: 'Blocked people',
+  moderation: 'Moderation',
   joined: 'Joined',
   404: 'Not found',
 }
@@ -114,6 +116,18 @@ export default function Shell() {
         {/* Offline is a normal state here, not an error: Firestore serves
             reads from cache and queues writes. Saying so is the difference
             between "this app still works" and "did my join actually save?" */}
+        {/* A suspended account can still read, so it must be told why the
+            rest has stopped working. Silently disabled controls read as a
+            broken app rather than a decision somebody made. */}
+        {user.suspended && (
+          <div className="suspended-banner" role="alert">
+            <ShieldAlert size={15} />
+            <span>
+              Your account is suspended. You can still read, but cannot create, join or message.
+            </span>
+          </div>
+        )}
+
         {offline && (
           <div className="offline-banner" role="status">
             <WifiOff size={15} />
@@ -145,6 +159,9 @@ export default function Shell() {
           className="fab-create"
           onClick={() => navigate('/create')}
           aria-label="Create activity"
+          // The rules refuse it anyway; disabling here means the answer is
+          // immediate and explained rather than a rejection after the fact.
+          disabled={user.suspended}
         >
           <Plus size={26} />
         </button>

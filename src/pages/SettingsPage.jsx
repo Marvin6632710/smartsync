@@ -4,6 +4,7 @@ import {
   ChevronRight,
   LogOut,
   MessageCircle,
+  ShieldAlert,
   ShieldCheck,
   ShieldOff,
   SlidersHorizontal,
@@ -83,6 +84,21 @@ export default function SettingsPage() {
           <span className={`switch ${privacy.notifications ? 'on' : ''}`} aria-hidden="true" />
         </button>
       </div>
+
+      {user.isModerator && (
+        <div className="settings-card">
+          <button className="setting-row" onClick={() => navigate('/moderation')}>
+            <ShieldAlert size={18} />
+            <span>
+              <strong>Moderation</strong>
+              <small>
+                Open reports {user.isAdmin ? '· you are an admin' : '· you are a moderator'}
+              </small>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+        </div>
+      )}
 
       <div className="panel">
         <h3>Account</h3>

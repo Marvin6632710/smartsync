@@ -268,6 +268,61 @@ saying out loud rather than letting someone assume otherwise.
 (billing); refusing to expire anything (the Privacy page would have kept
 promising something untrue).
 
+## ADR-011 — Two ranks of moderator, and an admin who can only be made in the console
+
+**Context.** People meet strangers off this app in physical places. That makes
+a report queue a safety feature rather than housekeeping, and it makes the
+moderation powers themselves worth attacking: whoever can take an activity
+down can also take a rival's down, and whoever can grant a role can grant
+themselves one.
+
+**Decision.** Three states, held in a `roles/{uid}` collection that no user can
+write to.
+
+- **user** — the default. No row in `roles` at all means this, so nothing is
+  written at sign-up and a missing document is never an error.
+- **moderator** — reads the report queue, removes activities, suspends and
+  restores ordinary users. Cannot change anyone's role, cannot touch a fellow
+  moderator or an admin, and cannot undo a removal.
+- **admin** — everything a moderator can do, plus appointing and dismissing
+  moderators, suspending a moderator without demoting them, and restoring an
+  activity that was taken down. Cannot suspend another admin.
+
+`admin` cannot be created from inside the app by anybody, including an admin.
+The only way to make one is to write the document in the Firebase console.
+
+**Why.** A role stored anywhere its holder can write is a role its holder can
+grant themselves, which is why `roles` is its own collection and not a field
+on the profile. Beyond that, each limit answers a specific way the system
+could be turned against its users:
+
+- Moderators can suspend, because a moderator who could take down one activity
+  while the same account posted ten more would not be moderating anything.
+- They cannot act on each other, because two moderators able to disable one
+  another is a race whose winner is whoever moves first.
+- They cannot reverse a takedown, and admins can, because a mistake has to be
+  fixable but not by the rank that might have made it.
+- Nobody can close a report about themselves or about something they host. The
+  rules refuse the write; the client also hides those reports from that
+  reviewer's queue, so they stay in everyone else's.
+- Admin is console-only, so compromising any in-app account — moderator or
+  admin — cannot mint more admins.
+
+**Cost.** Bootstrapping the first admin is a manual step in the console, and
+there is no in-app screen for appointing moderators yet: an admin appoints one
+by writing the role document. Suspension is also blunt — it is not scoped to a
+single activity or a single conversation. And a moderator can still read a
+report filed about themselves, and so learn who filed it: Firestore has no
+field-level read rules and refuses a whole query if any document in it fails,
+so hiding those is a courtesy in the client, not a control. What is enforced is
+that they cannot act on it.
+
+**Rejected.** A single `isAdmin` flag (no room for the routine work); storing
+the role on the user profile (self-grantable); letting moderators undo each
+other's decisions (no ladder, so no accountability); deleting reported content
+outright rather than marking it `removed` (the evidence goes with it, and a
+wrongly-removed activity becomes unrecoverable).
+
 ---
 
 # Questions you will be asked
@@ -351,11 +406,40 @@ needs Cloud Functions and the paid plan. Claiming "the chat is deleted" would
 be false; "nobody can open it, and here is the rule" is true and checkable.
 ADR-010.
 
+### "Who watches the moderators?"
+
+Ask this one of yourself before they do, because it is the real question about
+any reporting system. Four answers, all enforced in the rules rather than the
+UI:
+
+- A moderator cannot close a report about themselves, or about an activity
+  they host. They could never have suspended themselves, but before this they
+  could have dismissed the complaint — the same power, exercised quietly.
+- A moderator cannot suspend another moderator or an admin, so they cannot
+  disable the people who could review them.
+- A moderator cannot undo a takedown. An admin can, and both decisions stay on
+  the record: the activity carries the restore, the report carries the
+  removal.
+- `admin` cannot be created from inside the app at all. It is written in the
+  Firebase console, so compromising any account in the app cannot mint one.
+
+**Own the gap:** a moderator can still read a report filed about themselves,
+and learn who filed it. Firestore has no field-level read rules and refuses a
+whole query if any single document in it fails, so those are hidden in the
+client, which is a courtesy and not a control. ADR-011 says so in writing.
+
 ### "How did you test it?"
 
-118 tests. 47 over the recommendation engine — pure functions, no database
-needed — and 71 that attack the security rules as a hostile client. The rule
-tests have caught three real holes, which is the point of writing them.
+204 tests. 49 over the recommendation engine — pure functions, no database
+needed — and 155 that attack the security rules as a hostile client.
+
+Be precise about what found what. Three holes were caught by the rule tests
+themselves. Three more were caught by driving the running app as each kind of
+user and then pinned with tests that fail against the old rules — a host could
+write their own removed activity back to `active`; a moderator could dismiss a
+report about themselves; a suspended moderator kept every moderation power.
+Tests are one instrument, not the only one, and saying which found which is
+more useful than a single number.
 
 Beyond that: 16 authenticated attacks run against the live project, a fuzzer
 over the scorer, and an integrity sweep checking invariants on the real data.

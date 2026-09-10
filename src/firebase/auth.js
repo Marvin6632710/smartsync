@@ -70,6 +70,19 @@ export function resetPassword(email) {
 }
 
 /** Subscribe to sign-in state. Returns the unsubscribe function. */
+/**
+ * Who is signed in right now, straight from the SDK rather than from React
+ * state.
+ *
+ * Needed because signing out revokes the credential before React hears about
+ * it: every open listener fires permission-denied in that gap, while the
+ * component still holds the old uid and still thinks its listeners are live.
+ * Comparing against this tells a real denial from the noise of leaving.
+ */
+export function currentUid() {
+  return auth.currentUser?.uid || null
+}
+
 export function observeAuth(callback) {
   return onAuthStateChanged(auth, callback)
 }

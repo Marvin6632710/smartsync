@@ -52,10 +52,15 @@ export default function ActivityDetailsPage() {
   const joined = joinedIds.includes(id)
   const isHost = a.hostId === user.uid
   const isCancelled = a.status === 'cancelled'
+  const isRemoved = a.status === 'removed'
   const isPast = Boolean(a.isPast)
   // Nobody else has joined, so there is nobody to notify — this is a removal,
   // not a cancellation, and calling it "cancel" would overstate what happened.
   const isEmpty = (a.participantUids || []).length <= 1
+  // A takedown that will not say what it was for reads as arbitrary, and the
+  // host has no way to do better next time. The stored reason is one of a
+  // fixed set and never names whoever reported it.
+  const removalReason = a.moderation?.reason || 'it broke our safety policy'
   const fill = Math.max(
     0,
     Math.min(100, Math.round((a.participants / Math.max(a.capacity, 1)) * 100)),
@@ -83,6 +88,16 @@ export default function ActivityDetailsPage() {
         <h2>{a.title}</h2>
         {isCancelled && (
           <p className="cancelled-banner">This activity was cancelled by the host.</p>
+        )}
+        {/* Removal is not cancellation and should not read like it: the people
+            who joined are entitled to know it was taken down rather than
+            called off, so they do not turn up expecting it. */}
+        {isRemoved && (
+          <p className="cancelled-banner removed-banner">
+            {isHost
+              ? `SmartSync removed this activity: ${removalReason}. It is no longer visible to anyone and cannot be put back from here.`
+              : `SmartSync removed this activity: ${removalReason}. It is not going ahead.`}
+          </p>
         )}
         {!isCancelled && isPast && (
           <p className="cancelled-banner past-banner">This activity has already taken place.</p>
@@ -148,13 +163,15 @@ export default function ActivityDetailsPage() {
         </button>
       </section>
 
-      {isHost && (
+      {/* No edit button on something that was taken down. The rules refuse the
+          write, so offering it would only walk the host into a dead end. */}
+      {isHost && !isRemoved && (
         <button className="secondary-button wide" onClick={() => navigate(`/activity/${id}/edit`)}>
           <Edit3 size={17} /> Edit activity
         </button>
       )}
 
-      {isCancelled || isPast ? (
+      {isCancelled || isRemoved || isPast ? (
         <button className="secondary-button wide" onClick={() => navigate(`/activity/${id}/chat`)}>
           <MessageCircle size={18} /> Open chat
         </button>

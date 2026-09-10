@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Bell, BellOff, CalendarDays, MessageCircle, Sparkles } from 'lucide-react'
+import { Bell, BellOff, CalendarDays, MessageCircle, ShieldAlert, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
@@ -17,6 +17,11 @@ const FILTERS = [
     icon: Sparkles,
     types: ['follow', 'recommendation', 'general'],
   },
+  // Moderation decisions get their own chip rather than being filed under
+  // "Updates". Being told your activity was taken down, or your account
+  // suspended, is not an update — and it is the one notification somebody
+  // will come back looking for.
+  { key: 'safety', label: 'Safety', icon: ShieldAlert, types: ['moderation'] },
 ]
 
 export default function NotificationsPage() {

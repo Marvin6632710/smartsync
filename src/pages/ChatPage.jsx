@@ -149,22 +149,31 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      <form className="chat-form" onSubmit={submit}>
-        <input
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          placeholder="Message the group"
-          aria-label="Chat message"
-          maxLength={2000}
-        />
-        <button
-          className="primary-button icon-only"
-          aria-label="Send message"
-          disabled={!text.trim()}
-        >
-          <Send size={18} />
-        </button>
-      </form>
+      {/* A suspended account keeps its place in the thread and can read every
+          word of it. Offering a composer that the rules will refuse would
+          only take somebody's message and throw it away. */}
+      {user.suspended ? (
+        <p className="chat-closed-note">
+          Your account is suspended, so you cannot post here. You can still read the conversation.
+        </p>
+      ) : (
+        <form className="chat-form" onSubmit={submit}>
+          <input
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            placeholder="Message the group"
+            aria-label="Chat message"
+            maxLength={2000}
+          />
+          <button
+            className="primary-button icon-only"
+            aria-label="Send message"
+            disabled={!text.trim()}
+          >
+            <Send size={18} />
+          </button>
+        </form>
+      )}
 
       <ReportDialog
         open={Boolean(reporting)}
