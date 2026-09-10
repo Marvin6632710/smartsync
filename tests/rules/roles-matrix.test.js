@@ -571,6 +571,76 @@ describe('collision: a moderator acting on their own activity', () => {
   })
 })
 
+describe('appointing and dismissing, from inside the app', () => {
+  // The screen an admin uses. The rules were already written for these, but
+  // nothing exercised them the way the client now does — reading the row
+  // first and merging, so that a rank change and a suspension never clobber
+  // each other.
+
+  test('an admin can appoint an ordinary user', async () => {
+    await assertSucceeds(appoint(ADMIN, USER))
+  })
+
+  test('appointing somebody who is suspended does not lift the suspension', async () => {
+    // Two separate decisions. The client reads the row and carries `suspended`
+    // across; this checks the rules accept the write it makes.
+    await setRole(USER, { role: 'user', suspended: true })
+    await assertSucceeds(setDoc(doc(as(ADMIN), 'roles', USER), { role: 'moderator', suspended: true }))
+    let after
+    await seed(async (db) => {
+      after = (await getDoc(doc(db, 'roles', USER))).data()
+    })
+    expect(after).toEqual({ role: 'moderator', suspended: true })
+  })
+
+  test('dismissing a suspended moderator leaves them suspended', async () => {
+    await setRole(MOD, { role: 'moderator', suspended: true })
+    await assertSucceeds(setDoc(doc(as(ADMIN), 'roles', MOD), { role: 'user', suspended: true }))
+    let after
+    await seed(async (db) => {
+      after = (await getDoc(doc(db, 'roles', MOD))).data()
+    })
+    expect(after).toEqual({ role: 'user', suspended: true })
+  })
+
+  test('an admin cannot appoint themselves out of anything', async () => {
+    await assertFails(appoint(ADMIN, ADMIN, 'moderator'))
+    await assertFails(appoint(ADMIN, ADMIN, 'user'))
+  })
+
+  test('a moderator cannot appoint anybody, including themselves', async () => {
+    await assertFails(appoint(MOD, USER))
+    await assertFails(appoint(MOD, MOD, 'admin'))
+  })
+
+  test('an ordinary user cannot appoint themselves', async () => {
+    await assertFails(appoint(USER, USER))
+    await assertFails(appoint(USER, OTHER))
+  })
+
+  test('an admin can read every role row, which is what the screen lists', async () => {
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'roles', MOD)))
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'roles', ADMIN2)))
+  })
+
+  test('a moderator can read them too, and an ordinary user cannot', async () => {
+    await assertSucceeds(getDoc(doc(as(MOD), 'roles', MOD2)))
+    await assertFails(getDoc(doc(as(USER), 'roles', MOD)))
+  })
+
+  test('no rank change can smuggle in a third field', async () => {
+    // The screen writes exactly two fields. Anything else would be a way to
+    // put state on a role document that nothing validates.
+    await assertFails(
+      setDoc(doc(as(ADMIN), 'roles', USER), {
+        role: 'moderator',
+        suspended: false,
+        canDeleteEverything: true,
+      }),
+    )
+  })
+})
+
 describe('a role document that was written by hand', () => {
   // Roles are bootstrapped in the Firebase console, so malformed rows are a
   // realistic input, not a hypothetical one. Every one of these must fail

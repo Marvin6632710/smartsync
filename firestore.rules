@@ -496,6 +496,12 @@ service cloud.firestore {
       // superior — acting on a fellow moderator is an admin's call.
       allow create, update: if signedIn()
         && uid != request.auth.uid
+        // Exactly two fields, and nothing else. A role document is the most
+        // consequential row in the database, and everything reading it looks
+        // at these two — so anything else on it is state nobody validates,
+        // nobody reads, and nobody would notice arriving. The app writes both
+        // every time, so this costs it nothing.
+        && request.resource.data.keys().hasOnly(['role', 'suspended'])
         && request.resource.data.suspended is bool
         && (
           (

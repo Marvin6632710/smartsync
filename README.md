@@ -212,10 +212,10 @@ admin. The first one is made by hand, once, in the Firebase console.
 
 5. Reload the app. **Profile → Settings → Moderation** now appears.
 
-From there the admin appoints moderators the same way, with `role` set to
-`moderator` instead — there is no screen for that yet, and the limits section
-below says so. Suspending, un-suspending, taking activities down and putting
-them back all happen inside the app; only granting a rank does not.
+That is the only step that happens outside the app. From there the admin
+appoints and dismisses moderators in **Moderation → Moderators**, and
+suspending, un-suspending, taking activities down and putting them back all
+happen in the app too. `admin` is the one rank with no button anywhere.
 
 To check it worked without a queue to look at: the Moderation row appears in
 Settings only for a moderator or an admin, and `/moderation` shows "This
@@ -360,8 +360,8 @@ npm test
 ```
 
 This boots the Firestore emulator and runs both suites: 49 tests over the
-recommendation engine, and 210 that behave like a hostile client and check the
-rules refuse them — 155 feature by feature, and 55 in `roles-matrix.test.js`
+recommendation engine, and 219 that behave like a hostile client and check the
+rules refuse them — 155 feature by feature, and 64 in `roles-matrix.test.js`
 that check who may do what to whom at every combination of rank and
 relationship. It needs Java, like the emulators.
 
@@ -389,10 +389,10 @@ Honest about what is not there:
 - **Anonymity is not retroactive for chat.** It covers your profile and the
   activities you host, but messages keep the name they were sent under.
 - **Moderation is manual, and the first admin is made by hand.** Nothing is
-  detected or actioned automatically — a human reads every report. There is no
-  screen for appointing moderators either: an admin does it by writing the
-  role document, and the very first admin has to be created in the Firebase
-  console, because there is deliberately no in-app path to that rank.
+  detected or actioned automatically — a human reads every report. The very
+  first admin has to be created in the Firebase console, because there is
+  deliberately no in-app path to that rank; everything after that, including
+  appointing moderators, happens in the app.
 - **A moderator can see a report filed about themselves.** They cannot act on
   it — the rules refuse that — but they can read it, and so learn who filed
   it. Firestore has no field-level read rules and refuses a whole query if any

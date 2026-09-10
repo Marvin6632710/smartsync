@@ -1342,6 +1342,26 @@ select:focus-visible {
   padding-top: 10px;
 }
 
+/* A search result in the appoint-a-moderator list: the person on the left,
+   the action on the right, wrapping rather than truncating a long name. */
+.appoint-row {
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: var(--t-sm);
+}
+.appoint-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.appoint-note {
+  color: var(--warning);
+  font-style: normal;
+  font-weight: var(--w-medium);
+}
+
 /* Sits where the composer would, so a suspended reader is told why they
    cannot type rather than finding an input that refuses them. */
 .chat-closed-note {

@@ -307,6 +307,10 @@ could be turned against its users:
   reviewer's queue, so they stay in everyone else's.
 - Admin is console-only, so compromising any in-app account — moderator or
   admin — cannot mint more admins.
+- A role document holds exactly two fields and the rules refuse any third.
+  It is the most consequential row in the database, and anything else on it
+  would be state nobody validates, nobody reads, and nobody would notice
+  arriving.
 
 **Two things that only appeared when the ranks were tested against each
 other**, and both are the reason this ADR is worth reading:
@@ -327,9 +331,9 @@ other**, and both are the reason this ADR is worth reading:
   or the message itself, so a reporter cannot quote one person's message and
   name somebody else as its sender.
 
-**Cost.** Bootstrapping the first admin is a manual step in the console, and
-there is no in-app screen for appointing moderators yet: an admin appoints one
-by writing the role document. Suspension is blunt — it is not scoped to a
+**Cost.** Bootstrapping the first admin is a manual step in the console —
+the only one, now that appointing and dismissing moderators happens in the
+app. Suspension is blunt — it is not scoped to a
 single activity or conversation, and standing down a host's activities is not
 reversed when the suspension is lifted; an admin restores them one at a time,
 which is deliberate but is extra work after a mistake. And a moderator can
@@ -458,8 +462,8 @@ client, which is a courtesy and not a control. ADR-011 says so in writing.
 
 ### "How did you test it?"
 
-259 tests. 49 over the recommendation engine — pure functions, no database
-needed — 155 attacking the security rules feature by feature, and 55 more in
+268 tests. 49 over the recommendation engine — pure functions, no database
+needed — 155 attacking the security rules feature by feature, and 64 more in
 `roles-matrix.test.js` that test the one thing cutting across every feature:
 who may do what to whom, at every combination of the caller's rank, the
 target's rank, and the relationship between them.

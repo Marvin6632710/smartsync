@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2,
   Flag,
   RotateCcw,
   ShieldAlert,
+  ShieldCheck,
   Trash2,
   UserRoundCheck,
   UserRoundX,
@@ -18,9 +19,10 @@ import {
   removeActivity,
   resolveReport,
   restoreActivity,
+  setUserRole,
   suspendAccount,
   watchOpenReports,
-  watchSuspended,
+  watchRoles,
 } from '../firebase/moderation'
 import { REPORT_REASONS } from '../firebase/moderation'
 import { formatRelativeTime } from '../utils/time'
@@ -49,12 +51,17 @@ export default function ModerationPage() {
   // something back, the same way a moderator has to say why they took it down.
   const [restoreReasons, setRestoreReasons] = useState({})
   const [restoring, setRestoring] = useState(null)
-  const [suspended, setSuspendedList] = useState([])
+  const [roles, setRoles] = useState([])
   const [lifting, setLifting] = useState(null)
+  // Appointing a moderator: who is being searched for, who is being confirmed,
+  // and who is mid-write.
+  const [personSearch, setPersonSearch] = useState('')
+  const [roleChange, setRoleChange] = useState(null)
+  const [changingRole, setChangingRole] = useState(null)
 
   useEffect(() => {
     if (!user.isModerator) return undefined
-    return watchSuspended(setSuspendedList, () => setSuspendedList([]))
+    return watchRoles(setRoles, () => setRoles([]))
   }, [user.isModerator])
 
   useEffect(() => {
@@ -70,6 +77,35 @@ export default function ModerationPage() {
       },
     )
   }, [user.isModerator])
+
+  // Three views of one listener. A missing row means an ordinary user, so
+  // `roles` only ever holds people who have been given a rank or had a
+  // suspension placed on them.
+  const suspended = useMemo(() => roles.filter((r) => r.suspended === true), [roles])
+  const moderators = useMemo(() => roles.filter((r) => r.role === 'moderator'), [roles])
+  const admins = useMemo(() => roles.filter((r) => r.role === 'admin'), [roles])
+
+  // Who an admin may still appoint: everyone with a profile who is not
+  // already a moderator, not an admin, and not themselves. Admins are
+  // excluded because no in-app write may touch that rank in either direction,
+  // so offering the button would only walk into a refusal.
+  const ranked = useMemo(
+    () => new Set([...moderators, ...admins].map((r) => r.uid)),
+    [moderators, admins],
+  )
+  const suspendedIds = useMemo(() => new Set(suspended.map((r) => r.uid)), [suspended])
+  const appointable = useMemo(() => {
+    const term = personSearch.trim().toLowerCase()
+    if (!term) return []
+    return [...directory.values()]
+      .filter(
+        (person) =>
+          person.uid !== user.uid &&
+          !ranked.has(person.uid) &&
+          `${person.name} ${person.username || ''}`.toLowerCase().includes(term),
+      )
+      .slice(0, 6)
+  }, [directory, personSearch, ranked, user.uid])
 
   // Someone who is not a moderator should never have got here, but the route
   // is guessable and the screen must not depend on the menu hiding it.
@@ -218,6 +254,37 @@ export default function ModerationPage() {
       })
     } finally {
       setLifting(null)
+    }
+  }
+
+  const changeRole = async () => {
+    const { uid, role } = roleChange
+    setRoleChange(null)
+    setChangingRole(uid)
+    try {
+      await setUserRole(uid, role)
+      pushCelebration({
+        icon: 'check',
+        tone: 'success',
+        title: role === 'moderator' ? 'Moderator appointed' : 'Moderator dismissed',
+        body:
+          role === 'moderator'
+            ? `${nameFor(uid)} can work this queue now, and has been told.`
+            : `${nameFor(uid)} can no longer review reports. Their account is otherwise unchanged.`,
+      })
+      setPersonSearch('')
+    } catch (roleError) {
+      pushCelebration({
+        icon: 'alert',
+        tone: 'warning',
+        title: "Couldn't change that",
+        body:
+          roleError?.code === 'permission-denied'
+            ? 'Only an admin can appoint or dismiss a moderator.'
+            : 'Try again.',
+      })
+    } finally {
+      setChangingRole(null)
     }
   }
 
@@ -422,6 +489,115 @@ export default function ModerationPage() {
         </>
       )}
 
+      {/* Appointing is the one rank change that belongs in the app. It is
+          routine work an admin should not need Firebase console access for —
+          unlike `admin` itself, which has no button here and none anywhere,
+          so that compromising any account in the app cannot mint another. */}
+      {user.isAdmin && (
+        <>
+          <section className="headline-block">
+            <span className="eyebrow">Admin</span>
+            <h2>Moderators</h2>
+            <p className="helper-text">
+              Who can work this queue. From the moment they are appointed they can take activities
+              down and suspend ordinary users, and they are told so.
+            </p>
+          </section>
+
+          <div className="stack list-stack">
+            {moderators.map((account) => (
+              <article className="report-card" key={account.uid}>
+                <header>
+                  <span className="report-kind">
+                    <ShieldCheck size={13} /> moderator
+                  </span>
+                  {account.suspended && <span className="report-repeat">suspended</span>}
+                </header>
+                <h3>{nameFor(account.uid)}</h3>
+                {account.suspended && (
+                  <p className="report-context">
+                    Suspended, so they hold the rank and use none of it. Lift it above to give the
+                    powers back.
+                  </p>
+                )}
+                <div className="report-actions">
+                  <button
+                    className="danger-button"
+                    disabled={changingRole === account.uid}
+                    onClick={() => setRoleChange({ uid: account.uid, role: 'user' })}
+                  >
+                    <UserRoundX size={15} />{' '}
+                    {changingRole === account.uid ? 'Dismissing…' : 'Dismiss as moderator'}
+                  </button>
+                </div>
+              </article>
+            ))}
+
+            {moderators.length === 0 && (
+              <div className="empty-state">
+                <ShieldCheck size={28} />
+                <h3>No moderators yet</h3>
+                <p>Every report is yours alone until you appoint somebody.</p>
+              </div>
+            )}
+
+            <article className="report-card">
+              <h3>Appoint someone</h3>
+              <label className="report-detail">
+                Search people by name
+                <input
+                  value={personSearch}
+                  maxLength={60}
+                  placeholder="Start typing a name"
+                  onChange={(event) => setPersonSearch(event.target.value)}
+                />
+              </label>
+
+              {!personSearch.trim() ? (
+                <p className="report-meta">
+                  Type a name to find somebody. Current moderators and admins are not listed here.
+                </p>
+              ) : appointable.length === 0 ? (
+                <p className="report-meta">
+                  Nobody else matches “{personSearch.trim()}”. Anyone already holding a rank is left
+                  out of this list.
+                </p>
+              ) : (
+                appointable.map((person) => (
+                  <div className="report-actions appoint-row" key={person.uid}>
+                    <span>
+                      {person.name}
+                      {person.username ? ` · ${person.username}` : ''}
+                      {/* A rank somebody cannot currently use is worth saying
+                          out loud before it is handed to them, not after. */}
+                      {suspendedIds.has(person.uid) && (
+                        <em className="appoint-note"> · suspended</em>
+                      )}
+                    </span>
+                    <button
+                      className="secondary-button"
+                      disabled={changingRole === person.uid}
+                      onClick={() => setRoleChange({ uid: person.uid, role: 'moderator' })}
+                    >
+                      <UserRoundCheck size={15} />{' '}
+                      {changingRole === person.uid ? 'Appointing…' : 'Appoint'}
+                    </button>
+                  </div>
+                ))
+              )}
+            </article>
+          </div>
+
+          <p className="helper-text">
+            {admins.length === 1
+              ? `Admin: ${nameFor(admins[0].uid)}.`
+              : `Admins: ${admins.map((a) => nameFor(a.uid)).join(', ')}.`}{' '}
+            That rank is granted in the Firebase console and nowhere else — there is no button for
+            it here, on purpose.
+          </p>
+        </>
+      )}
+
       <ConfirmDialog
         open={Boolean(acting)}
         title={
@@ -445,6 +621,27 @@ export default function ModerationPage() {
         tone={acting?.kind === 'dismiss' ? 'default' : 'danger'}
         onConfirm={act}
         onCancel={() => setActing(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(roleChange)}
+        title={
+          roleChange?.role === 'moderator' ? 'Appoint as moderator?' : 'Dismiss this moderator?'
+        }
+        body={
+          roleChange?.role === 'moderator'
+            ? `${nameFor(roleChange.uid)} will be able to read every report, take activities down and suspend ordinary users. They cannot appoint anybody, undo a takedown, or act on a report about themselves.${
+                suspendedIds.has(roleChange.uid)
+                  ? ' Their account is suspended, so they will hold the rank and use none of it until that is lifted.'
+                  : ''
+              }`
+            : `${nameFor(roleChange?.uid)} loses access to this queue. Nothing else about their account changes — a suspension, if they have one, stays exactly as it is.`
+        }
+        confirmLabel={roleChange?.role === 'moderator' ? 'Appoint' : 'Dismiss'}
+        cancelLabel="Cancel"
+        tone={roleChange?.role === 'moderator' ? 'default' : 'danger'}
+        onConfirm={changeRole}
+        onCancel={() => setRoleChange(null)}
       />
     </div>
   )

@@ -270,19 +270,21 @@ export async function removeActivity(activityId, { moderatorId, reason }) {
 }
 
 /**
- * Every account currently suspended, for the review list.
+ * Every row in `roles` — who holds a rank, and who is suspended.
  *
- * A moderation system that can suspend but not un-suspend is not finished:
- * without this the only way back was the Firebase console, which is not a
- * place a moderator should have to go.
+ * One listener rather than one per question. The collection only has a
+ * document for people who have been given a rank or had a suspension placed
+ * on them, so it is a handful of rows even on a busy campus, and deriving the
+ * three lists the moderation screen needs from one snapshot is cheaper than
+ * three queries and keeps them consistent with each other.
  *
- * Readable by moderators because the roles rules allow it — and a list query
- * is allowed precisely because `isModerator()` does not depend on which
- * document is being read, so it either holds for all of them or none.
+ * Readable by moderators because the roles rules allow it — and a *list* is
+ * allowed precisely because `isModerator()` does not depend on which document
+ * is being read, so it either holds for every row or for none.
  */
-export function watchSuspended(callback, onError) {
+export function watchRoles(callback, onError) {
   return onSnapshot(
-    query(collection(db, 'roles'), where('suspended', '==', true)),
+    collection(db, 'roles'),
     (snap) => callback(snap.docs.map((d) => ({ uid: d.id, ...d.data() }))),
     onError,
   )
@@ -291,6 +293,40 @@ export function watchSuspended(callback, onError) {
 /** Lifts a suspension. The rules decide whether this caller may. */
 export function liftSuspension(uid) {
   return setSuspended(uid, false)
+}
+
+/**
+ * Appoints or dismisses a moderator. Admin only — the rules enforce that,
+ * this is only the button.
+ *
+ * Reads the existing row first for the same reason `setSuspended` does: the
+ * two fields on a role document mean different things and neither may clobber
+ * the other. Appointing somebody who is currently suspended must not quietly
+ * lift the suspension, and dismissing a suspended moderator must not quietly
+ * lift it either. They are separate decisions and stay separate.
+ *
+ * Dismissal writes `role: 'user'` rather than deleting the row, even though
+ * the rules allow an admin to delete it and a missing row means the same
+ * thing. Deleting would take any suspension with it — a dismissal that
+ * silently un-suspends somebody is exactly the kind of surprise a moderation
+ * tool must not have.
+ */
+export async function setUserRole(uid, role) {
+  const ref = doc(db, 'roles', uid)
+  const existing = await getDoc(ref)
+  await setDoc(ref, { role, suspended: existing.data()?.suspended === true }, { merge: true })
+  await tell(
+    uid,
+    role === 'moderator'
+      ? {
+          title: 'You are now a moderator',
+          body: 'You can review reports from Settings → Moderation. Every action you take is recorded against the report.',
+        }
+      : {
+          title: 'You are no longer a moderator',
+          body: 'Your SmartSync account is otherwise unchanged.',
+        },
+  )
 }
 
 /**
