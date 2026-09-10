@@ -333,7 +333,11 @@ export function AppProvider({ children }) {
     // see, and correct it if the server disagrees.
     const pending = joinActivityDoc(id, uid)
 
-    recordCategoryHistory(uid, user.historyCategories, activity.category)
+    // Not awaited, and failure is swallowed on purpose: learning that you
+    // like football is a side effect of joining, not part of it. A rejection
+    // here must not become an unhandled promise, and must not tell the user
+    // their join went wrong when it did not.
+    recordCategoryHistory(uid, user.historyCategories, activity.category).catch(() => {})
     notifyUser(activity.hostId, {
       type: 'activity',
       title: 'Someone joined',
@@ -440,7 +444,7 @@ export function AppProvider({ children }) {
       failure: "Couldn't create activity",
     })
     if (!id) return null
-    recordCategoryHistory(uid, user.historyCategories, data.category)
+    recordCategoryHistory(uid, user.historyCategories, data.category).catch(() => {})
     pushCelebration({
       icon: 'check',
       tone: 'success',

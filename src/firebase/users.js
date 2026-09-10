@@ -12,8 +12,8 @@ import {
 import { syncHostIdentity } from './activities'
 import { db } from './config'
 
-export const ANONYMOUS_NAME = 'Anonymous user'
-export const ANONYMOUS_AVATAR = 'AN'
+const ANONYMOUS_NAME = 'Anonymous user'
+const ANONYMOUS_AVATAR = 'AN'
 
 export const defaultPrivacy = {
   anonymousMode: false,
@@ -53,7 +53,7 @@ function publicIdentity({ realName, anonymous }) {
  * Creates both halves of a new user's profile in one atomic batch, so a
  * half-registered account can never exist.
  */
-export async function createUserProfile(uid, { name, email, username }) {
+async function createUserProfile(uid, { name, email, username }) {
   const batch = writeBatch(db)
   const realName = String(name || '').trim() || 'New user'
 

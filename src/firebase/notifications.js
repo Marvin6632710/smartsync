@@ -63,10 +63,6 @@ export async function markAllNotificationsRead(uid) {
   await batch.commit()
 }
 
-export function deleteNotification(uid, notificationId) {
-  return deleteDoc(doc(db, 'users', uid, 'notifications', notificationId))
-}
-
 // ---------------------------------------------------------------- following
 
 const followingRef = (uid) => collection(db, 'users', uid, 'following')

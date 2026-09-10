@@ -41,7 +41,7 @@ export function deriveTimeBand(time) {
 }
 
 /** Combines a 'YYYY-MM-DD' date and 'HH:MM' time into a real instant. */
-export function toStartsAt(date, time) {
+function toStartsAt(date, time) {
   const parsed = new Date(`${date}T${time || '00:00'}`)
   return Number.isNaN(parsed.getTime()) ? null : Timestamp.fromDate(parsed)
 }
@@ -76,14 +76,6 @@ export function watchActivities(callback, onError) {
     // some document happens to change — which offline it never will.
     { includeMetadataChanges: true },
     (snap) => callback(snap.docs.map(normalise), { fromCache: snap.metadata.fromCache }),
-    onError,
-  )
-}
-
-export function watchActivity(activityId, callback, onError) {
-  return onSnapshot(
-    activityDoc(activityId),
-    (snap) => callback(snap.exists() ? normalise(snap) : null),
     onError,
   )
 }

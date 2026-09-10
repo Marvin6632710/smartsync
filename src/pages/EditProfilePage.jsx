@@ -1,11 +1,9 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
-import { categories, timeBands } from '../data/categories'
+import { categories, MIN_INTERESTS, timeBands } from '../data/categories'
 import { useAuth } from '../context/AuthContext'
 import { updateDisplayName, updatePublicProfile } from '../firebase/users'
-
-const MIN_INTERESTS = 3
 
 export default function EditProfilePage() {
   const { user } = useAuth()

@@ -11,7 +11,7 @@ import {
 // real project. The `demo-` project id prefix is special-cased by the
 // emulators: it never reaches Google, so no credentials or billing account
 // are needed to run or test the full backend locally.
-export const usingEmulators = import.meta.env.VITE_USE_EMULATORS === 'true'
+const usingEmulators = import.meta.env.VITE_USE_EMULATORS === 'true'
 
 const emulatorConfig = {
   apiKey: 'demo-api-key',

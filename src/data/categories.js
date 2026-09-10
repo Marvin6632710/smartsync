@@ -23,3 +23,12 @@ export const categories = [
 ]
 
 export const timeBands = ['Morning', 'Afternoon', 'Evening']
+
+/**
+ * How many interests someone must pick.
+ *
+ * Enforced in two places — first-run setup and the profile editor — and they
+ * have to agree: a lower bar in one lets someone leave the engine with less
+ * to rank on than the other insisted upon.
+ */
+export const MIN_INTERESTS = 3

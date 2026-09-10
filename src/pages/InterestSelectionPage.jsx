@@ -1,12 +1,10 @@
 import React, { useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { categories, timeBands } from '../data/categories'
+import { categories, MIN_INTERESTS, timeBands } from '../data/categories'
 import { useAuth } from '../context/AuthContext'
 import { updatePublicProfile } from '../firebase/users'
 import { useSaveProfile } from '../hooks/useSaveProfile'
-
-const MIN_INTERESTS = 3
 
 export default function InterestSelectionPage() {
   const navigate = useNavigate()

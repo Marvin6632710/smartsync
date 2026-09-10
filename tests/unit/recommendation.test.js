@@ -63,6 +63,43 @@ describe('score bounds', () => {
     expect(score).toBe(100)
   })
 
+  test('survives corrupt weights without producing NaN or a negative score', () => {
+    // Weights are persisted per device, so they outlive the version that
+    // wrote them and can be edited by hand. Anything unusable falls back to
+    // that signal's default rather than poisoning the arithmetic.
+    const cases = [
+      { interest: 'abc' },
+      { interest: NaN },
+      { interest: null },
+      { interest: undefined },
+      { interest: -50 },
+      { interest: Infinity },
+      {},
+      { nonsense: 5 },
+    ]
+    for (const weights of cases) {
+      const score = calculateRecommendationScore(user(), activity(), {
+        ...recommendationWeights,
+        ...weights,
+      })
+      expect(Number.isInteger(score)).toBe(true)
+      expect(score).toBeGreaterThanOrEqual(0)
+      expect(score).toBeLessThanOrEqual(100)
+    }
+  })
+
+  test('every signal at zero scores zero rather than dividing by zero', () => {
+    const score = calculateRecommendationScore(user(), activity(), {
+      interest: 0,
+      distance: 0,
+      time: 0,
+      history: 0,
+      popularity: 0,
+      behavior: 0,
+    })
+    expect(score).toBe(0)
+  })
+
   test('survives an entirely empty user and activity', () => {
     expect(() => calculateRecommendationScore({}, {})).not.toThrow()
     expect(() => calculateRecommendationScore(null, null)).not.toThrow()

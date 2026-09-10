@@ -39,7 +39,20 @@ export const signalLabels = {
  * safe rather than silently scoring those signals as zero.
  */
 function resolveWeights(weights) {
-  return weights ? { ...recommendationWeights, ...weights } : recommendationWeights
+  if (!weights) return recommendationWeights
+
+  // Sanitised per key, not merged blindly. These arrive from localStorage,
+  // which survives across versions and can be hand-edited: a string or a NaN
+  // propagates through the arithmetic and the screen renders "NaN% match",
+  // and a negative one renders "-11% match". Neither is caught by anything
+  // downstream, because both are perfectly valid numbers to a template.
+  const safe = {}
+  for (const key of Object.keys(recommendationWeights)) {
+    const raw = weights[key]
+    const value = raw === null || raw === undefined || raw === '' ? NaN : Number(raw)
+    safe[key] = Number.isFinite(value) && value >= 0 ? value : recommendationWeights[key]
+  }
+  return safe
 }
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value))
@@ -232,7 +245,7 @@ export function rankActivities(user, activities, peers = [], weights) {
     .sort((a, b) => b.matchScore - a.matchScore)
 }
 
-export const compatibilityWeights = {
+const compatibilityWeights = {
   interests: 70,
   time: 15,
   history: 15,
