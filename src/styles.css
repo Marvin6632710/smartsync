@@ -1342,6 +1342,24 @@ select:focus-visible {
   padding-top: 10px;
 }
 
+/* Moderator tools on an activity page. Marked out from the rest of the page
+   because it is a different kind of action from joining or leaving, and
+   should not be reachable by muscle memory. */
+.moderator-panel {
+  border: 1px solid var(--warning);
+  background: var(--warning-soft);
+}
+.moderator-panel .helper-text,
+.moderator-panel .report-detail {
+  color: var(--ink);
+}
+
+/* The oversight search sits between a heading and a list, so it needs the
+   breathing room a card would otherwise have given it. */
+.watch-search {
+  margin-bottom: 14px;
+}
+
 /* A search result in the appoint-a-moderator list: the person on the left,
    the action on the right, wrapping rather than truncating a long name. */
 .appoint-row {

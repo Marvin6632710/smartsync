@@ -53,11 +53,15 @@ Cloud Firestore) on the back end.
   activities, their profile and their messages — and the database refuses to
   let them join anything you host. Report a person, an activity or a single
   message, with the thing you were looking at attached.
-- **Moderation.** Reports land in a queue moderators work from inside the app.
-  A moderator can take an activity down or suspend an account; an admin can
-  also appoint moderators and put a removed activity back. Every action
-  records who took it and why, nobody can act on a report about themselves,
-  and admin can only be granted from the Firebase console. See ADR-011.
+- **Moderation and oversight.** Reports land in a queue moderators work from
+  inside the app, and an oversight directory lists every account with what it
+  has actually done — so a moderator can act on something they noticed rather
+  than only on what somebody flagged. A moderator can take an activity down
+  from its own page or suspend an account; an admin can also appoint
+  moderators and put a removed activity back. Every action records who took it
+  and why, nobody can act on a report about themselves, admin can only be
+  granted from the Firebase console, and no rank can read a private profile, a
+  block list, or a chat they did not join. See ADR-011.
 
 ## 2. Running it locally without a Firebase account
 
@@ -360,8 +364,8 @@ npm test
 ```
 
 This boots the Firestore emulator and runs both suites: 49 tests over the
-recommendation engine, and 219 that behave like a hostile client and check the
-rules refuse them — 155 feature by feature, and 64 in `roles-matrix.test.js`
+recommendation engine, and 229 that behave like a hostile client and check the
+rules refuse them — 155 feature by feature, and 74 in `roles-matrix.test.js`
 that check who may do what to whom at every combination of rank and
 relationship. It needs Java, like the emulators.
 

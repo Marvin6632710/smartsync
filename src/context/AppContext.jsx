@@ -654,6 +654,13 @@ export function AppProvider({ children }) {
     recommendations,
     filteredActivities,
     removedActivities,
+    // Every activity the listener holds, whatever its status and whoever
+    // hosts it — for the moderation screens, which have to be able to see
+    // what discovery deliberately hides. Not a new capability: the client
+    // already downloaded these, and `visibleActivities` is a product
+    // decision about what to surface, never a security boundary. What is
+    // private stays private in the rules, not in this filter.
+    allActivities: timed,
     peers: visiblePeers,
     // Unfiltered, for the moderation queue only. Blocking must not hide
     // somebody from the person reviewing a report about them — that would be

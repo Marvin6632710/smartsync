@@ -303,7 +303,7 @@ another account. The host reads "Anonymous user".
 | Render crash                     | `ErrorBoundary`                   | —                   |
 
 ```bash
-npm test           # 49 engine tests + 219 security rule tests
+npm test           # 49 engine tests + 229 security rule tests
 npm run evaluate   # does the ranking beat the baselines
 npm run lint
 ```

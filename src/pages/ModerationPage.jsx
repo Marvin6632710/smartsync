@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2,
+  Eye,
   Flag,
   RotateCcw,
   ShieldAlert,
@@ -41,7 +42,7 @@ const reasonLabel = (key) => REPORT_REASONS.find((r) => r.key === key)?.label ||
  */
 export default function ModerationPage() {
   const { user } = useAuth()
-  const { pushCelebration, directory, activities, removedActivities } = useApp()
+  const { pushCelebration, directory, activities, allActivities, removedActivities } = useApp()
   const navigate = useNavigate()
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
@@ -58,6 +59,11 @@ export default function ModerationPage() {
   const [personSearch, setPersonSearch] = useState('')
   const [roleChange, setRoleChange] = useState(null)
   const [changingRole, setChangingRole] = useState(null)
+  // The oversight directory: reports tell you where to look, this is for
+  // looking without being told.
+  const [watchSearch, setWatchSearch] = useState('')
+  const [suspending, setSuspending] = useState(null)
+  const [suspendTarget, setSuspendTarget] = useState(null)
 
   useEffect(() => {
     if (!user.isModerator) return undefined
@@ -94,6 +100,58 @@ export default function ModerationPage() {
     [moderators, admins],
   )
   const suspendedIds = useMemo(() => new Set(suspended.map((r) => r.uid)), [suspended])
+  const rankOf = useMemo(() => {
+    const map = new Map(roles.map((r) => [r.uid, r.role]))
+    return (uid) => map.get(uid) || 'user'
+  }, [roles])
+
+  // Everyone on the server, with what they have actually done attached.
+  //
+  // Only ever the public half of a profile. The private document — email,
+  // real name behind anonymous mode, stored position — is readable by its
+  // owner and by nobody else, and that is true of an admin too. Oversight
+  // here means seeing public behaviour, not opening people's records.
+  const people = useMemo(() => {
+    const hosted = new Map()
+    const joined = new Map()
+    for (const activity of allActivities) {
+      const host = hosted.get(activity.hostId) || { total: 0, removed: 0 }
+      host.total += 1
+      if (activity.status === 'removed') host.removed += 1
+      hosted.set(activity.hostId, host)
+      for (const memberId of activity.participantUids || []) {
+        if (memberId !== activity.hostId) joined.set(memberId, (joined.get(memberId) || 0) + 1)
+      }
+    }
+    return (
+      [...directory.values()]
+        .map((person) => ({
+          ...person,
+          rank: rankOf(person.uid),
+          suspended: suspendedIds.has(person.uid),
+          hosts: hosted.get(person.uid)?.total || 0,
+          removedCount: hosted.get(person.uid)?.removed || 0,
+          joinedCount: joined.get(person.uid) || 0,
+        }))
+        // Anything worth a second look floats up: suspended first, then anyone
+        // who has had something taken down, then the rest by name. A directory
+        // sorted alphabetically buries exactly what you opened it to find.
+        .sort(
+          (a, b) =>
+            Number(b.suspended) - Number(a.suspended) ||
+            b.removedCount - a.removedCount ||
+            (a.name || '').localeCompare(b.name || ''),
+        )
+    )
+  }, [allActivities, directory, rankOf, suspendedIds])
+
+  const watched = useMemo(() => {
+    const term = watchSearch.trim().toLowerCase()
+    if (!term) return people
+    return people.filter((person) =>
+      `${person.name} ${person.username || ''}`.toLowerCase().includes(term),
+    )
+  }, [people, watchSearch])
   const appointable = useMemo(() => {
     const term = personSearch.trim().toLowerCase()
     if (!term) return []
@@ -254,6 +312,49 @@ export default function ModerationPage() {
       })
     } finally {
       setLifting(null)
+    }
+  }
+
+  // Suspending somebody you noticed, rather than somebody you were told
+  // about. Same call the report queue makes, so a suspension from here also
+  // stands down everything they are hosting and tells the people who joined.
+  const actOnPerson = async () => {
+    const { uid, suspend } = suspendTarget
+    setSuspendTarget(null)
+    setSuspending(uid)
+    try {
+      if (suspend) {
+        const { stoodDown } = await suspendAccount(uid, { moderatorId: user.uid })
+        pushCelebration({
+          icon: 'check',
+          tone: 'success',
+          title: 'Account suspended',
+          body:
+            stoodDown > 0
+              ? `${nameFor(uid)} cannot create, join or message. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} stood down, and everyone who joined has been told.`
+              : `${nameFor(uid)} cannot create, join or message.`,
+        })
+      } else {
+        await liftSuspension(uid)
+        pushCelebration({
+          icon: 'check',
+          tone: 'success',
+          title: 'Suspension lifted',
+          body: `${nameFor(uid)} can post again, and has been told. Anything taken down stays down.`,
+        })
+      }
+    } catch (personError) {
+      pushCelebration({
+        icon: 'alert',
+        tone: 'warning',
+        title: "Couldn't do that",
+        body:
+          personError?.code === 'permission-denied'
+            ? 'Only an admin can act on a moderator, and nobody can act on an admin.'
+            : 'Try again.',
+      })
+    } finally {
+      setSuspending(null)
     }
   }
 
@@ -489,6 +590,109 @@ export default function ModerationPage() {
         </>
       )}
 
+      {/* Reports tell you where to look. This is for looking without being
+          told — the whole server, with what each person has actually done
+          attached, and the same powers applied from here as from the queue.
+          Public profile data only: the private half of a profile is readable
+          by its owner and by nobody else, an admin included. */}
+      <section className="headline-block">
+        <span className="eyebrow">Oversight</span>
+        <h2>Everyone on SmartSync</h2>
+        <p className="helper-text">
+          {people.length} {people.length === 1 ? 'account' : 'accounts'}. Anyone suspended, or with
+          something taken down, is listed first. You are seeing public profiles — emails, real names
+          behind anonymous mode and stored locations are not readable by anybody but their owner.
+        </p>
+      </section>
+
+      <label className="report-detail watch-search">
+        Search everyone
+        <input
+          value={watchSearch}
+          maxLength={60}
+          placeholder="Name or @username"
+          onChange={(event) => setWatchSearch(event.target.value)}
+        />
+      </label>
+
+      <div className="stack list-stack">
+        {watched.slice(0, 40).map((person) => {
+          const isMe = person.uid === user.uid
+          const cannotTouch =
+            isMe || person.rank === 'admin' || (person.rank !== 'user' && !user.isAdmin)
+          return (
+            <article className="report-card" key={person.uid}>
+              <header>
+                <span className="report-kind">
+                  <Eye size={13} /> {person.rank}
+                </span>
+                {person.suspended && <span className="report-repeat">suspended</span>}
+                {person.removedCount > 0 && (
+                  <span className="report-repeat">{person.removedCount} taken down</span>
+                )}
+              </header>
+
+              <h3>
+                {person.name}
+                {isMe ? ' (you)' : ''}
+              </h3>
+              <p className="report-context">
+                {person.username ? `${person.username} · ` : ''}
+                hosts {person.hosts}, joined {person.joinedCount}
+                {person.anonymous ? ' · anonymous mode on' : ''}
+              </p>
+              {(person.interests || []).length > 0 && (
+                <p className="report-meta">{(person.interests || []).join(' · ')}</p>
+              )}
+
+              <div className="report-actions">
+                {!cannotTouch && !person.suspended && (
+                  <button
+                    className="danger-button"
+                    disabled={suspending === person.uid}
+                    onClick={() => setSuspendTarget({ uid: person.uid, suspend: true })}
+                  >
+                    <UserRoundX size={15} />{' '}
+                    {suspending === person.uid ? 'Suspending…' : 'Suspend account'}
+                  </button>
+                )}
+                {!cannotTouch && person.suspended && (
+                  <button
+                    className="secondary-button"
+                    disabled={suspending === person.uid}
+                    onClick={() => setSuspendTarget({ uid: person.uid, suspend: false })}
+                  >
+                    <UserRoundCheck size={15} />{' '}
+                    {suspending === person.uid ? 'Lifting…' : 'Lift suspension'}
+                  </button>
+                )}
+                {cannotTouch && !isMe && (
+                  <span className="report-meta">
+                    {person.rank === 'admin'
+                      ? 'An admin. No rank can act on this account from inside the app.'
+                      : 'A moderator. Only an admin can act on this account.'}
+                  </span>
+                )}
+              </div>
+            </article>
+          )
+        })}
+
+        {watched.length === 0 && (
+          <div className="empty-state">
+            <Eye size={28} />
+            <h3>Nobody matches that</h3>
+            <p>Try part of a name, or clear the search to see everyone.</p>
+          </div>
+        )}
+
+        {watched.length > 40 && (
+          <p className="helper-text">
+            Showing the first 40 of {watched.length}. Search to narrow it down.
+          </p>
+        )}
+      </div>
+
       {/* Appointing is the one rank change that belongs in the app. It is
           routine work an admin should not need Firebase console access for —
           unlike `admin` itself, which has no button here and none anywhere,
@@ -642,6 +846,21 @@ export default function ModerationPage() {
         tone={roleChange?.role === 'moderator' ? 'default' : 'danger'}
         onConfirm={changeRole}
         onCancel={() => setRoleChange(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(suspendTarget)}
+        title={suspendTarget?.suspend ? 'Suspend this account?' : 'Lift this suspension?'}
+        body={
+          suspendTarget?.suspend
+            ? `${nameFor(suspendTarget.uid)} can still sign in and read, but cannot create activities, join anything, or send messages. Anything they are hosting is taken down and everyone who joined is told — lifting the suspension later does not bring those back.`
+            : `${nameFor(suspendTarget?.uid)} can create, join and message again, and will be told. Anything taken down while they were suspended stays down.`
+        }
+        confirmLabel={suspendTarget?.suspend ? 'Suspend' : 'Lift suspension'}
+        cancelLabel="Cancel"
+        tone={suspendTarget?.suspend ? 'danger' : 'default'}
+        onConfirm={actOnPerson}
+        onCancel={() => setSuspendTarget(null)}
       />
     </div>
   )

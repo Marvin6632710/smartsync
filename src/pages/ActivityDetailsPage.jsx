@@ -12,6 +12,7 @@ import {
 import CategoryIcon from '../components/CategoryIcon'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ReportDialog from '../components/ReportDialog'
+import { removeActivity as removeAsModerator, restoreActivity } from '../firebase/moderation'
 import { useNavigate, useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
@@ -22,17 +23,36 @@ import { formatActivityDate, formatClock } from '../utils/time'
 export default function ActivityDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { activities, joinedIds, joinActivity, leaveActivity, cancelActivity, removeActivity } =
-    useApp()
+  const {
+    activities,
+    allActivities,
+    joinedIds,
+    joinActivity,
+    leaveActivity,
+    cancelActivity,
+    removeActivity,
+    pushCelebration,
+  } = useApp()
   const { user } = useAuth()
   // Declared before the not-found early return: hooks must run
   // unconditionally on every render.
   const [cancelOpen, setCancelOpen] = useState(false)
   const [reporting, setReporting] = useState(null)
+  // Moderator tools on any activity, not only ones somebody reported. A queue
+  // driven entirely by reports can only ever see what people bother to flag.
+  const [moderationReason, setModerationReason] = useState('')
+  const [moderating, setModerating] = useState(false)
   // Read from `activities`, not `recommendations`: a cancelled activity is
   // dropped from recommendations but the people who joined it still need to
   // be able to open it and see that it was called off.
-  const a = activities.find((item) => item.id === id)
+  // Discovery's list first, then — for a moderator only — everything else the
+  // listener holds. Without the fallback, following "Look at it" from a report
+  // to something already taken down, or to a cancelled activity they never
+  // joined, showed a moderator "Activity not found" for a document they are
+  // explicitly allowed to read.
+  const a =
+    activities.find((item) => item.id === id) ||
+    (user.isModerator ? allActivities.find((item) => item.id === id) : undefined)
 
   if (!a) {
     return (
@@ -65,6 +85,44 @@ export default function ActivityDetailsPage() {
     0,
     Math.min(100, Math.round((a.participants / Math.max(a.capacity, 1)) * 100)),
   )
+
+  const moderate = async (next) => {
+    const reason = moderationReason.trim()
+    if (!reason) return
+    setModerating(true)
+    try {
+      if (next === 'removed') {
+        await removeAsModerator(id, { moderatorId: user.uid, reason })
+        pushCelebration({
+          icon: 'check',
+          tone: 'success',
+          title: 'Activity removed',
+          body: `${a.title} is gone from discovery. The host and everyone who joined have been told.`,
+        })
+      } else {
+        await restoreActivity(id, { adminId: user.uid, reason })
+        pushCelebration({
+          icon: 'check',
+          tone: 'success',
+          title: 'Put back',
+          body: `${a.title} is visible again, and the host has been told.`,
+        })
+      }
+      setModerationReason('')
+    } catch (moderationError) {
+      pushCelebration({
+        icon: 'alert',
+        tone: 'warning',
+        title: "Couldn't do that",
+        body:
+          moderationError?.code === 'permission-denied'
+            ? 'Only an admin can put a removed activity back.'
+            : 'Try again.',
+      })
+    } finally {
+      setModerating(false)
+    }
+  }
 
   const confirmCancel = () => {
     setCancelOpen(false)
@@ -201,6 +259,44 @@ export default function ActivityDetailsPage() {
         >
           {a.participants >= a.capacity ? 'Full' : 'Join activity'}
         </button>
+      )}
+
+      {/* Moderator tools sit on every activity, not only ones that were
+          reported — otherwise the only things anybody can act on are the ones
+          somebody bothered to flag. Shown to a moderator looking at somebody
+          else's activity: their own has Cancel and Delete instead. */}
+      {user.isModerator && !isHost && (isRemoved ? user.isAdmin : !isCancelled) && (
+        <section className="panel moderator-panel">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">Moderator</span>
+              <h3>{isRemoved ? 'Put this back?' : 'Take this down?'}</h3>
+            </div>
+          </div>
+          <p className="helper-text">
+            {isRemoved
+              ? 'It was taken down by a moderator. Restoring it is recorded against the activity, and the host is told.'
+              : 'It disappears for everyone, including the people who joined, and they are all told. The host cannot undo it — only an admin can.'}
+          </p>
+          <label className="report-detail">
+            {isRemoved ? 'Why are you putting this back?' : 'Why is this coming down?'}
+            <input
+              maxLength={300}
+              placeholder={
+                isRemoved ? 'Reviewed again — the report was mistaken' : 'A safety concern'
+              }
+              value={moderationReason}
+              onChange={(event) => setModerationReason(event.target.value)}
+            />
+          </label>
+          <button
+            className={isRemoved ? 'secondary-button wide' : 'danger-button wide'}
+            disabled={!moderationReason.trim() || moderating}
+            onClick={() => moderate(isRemoved ? 'active' : 'removed')}
+          >
+            {moderating ? 'Working…' : isRemoved ? 'Put it back' : 'Remove activity'}
+          </button>
+        </section>
       )}
 
       {/* Anyone can report an activity, including someone who has not joined

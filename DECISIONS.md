@@ -277,7 +277,8 @@ down can also take a rival's down, and whoever can grant a role can grant
 themselves one.
 
 **Decision.** Three states, held in a `roles/{uid}` collection that no user can
-write to.
+write to. Reports route work to whoever holds a rank; an oversight directory
+lets them act on what they notice rather than only on what gets flagged.
 
 - **user** — the default. No row in `roles` at all means this, so nothing is
   written at sign-up and a missing document is never an error.
@@ -307,6 +308,12 @@ could be turned against its users:
   reviewer's queue, so they stay in everyone else's.
 - Admin is console-only, so compromising any in-app account — moderator or
   admin — cannot mint more admins.
+- **Oversight reaches public behaviour and stops there.** Moderators browse
+  every account and can act without waiting for a report, but the private half
+  of a profile — email, real name behind anonymous mode, stored position — is
+  readable by its owner and by nobody else, an admin included. Neither is
+  anybody's block list, and neither is a chat they did not join. A rank buys
+  reach over what is posted in public, never over private conversation.
 - A role document holds exactly two fields and the rules refuse any third.
   It is the most consequential row in the database, and anything else on it
   would be state nobody validates, nobody reads, and nobody would notice
@@ -462,8 +469,8 @@ client, which is a courtesy and not a control. ADR-011 says so in writing.
 
 ### "How did you test it?"
 
-268 tests. 49 over the recommendation engine — pure functions, no database
-needed — 155 attacking the security rules feature by feature, and 64 more in
+278 tests. 49 over the recommendation engine — pure functions, no database
+needed — 155 attacking the security rules feature by feature, and 74 more in
 `roles-matrix.test.js` that test the one thing cutting across every feature:
 who may do what to whom, at every combination of the caller's rank, the
 target's rank, and the relationship between them.

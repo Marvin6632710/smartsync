@@ -641,6 +641,112 @@ describe('appointing and dismissing, from inside the app', () => {
   })
 })
 
+describe('oversight: acting without a report', () => {
+  // The moderation screens started report-driven, so every power was reached
+  // through a report document. Oversight reaches the same powers directly —
+  // browse everybody, take something down you noticed. The rules never
+  // mentioned reports, so the same limits have to hold on this path, and
+  // these tests are what says so rather than assuming it.
+
+  test('a moderator can take down an activity nobody reported', async () => {
+    await assertSucceeds(takeDown(MOD, 'act_user'))
+  })
+
+  test('a moderator can suspend somebody nobody reported', async () => {
+    await assertSucceeds(suspend(MOD, USER))
+  })
+
+  test('the rank limits still hold with no report in sight', async () => {
+    await assertFails(suspend(MOD, MOD2))
+    await assertFails(suspend(MOD, ADMIN))
+    await assertFails(suspend(ADMIN, ADMIN2))
+    await assertFails(putBack(MOD, 'act_user'))
+  })
+
+  test('browsing everybody is reading public profiles, and only those', async () => {
+    // The directory a moderator sees is the public half. The private half is
+    // its owner's and nobody else's — an admin included. Oversight means
+    // seeing public behaviour, not opening people's records.
+    await seed((db) =>
+      setDoc(doc(db, 'users', USER, 'private', 'profile'), {
+        email: 'someone@example.com',
+        realName: 'Their Real Name',
+        location: { lat: 13.7, lng: 100.5 },
+      }),
+    )
+    await assertSucceeds(getDoc(doc(as(MOD), 'users', USER)))
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'users', USER)))
+    await assertFails(getDoc(doc(as(MOD), 'users', USER, 'private', 'profile')))
+    await assertFails(getDoc(doc(as(ADMIN), 'users', USER, 'private', 'profile')))
+  })
+
+  test('an admin cannot read somebody else s block list either', async () => {
+    // Who has blocked whom stays private. Publishing it would tell people
+    // they had been blocked and by whom, which is its own kind of harm, and
+    // rank does not change that.
+    await seed((db) => setDoc(doc(db, 'users', USER, 'blocked', OTHER), { name: 'Other' }))
+    await assertFails(getDoc(doc(as(ADMIN), 'users', USER, 'blocked', OTHER)))
+    await assertFails(getDoc(doc(as(MOD), 'users', USER, 'blocked', OTHER)))
+  })
+
+  test('an admin cannot read a chat they did not join', async () => {
+    // The sharpest limit on oversight. Moderation reaches what is posted in
+    // public and what somebody reports; it does not reach a private
+    // conversation just because somebody has a rank.
+    await seed((db) =>
+      setDoc(doc(db, 'activities', 'act_user', 'messages', 'm1'), {
+        senderId: USER,
+        senderName: 'Person',
+        text: 'something private',
+      }),
+    )
+    await assertFails(getDoc(doc(as(ADMIN), 'activities', 'act_user', 'messages', 'm1')))
+    await assertFails(getDoc(doc(as(MOD), 'activities', 'act_user', 'messages', 'm1')))
+  })
+
+  test('a moderator who joined an activity can read its chat, like any member', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'activities', 'act_user'), activity(USER, { participantUids: [USER, MOD] })),
+    )
+    await seed((db) =>
+      setDoc(doc(db, 'activities', 'act_user', 'messages', 'm1'), {
+        senderId: USER,
+        senderName: 'Person',
+        text: 'hello',
+      }),
+    )
+    await assertSucceeds(getDoc(doc(as(MOD), 'activities', 'act_user', 'messages', 'm1')))
+  })
+
+  test('taking something down still has to say why, however it was reached', async () => {
+    await assertFails(
+      updateDoc(doc(as(MOD), 'activities', 'act_user'), {
+        status: 'removed',
+        moderation: { by: MOD, reason: '' },
+        updatedAt: 1,
+      }),
+    )
+    await assertFails(
+      updateDoc(doc(as(MOD), 'activities', 'act_user'), { status: 'removed', updatedAt: 1 }),
+    )
+  })
+
+  test('an ordinary user browsing cannot act on anybody', async () => {
+    // They can read public profiles — discovery needs that — and that is all.
+    await assertSucceeds(getDoc(doc(as(USER), 'users', OTHER)))
+    await assertFails(suspend(USER, OTHER))
+    await assertFails(takeDown(USER, 'act_mod'))
+    await assertFails(getDoc(doc(as(USER), 'roles', OTHER)))
+  })
+
+  test('a suspended moderator browsing can act on nobody', async () => {
+    await setRole(MOD, { role: 'moderator', suspended: true })
+    await assertSucceeds(getDoc(doc(as(MOD), 'users', USER)))
+    await assertFails(suspend(MOD, USER))
+    await assertFails(takeDown(MOD, 'act_user'))
+  })
+})
+
 describe('a role document that was written by hand', () => {
   // Roles are bootstrapped in the Firebase console, so malformed rows are a
   // realistic input, not a hypothetical one. Every one of these must fail
