@@ -37,7 +37,14 @@ export default function JoinBurst({ token, color }) {
   // Reset during render rather than in an effect: this is state derived from a
   // prop changing, which is React's own recommendation for exactly this, and
   // it avoids the extra render an effect would cost.
-  const [seen, setSeen] = useState(token)
+  //
+  // `seen` starts at null, NOT at `token`. Seeding it with the current token
+  // meant the very first render saw no change and never fired — and since the
+  // parent only mounts this component at the moment of a celebration, the
+  // first render is the only one that matters. The burst was dead code that
+  // looked correct. A DOM observer during a real join is what caught it;
+  // nothing about the source reads as wrong.
+  const [seen, setSeen] = useState(null)
   const [live, setLive] = useState(false)
   if (token !== seen) {
     setSeen(token)

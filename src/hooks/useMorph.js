@@ -61,6 +61,17 @@ export function useMorph() {
       // promise with no handler is an unhandled rejection in the console as
       // well as a lock that never releases.
       transition.finished.then(clear, clear)
+
+      // `ready` is a separate promise, and it rejects on its own whenever the
+      // browser declines to animate — which it does, by specification, any
+      // time the document is hidden. Backgrounding the app on the same tap
+      // that opens a card is enough to trigger it. `finished` still resolves
+      // in that case, so the navigation and the cleanup above are unaffected;
+      // the only consequence of not catching this was an unhandled rejection
+      // reaching the console of every user it happened to. Caught and
+      // deliberately ignored: there is nothing to do about a skipped
+      // animation, and nothing worth telling anybody.
+      transition.ready.catch(() => {})
     },
     [navigate],
   )

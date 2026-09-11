@@ -314,6 +314,14 @@ service cloud.firestore {
         // collection. An integrity sweep found exactly that, written through
         // the REST API while the rules were not looking for it.
         && data.startsAt is timestamp
+        // `date` and `time` are the wall clock at the venue; `startsAt` is the
+        // instant, and only the instant is queried on. Both are kept on
+        // purpose — an activity at 19:00 in Bangkok reads as 19:00 to a viewer
+        // in London too, which deriving the display from the timestamp would
+        // get wrong — but until now only one of the two was validated, so a
+        // write through the API could leave a card showing anything at all.
+        && data.date is string && data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data.time is string && data.time.matches('^[0-9]{2}:[0-9]{2}$')
         && data.timeBand is string
         && isTagList(data.tags, 10)
         && data.status in ['active', 'cancelled', 'removed']

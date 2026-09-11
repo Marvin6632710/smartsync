@@ -489,8 +489,10 @@ client, which is a courtesy and not a control. ADR-011 says so in writing.
 
 ### "How did you test it?"
 
-329 tests. 49 over the recommendation engine — pure functions, no database
-needed — 155 attacking the security rules feature by feature, and 125 more in
+367 tests. 81 over the pure functions — the recommendation engine, and now
+the date and distance maths, which was entirely untested and where a bug
+silently reorders what everybody is shown — 161 attacking the security rules
+feature by feature, and 125 more in
 `roles-matrix.test.js` that test the one thing cutting across every feature:
 who may do what to whom, at every combination of the caller's rank, the
 target's rank, and the relationship between them.

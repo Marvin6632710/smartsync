@@ -363,11 +363,12 @@ reward and no penalty for a fact nobody knows yet.
 npm test
 ```
 
-This boots the Firestore emulator and runs both suites: 49 tests over the
-recommendation engine, and 280 that behave like a hostile client and check the
-rules refuse them — 155 feature by feature, and 125 in `roles-matrix.test.js`
-that check who may do what to whom at every combination of rank and
-relationship. It needs Java, like the emulators.
+This boots the Firestore emulator and runs both suites: 81 tests over the pure
+functions — scoring, dates, distances — and 286 that behave like a hostile
+client and check the rules refuse them. Of those, 161 go feature by feature
+and 125 live in `roles-matrix.test.js`, which checks who may do what to whom
+at every combination of rank and relationship. It needs Java, like the
+emulators.
 
 ```bash
 npm run lint

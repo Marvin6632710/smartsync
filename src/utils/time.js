@@ -58,11 +58,23 @@ export function formatActivityDate(date, now = new Date()) {
   return parsed.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
-/** '19:00' -> '7:00 PM', in whatever form the viewer's locale prefers. */
+/**
+ * '19:00' -> '7:00 PM', in whatever form the viewer's locale prefers.
+ *
+ * The shape is checked before the numbers are, because `Number('')` is 0 and
+ * not NaN: `'::'` split and mapped gives [0, 0], both perfectly finite, and
+ * the old guard waved it through as midnight. A malformed time rendering as a
+ * confident "12:00 AM" is worse than rendering as itself — one is a wrong
+ * answer, the other is visibly not an answer.
+ */
 export function formatClock(time) {
   if (!time) return ''
-  const [hours, minutes] = String(time).split(':').map(Number)
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return String(time)
+  const raw = String(time)
+  const match = /^(\d{1,2}):(\d{2})$/.exec(raw.trim())
+  if (!match) return raw
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours > 23 || minutes > 59) return raw
   const date = new Date()
   date.setHours(hours, minutes, 0, 0)
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })

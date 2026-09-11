@@ -255,6 +255,55 @@ describe('activity field validation', () => {
     rejects({ capacity: 2, participantUids: [BOB, ALICE, CAROL] }))
 })
 
+describe('the two ways an activity says when it is', () => {
+  // `startsAt` is the instant, and every query filters on it. `date` and
+  // `time` are the wall clock at the venue, which is what every card shows.
+  // Both are deliberate — an activity at 19:00 in Bangkok should read as 19:00
+  // to somebody looking from London, which deriving the display from the
+  // timestamp would get wrong. But only `startsAt` was ever validated, so a
+  // write through the API could leave a card showing whatever it liked.
+
+  test('a well-formed date and time are accepted', async () => {
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'activities', 'ok'), activityFixture(ALICE, {
+        date: '2030-01-01',
+        time: '19:00',
+      })),
+    )
+  })
+
+  test('a malformed date is refused', async () => {
+    for (const date of ['tomorrow', '2030-1-1', '01-01-2030', '', '2030-01-01T19:00']) {
+      await assertFails(
+        setDoc(doc(asAlice(), 'activities', 'bad'), activityFixture(ALICE, { date })),
+      )
+    }
+  })
+
+  test('a malformed time is refused', async () => {
+    for (const time of ['7pm', '19', '19:00:00', '::', '']) {
+      await assertFails(
+        setDoc(doc(asAlice(), 'activities', 'bad'), activityFixture(ALICE, { time })),
+      )
+    }
+  })
+
+  test('neither field may be missing altogether', async () => {
+    const withoutDate = activityFixture(ALICE)
+    delete withoutDate.date
+    await assertFails(setDoc(doc(asAlice(), 'activities', 'bad'), withoutDate))
+
+    const withoutTime = activityFixture(ALICE)
+    delete withoutTime.time
+    await assertFails(setDoc(doc(asAlice(), 'activities', 'bad'), withoutTime))
+  })
+
+  test('a host cannot edit one into nonsense either', async () => {
+    await assertFails(updateDoc(doc(asAlice(), 'activities', 'act1'), { time: 'whenever' }))
+    await assertFails(updateDoc(doc(asAlice(), 'activities', 'act1'), { date: 'soon' }))
+  })
+})
+
 describe('joining and leaving', () => {
   const rosterAs = (db, uids) =>
     updateDoc(doc(db, 'activities', 'act1'), { participantUids: uids, updatedAt: 1 })
