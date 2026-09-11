@@ -28,6 +28,7 @@ export default function RecommendationsPage() {
       {top && (
         <section
           className="surprise-card"
+          data-category={(top.category || '').toLowerCase()}
           onClick={() => navigate(`/activity/${top.id}`)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {

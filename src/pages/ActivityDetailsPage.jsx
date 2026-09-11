@@ -12,6 +12,7 @@ import {
 import CategoryIcon from '../components/CategoryIcon'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ReportDialog from '../components/ReportDialog'
+import { MORPH } from '../hooks/useMorph'
 import { removeActivity as removeAsModerator, restoreActivity } from '../firebase/moderation'
 import { useNavigate, useParams } from 'react-router-dom'
 import BackButton from '../components/BackButton'
@@ -135,7 +136,11 @@ export default function ActivityDetailsPage() {
     <div className="page-content">
       <BackButton />
 
-      <section className="detail-hero" data-category={(a.category || '').toLowerCase()}>
+      <section
+        className="detail-hero"
+        data-category={(a.category || '').toLowerCase()}
+        style={{ viewTransitionName: MORPH }}
+      >
         <div className="card-topline">
           <span className="category-chip">
             <CategoryIcon category={a.category} size={12} />

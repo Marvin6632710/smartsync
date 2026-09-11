@@ -18,6 +18,7 @@ import {
   User,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import JoinBurst from './JoinBurst'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 
@@ -156,6 +157,16 @@ export default function Shell() {
         )}
 
         {celebration && <CelebrationToast celebration={celebration} />}
+
+        {/* Sits outside the scroller and above everything, so a burst thrown
+            from the middle of the screen is never clipped by the card that
+            caused it. Keyed on the celebration id, which changes once per
+            event — that is what makes it fire exactly once. */}
+        {celebration?.burst && (
+          <div data-category={celebration.burst}>
+            <JoinBurst token={celebration.id} color="var(--cat, var(--accent))" />
+          </div>
+        )}
 
         <main className="page-scroll">
           <Outlet />

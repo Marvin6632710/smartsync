@@ -2854,10 +2854,24 @@ select:focus-visible {
 .card-skeleton {
   display: grid;
   gap: 9px;
-  padding: 16px;
+  padding: 0 14px 14px;
   border-radius: var(--r-lg);
   border: 1px solid var(--line);
   background: var(--surface);
+  overflow: hidden;
+}
+.skeleton-head {
+  display: block;
+  height: 96px;
+  margin: 0 -14px 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(100, 116, 139, 0.1) 25%,
+    rgba(100, 116, 139, 0.18) 37%,
+    rgba(100, 116, 139, 0.1) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-sweep 1.3s ease-in-out infinite;
 }
 
 .skeleton-line {
@@ -3740,4 +3754,270 @@ body {
 }
 .activity-card.compact .activity-visual {
   padding-bottom: 13px;
+}
+
+/* =========================================================
+   TRAVELLING BETWEEN SCREENS
+   The browser holds a snapshot of the old screen and the new
+   one and interpolates. Everything below is about what it does
+   with them.
+   ========================================================= */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The page beneath: a short lift, not a slide. A slide implies a direction
+     and there isn't one — you are going *into* something, not sideways. */
+  ::view-transition-old(root) {
+    animation: fadeOutSoft 0.2s var(--ease) both;
+  }
+  ::view-transition-new(root) {
+    animation: riseInSoft 0.32s var(--ease) 0.04s both;
+  }
+
+  /* The card itself. Slightly slower than the page, and on a curve that
+     overshoots a touch at the end — the difference between an object with
+     mass arriving somewhere and a rectangle being tweened. */
+  ::view-transition-group(activity-morph) {
+    animation-duration: 0.46s;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.3, 1);
+  }
+  /* Both snapshots are coloured blocks of the same hue, so cross-fading them
+     over the whole move reads as one object changing size rather than two
+     pictures dissolving. The old one leaves early; the new one is already
+     most of the way in by the time it is visible. */
+  ::view-transition-old(activity-morph) {
+    animation: fadeOutSoft 0.18s var(--ease) both;
+  }
+  ::view-transition-new(activity-morph) {
+    animation: fadeInSoft 0.3s var(--ease) 0.06s both;
+  }
+}
+
+@keyframes fadeOutSoft {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes fadeInSoft {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes riseInSoft {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* A transition already animates the whole page, so the per-page fade and the
+   staggered list underneath it would run at the same time and fight. */
+::view-transition-new(root) .page-content,
+::view-transition-new(root) .stack > * {
+  animation: none !important;
+}
+
+/* =========================================================
+   THE LIGHT IN THE ROOM
+   The ambient wash behind Discover follows the clock. It is
+   barely perceptible as colour and entirely perceptible as
+   atmosphere — morning is cool and thin, evening is warm and
+   low, late is the blue of a phone screen at 1am. Nobody will
+   name it; they will notice the app knows what time it is.
+   ========================================================= */
+
+.discover-head {
+  position: relative;
+}
+.discover-head::before {
+  content: '';
+  position: absolute;
+  left: -16px;
+  right: -16px;
+  top: -120px;
+  height: 320px;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  transition: background 1.2s var(--ease);
+}
+.discover-head[data-part='morning']::before {
+  background: radial-gradient(70% 60% at 22% 0%, rgba(255, 196, 92, 0.3), transparent 70%);
+}
+.discover-head[data-part='afternoon']::before {
+  background: radial-gradient(70% 60% at 50% 0%, rgba(96, 190, 255, 0.26), transparent 70%);
+}
+.discover-head[data-part='evening']::before {
+  background: radial-gradient(70% 60% at 78% 0%, rgba(255, 122, 89, 0.28), transparent 70%);
+}
+.discover-head[data-part='late']::before {
+  background: radial-gradient(70% 60% at 50% 0%, rgba(99, 102, 241, 0.28), transparent 70%);
+}
+
+/* The counter must not reflow the line as it climbs through 9 to 10 to 100. */
+.hero-score {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The burst. Fixed to the viewport centre so it is never clipped by a card,
+   and untouchable so it cannot swallow the tap that follows it. */
+.join-burst {
+  position: fixed;
+  left: 50%;
+  top: 46%;
+  z-index: 40;
+  pointer-events: none;
+}
+.join-burst span {
+  position: absolute;
+  display: block;
+  border-radius: 2px;
+  animation: shardOut 0.78s cubic-bezier(0.15, 0.8, 0.3, 1) var(--d) both;
+}
+@keyframes shardOut {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    /* Drifts a little past the target and downward — thrown, then gravity. */
+    transform: translate(var(--x), calc(var(--y) + 26px)) scale(0.7) rotate(var(--r));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .join-burst {
+    display: none;
+  }
+}
+
+/* =========================================================
+   CATEGORY TEXTURE
+   A pattern in the header, drawn from what the category is:
+   pitch stripes for the team sports, motion lines for the ones
+   you do at speed, a pixel grid for gaming, ruled paper for
+   study, film sprockets for movies, scattered dots for the
+   social ones. Four percent white — you do not see it, you see
+   that the surface has a material.
+   All CSS gradients: nothing to download, nothing to go stale,
+   and it costs one paint on a layer that is already composited.
+   ========================================================= */
+
+.activity-visual::before,
+.hero-pick::before,
+.detail-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.5;
+  background-image: var(--cat-texture, none);
+  background-size: var(--cat-texture-size, 22px 22px);
+  pointer-events: none;
+}
+.detail-hero::before,
+.hero-pick::before {
+  border-radius: inherit;
+}
+
+/* Pitch and court: the diagonal of a mown field. */
+[data-category='football'],
+[data-category='basketball'] {
+  --cat-texture: repeating-linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.07) 0 12px,
+    transparent 12px 30px
+  );
+  --cat-texture-size: auto;
+}
+/* Speed: fine lines leaning the way you are going. */
+[data-category='running'],
+[data-category='cycling'],
+[data-category='gym'] {
+  --cat-texture: repeating-linear-gradient(
+    72deg,
+    rgba(255, 255, 255, 0.08) 0 2px,
+    transparent 2px 13px
+  );
+  --cat-texture-size: auto;
+}
+/* Gaming: a pixel grid. */
+[data-category='gaming'] {
+  --cat-texture:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  --cat-texture-size: 16px 16px;
+}
+/* Study: ruled paper. */
+[data-category='study'] {
+  --cat-texture: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.09) 0 1px,
+    transparent 1px 16px
+  );
+  --cat-texture-size: auto;
+}
+/* Movies: the sprocket holes down a strip of film. */
+[data-category='movies'] {
+  --cat-texture: radial-gradient(
+    circle at 6px 6px,
+    rgba(255, 255, 255, 0.12) 2.5px,
+    transparent 3px
+  );
+  --cat-texture-size: 26px 26px;
+}
+/* The social ones: scattered, like something spilled. */
+[data-category='coffee'],
+[data-category='food'],
+[data-category='hangouts'],
+[data-category='events'] {
+  --cat-texture: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 255, 255, 0.1) 2px,
+    transparent 2.5px
+  );
+  --cat-texture-size: 20px 20px;
+}
+
+/* The best match on AI Picks wears its category like everything else. It was
+   the one place left showing an activity in the brand's colour rather than
+   its own, which made it look like a different kind of object. */
+.surprise-card {
+  position: relative;
+  border: 0;
+  color: #fff;
+  isolation: isolate;
+  background: linear-gradient(
+    140deg,
+    var(--cat, var(--accent)),
+    var(--cat-2, var(--accent-strong))
+  );
+  box-shadow: var(--shadow-cat, var(--shadow));
+}
+.surprise-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(130% 100% at 85% -25%, rgba(255, 255, 255, 0.32), transparent 62%);
+}
+.surprise-card h3 {
+  color: #fff;
+  font-size: var(--t-h1);
+}
+.surprise-card .eyebrow,
+.surprise-card p {
+  color: rgba(255, 255, 255, 0.85);
+}
+.surprise-score {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--cat, var(--accent));
+  border-radius: var(--r-pill);
+  font-weight: var(--w-bold);
+}
+.surprise-score svg {
+  color: var(--cat, var(--accent));
 }

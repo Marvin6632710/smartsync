@@ -13,8 +13,12 @@ export default function ActivitiesLoading({ rows = 3 }) {
     <div className="stack" aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading activities…</span>
       {Array.from({ length: rows }, (_, i) => (
+        // Shaped like the card that is coming: a block where the coloured
+        // header will be, then the lines beneath it. A placeholder that does
+        // not match what replaces it produces a jump at the very moment the
+        // content arrives, which is the moment it is most noticeable.
         <div className="card-skeleton" key={i} aria-hidden="true">
-          <span className="skeleton-line wide" />
+          <span className="skeleton-head" />
           <span className="skeleton-line" />
           <span className="skeleton-line short" />
         </div>

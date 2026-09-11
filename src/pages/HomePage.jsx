@@ -1,13 +1,15 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { ArrowRight, Filter, Map, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useCountUp } from '../hooks/useCountUp'
+import { useMorph } from '../hooks/useMorph'
 import ActivityCard from '../components/ActivityCard'
 import CategoryIcon from '../components/CategoryIcon'
 import FiltersEmptyState from '../components/FiltersEmptyState'
 import ActivitiesLoading from '../components/ActivitiesLoading'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-import { formatActivityDate, formatClock } from '../utils/time'
+import { formatActivityDate, formatClock, greetingFor, partOfDay, questionFor } from '../utils/time'
 
 /**
  * Discover.
@@ -22,20 +24,34 @@ import { formatActivityDate, formatClock } from '../utils/time'
  * first screen. Stats about your own account moved to Profile, where somebody
  * who wants them will go looking.
  */
+/** Its own component so the counter's re-renders stop at this element. */
+function HeroScore({ value }) {
+  const shown = useCountUp(value)
+  return <span className="hero-score">{shown}%</span>
+}
+
 export default function HomePage() {
   const navigate = useNavigate()
+  const morph = useMorph()
+  const heroRef = useRef(null)
   const { filteredActivities, recommendations, loading } = useApp()
   const { user } = useAuth()
   const heroPick = recommendations[0]
   const rest = recommendations.slice(1, 3)
   const firstName = (user.realName || '').split(' ')[0]
+  // Recomputed on every render rather than held in state: the only thing that
+  // could change it is the clock crossing an hour boundary, and a screen this
+  // cheap to re-render will do that on its own long before anyone notices.
+  const part = partOfDay()
 
   return (
     <div className="page-content">
-      <header className="discover-head">
+      <header className="discover-head" data-part={part}>
         <div>
-          <span className="eyebrow">{user.anonymous ? 'Anonymous mode' : `Hi, ${firstName}`}</span>
-          <h1>What are you doing tonight?</h1>
+          <span className="eyebrow">
+            {user.anonymous ? 'Anonymous mode' : `${greetingFor(part)}, ${firstName}`}
+          </span>
+          <h1>{questionFor(part)}</h1>
         </div>
       </header>
 
@@ -54,15 +70,16 @@ export default function HomePage() {
       {heroPick && (
         <button
           className="hero-pick"
+          ref={heroRef}
           data-category={(heroPick.category || '').toLowerCase()}
-          onClick={() => navigate(`/activity/${heroPick.id}`)}
+          onClick={() => morph(`/activity/${heroPick.id}`, heroRef.current)}
         >
           <div className="hero-pick-top">
             <span className="category-chip">
               <CategoryIcon category={heroPick.category} size={12} />
               {heroPick.category}
             </span>
-            <span className="hero-score">{heroPick.matchScore}%</span>
+            <HeroScore value={heroPick.matchScore} />
           </div>
           <h2>{heroPick.title}</h2>
           <p className="hero-when">

@@ -1,12 +1,16 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { ArrowUpRight, Clock3, MapPin, Users } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import CategoryIcon from './CategoryIcon'
+import { useMorph } from '../hooks/useMorph'
 import { formatDistance } from '../utils/geo'
 import { formatActivityDate, formatClock } from '../utils/time'
 
 export default function ActivityCard({ activity, compact = false }) {
-  const navigate = useNavigate()
+  const morph = useMorph()
+  // The coloured header, which is the half that grows into the activity page.
+  // Naming the whole card would drag its white body along, and a white block
+  // stretching into a coloured one looks like a glitch rather than a move.
+  const visual = useRef(null)
   const categoryKey = (activity.category || '').toLowerCase()
   const fill = Math.max(
     0,
@@ -19,10 +23,10 @@ export default function ActivityCard({ activity, compact = false }) {
     <button
       className={`activity-card ${compact ? 'compact' : ''}`}
       data-category={categoryKey}
-      onClick={() => navigate(`/activity/${activity.id}`)}
+      onClick={() => morph(`/activity/${activity.id}`, visual.current)}
       aria-label={`Open ${activity.title}`}
     >
-      <div className="activity-visual">
+      <div className="activity-visual" ref={visual}>
         <div className="card-topline">
           <span className="category-chip">
             <CategoryIcon category={activity.category} size={12} />

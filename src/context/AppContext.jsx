@@ -444,6 +444,11 @@ export function AppProvider({ children }) {
       body: offline
         ? `${activity.title} will be confirmed when you reconnect.`
         : `${activity.title} added to your list.`,
+      // Carried so the celebration can be thrown in the activity's own colour.
+      // A join to a football match and a join to a coffee should not look
+      // identical, and the colour is already the thing that tells them apart
+      // everywhere else in the app.
+      burst: (activity.category || '').toLowerCase(),
     })
 
     try {

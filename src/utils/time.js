@@ -73,3 +73,37 @@ export function formatMessageTime(timestamp) {
   if (!timestamp) return ''
   return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 }
+
+/**
+ * What part of the day it is, for copy that is not wrong half the time.
+ *
+ * "What are you doing tonight?" is a good question at six in the evening and
+ * a strange one at nine in the morning. The app is about plans, so the hour
+ * is not decoration here — it changes which plans are even possible, and a
+ * greeting that ignores it is the tell that nobody was paying attention.
+ */
+export function partOfDay(now = new Date()) {
+  const hour = now.getHours()
+  if (hour < 5) return 'late'
+  if (hour < 11) return 'morning'
+  if (hour < 16) return 'afternoon'
+  if (hour < 22) return 'evening'
+  return 'late'
+}
+
+const GREETINGS = {
+  morning: 'Morning',
+  afternoon: 'Afternoon',
+  evening: 'Evening',
+  late: 'Still up',
+}
+
+const QUESTIONS = {
+  morning: 'What are you doing today?',
+  afternoon: 'Anything on this evening?',
+  evening: 'What are you doing tonight?',
+  late: 'Planning something for tomorrow?',
+}
+
+export const greetingFor = (part) => GREETINGS[part] || 'Hello'
+export const questionFor = (part) => QUESTIONS[part] || 'What are you doing next?'
