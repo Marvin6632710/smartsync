@@ -15,8 +15,6 @@ export default function ActivityCard({ activity, compact = false }) {
       Math.round(((activity.participants || 0) / Math.max(activity.capacity || 1, 1)) * 100),
     ),
   )
-  const description = activity.description || 'Activity for you.'
-
   return (
     <button
       className={`activity-card ${compact ? 'compact' : ''}`}
@@ -40,45 +38,38 @@ export default function ActivityCard({ activity, compact = false }) {
         </div>
         <div className="activity-title-block">
           <h3>{activity.title}</h3>
-          {!compact && <p>{description}</p>}
         </div>
       </div>
 
+      {/* What you need to decide whether to open it, and nothing else.
+          The description, the tags and the match reasoning all used to sit
+          here, which made every card a paragraph and a list of twelve plans a
+          wall of text — you could fit two on a screen. They are on the
+          activity's own page, one tap away, which is where somebody who is
+          actually interested will read them. */}
       <div className="activity-body">
-        <div className="meta-grid">
+        <div className="meta-line">
           <span>
-            <MapPin size={14} />{' '}
+            <Clock3 size={13} /> {formatActivityDate(activity.date)} · {formatClock(activity.time)}
+          </span>
+          <span>
+            <MapPin size={13} />{' '}
             {/* Distance is unknown until the user shares their location, and
                 showing nothing is more honest than showing a made-up number. */}
             {activity.distanceKm != null
               ? `${formatDistance(activity.distanceKm)} · ${activity.locationName}`
               : activity.locationName}
           </span>
-          <span>
-            <Clock3 size={14} /> {formatActivityDate(activity.date)} · {formatClock(activity.time)}
-          </span>
-          <span>
-            <Users size={14} /> {activity.participants}/{activity.capacity} joined
-          </span>
         </div>
 
-        <div className="capacity-meter" aria-hidden="true">
-          <span style={{ width: `${fill}%` }} />
-        </div>
-
-        {!compact && (
-          <div className="chip-row activity-tags">
-            {(activity.tags || []).slice(0, 3).map((tag) => (
-              <span className="tiny-chip" key={tag}>
-                {tag}
-              </span>
-            ))}
+        <div className="activity-foot">
+          <span className="going-count">
+            <Users size={13} /> {activity.participants}/{activity.capacity}
+          </span>
+          <div className="capacity-meter" aria-hidden="true">
+            <span style={{ width: `${fill}%` }} />
           </div>
-        )}
-
-        <div className="reason-line">
-          <span>{activity.reasons?.[0] || 'Good match for you'}</span>
-          <ArrowUpRight size={15} />
+          <ArrowUpRight size={16} />
         </div>
       </div>
     </button>

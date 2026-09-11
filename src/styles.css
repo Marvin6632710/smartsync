@@ -298,7 +298,7 @@ select:focus-visible {
      so it reads as a squat tablet rather than a phone. The 340px floor
      stops very short windows from squeezing it narrower than a real
      handset, which would cramp the layout. */
-  width: min(100%, 420px, max(340px, calc((100vh - 36px) * 0.47)));
+  width: min(100%, 420px, max(340px, calc((100dvh - 36px) * 0.47)));
   background: var(--bg);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-lg);
@@ -959,7 +959,7 @@ select:focus-visible {
   border: 0;
   background: transparent;
   padding: 12px 0;
-  font-size: var(--t-body);
+  font-size: 16px;
   color: var(--text);
   outline: none;
 }
@@ -1294,7 +1294,7 @@ select:focus-visible {
   background: var(--surface);
   color: var(--text);
   padding: 11px 13px;
-  font-size: var(--t-body);
+  font-size: 16px;
   font-weight: var(--w-regular);
   outline: none;
   transition: border-color 0.15s ease;
@@ -3121,7 +3121,7 @@ input[type='range'] {
 .report-detail textarea,
 .report-detail input {
   font: inherit;
-  font-size: var(--t-sm);
+  font-size: 16px;
   color: var(--ink);
   padding: 9px 11px;
   border-radius: var(--r-sm);
@@ -3617,4 +3617,127 @@ input[type='range'] {
     opacity: 1;
     transform: none;
   }
+}
+
+/* =========================================================
+   PHONES, PROPERLY
+   ========================================================= */
+
+/* iOS Safari zooms the whole page whenever a focused field is smaller than
+   16px, and it does not zoom back out. Every field here was 13 or 14px, so
+   tapping Search magnified the layout and left it shifted sideways — which
+   looks exactly like a broken alignment, and is why the page appeared to
+   slide off the left edge.
+   Applied to every pointer, not behind `@media (pointer: coarse)`. That query
+   is the precise way to say it and it cannot be verified anywhere except on
+   the device itself, which makes it the kind of fix that silently stops
+   working. 16px on a mouse-driven screen costs a comfortable input; being
+   wrong here costs the whole layout on the phone people actually use. */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Nothing in this app is meant to scroll sideways. The vertical scroller was
+   `overflow: auto`, which permits both axes — so any single element that
+   misbehaves at some width would let the whole page slide. Belt and braces,
+   and it costs nothing. */
+.page-scroll {
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+}
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* The frame's width was tied to the viewport *height*:
+   `max(340px, calc((100vh - 36px) * 0.47))`. On iOS the toolbar collapses as
+   you scroll, 100vh changes, and a centred box whose width depends on it
+   shifts horizontally while you read.
+   Phones take the full width and never compute one from the height. A
+   landscape phone is caught by the height clause; a tablet is deliberately
+   not caught by either, because stretching a layout built for a 400px column
+   across a 1024px screen is not an improvement — there it keeps the frame. */
+@media (max-width: 520px), ((max-height: 560px) and (pointer: coarse)) {
+  .mobile-frame,
+  .standalone-page {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* Belt and braces for the same bug at every size: never derive a width from
+   the viewport height, and use the dynamic units where a height is needed so
+   a collapsing toolbar does not resize the page under the reader. */
+.mobile-frame {
+  height: clamp(600px, calc(100dvh - 36px), 900px);
+}
+.standalone-page {
+  min-height: clamp(600px, calc(100dvh - 36px), 900px);
+}
+
+/* Respect the notch and the home indicator on every edge that touches them. */
+@supports (padding: max(0px)) {
+  .page-content {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+}
+
+/* The card, now that it carries a name and not a paragraph. */
+.meta-line {
+  display: grid;
+  gap: 4px;
+}
+.meta-line span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-sm);
+  color: var(--text-2);
+  min-width: 0;
+}
+.meta-line span > svg {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.activity-foot {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.activity-foot > svg {
+  color: var(--cat, var(--accent));
+  transition: transform var(--dur) var(--ease);
+}
+.activity-card:hover .activity-foot > svg {
+  transform: translate(2px, -2px);
+}
+.going-count {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--t-xs);
+  font-weight: var(--w-semibold);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.going-count svg {
+  color: var(--text-3);
+}
+.activity-foot .capacity-meter {
+  height: 4px;
+}
+
+/* Compact keeps the description hidden the way it always did; there is no
+   description on the card any more, so the only difference left is the title
+   size in a dense list. */
+.activity-card.compact .activity-title-block h3 {
+  font-size: var(--t-h2);
+}
+.activity-card.compact .activity-visual {
+  padding-bottom: 13px;
 }

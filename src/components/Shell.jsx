@@ -84,11 +84,12 @@ export default function Shell() {
   const { user } = useAuth()
   const unread = notifications.filter((n) => !n.read).length
   const simpleTitle = location.pathname.split('/')[1] || 'home'
-  // Screens with their own pinned control at the bottom: an activity page has
-  // Join / Leave / Cancel, a chat has its composer and send button. The
-  // floating create button lands on top of both.
-  const hasOwnAction =
-    /^\/activity\/[^/]+$/.test(location.pathname) || location.pathname.endsWith('/chat')
+  // The create button belongs on the five screens you browse from, where
+  // starting something yourself is a reasonable next thought. Everywhere else
+  // it is a floating obstacle: it sat on top of the sticky Join button on an
+  // activity page, on top of the send button in a chat, and — on a narrow
+  // phone — on top of the search field in the moderation queue.
+  const showCreate = tabs.some((tab) => tab.to === location.pathname)
   const title = routeTitles[simpleTitle] || 'Discover'
 
   return (
@@ -160,10 +161,9 @@ export default function Shell() {
           <Outlet />
         </main>
 
-        {/* Not on screens that already carry a sticky action of their own —
-            it lands directly on top of Join and Delete otherwise. An activity
-            page is a place to act on that activity, not to start another. */}
-        {!hasOwnAction && (
+        {/* An activity page is a place to act on that activity, not to start
+            another one; a chat is a place to talk. */}
+        {showCreate && (
           <button
             className="fab-create"
             onClick={() => navigate('/create')}
