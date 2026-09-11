@@ -8,7 +8,18 @@
    are deliberately absolute, not theme-dependent.
    ========================================================= */
 
+/* One webfont, for headings only.
+   Body text stays on the system stack: it renders instantly, it is what the
+   phone is already optimised for, and a paragraph gains nothing from a
+   download. Headings are where a typeface earns its weight, and `swap` plus a
+   real fallback means a slow connection costs a reflow, never a blank screen.
+   Self-hosting would be better still; this is the honest trade for now. */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
 :root {
+  --font-display:
+    'Plus Jakarta Sans', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
   font-family:
     ui-sans-serif,
     -apple-system,
@@ -72,64 +83,122 @@
   --r-xl: 24px;
   --r-pill: 999px;
 
-  /* --- Type scale ---------------------------------------- */
-  --t-display: 28px;
-  --t-h1: 20px;
+  /* --- Type scale ----------------------------------------
+     Widened. The old scale ran 28 / 20 / 17 / 15 / 14 / 13 / 12 —
+     every step within a few pixels of the next, so nothing on a
+     screen could read as more important than anything else. The
+     jumps are now big enough to carry hierarchy on their own. */
+  --t-hero: 34px;
+  --t-display: 27px;
+  --t-h1: 21px;
   --t-h2: 17px;
   --t-h3: 15px;
   --t-body: 14px;
   --t-sm: 13px;
   --t-xs: 12px;
 
-  /* --- Weights -------------------------------------------
-     Restrained on purpose: 600 is the heaviest weight used.
-     Headings would otherwise inherit the browser's 700. */
+  /* --- Weights ------------------------------------------- */
   --w-regular: 400;
   --w-medium: 500;
   --w-semibold: 600;
+  --w-bold: 700;
+  --w-black: 800;
 
   /* --- Elevation ----------------------------------------- */
   --shadow-sm: 0 1px 2px rgba(16, 18, 26, 0.05);
   --shadow: 0 2px 8px rgba(16, 18, 26, 0.06), 0 1px 2px rgba(16, 18, 26, 0.04);
   --shadow-lg: 0 12px 28px rgba(16, 18, 26, 0.1);
+  /* For anything sitting on a saturated ground, where a grey shadow turns
+     muddy — it takes the category's own hue instead. */
+  --shadow-cat: 0 10px 24px -8px rgba(var(--cat-rgb, 79, 70, 229), 0.45);
+
+  /* --- Motion --------------------------------------------
+     One easing for everything that moves, and a springier one for
+     anything the finger touches, so a press feels answered rather
+     than merely acknowledged. */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-fast: 0.14s;
+  --dur: 0.24s;
+  --dur-slow: 0.42s;
 
   color: var(--text);
   background: var(--bg);
 }
 
-/* Category accents — muted, never candy. */
-[data-category='football'],
-[data-category='running'],
-[data-category='cycling'],
+/* =========================================================
+   CATEGORY IDENTITY
+   Twelve categories, twelve identities. This used to be four
+   colours shared between them — football, running, cycling and
+   gym were all the same green — which is most of why every card
+   looked like every other card.
+   Each carries a base, a lighter partner for gradients, and a
+   tint for chips. The hues are spread around the wheel and, where
+   two land close (running / basketball / coffee / food all sit in
+   the warm quadrant), they are separated by lightness and
+   saturation instead, so they stay distinguishable at a glance and
+   for anyone who reads hue differently.
+   ========================================================= */
+
+[data-category='football'] {
+  --cat: #0e8a4f;
+  --cat-2: #1fc472;
+  --cat-soft: #e6f6ee;
+}
+[data-category='running'] {
+  --cat: #e14a38;
+  --cat-2: #ff8a5c;
+  --cat-soft: #fdeeea;
+}
+[data-category='cycling'] {
+  --cat: #0a6fa8;
+  --cat-2: #2bb3e6;
+  --cat-soft: #e6f3fa;
+}
 [data-category='gym'] {
-  --cat: #0f7b5f;
-  --cat-soft: #e9f5f1;
+  --cat: #5b45cf;
+  --cat-2: #9a85f7;
+  --cat-soft: #eeebfd;
 }
 [data-category='study'] {
-  --cat: #6d28d9;
-  --cat-soft: #f2ecfd;
+  --cat: #0d7a70;
+  --cat-2: #2cc0ad;
+  --cat-soft: #e5f5f3;
 }
-[data-category='coffee'],
-[data-category='food'] {
-  --cat: #9a6216;
-  --cat-soft: #fbf2e6;
+[data-category='coffee'] {
+  --cat: #8a5733;
+  --cat-2: #c99160;
+  --cat-soft: #f7efe8;
 }
 [data-category='gaming'] {
-  --cat: #4338ca;
-  --cat-soft: #ecedfd;
+  --cat: #7326c9;
+  --cat-2: #b163f5;
+  --cat-soft: #f2e9fd;
+}
+[data-category='hangouts'] {
+  --cat: #cc2f7b;
+  --cat-2: #ff7cb5;
+  --cat-soft: #fdeaf2;
 }
 [data-category='movies'] {
-  --cat: #b02a51;
-  --cat-soft: #fdedf1;
+  --cat: #a81e48;
+  --cat-2: #e8547e;
+  --cat-soft: #fce9ee;
 }
-[data-category='hangouts'],
+[data-category='food'] {
+  --cat: #c8891a;
+  --cat-2: #f5c44a;
+  --cat-soft: #fbf2e2;
+}
 [data-category='events'] {
-  --cat: #0e7490;
-  --cat-soft: #e7f4f8;
+  --cat: #3a49c4;
+  --cat-2: #7b8cf5;
+  --cat-soft: #eaedfd;
 }
 [data-category='basketball'] {
-  --cat: #b4530f;
-  --cat-soft: #fdf0e7;
+  --cat: #c85a17;
+  --cat-2: #f7934c;
+  --cat-soft: #fbf0e6;
 }
 
 /* =========================================================
@@ -175,6 +244,14 @@ h3,
 h4,
 p {
   margin-top: 0;
+}
+/* The display face carries every heading. Set once here rather than on each
+   component, so a screen added later inherits the voice for free. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }
 h1,
 h2,
@@ -321,13 +398,28 @@ select:focus-visible {
   transition: color 0.15s ease;
 }
 .nav-icon-wrap {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 40px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  transition:
+    background var(--dur) var(--ease),
+    transform var(--dur) var(--ease-spring);
 }
+/* A filled pill behind the active icon, the way a phone's own navigation
+   marks position. Colour alone was doing that job, and at this size a change
+   of colour is easy to miss — the shape is not. */
 .nav-item.active {
   color: var(--accent);
+}
+.nav-item.active .nav-icon-wrap {
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+.nav-item:active .nav-icon-wrap {
+  transform: scale(0.9);
 }
 .fab-create {
   position: absolute;
@@ -879,27 +971,83 @@ select:focus-visible {
    ACTIVITY CARD
    ========================================================= */
 
+/* -----------------------------------------------------------------
+   THE ACTIVITY CARD
+   The app is made of these, so this is where "every card looks like
+   every other card" was actually costing us. The fix is not
+   decoration: the category already exists on the data, and giving it
+   a coloured header turns a stack of identical white rectangles into
+   a list you can read at arm's length. Green means football. You
+   learn it once and never read a chip again.
+   ----------------------------------------------------------------- */
+
 .activity-card {
   overflow: hidden;
   width: 100%;
   padding: 0;
   text-align: left;
   color: inherit;
+  border-color: transparent;
   transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur) var(--ease);
 }
 .activity-card:hover {
-  border-color: var(--line-strong);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
 }
+/* Answers the finger. Scale rather than colour, because a colour change on
+   a coloured card is invisible on half of them. */
+.activity-card:active {
+  transform: scale(0.985);
+}
+
 .activity-visual {
-  padding: 14px 14px 12px;
-  border-left: 3px solid var(--cat, var(--accent));
+  position: relative;
+  padding: 14px 14px 16px;
+  background: linear-gradient(
+    135deg,
+    var(--cat, var(--accent)),
+    var(--cat-2, var(--accent-strong))
+  );
+  color: #fff;
+  isolation: isolate;
+}
+/* A soft light from the top right. Pure CSS, no image to load, and it stops
+   the gradient reading as a flat swatch. */
+.activity-visual::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(120% 90% at 88% -20%, rgba(255, 255, 255, 0.32), transparent 60%);
+}
+.activity-visual .category-chip {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(2px);
+}
+.activity-visual .match-pill {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--cat, var(--accent));
+  border-color: transparent;
+  font-weight: var(--w-bold);
+}
+.activity-visual .ended-pill {
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
 }
 .activity-title-block h3 {
-  margin: 8px 0 4px;
-  font-size: var(--t-h2);
+  margin: 10px 0 4px;
+  font-family: var(--font-display);
+  font-size: var(--t-h1);
+  font-weight: var(--w-bold);
+  letter-spacing: -0.02em;
+  line-height: 1.18;
+  text-wrap: balance;
+}
+.activity-visual .activity-title-block p {
+  color: rgba(255, 255, 255, 0.86);
 }
 .activity-title-block p {
   margin: 0;
@@ -911,7 +1059,7 @@ select:focus-visible {
   overflow: hidden;
 }
 .activity-body {
-  padding: 0 14px 14px 17px;
+  padding: 13px 14px 14px;
   display: grid;
   gap: 10px;
 }
@@ -966,8 +1114,12 @@ select:focus-visible {
   font-weight: var(--w-medium);
 }
 .reason-line svg {
-  color: var(--accent);
+  color: var(--cat, var(--accent));
   flex-shrink: 0;
+  transition: transform var(--dur) var(--ease);
+}
+.activity-card:hover .reason-line svg {
+  transform: translate(2px, -2px);
 }
 .activity-card.compact .activity-title-block p,
 .activity-card.compact .activity-tags {
@@ -978,16 +1130,65 @@ select:focus-visible {
    ACTIVITY DETAIL
    ========================================================= */
 
+/* The detail page carries the colour of the card that led here. Tapping a
+   vivid card and landing on a white page breaks the thread and makes the tap
+   feel like it went nowhere. */
 .detail-hero {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  padding: 16px;
-  border-top: 3px solid var(--cat, var(--accent));
+  position: relative;
+  border: 0;
+  border-radius: var(--r-xl);
+  padding: 18px;
+  color: #fff;
+  isolation: isolate;
+  background: linear-gradient(
+    140deg,
+    var(--cat, var(--accent)),
+    var(--cat-2, var(--accent-strong))
+  );
+  box-shadow: var(--shadow-cat, var(--shadow-lg));
+}
+.detail-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(130% 100% at 85% -25%, rgba(255, 255, 255, 0.34), transparent 62%);
+}
+.detail-hero .category-chip {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+.detail-hero .match-pill {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--cat, var(--accent));
+  border-color: transparent;
+  font-weight: var(--w-bold);
+}
+.detail-hero > p {
+  color: rgba(255, 255, 255, 0.88);
+}
+.detail-hero .detail-facts span {
+  color: rgba(255, 255, 255, 0.9);
+}
+.detail-hero .detail-facts svg {
+  color: rgba(255, 255, 255, 0.7);
+}
+.detail-hero .capacity-meter {
+  background: rgba(255, 255, 255, 0.25);
+}
+.detail-hero .capacity-meter span {
+  background: #fff;
 }
 .detail-hero h2 {
-  margin: 10px 0 6px;
-  font-size: var(--t-h1);
+  margin: 12px 0 6px;
+  font-family: var(--font-display);
+  font-weight: var(--w-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.14;
+  text-wrap: balance;
+  font-size: 26px;
 }
 .detail-hero > p {
   margin: 0;
@@ -2368,7 +2569,7 @@ select:focus-visible {
 }
 
 .auth-switch {
-  font-size: var(--t-small);
+  font-size: var(--t-sm);
   color: var(--ink-soft);
   text-align: center;
 }
@@ -2385,7 +2586,7 @@ select:focus-visible {
 
 .form-notice {
   margin: 0;
-  font-size: var(--t-small);
+  font-size: var(--t-sm);
   color: var(--ink-soft);
   padding: 8px 10px;
   border-radius: var(--r-sm);
@@ -2413,7 +2614,7 @@ select:focus-visible {
 }
 
 .boot-label {
-  font-size: var(--t-small);
+  font-size: var(--t-sm);
   color: var(--ink-soft);
 }
 
@@ -2469,7 +2670,14 @@ select:focus-visible {
   margin: 4px;
   border-radius: 50%;
   border: 2px solid var(--surface);
-  background: var(--accent);
+  /* The pin already carried data-category, which sets --cat on it; it just
+     was not using it. Every pin was the same indigo dot, so the map could
+     tell you where things were and nothing about what they were. */
+  background: linear-gradient(
+    140deg,
+    var(--cat, var(--accent)),
+    var(--cat-2, var(--accent-strong))
+  );
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.28);
   transition:
     transform 0.16s ease,
@@ -2477,8 +2685,9 @@ select:focus-visible {
 }
 
 .leaflet-activity-pin.selected .pin-body {
-  transform: scale(1.28);
-  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.5);
+  transform: scale(1.34);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.45);
+  border-width: 3px;
 }
 
 .leaflet-me-pin span {
@@ -2538,14 +2747,19 @@ select:focus-visible {
    Activity status
    ========================================================================== */
 
+/* Sits inside the coloured hero, so it cannot use a pale red on a pale red
+   ground — it would vanish on a running card and shout on a football one.
+   White on a dark scrim reads on every category. */
 .cancelled-banner {
-  display: inline-block;
-  padding: 6px 10px;
+  display: block;
+  padding: 9px 12px;
+  margin: 10px 0 0;
   border-radius: var(--r-sm);
-  background: rgba(220, 38, 38, 0.1);
-  color: var(--danger, #dc2626);
-  font-size: var(--t-small);
-  font-weight: var(--w-medium);
+  background: rgba(0, 0, 0, 0.32);
+  color: #fff;
+  font-size: var(--t-sm);
+  font-weight: var(--w-semibold);
+  backdrop-filter: blur(2px);
 }
 
 .host-chip {
@@ -2740,7 +2954,7 @@ select:focus-visible {
 }
 
 .weight-head strong {
-  font-size: var(--t-small);
+  font-size: var(--t-sm);
   font-weight: var(--w-medium);
 }
 
@@ -2763,7 +2977,7 @@ select:focus-visible {
 
 .weight-preview-row strong {
   display: block;
-  font-size: var(--t-small);
+  font-size: var(--t-sm);
   overflow-wrap: anywhere;
 }
 
@@ -3039,4 +3253,368 @@ input[type='range'] {
   width: 100%;
   text-align: center;
   margin-top: 14px;
+}
+
+/* =========================================================
+   DISCOVER
+   ========================================================= */
+
+.discover-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.discover-head h1 {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: var(--t-hero);
+  font-weight: var(--w-black);
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+/* A row, not three stacked cards. Search, filter and map are things you
+   reach for occasionally — they should not cost a third of the screen. */
+.discover-tools {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.discover-tools button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--t-sm);
+  font-weight: var(--w-semibold);
+  transition:
+    transform var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+.discover-tools button:active {
+  transform: scale(0.96);
+  border-color: var(--accent);
+}
+
+/* The top pick, as the thing to do rather than a statistic about you. */
+.hero-pick {
+  position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 18px;
+  border: 0;
+  border-radius: var(--r-xl);
+  color: #fff;
+  isolation: isolate;
+  background: linear-gradient(
+    140deg,
+    var(--cat, var(--accent)),
+    var(--cat-2, var(--accent-strong))
+  );
+  box-shadow: var(--shadow-cat, var(--shadow-lg));
+  transition: transform var(--dur-fast) var(--ease);
+}
+.hero-pick::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(130% 100% at 85% -25%, rgba(255, 255, 255, 0.35), transparent 62%);
+}
+.hero-pick:active {
+  transform: scale(0.985);
+}
+.hero-pick-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.hero-pick .category-chip {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+.hero-score {
+  font-family: var(--font-display);
+  font-size: var(--t-display);
+  font-weight: var(--w-black);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.hero-pick h2 {
+  margin: 12px 0 6px;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: var(--w-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+.hero-when {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: var(--w-semibold);
+  color: rgba(255, 255, 255, 0.92);
+}
+.hero-why {
+  margin: 6px 0 0;
+  font-size: var(--t-sm);
+  color: rgba(255, 255, 255, 0.82);
+}
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 9px 16px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--cat, var(--accent));
+  font-size: var(--t-sm);
+  font-weight: var(--w-bold);
+}
+
+/* =========================================================
+   MOTION AND POLISH
+   ========================================================= */
+
+/* The action you came to take, always within thumb reach. */
+.detail-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin: 4px -16px -16px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(var(--bg-rgb), 0) 0%, var(--bg) 34%);
+}
+.detail-actions .action-stack {
+  gap: 8px;
+}
+
+/* Lists arrive rather than appear. Staggered by a few frames each, and only
+   for the first handful — past that it stops reading as life and starts
+   reading as lag. */
+.stack > * {
+  animation: riseIn var(--dur-slow) var(--ease) backwards;
+}
+.stack > *:nth-child(1) {
+  animation-delay: 0.02s;
+}
+.stack > *:nth-child(2) {
+  animation-delay: 0.07s;
+}
+.stack > *:nth-child(3) {
+  animation-delay: 0.12s;
+}
+.stack > *:nth-child(4) {
+  animation-delay: 0.17s;
+}
+.stack > *:nth-child(5) {
+  animation-delay: 0.21s;
+}
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Every button answers the finger. One rule rather than twelve. */
+.primary-button:active,
+.secondary-button:active,
+.danger-button:active,
+.setting-row:active,
+.person-card:active,
+.message-thread:active,
+.notification-card:active {
+  transform: scale(0.97);
+}
+.primary-button,
+.secondary-button,
+.danger-button,
+.setting-row,
+.person-card,
+.message-thread,
+.notification-card {
+  transition:
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+/* The create button should feel like the invitation it is. */
+.fab-create {
+  box-shadow: 0 10px 24px -6px rgba(var(--accent-rgb), 0.55);
+  transition: transform var(--dur) var(--ease-spring);
+}
+.fab-create:active {
+  transform: scale(0.9) rotate(90deg);
+}
+
+/* Somebody who has asked their phone for less motion gets less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .stack > * {
+    animation: none;
+  }
+}
+
+/* A thread is an activity, so it wears the activity's colour. Free
+   recognition: you find the football chat by looking for the green one,
+   not by reading four titles. */
+.cat-avatar {
+  background: linear-gradient(
+    140deg,
+    var(--cat, var(--accent)),
+    var(--cat-2, var(--accent-strong))
+  );
+  color: #fff;
+  border: 0;
+}
+.cat-avatar svg {
+  color: #fff;
+}
+
+/* =========================================================
+   PROFILE HEADER
+   It was a white card with a pale circle floating in it — the
+   emptiest screen in the app, and the one people open to see
+   themselves. A person has no category, so it takes the brand
+   colours instead.
+   ========================================================= */
+
+.profile-showcase {
+  position: relative;
+  border: 0;
+  overflow: hidden;
+  color: #fff;
+  isolation: isolate;
+  background: linear-gradient(150deg, var(--accent), #7c5cf5 55%, #b06ef0);
+  box-shadow: 0 14px 30px -12px rgba(var(--accent-rgb), 0.55);
+}
+.profile-showcase::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(120% 80% at 80% -20%, rgba(255, 255, 255, 0.3), transparent 60%);
+}
+.profile-showcase h2,
+.profile-showcase h3 {
+  color: #fff;
+}
+.profile-showcase p {
+  color: rgba(255, 255, 255, 0.85);
+}
+.profile-showcase .avatar,
+.profile-showcase .avatar.large {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--accent);
+  border: 0;
+  font-weight: var(--w-black);
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.35);
+}
+.profile-showcase .floating-pill,
+.profile-showcase .tiny-chip {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+/* The small round controls in the corners — settings, share, privacy. */
+.profile-showcase .icon-button,
+.profile-showcase .ghost-button {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+/* =========================================================
+   CHAT LAYOUT
+   The composer used to sit wherever the last message left it,
+   with dead space beneath — a chat whose input floats in the
+   middle of the screen reads as broken even when it works.
+   The page now fills the scroller, so the messages take the
+   slack and the composer stays where a thumb expects it.
+   ========================================================= */
+
+.chat-page {
+  min-height: 100%;
+  padding-bottom: 16px;
+}
+.chat-page .message-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.chat-page .chat-form,
+.chat-page .chat-closed-note {
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+}
+
+/* =========================================================
+   THE WAY IN
+   The first screen anybody sees, and it was the palest one in
+   the app. Two soft colour fields behind the form — cheap, no
+   image to load, and it makes the door look like it leads
+   somewhere rather than into a form.
+   ========================================================= */
+
+.auth-page {
+  position: relative;
+  isolation: isolate;
+}
+.auth-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(60% 42% at 12% 8%, rgba(var(--accent-rgb), 0.16), transparent 62%),
+    radial-gradient(55% 40% at 92% 26%, rgba(236, 110, 173, 0.14), transparent 60%),
+    radial-gradient(70% 45% at 50% 108%, rgba(31, 196, 114, 0.12), transparent 64%);
+}
+.auth-page .entry-copy h1,
+.auth-page .entry-copy h2 {
+  font-size: var(--t-display);
+  font-weight: var(--w-black);
+  letter-spacing: -0.035em;
+}
+.brand-orb {
+  box-shadow: 0 14px 30px -10px rgba(var(--accent-rgb), 0.6);
+  animation: orbIn var(--dur-slow) var(--ease-spring) backwards;
+}
+@keyframes orbIn {
+  from {
+    opacity: 0;
+    transform: scale(0.7) rotate(-12deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

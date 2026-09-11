@@ -82,9 +82,10 @@ export default function MessagesPage() {
             <button
               className="message-thread nomad-thread"
               key={activity.id}
+              data-category={(activity.category || '').toLowerCase()}
               onClick={() => navigate(`/activity/${activity.id}/chat`)}
             >
-              <div className="avatar small">
+              <div className="avatar small cat-avatar">
                 <CategoryIcon category={activity.category} size={16} />
               </div>
               <div>

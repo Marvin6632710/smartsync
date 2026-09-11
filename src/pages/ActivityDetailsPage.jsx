@@ -229,37 +229,52 @@ export default function ActivityDetailsPage() {
         </button>
       )}
 
-      {isCancelled || isRemoved || isPast ? (
-        <button className="secondary-button wide" onClick={() => navigate(`/activity/${id}/chat`)}>
-          <MessageCircle size={18} /> Open chat
-        </button>
-      ) : isHost ? (
-        <div className="action-stack">
-          <button className="primary-button wide" onClick={() => navigate(`/activity/${id}/chat`)}>
+      {/* The primary action sticks to the bottom of the scroller. Joining is
+          the point of this screen and it used to sit below three panels, so
+          on a phone you had to scroll past the reasons and the host before
+          you could act on any of it. */}
+      <div className="detail-actions">
+        {isCancelled || isRemoved || isPast ? (
+          <button
+            className="secondary-button wide"
+            onClick={() => navigate(`/activity/${id}/chat`)}
+          >
             <MessageCircle size={18} /> Open chat
           </button>
-          <button className="danger-button wide" onClick={() => setCancelOpen(true)}>
-            {isEmpty ? 'Delete activity' : 'Cancel activity'}
+        ) : isHost ? (
+          <div className="action-stack">
+            <button
+              className="primary-button wide"
+              onClick={() => navigate(`/activity/${id}/chat`)}
+            >
+              <MessageCircle size={18} /> Open chat
+            </button>
+            <button className="danger-button wide" onClick={() => setCancelOpen(true)}>
+              {isEmpty ? 'Delete activity' : 'Cancel activity'}
+            </button>
+          </div>
+        ) : joined ? (
+          <div className="action-stack">
+            <button
+              className="primary-button wide"
+              onClick={() => navigate(`/activity/${id}/chat`)}
+            >
+              <MessageCircle size={18} /> Open chat
+            </button>
+            <button className="danger-button wide" onClick={() => leaveActivity(id)}>
+              Leave activity
+            </button>
+          </div>
+        ) : (
+          <button
+            className="primary-button wide"
+            disabled={a.participants >= a.capacity}
+            onClick={() => joinActivity(id)}
+          >
+            {a.participants >= a.capacity ? 'Full' : 'Join activity'}
           </button>
-        </div>
-      ) : joined ? (
-        <div className="action-stack">
-          <button className="primary-button wide" onClick={() => navigate(`/activity/${id}/chat`)}>
-            <MessageCircle size={18} /> Open chat
-          </button>
-          <button className="danger-button wide" onClick={() => leaveActivity(id)}>
-            Leave activity
-          </button>
-        </div>
-      ) : (
-        <button
-          className="primary-button wide"
-          disabled={a.participants >= a.capacity}
-          onClick={() => joinActivity(id)}
-        >
-          {a.participants >= a.capacity ? 'Full' : 'Join activity'}
-        </button>
-      )}
+        )}
+      </div>
 
       {/* Moderator tools sit on every activity, not only ones that were
           reported — otherwise the only things anybody can act on are the ones

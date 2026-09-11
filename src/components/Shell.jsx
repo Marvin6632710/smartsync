@@ -84,6 +84,11 @@ export default function Shell() {
   const { user } = useAuth()
   const unread = notifications.filter((n) => !n.read).length
   const simpleTitle = location.pathname.split('/')[1] || 'home'
+  // Screens with their own pinned control at the bottom: an activity page has
+  // Join / Leave / Cancel, a chat has its composer and send button. The
+  // floating create button lands on top of both.
+  const hasOwnAction =
+    /^\/activity\/[^/]+$/.test(location.pathname) || location.pathname.endsWith('/chat')
   const title = routeTitles[simpleTitle] || 'Discover'
 
   return (
@@ -155,16 +160,21 @@ export default function Shell() {
           <Outlet />
         </main>
 
-        <button
-          className="fab-create"
-          onClick={() => navigate('/create')}
-          aria-label="Create activity"
-          // The rules refuse it anyway; disabling here means the answer is
-          // immediate and explained rather than a rejection after the fact.
-          disabled={user.suspended}
-        >
-          <Plus size={26} />
-        </button>
+        {/* Not on screens that already carry a sticky action of their own —
+            it lands directly on top of Join and Delete otherwise. An activity
+            page is a place to act on that activity, not to start another. */}
+        {!hasOwnAction && (
+          <button
+            className="fab-create"
+            onClick={() => navigate('/create')}
+            aria-label="Create activity"
+            // The rules refuse it anyway; disabling here means the answer is
+            // immediate and explained rather than a rejection after the fact.
+            disabled={user.suspended}
+          >
+            <Plus size={26} />
+          </button>
+        )}
 
         <nav className="bottom-nav" aria-label="Primary navigation">
           {tabs.map(({ to, label, icon: Icon }) => (

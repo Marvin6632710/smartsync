@@ -1,97 +1,96 @@
 import React from 'react'
-import { ArrowRight, Filter, Map, Search, Sparkles } from 'lucide-react'
+import { ArrowRight, Filter, Map, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import ActivityCard from '../components/ActivityCard'
+import CategoryIcon from '../components/CategoryIcon'
 import FiltersEmptyState from '../components/FiltersEmptyState'
 import ActivitiesLoading from '../components/ActivitiesLoading'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
+import { formatActivityDate, formatClock } from '../utils/time'
 
+/**
+ * Discover.
+ *
+ * Rebuilt around one measurement: the old version spent about seven hundred
+ * pixels on a greeting, a stats trio and an interests card before the first
+ * activity, so on a phone you reached the point of the app only by scrolling.
+ * It also printed the same match percentage four times on one screen.
+ *
+ * Now the top pick *is* the hero — a real, tappable thing to do tonight rather
+ * than a dashboard about you — and the first ordinary card lands within the
+ * first screen. Stats about your own account moved to Profile, where somebody
+ * who wants them will go looking.
+ */
 export default function HomePage() {
   const navigate = useNavigate()
-  const { filteredActivities, recommendations, joinedIds, threadPreviews, loading } = useApp()
+  const { filteredActivities, recommendations, loading } = useApp()
   const { user } = useAuth()
-  const top = recommendations.slice(0, 2)
   const heroPick = recommendations[0]
-  const activeChats = joinedIds.filter((id) => threadPreviews[id]).length
+  const rest = recommendations.slice(1, 3)
+  const firstName = (user.realName || '').split(' ')[0]
 
   return (
     <div className="page-content">
-      <section className="hero-card">
-        <div className="hero-badge-row">
-          <span className="floating-pill">
-            {user.anonymous ? 'Anonymous mode' : `Hi, ${user.realName}`}
-          </span>
-          <span className="floating-pill accent">Top match {heroPick?.matchScore || '--'}%</span>
-        </div>
-        <h2>Find your next plan.</h2>
-        <p>Nearby activities picked for you.</p>
-        <div className="hero-stat-grid">
-          <div className="stat-card">
-            <span>Match</span>
-            <strong>{heroPick?.matchScore || '--'}%</strong>
-            <small>{heroPick?.category || 'Activity'}</small>
-          </div>
-          <div className="stat-card">
-            <span>Joined</span>
-            <strong>{joinedIds.length}</strong>
-            <small>activities</small>
-          </div>
-          <div className="stat-card">
-            <span>Chats</span>
-            <strong>{activeChats}</strong>
-            <small>open</small>
-          </div>
-        </div>
-        <div className="hero-actions">
-          <button onClick={() => navigate('/search')}>
-            <Search size={17} /> Search
-          </button>
-          <button onClick={() => navigate('/filters')}>
-            <Filter size={17} /> Filter
-          </button>
-          <button onClick={() => navigate('/map')}>
-            <Map size={17} /> Map
-          </button>
-        </div>
-      </section>
-
-      <section className="interest-ribbon panel-lite">
+      <header className="discover-head">
         <div>
-          <span className="eyebrow">Your interests</span>
-          <h3>Made for your vibe</h3>
+          <span className="eyebrow">{user.anonymous ? 'Anonymous mode' : `Hi, ${firstName}`}</span>
+          <h1>What are you doing tonight?</h1>
         </div>
-        <div className="chip-row">
-          {(user.interests || []).slice(0, 5).map((interest) => (
-            <span className="tiny-chip" key={interest}>
-              {interest}
-            </span>
-          ))}
-        </div>
-      </section>
+      </header>
+
+      <div className="discover-tools">
+        <button onClick={() => navigate('/search')}>
+          <Search size={16} /> Search
+        </button>
+        <button onClick={() => navigate('/filters')}>
+          <Filter size={16} /> Filter
+        </button>
+        <button onClick={() => navigate('/map')}>
+          <Map size={16} /> Map
+        </button>
+      </div>
 
       {heroPick && (
-        <section
-          className="surprise-card"
+        <button
+          className="hero-pick"
+          data-category={(heroPick.category || '').toLowerCase()}
           onClick={() => navigate(`/activity/${heroPick.id}`)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              navigate(`/activity/${heroPick.id}`)
-            }
-          }}
-          role="button"
-          tabIndex="0"
         >
-          <div className="surprise-copy">
-            <span className="eyebrow">Top pick</span>
-            <h3>{heroPick.title}</h3>
-            <p>{heroPick.reasons?.slice(0, 2).join(' • ')}</p>
+          <div className="hero-pick-top">
+            <span className="category-chip">
+              <CategoryIcon category={heroPick.category} size={12} />
+              {heroPick.category}
+            </span>
+            <span className="hero-score">{heroPick.matchScore}%</span>
           </div>
-          <div className="surprise-score">
-            <Sparkles size={18} />
-            <strong>{heroPick.matchScore}%</strong>
-            <span>Open</span>
+          <h2>{heroPick.title}</h2>
+          <p className="hero-when">
+            {formatActivityDate(heroPick.date)} · {formatClock(heroPick.time)} ·{' '}
+            {heroPick.locationName}
+          </p>
+          <p className="hero-why">{heroPick.reasons?.slice(0, 2).join(' • ')}</p>
+          <span className="hero-cta">
+            Take a look <ArrowRight size={16} />
+          </span>
+        </button>
+      )}
+
+      {rest.length > 0 && (
+        <section className="section-block">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">For you</span>
+              <h2>Also worth a look</h2>
+            </div>
+            <button className="text-button" onClick={() => navigate('/recommendations')}>
+              See all <ArrowRight size={15} />
+            </button>
+          </div>
+          <div className="stack">
+            {rest.map((activity) => (
+              <ActivityCard key={activity.id} activity={activity} />
+            ))}
           </div>
         </section>
       )}
@@ -99,46 +98,8 @@ export default function HomePage() {
       <section className="section-block">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">For you</span>
-            <h2>Top activities</h2>
-          </div>
-          <button className="text-button" onClick={() => navigate('/recommendations')}>
-            See all <ArrowRight size={15} />
-          </button>
-        </div>
-        <div className="stack">
-          {top.map((activity) => (
-            <ActivityCard key={activity.id} activity={activity} />
-          ))}
-        </div>
-      </section>
-
-      <section
-        className="insight-card"
-        onClick={() => navigate('/recommendations')}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            navigate('/recommendations')
-          }
-        }}
-        role="button"
-        tabIndex="0"
-      >
-        <div className="feature-icon">
-          <Sparkles size={21} />
-        </div>
-        <div>
-          <strong>How matching works</strong>
-          <p>Interest, distance, time, history and popularity.</p>
-        </div>
-      </section>
-
-      <section className="section-block">
-        <div className="section-heading">
-          <div>
             <span className="eyebrow">Nearby</span>
-            <h2>Activities</h2>
+            <h2>Happening soon</h2>
           </div>
           <span className="count-chip">{filteredActivities.length}</span>
         </div>
@@ -149,7 +110,7 @@ export default function HomePage() {
             <FiltersEmptyState />
           ) : (
             filteredActivities
-              .slice(0, 5)
+              .slice(0, 6)
               .map((activity) => <ActivityCard key={activity.id} activity={activity} compact />)
           )}
         </div>
