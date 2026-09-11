@@ -20,6 +20,16 @@ export default function ConfirmDialog({
   tone = 'default',
   onConfirm,
   onCancel,
+  // Optional: make the action require a reason before it can be taken.
+  // Passed in rather than held here so the caller owns the text and can send
+  // it on — and set on exactly the actions that leave a record somebody else
+  // will read, which is why the confirm button stays disabled until it is
+  // filled in. An action nobody had to justify is an action nobody can
+  // review.
+  promptLabel,
+  promptValue = '',
+  promptPlaceholder,
+  onPromptChange,
 }) {
   const confirmRef = useRef(null)
   const dialogRef = useRef(null)
@@ -79,6 +89,18 @@ export default function ConfirmDialog({
         <h3 id="confirm-dialog-title">{title}</h3>
         <p id="confirm-dialog-body">{body}</p>
 
+        {promptLabel && (
+          <label className="report-detail">
+            {promptLabel}
+            <input
+              maxLength={500}
+              placeholder={promptPlaceholder}
+              value={promptValue}
+              onChange={(event) => onPromptChange?.(event.target.value)}
+            />
+          </label>
+        )}
+
         <div className="button-row">
           <button className="secondary-button" onClick={onCancel}>
             {cancelLabel}
@@ -87,6 +109,7 @@ export default function ConfirmDialog({
             className={tone === 'danger' ? 'danger-button' : 'primary-button'}
             onClick={onConfirm}
             ref={confirmRef}
+            disabled={Boolean(promptLabel) && !promptValue.trim()}
           >
             {confirmLabel}
           </button>

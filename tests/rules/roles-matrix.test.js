@@ -747,6 +747,217 @@ describe('oversight: acting without a report', () => {
   })
 })
 
+describe('a moderator cannot touch what a user wrote', () => {
+  // The whole point of the rank is safety, not editorial control. A moderator
+  // can make an activity disappear and say why. They cannot change a word of
+  // it — because an activity that has been quietly rewritten by somebody
+  // other than its host is worse than one that was taken down, and the host
+  // would have no way to tell.
+
+  const FIELDS = {
+    title: 'Rewritten by a moderator',
+    description: 'Different description',
+    category: 'Gym',
+    locationName: 'Somewhere else',
+    lat: 0,
+    lng: 0,
+    date: '2031-01-01',
+    time: '06:00',
+    timeBand: 'Morning',
+    capacity: 400,
+    tags: ['Gym'],
+    hostId: MOD,
+    hostName: 'Not the host',
+    // Not [USER, MOD] — a moderator adding themselves is an ordinary join,
+    // which they may do like anybody. Adding a third party is the thing a
+    // rank must not let them do.
+    participantUids: [USER, OTHER],
+  }
+
+  for (const [field, value] of Object.entries(FIELDS)) {
+    test(`a moderator cannot change ${field}`, async () => {
+      await assertFails(updateDoc(doc(as(MOD), 'activities', 'act_user'), { [field]: value }))
+    })
+    test(`an admin cannot change ${field} either`, async () => {
+      await assertFails(updateDoc(doc(as(ADMIN), 'activities', 'act_user'), { [field]: value }))
+    })
+  }
+
+  test('nor can they smuggle an edit in alongside a takedown', async () => {
+    // The takedown itself is allowed. Attaching anything else to the same
+    // write is not, because `touches` pins the whole key set and not just
+    // the keys anybody thought to check.
+    await assertFails(
+      updateDoc(doc(as(MOD), 'activities', 'act_user'), {
+        status: 'removed',
+        moderation: { by: MOD, reason: 'Breaks the safety policy' },
+        title: 'Rewritten by a moderator',
+        updatedAt: 1,
+      }),
+    )
+  })
+
+  test('and the host can still edit their own', async () => {
+    // The limit is on the rank, not on the activity.
+    await assertSucceeds(updateDoc(doc(as(USER), 'activities', 'act_user'), { title: 'New name' }))
+  })
+})
+
+describe('warnings — the rung below a suspension', () => {
+  const warning = (over = {}) => ({
+    subjectId: USER,
+    by: MOD,
+    reason: 'Several people reported the same behaviour. Please read the community policy.',
+    ...over,
+  })
+
+  test('a moderator can warn an ordinary user', async () => {
+    await assertSucceeds(setDoc(doc(as(MOD), 'warnings', 'w1'), warning()))
+  })
+
+  test('the person warned can read it — a warning nobody can review is a rumour', async () => {
+    await seed((db) => setDoc(doc(db, 'warnings', 'w1'), warning()))
+    await assertSucceeds(getDoc(doc(as(USER), 'warnings', 'w1')))
+  })
+
+  test('somebody else cannot read it', async () => {
+    await seed((db) => setDoc(doc(db, 'warnings', 'w1'), warning()))
+    await assertFails(getDoc(doc(as(OTHER), 'warnings', 'w1')))
+  })
+
+  test('a warning is a record: nobody can edit or delete one', async () => {
+    await seed((db) => setDoc(doc(db, 'warnings', 'w1'), warning()))
+    await assertFails(updateDoc(doc(as(MOD), 'warnings', 'w1'), { reason: 'Actually never mind' }))
+    await assertFails(updateDoc(doc(as(ADMIN), 'warnings', 'w1'), { reason: 'Softer' }))
+    await assertFails(deleteDoc(doc(as(ADMIN), 'warnings', 'w1')))
+    await assertFails(deleteDoc(doc(as(USER), 'warnings', 'w1')))
+  })
+
+  test('a warning has to say something', async () => {
+    await assertFails(setDoc(doc(as(MOD), 'warnings', 'w1'), warning({ reason: '' })))
+  })
+
+  test('a moderator cannot pin a warning on somebody else', async () => {
+    await assertFails(setDoc(doc(as(MOD), 'warnings', 'w1'), warning({ by: ADMIN })))
+  })
+
+  test('nobody warns themselves, and no moderator warns a peer', async () => {
+    await assertFails(setDoc(doc(as(MOD), 'warnings', 'w1'), warning({ subjectId: MOD, by: MOD })))
+    await assertFails(setDoc(doc(as(MOD), 'warnings', 'w1'), warning({ subjectId: MOD2 })))
+    await assertFails(setDoc(doc(as(MOD), 'warnings', 'w1'), warning({ subjectId: ADMIN })))
+  })
+
+  test('an admin can warn a moderator', async () => {
+    await assertSucceeds(
+      setDoc(doc(as(ADMIN), 'warnings', 'w1'), warning({ subjectId: MOD, by: ADMIN })),
+    )
+  })
+
+  test('an ordinary user cannot warn anybody', async () => {
+    await assertFails(setDoc(doc(as(USER), 'warnings', 'w1'), warning({ by: USER })))
+  })
+})
+
+describe('closing an account', () => {
+  const close = (actor, target) =>
+    setDoc(doc(as(actor), 'roles', target), { role: 'user', suspended: false, banned: true })
+
+  test('an admin can close an ordinary account', async () => {
+    await assertSucceeds(close(ADMIN, USER))
+  })
+
+  test('a moderator cannot — it is the one action with nothing after it', async () => {
+    await assertFails(close(MOD, USER))
+  })
+
+  test('a moderator cannot reopen one either, nor touch a closed account at all', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'roles', USER), { role: 'user', suspended: false, banned: true }),
+    )
+    await assertFails(
+      setDoc(doc(as(MOD), 'roles', USER), { role: 'user', suspended: false, banned: false }),
+    )
+    // Even a plain suspension is refused: merging over the row carries the
+    // closure into the result, which a moderator may not write.
+    await assertFails(setDoc(doc(as(MOD), 'roles', USER), { role: 'user', suspended: true }))
+  })
+
+  test('an admin can reopen one, because a mistake has to be fixable', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'roles', USER), { role: 'user', suspended: false, banned: true }),
+    )
+    await assertSucceeds(
+      setDoc(doc(as(ADMIN), 'roles', USER), { role: 'user', suspended: false, banned: false }),
+    )
+  })
+
+  test('nobody can close an admin, and no admin can close themselves', async () => {
+    await assertFails(close(ADMIN, ADMIN2))
+    await assertFails(close(ADMIN, ADMIN))
+    await assertFails(close(MOD, ADMIN))
+  })
+
+  test('an admin can close a moderator', async () => {
+    await assertSucceeds(close(ADMIN, MOD2))
+  })
+})
+
+describe('what a closed account can still do', () => {
+  beforeEach(() =>
+    seed((db) => setDoc(doc(db, 'roles', USER), { role: 'user', suspended: false, banned: true })),
+  )
+
+  test('read its own profile, so the app can say what happened', async () => {
+    // Without this the app cannot boot far enough to explain itself, and a
+    // blank error screen is not an explanation.
+    await assertSucceeds(getDoc(doc(as(USER), 'users', USER)))
+    await assertSucceeds(getDoc(doc(as(USER), 'users', USER, 'private', 'profile')))
+    await assertSucceeds(getDoc(doc(as(USER), 'roles', USER)))
+  })
+
+  test('and nothing else at all', async () => {
+    await assertFails(getDoc(doc(as(USER), 'activities', 'act_mod')))
+    await assertFails(getDoc(doc(as(USER), 'users', OTHER)))
+  })
+
+  test('cannot host, join, message, report or warn', async () => {
+    await assertFails(setDoc(doc(as(USER), 'activities', 'new'), activity(USER)))
+    await assertFails(
+      updateDoc(doc(as(USER), 'activities', 'act_mod'), {
+        participantUids: [MOD, USER],
+        updatedAt: 1,
+      }),
+    )
+    await assertFails(
+      setDoc(doc(as(USER), 'reports', 'r1'), report({ reporterId: USER, subjectId: OTHER })),
+    )
+  })
+
+  test('cannot reach anybody through a notification', async () => {
+    await assertFails(
+      setDoc(doc(as(USER), 'users', OTHER, 'notifications', 'n1'), {
+        type: 'activity',
+        title: 'Still here',
+        body: 'Reaching you anyway',
+        read: false,
+      }),
+    )
+  })
+
+  test('cannot edit its own profile to slip the name recognition', async () => {
+    await assertFails(setDoc(doc(as(USER), 'users', USER), profile(USER)))
+  })
+
+  test('a closed moderator exercises nothing', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'roles', MOD), { role: 'moderator', suspended: false, banned: true }),
+    )
+    await assertFails(takeDown(MOD, 'act_user'))
+    await assertFails(suspend(MOD, OTHER))
+    await assertFails(getDoc(doc(as(MOD), 'reports', 'rep')))
+  })
+})
+
 describe('a role document that was written by hand', () => {
   // Roles are bootstrapped in the Firebase console, so malformed rows are a
   // realistic input, not a hypothetical one. Every one of these must fail

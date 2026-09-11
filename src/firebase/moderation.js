@@ -126,8 +126,12 @@ export function watchRole(uid, callback, onError) {
     (snap) =>
       callback(
         snap.exists()
-          ? { role: snap.data().role || 'user', suspended: !!snap.data().suspended }
-          : { role: 'user', suspended: false },
+          ? {
+              role: snap.data().role || 'user',
+              suspended: !!snap.data().suspended,
+              banned: snap.data().banned === true,
+            }
+          : { role: 'user', suspended: false, banned: false },
       ),
     onError,
   )
@@ -162,6 +166,7 @@ export async function setSuspended(uid, suspended) {
 // -------------------------------------------------------------- reports ----
 
 const REPORT_PAGE = 100
+const WARNING_PAGE = 200
 
 /** The queue a moderator works from: everything still open, newest first. */
 export function watchOpenReports(callback, onError) {
@@ -348,26 +353,141 @@ export async function setUserRole(uid, role) {
  * does not bring them back — an admin restores them one at a time, which is
  * the same review any other reversal gets.
  */
-export async function suspendAccount(uid, { moderatorId }) {
-  await setSuspended(uid, true)
-
+async function standDownHosted(uid, { moderatorId, reason }) {
   const hosted = await getDocs(query(collection(db, 'activities'), where('hostId', '==', uid)))
   const standing = hosted.docs.filter((d) => d.data().status === 'active')
 
   // Settled rather than awaited in sequence: one failure must not leave the
-  // rest of somebody's activities live after they have been suspended.
+  // rest of somebody's activities live after the account behind them is gone.
   const results = await Promise.allSettled(
-    standing.map((d) =>
-      removeActivity(d.id, {
-        moderatorId,
-        reason: 'The host\u2019s account was suspended',
-      }),
-    ),
+    standing.map((d) => removeActivity(d.id, { moderatorId, reason })),
   )
   return {
     stoodDown: results.filter((r) => r.status === 'fulfilled').length,
     failed: results.filter((r) => r.status === 'rejected').length,
   }
+}
+
+export async function suspendAccount(uid, { moderatorId }) {
+  await setSuspended(uid, true)
+  return standDownHosted(uid, {
+    moderatorId,
+    reason: 'The host\u2019s account was suspended',
+  })
+}
+
+/**
+ * Closes an account for good. Admin only — the rules enforce that.
+ *
+ * The end of the ladder, and the only rung with nothing after it: a warning
+ * costs nothing, a takedown costs one activity, a suspension is a limit that
+ * can be lifted, and this is the relationship ending. Everything the account
+ * is hosting goes with it, for the same reason a suspension stands activities
+ * down — the people who signed up to meet them need telling, not a locked
+ * door on the night.
+ *
+ * The reason is written where the person can read it. Being told an account
+ * is closed without being told why is the kind of thing that makes people
+ * certain they were treated arbitrarily, whether or not they were.
+ */
+export async function closeAccount(uid, { adminId, reason }) {
+  const ref = doc(db, 'roles', uid)
+  const existing = (await getDoc(ref)).data()
+  const note = String(reason || '').slice(0, 300)
+
+  await setDoc(
+    ref,
+    { role: existing?.role || 'user', suspended: existing?.suspended === true, banned: true },
+    { merge: true },
+  )
+  await tell(uid, {
+    title: 'Your SmartSync account has been closed',
+    // Not "you can no longer sign in" — they can, and they just did, or they
+    // would not be reading this. Saying something the person can see is false
+    // undermines the sentence next to it, which is the one that matters.
+    body: `${note} You can still sign in, but the account can no longer host, join, or message anybody. If you believe this is wrong, reply to the email address in our policy.`,
+  })
+  return standDownHosted(uid, {
+    moderatorId: adminId,
+    reason: 'The host\u2019s account was closed',
+  })
+}
+
+/** Reopens a closed account. Admin only, because closing one was. */
+export async function reopenAccount(uid, { reason }) {
+  const ref = doc(db, 'roles', uid)
+  const existing = (await getDoc(ref)).data()
+  await setDoc(
+    ref,
+    { role: existing?.role || 'user', suspended: existing?.suspended === true, banned: false },
+    { merge: true },
+  )
+  await tell(uid, {
+    title: 'Your account is open again',
+    body: `${String(reason || '').slice(0, 300)} Anything taken down while it was closed stays down.`,
+  })
+}
+
+// -------------------------------------------------------------- warnings ---
+
+/**
+ * Everything anybody has been warned about. Moderators read all of it; the
+ * rules let each person read their own.
+ */
+export function watchWarnings(callback, onError) {
+  return onSnapshot(
+    query(collection(db, 'warnings'), orderBy('createdAt', 'desc'), limit(WARNING_PAGE)),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    onError,
+  )
+}
+
+/**
+ * Your own warnings.
+ *
+ * Filtered by subject, which is not a convenience — the rules allow a read
+ * only where the document is about you, and Firestore refuses an entire query
+ * if any document it could return would fail. An unfiltered list is therefore
+ * refused for everybody except a moderator, and this filter is what makes the
+ * query answerable at all.
+ */
+export function watchMyWarnings(uid, callback, onError) {
+  return onSnapshot(
+    query(collection(db, 'warnings'), where('subjectId', '==', uid)),
+    (snap) =>
+      callback(
+        snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)),
+      ),
+    onError,
+  )
+}
+
+/**
+ * Puts somebody on notice.
+ *
+ * The rung the system was missing. Before this the choices were to do nothing
+ * or to take something away, and a ladder whose first rung is a punishment
+ * gets climbed far too readily. A warning costs the person nothing and puts
+ * the problem in writing — which is both fairer and, in practice, where most
+ * of these end.
+ *
+ * It is a record, not a message: the rules refuse every edit and every delete,
+ * from the moderator who wrote it and from an admin.
+ */
+export async function issueWarning(uid, { moderatorId, reason, reportId }) {
+  await addDoc(collection(db, 'warnings'), {
+    subjectId: uid,
+    by: moderatorId,
+    reason: String(reason || '').slice(0, 500),
+    ...(reportId ? { reportId } : {}),
+    createdAt: serverTimestamp(),
+  })
+  await tell(uid, {
+    title: 'A warning about your SmartSync account',
+    body: `${String(reason || '').slice(0, 220)} Nothing has been taken away. Repeated problems can lead to a suspension.`,
+  })
 }
 
 /**

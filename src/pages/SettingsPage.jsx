@@ -4,6 +4,7 @@ import {
   ChevronRight,
   LogOut,
   MessageCircle,
+  MessageSquareWarning,
   ShieldAlert,
   ShieldCheck,
   ShieldOff,
@@ -50,6 +51,16 @@ export default function SettingsPage() {
           <span>
             <strong>Blocked people</strong>
             <small>Who you have blocked, and how to undo it</small>
+          </span>
+          <ChevronRight size={17} />
+        </button>
+        {/* Always here, not only when there is something on it. A row that
+            appears the moment you are warned tells you off twice. */}
+        <button className="setting-row" onClick={() => navigate('/warnings')}>
+          <MessageSquareWarning size={18} />
+          <span>
+            <strong>Warnings</strong>
+            <small>Anything SmartSync has raised with you</small>
           </span>
           <ChevronRight size={17} />
         </button>

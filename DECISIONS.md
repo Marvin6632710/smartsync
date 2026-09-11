@@ -280,6 +280,20 @@ themselves one.
 write to. Reports route work to whoever holds a rank; an oversight directory
 lets them act on what they notice rather than only on what gets flagged.
 
+**The ladder, in order.** Each rung costs the person more than the one before
+it, and the system reaches for the cheapest that fits:
+
+| Rung | Who | Costs the person | Reversible by |
+| --- | --- | --- | --- |
+| Warning | moderator | nothing — a record and a message | nobody; it is a record |
+| Remove an activity | moderator | that activity | an admin |
+| Suspend | moderator | hosting, joining, messaging; everything they host is stood down | a moderator |
+| Close the account | **admin only** | everything except reading why | an admin |
+
+A system whose only options are "nothing" and "you cannot use this any more"
+reaches for the second far too readily. The warning is the rung that was
+missing, and in practice it is where most of these should end.
+
 - **user** — the default. No row in `roles` at all means this, so nothing is
   written at sign-up and a missing document is never an error.
 - **moderator** — reads the report queue, removes activities, suspends and
@@ -308,6 +322,12 @@ could be turned against its users:
   reviewer's queue, so they stay in everyone else's.
 - Admin is console-only, so compromising any in-app account — moderator or
   admin — cannot mint more admins.
+- **A rank cannot touch what a user wrote.** A moderator can make an activity
+  disappear and say why. They cannot change a word of it — not the title, the
+  place, the time, the capacity or the roster — because an activity quietly
+  rewritten by somebody other than its host is worse than one taken down, and
+  the host would have no way to tell. Fourteen fields are named individually
+  in the tests, for both ranks.
 - **Oversight reaches public behaviour and stops there.** Moderators browse
   every account and can act without waiting for a report, but the private half
   of a profile — email, real name behind anonymous mode, stored position — is
@@ -469,8 +489,8 @@ client, which is a courtesy and not a control. ADR-011 says so in writing.
 
 ### "How did you test it?"
 
-278 tests. 49 over the recommendation engine — pure functions, no database
-needed — 155 attacking the security rules feature by feature, and 74 more in
+329 tests. 49 over the recommendation engine — pure functions, no database
+needed — 155 attacking the security rules feature by feature, and 125 more in
 `roles-matrix.test.js` that test the one thing cutting across every feature:
 who may do what to whom, at every combination of the caller's rank, the
 target's rank, and the relationship between them.

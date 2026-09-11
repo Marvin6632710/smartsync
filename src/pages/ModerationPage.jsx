@@ -3,6 +3,8 @@ import {
   CheckCircle2,
   Eye,
   Flag,
+  MessageSquareWarning,
+  ShieldOff,
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
@@ -16,14 +18,18 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import {
+  closeAccount,
+  issueWarning,
   liftSuspension,
   removeActivity,
   resolveReport,
   restoreActivity,
   setUserRole,
+  reopenAccount,
   suspendAccount,
   watchOpenReports,
   watchRoles,
+  watchWarnings,
 } from '../firebase/moderation'
 import { REPORT_REASONS } from '../firebase/moderation'
 import { formatRelativeTime } from '../utils/time'
@@ -64,10 +70,21 @@ export default function ModerationPage() {
   const [watchSearch, setWatchSearch] = useState('')
   const [suspending, setSuspending] = useState(null)
   const [suspendTarget, setSuspendTarget] = useState(null)
+  const [warnings, setWarnings] = useState([])
+  // The two actions that put something on somebody's record and so have to be
+  // justified before they can be taken: a warning, and closing an account.
+  const [recorded, setRecorded] = useState(null)
+  const [recordedReason, setRecordedReason] = useState('')
+  const [recording, setRecording] = useState(null)
 
   useEffect(() => {
     if (!user.isModerator) return undefined
     return watchRoles(setRoles, () => setRoles([]))
+  }, [user.isModerator])
+
+  useEffect(() => {
+    if (!user.isModerator) return undefined
+    return watchWarnings(setWarnings, () => setWarnings([]))
   }, [user.isModerator])
 
   useEffect(() => {
@@ -100,6 +117,15 @@ export default function ModerationPage() {
     [moderators, admins],
   )
   const suspendedIds = useMemo(() => new Set(suspended.map((r) => r.uid)), [suspended])
+  const bannedIds = useMemo(
+    () => new Set(roles.filter((r) => r.banned === true).map((r) => r.uid)),
+    [roles],
+  )
+  const warningCount = useMemo(() => {
+    const counts = new Map()
+    for (const w of warnings) counts.set(w.subjectId, (counts.get(w.subjectId) || 0) + 1)
+    return (uid) => counts.get(uid) || 0
+  }, [warnings])
   const rankOf = useMemo(() => {
     const map = new Map(roles.map((r) => [r.uid, r.role]))
     return (uid) => map.get(uid) || 'user'
@@ -129,6 +155,8 @@ export default function ModerationPage() {
           ...person,
           rank: rankOf(person.uid),
           suspended: suspendedIds.has(person.uid),
+          closed: bannedIds.has(person.uid),
+          warnings: warningCount(person.uid),
           hosts: hosted.get(person.uid)?.total || 0,
           removedCount: hosted.get(person.uid)?.removed || 0,
           joinedCount: joined.get(person.uid) || 0,
@@ -138,12 +166,14 @@ export default function ModerationPage() {
         // sorted alphabetically buries exactly what you opened it to find.
         .sort(
           (a, b) =>
+            Number(b.closed) - Number(a.closed) ||
             Number(b.suspended) - Number(a.suspended) ||
+            b.warnings - a.warnings ||
             b.removedCount - a.removedCount ||
             (a.name || '').localeCompare(b.name || ''),
         )
     )
-  }, [allActivities, directory, rankOf, suspendedIds])
+  }, [allActivities, bannedIds, directory, rankOf, suspendedIds, warningCount])
 
   const watched = useMemo(() => {
     const term = watchSearch.trim().toLowerCase()
@@ -358,6 +388,59 @@ export default function ModerationPage() {
     }
   }
 
+  // A warning and a closure both leave a permanent record, so both go through
+  // one path that will not run without a reason typed into the dialog.
+  const applyRecorded = async () => {
+    const { uid, kind, reportId } = recorded
+    const reason = recordedReason.trim()
+    if (!reason) return
+    setRecorded(null)
+    setRecording(uid)
+    try {
+      if (kind === 'warn') {
+        await issueWarning(uid, { moderatorId: user.uid, reason, reportId })
+        pushCelebration({
+          icon: 'check',
+          tone: 'success',
+          title: 'Warning issued',
+          body: `${nameFor(uid)} has been told, and it is on their record. Nothing was taken away.`,
+        })
+      } else if (kind === 'close') {
+        const { stoodDown } = await closeAccount(uid, { adminId: user.uid, reason })
+        pushCelebration({
+          icon: 'alert',
+          tone: 'warning',
+          title: 'Account closed',
+          body:
+            stoodDown > 0
+              ? `${nameFor(uid)} can no longer use SmartSync. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} stood down, and everyone who joined has been told.`
+              : `${nameFor(uid)} can no longer use SmartSync.`,
+        })
+      } else {
+        await reopenAccount(uid, { reason })
+        pushCelebration({
+          icon: 'check',
+          tone: 'success',
+          title: 'Account reopened',
+          body: `${nameFor(uid)} can use SmartSync again, and has been told.`,
+        })
+      }
+      setRecordedReason('')
+    } catch (recordError) {
+      pushCelebration({
+        icon: 'alert',
+        tone: 'warning',
+        title: "Couldn't do that",
+        body:
+          recordError?.code === 'permission-denied'
+            ? 'Closing and reopening an account is an admin decision, and no rank can act on an admin.'
+            : 'Try again.',
+      })
+    } finally {
+      setRecording(null)
+    }
+  }
+
   const changeRole = async () => {
     const { uid, role } = roleChange
     setRoleChange(null)
@@ -425,6 +508,8 @@ export default function ModerationPage() {
               <p className="report-meta">
                 Reported by {nameFor(report.reporterId)}
                 {report.targetType !== 'user' && ` · about ${nameFor(subjectOf(report))}`}
+                {warningCount(subjectOf(report)) > 0 &&
+                  ` · already warned ${warningCount(subjectOf(report))}×`}
               </p>
 
               <div className="report-actions">
@@ -444,6 +529,20 @@ export default function ModerationPage() {
                     <UserRoundX size={15} /> Suspend account
                   </button>
                 )}
+                {/* The rung between doing nothing and taking something away.
+                    Seeded with what was actually reported, so the person is
+                    told the substance rather than a category name. */}
+                <button
+                  className="secondary-button"
+                  onClick={() => {
+                    setRecordedReason(
+                      `${reasonLabel(report.reason)}${repeats > 1 ? `, reported by ${repeats} people` : ''}. Please read the community policy.`,
+                    )
+                    setRecorded({ uid: subjectOf(report), kind: 'warn', reportId: report.id })
+                  }}
+                >
+                  <MessageSquareWarning size={15} /> Warn
+                </button>
                 <button
                   className="secondary-button"
                   onClick={() => setActing({ report, kind: 'dismiss' })}
@@ -626,7 +725,15 @@ export default function ModerationPage() {
                 <span className="report-kind">
                   <Eye size={13} /> {person.rank}
                 </span>
-                {person.suspended && <span className="report-repeat">suspended</span>}
+                {person.closed && <span className="report-repeat">closed</span>}
+                {person.suspended && !person.closed && (
+                  <span className="report-repeat">suspended</span>
+                )}
+                {person.warnings > 0 && (
+                  <span className="report-repeat">
+                    {person.warnings} warning{person.warnings === 1 ? '' : 's'}
+                  </span>
+                )}
                 {person.removedCount > 0 && (
                   <span className="report-repeat">{person.removedCount} taken down</span>
                 )}
@@ -646,7 +753,20 @@ export default function ModerationPage() {
               )}
 
               <div className="report-actions">
-                {!cannotTouch && !person.suspended && (
+                {!cannotTouch && !person.closed && (
+                  <button
+                    className="secondary-button"
+                    disabled={recording === person.uid}
+                    onClick={() => {
+                      setRecordedReason('')
+                      setRecorded({ uid: person.uid, kind: 'warn' })
+                    }}
+                  >
+                    <MessageSquareWarning size={15} />{' '}
+                    {recording === person.uid ? 'Working…' : 'Warn'}
+                  </button>
+                )}
+                {!cannotTouch && !person.suspended && !person.closed && (
                   <button
                     className="danger-button"
                     disabled={suspending === person.uid}
@@ -656,7 +776,7 @@ export default function ModerationPage() {
                     {suspending === person.uid ? 'Suspending…' : 'Suspend account'}
                   </button>
                 )}
-                {!cannotTouch && person.suspended && (
+                {!cannotTouch && person.suspended && !person.closed && (
                   <button
                     className="secondary-button"
                     disabled={suspending === person.uid}
@@ -664,6 +784,31 @@ export default function ModerationPage() {
                   >
                     <UserRoundCheck size={15} />{' '}
                     {suspending === person.uid ? 'Lifting…' : 'Lift suspension'}
+                  </button>
+                )}
+                {/* The end of the ladder, and an admin's alone. */}
+                {!cannotTouch && user.isAdmin && !person.closed && (
+                  <button
+                    className="danger-button"
+                    disabled={recording === person.uid}
+                    onClick={() => {
+                      setRecordedReason('')
+                      setRecorded({ uid: person.uid, kind: 'close' })
+                    }}
+                  >
+                    <ShieldOff size={15} /> Close account
+                  </button>
+                )}
+                {!cannotTouch && user.isAdmin && person.closed && (
+                  <button
+                    className="secondary-button"
+                    disabled={recording === person.uid}
+                    onClick={() => {
+                      setRecordedReason('')
+                      setRecorded({ uid: person.uid, kind: 'reopen' })
+                    }}
+                  >
+                    <UserRoundCheck size={15} /> Reopen account
                   </button>
                 )}
                 {cannotTouch && !isMe && (
@@ -861,6 +1006,49 @@ export default function ModerationPage() {
         tone={suspendTarget?.suspend ? 'danger' : 'default'}
         onConfirm={actOnPerson}
         onCancel={() => setSuspendTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(recorded)}
+        title={
+          recorded?.kind === 'warn'
+            ? 'Warn this account?'
+            : recorded?.kind === 'close'
+              ? 'Close this account for good?'
+              : 'Reopen this account?'
+        }
+        body={
+          recorded?.kind === 'warn'
+            ? `${nameFor(recorded.uid)} is told what the problem is and it goes on their record. Nothing is taken away — this is the step before anything is.`
+            : recorded?.kind === 'close'
+              ? `${nameFor(recorded?.uid)} will not be able to use SmartSync again. Everything they are hosting is taken down and everyone who joined is told. Only an admin can reverse this.`
+              : `${nameFor(recorded?.uid)} can use SmartSync again. Anything taken down while the account was closed stays down.`
+        }
+        promptLabel={
+          recorded?.kind === 'warn'
+            ? 'What are you warning them about?'
+            : recorded?.kind === 'close'
+              ? 'Why is this account being closed?'
+              : 'Why are you reopening it?'
+        }
+        promptPlaceholder={
+          recorded?.kind === 'warn'
+            ? 'Several people reported the same behaviour'
+            : 'Repeated safety reports after a warning'
+        }
+        promptValue={recordedReason}
+        onPromptChange={setRecordedReason}
+        confirmLabel={
+          recorded?.kind === 'warn'
+            ? 'Send warning'
+            : recorded?.kind === 'close'
+              ? 'Close account'
+              : 'Reopen'
+        }
+        cancelLabel="Cancel"
+        tone={recorded?.kind === 'reopen' ? 'default' : 'danger'}
+        onConfirm={applyRecorded}
+        onCancel={() => setRecorded(null)}
       />
     </div>
   )

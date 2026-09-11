@@ -364,8 +364,8 @@ npm test
 ```
 
 This boots the Firestore emulator and runs both suites: 49 tests over the
-recommendation engine, and 229 that behave like a hostile client and check the
-rules refuse them — 155 feature by feature, and 74 in `roles-matrix.test.js`
+recommendation engine, and 280 that behave like a hostile client and check the
+rules refuse them — 155 feature by feature, and 125 in `roles-matrix.test.js`
 that check who may do what to whom at every combination of rank and
 relationship. It needs Java, like the emulators.
 

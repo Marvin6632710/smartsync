@@ -72,11 +72,18 @@ service cloud.firestore {
     // so that lifting the suspension restores what they were, and so the
     // record shows a suspended moderator rather than a demoted stranger.
     function isAdmin() {
-      return myRole() == 'admin' && !isSuspended();
+      return myRole() == 'admin' && !cannotAct();
     }
 
     function isModerator() {
-      return (myRole() == 'moderator' || myRole() == 'admin') && !isSuspended();
+      return (myRole() == 'moderator' || myRole() == 'admin') && !cannotAct();
+    }
+
+    // Would the row this write produces mark the account closed? On a merge
+    // `request.resource.data` is the document as it will be, so this catches
+    // both setting the flag and leaving an existing one in place.
+    function willBeBanned() {
+      return 'banned' in request.resource.data && request.resource.data.banned == true;
     }
 
     // The rank of the person being acted ON, as opposed to myRole(), which is
@@ -98,8 +105,33 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/roles/$(uid)).data.suspended == true;
     }
 
+    // A closed account. Strictly more than a suspension: a suspended person
+    // can still read SmartSync and is told why, because the point is that
+    // they can see the limit and appeal it. A closed account is the end of
+    // the relationship — nothing is readable and nothing is writable.
+    //
+    // `get(...).data.get('banned', false)` rather than `.banned`, because
+    // every role row written before this existed has only two fields and
+    // reading a missing key would error the rule into refusing everybody.
+    function accountBanned(uid) {
+      return exists(/databases/$(database)/documents/roles/$(uid))
+        && get(/databases/$(database)/documents/roles/$(uid)).data.get('banned', false) == true;
+    }
+
     function isSuspended() {
       return signedIn() && accountSuspended(request.auth.uid);
+    }
+
+    function isBanned() {
+      return signedIn() && accountBanned(request.auth.uid);
+    }
+
+    // Everything a suspension refuses, a closed account refuses too. Written
+    // as one helper so a new write path cannot accidentally check only one of
+    // the two — which is exactly the kind of gap that hides in a system with
+    // more than one kind of restriction.
+    function cannotAct() {
+      return isSuspended() || isBanned();
     }
 
     // Has `ownerId` blocked `otherId`? Their block list is private, but rules
@@ -177,15 +209,28 @@ service cloud.firestore {
     match /users/{uid} {
       // Public profile: readable by any signed-in user. This is what powers
       // peer discovery, participant lists and compatibility scoring.
-      allow read: if signedIn();
+      //
+      // A closed account keeps only itself. It has to be able to load its own
+      // profile or the app cannot boot far enough to tell it what happened —
+      // a blank error screen is not an explanation.
+      allow read: if signedIn() && (isSelf(uid) || !isBanned());
 
-      allow create: if isSelf(uid) && validPublicProfile(request.resource.data);
+      // A closed account cannot rewrite the profile other people see. It is
+      // the one write left that changes how somebody is recognised, and the
+      // point of closing an account is that the relationship has ended.
+      //
+      // A *suspended* account keeps all of this on purpose. They are still a
+      // member with a limit on them, and anonymous mode is a protection —
+      // taking someone's privacy controls away as a punishment is a
+      // punishment in the wrong direction.
+      allow create: if isSelf(uid) && !isBanned() && validPublicProfile(request.resource.data);
 
       allow update: if isSelf(uid)
+        && !isBanned()
         && validPublicProfile(request.resource.data)
         && request.resource.data.uid == resource.data.uid;
 
-      allow delete: if isSelf(uid);
+      allow delete: if isSelf(uid) && !isBanned();
 
       // Private half of the profile. Never readable by anyone else.
       match /private/{docId} {
@@ -210,7 +255,7 @@ service cloud.firestore {
         // somebody the recipient has blocked — blocking is meant to stop them
         // reaching you, and this is reaching you.
         allow create: if signedIn()
-          && !isSuspended()
+          && !cannotAct()
           && !hasBlocked(uid, request.auth.uid)
           && isString(request.resource.data.title, 120)
           && request.resource.data.body is string
@@ -302,7 +347,7 @@ service cloud.firestore {
         && joinersRemoved().size() == 0
         && request.resource.data.participantUids.size() <= resource.data.capacity
         && resource.data.status == 'active'
-        && !isSuspended()
+        && !cannotAct()
         // Nobody joins a suspended host. Somebody is suspended precisely
         // because they may be a danger to the people they would be meeting,
         // and without this their existing activities stayed live and kept
@@ -337,10 +382,10 @@ service cloud.firestore {
 
     match /activities/{activityId} {
       // Discovery requires reading activities you have not joined.
-      allow read: if signedIn();
+      allow read: if signedIn() && !isBanned();
 
       allow create: if signedIn()
-        && !isSuspended()
+        && !cannotAct()
         && request.resource.data.hostId == request.auth.uid
         // A host starts as the sole participant of their own activity.
         && request.resource.data.participantUids == [request.auth.uid]
@@ -459,11 +504,11 @@ service cloud.firestore {
           return activity().startsAt > request.time - duration.value(30, 'd');
         }
 
-        allow read: if isParticipant() && withinRetention();
+        allow read: if isParticipant() && withinRetention() && !isBanned();
 
         allow create: if isParticipant()
           && withinRetention()
-          && !isSuspended()
+          && !cannotAct()
           && request.resource.data.senderId == request.auth.uid
           && isString(request.resource.data.text, 2000);
 
@@ -496,13 +541,13 @@ service cloud.firestore {
       // superior — acting on a fellow moderator is an admin's call.
       allow create, update: if signedIn()
         && uid != request.auth.uid
-        // Exactly two fields, and nothing else. A role document is the most
-        // consequential row in the database, and everything reading it looks
-        // at these two — so anything else on it is state nobody validates,
-        // nobody reads, and nobody would notice arriving. The app writes both
-        // every time, so this costs it nothing.
-        && request.resource.data.keys().hasOnly(['role', 'suspended'])
+        // Exactly these three fields and nothing else. A role document is the
+        // most consequential row in the database, and everything reading it
+        // looks at these — so anything else on it is state nobody validates,
+        // nobody reads, and nobody would notice arriving.
+        && request.resource.data.keys().hasOnly(['role', 'suspended', 'banned'])
         && request.resource.data.suspended is bool
+        && (!('banned' in request.resource.data) || request.resource.data.banned is bool)
         && (
           (
             isAdmin()
@@ -510,6 +555,18 @@ service cloud.firestore {
             && rankOf(uid) != 'admin'
           ) || (
             isModerator()
+            // Closing an account, and reopening one, is an admin's decision
+            // and only an admin's: it is the one action with nothing after it.
+            //
+            // Two checks, not one. `willBeBanned()` stops them writing a row
+            // that says closed. `accountBanned(uid)` stops them touching an
+            // account that already is — and that second one is not redundant:
+            // a plain `setDoc` replaces the document rather than merging, so
+            // without it a moderator could reopen a closed account simply by
+            // writing a fresh row with no `banned` key at all. A test caught
+            // exactly that.
+            && !willBeBanned()
+            && !accountBanned(uid)
             && request.resource.data.role == 'user'
             && rankOf(uid) == 'user'
           )
@@ -524,6 +581,36 @@ service cloud.firestore {
       allow delete: if isAdmin()
         && uid != request.auth.uid
         && rankOf(uid) != 'admin';
+    }
+
+    // --------------------------------------------------------------- warnings
+    //
+    // The rung below a suspension. Somebody accumulating reports gets told, in
+    // writing, what the problem is and that it has been noticed — before
+    // anything is taken away from them. Most people stop there, and a system
+    // whose only options are "nothing" and "you cannot use this any more"
+    // reaches for the second far too often.
+    //
+    // A warning is a record, not a message: immutable and undeletable by
+    // everybody including the moderator who wrote it and an admin. The person
+    // warned can read their own, which is the point — a warning nobody can
+    // review is a rumour.
+    match /warnings/{warningId} {
+      allow read: if signedIn()
+        && !isBanned()
+        && (resource.data.subjectId == request.auth.uid || isModerator());
+
+      allow create: if isModerator()
+        && request.resource.data.keys().hasOnly(
+             ['subjectId', 'by', 'reason', 'reportId', 'createdAt'])
+        && request.resource.data.by == request.auth.uid
+        // Nobody warns themselves, and nobody warns a peer or a superior —
+        // the same ladder as every other action.
+        && request.resource.data.subjectId != request.auth.uid
+        && (isAdmin() || rankOf(request.resource.data.subjectId) == 'user')
+        && isString(request.resource.data.reason, 500);
+
+      allow update, delete: if false;
     }
 
     // ---------------------------------------------------------------- reports
@@ -541,6 +628,7 @@ service cloud.firestore {
     // matters — they cannot act on it, in either direction.
     match /reports/{reportId} {
       allow read: if signedIn()
+        && !isBanned()
         && (resource.data.reporterId == request.auth.uid || isModerator());
       allow create: if signedIn()
         && request.resource.data.reporterId == request.auth.uid

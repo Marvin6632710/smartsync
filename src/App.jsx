@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
+import ClosedAccountScreen from './components/ClosedAccountScreen'
 import BootScreen from './components/BootScreen'
 import ProfileErrorScreen from './components/ProfileErrorScreen'
 import Shell from './components/Shell'
@@ -25,6 +26,7 @@ import NotificationsPage from './pages/NotificationsPage'
 import ProfilePage from './pages/ProfilePage'
 import EditProfilePage from './pages/EditProfilePage'
 import BlockedPage from './pages/BlockedPage'
+import WarningsPage from './pages/WarningsPage'
 import ModerationPage from './pages/ModerationPage'
 import SettingsPage from './pages/SettingsPage'
 import WeightsPage from './pages/WeightsPage'
@@ -73,6 +75,11 @@ export default function App() {
 
   // Stage 3 — signed in but not set up. The recommendation engine has nothing
   // to work with until interests exist, so setup is not skippable.
+  // A closed account gets one screen and nothing else. Placed above every
+  // other route decision — including onboarding — because whatever state the
+  // account was in, this outranks it.
+  if (user.banned) return <ClosedAccountScreen />
+
   if (!user.onboarded) {
     return (
       <Routes>
@@ -131,6 +138,7 @@ export default function App() {
         <Route path="/weights" element={<WeightsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/blocked" element={<BlockedPage />} />
+        <Route path="/warnings" element={<WarningsPage />} />
         <Route path="/moderation" element={<ModerationPage />} />
         <Route path="/joined" element={<JoinedActivitiesPage />} />
         <Route path="/404" element={<NotFoundPage />} />

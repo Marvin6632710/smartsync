@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
   // Roles live in their own collection precisely so a user cannot edit their
   // own. A missing row means an ordinary user, so nothing is written at
   // sign-up and the listener answers immediately either way.
-  const [access, setAccess] = useState({ role: 'user', suspended: false })
+  const [access, setAccess] = useState({ role: 'user', suspended: false, banned: false })
   const { attempt: profileAttempt, guard, resetAttempts } = useListenerRetry(authUser?.uid || null)
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export function AuthProvider({ children }) {
         setPublicProfile(null)
         setPrivateProfile(null)
         setLoaded({ pub: false, priv: false, role: false })
-        setAccess({ role: 'user', suspended: false })
+        setAccess({ role: 'user', suspended: false, banned: false })
         return
       }
       setLoaded({ pub: false, priv: false, role: false })
@@ -154,6 +154,9 @@ export function AuthProvider({ children }) {
       onboarded: privateProfile?.onboarded ?? false,
       role: access.role,
       suspended: access.suspended,
+      // A closed account. Every rank and every action is off, and the app
+      // renders one screen saying so — see App.jsx.
+      banned: access.banned,
       // A suspended account keeps its rank and exercises none of it, matching
       // the rules exactly. Showing the moderation queue to somebody whose
       // every action there would be refused is worse than hiding it.

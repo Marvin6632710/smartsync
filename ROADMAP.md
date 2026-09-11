@@ -27,7 +27,7 @@ Not a feature list — the things that would be hard to claim without evidence.
 group chat, real GPS distance and real maps. Two people in different places
 see each other's activities and each other's messages.
 
-**A security model that has been attacked.** 229 rule tests behave like a
+**A security model that has been attacked.** 280 rule tests behave like a
 hostile client, plus 16 authenticated attacks run against the live project.
 Fifteen genuine holes have been found and fixed by redesign rather than
 patching — three by the feature tests, three by walking the running app as
