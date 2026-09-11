@@ -4,11 +4,14 @@ import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-lea
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
+import { MIN_ZOOM, THAILAND_BOUNDS, THAILAND_CENTRE, withinThailand } from '../data/region'
 import { getCurrentPosition } from '../utils/geo'
 
 // Bangkok. Only ever a starting view — the pin is not set until the host
 // actually places it, so an unedited map cannot be submitted as a real place.
 const DEFAULT_CENTER = { lat: 13.7563, lng: 100.5018 }
+
+const OUTSIDE_MESSAGE = 'SmartSync only runs in Thailand — pick a spot inside the country.'
 
 /**
  * Leaflet's default marker is a PNG resolved relative to the CSS file, which
@@ -22,9 +25,21 @@ const pinIcon = L.divIcon({
   iconAnchor: [11, 11],
 })
 
-function ClickToPlace({ onPick }) {
+function ClickToPlace({ onPick, onReject }) {
   useMapEvents({
-    click: (event) => onPick({ lat: event.latlng.lat, lng: event.latlng.lng }),
+    click: (event) => {
+      const { lat, lng } = event.latlng
+      // `maxBounds` keeps the *view* inside the country, but at the minimum
+      // zoom the viewport is taller than the box, so the sea below Malaysia
+      // and a strip of Myanmar are still on screen and still clickable. The
+      // rules would reject such a pin on write; catching it here means the
+      // host finds out while the map is in front of them.
+      if (!withinThailand(lat, lng)) {
+        onReject()
+        return
+      }
+      onPick({ lat, lng })
+    },
   })
   return null
 }
@@ -50,11 +65,28 @@ export default function LocationPicker({ value, onChange }) {
   const [error, setError] = useState('')
   const point = value?.lat != null && value?.lng != null ? { lat: value.lat, lng: value.lng } : null
 
+  // An existing pin outside the box would otherwise open the map at a centre
+  // `maxBounds` immediately drags away from, which looks like a glitch. Only
+  // data predating the constraint can be in that state, and it is rare enough
+  // to be worth one line rather than a migration.
+  const openAt =
+    point && withinThailand(point.lat, point.lng)
+      ? [point.lat, point.lng]
+      : point
+        ? THAILAND_CENTRE
+        : [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng]
+
   const useMyLocation = async () => {
     setBusy(true)
     setError('')
     try {
       const position = await getCurrentPosition()
+      // Somebody abroad testing the app gets a straight answer instead of a
+      // pin the save silently refuses.
+      if (!withinThailand(position.lat, position.lng)) {
+        setError(`You appear to be outside Thailand. ${OUTSIDE_MESSAGE}`)
+        return
+      }
       onChange({ ...value, ...position })
     } catch {
       setError('Could not get your location. Tap the map instead.')
@@ -77,16 +109,27 @@ export default function LocationPicker({ value, onChange }) {
 
       <div className="picker-map">
         <MapContainer
-          center={point ? [point.lat, point.lng] : [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng]}
+          center={openAt}
           zoom={13}
+          minZoom={MIN_ZOOM}
+          maxBounds={THAILAND_BOUNDS}
+          maxBoundsViscosity={1}
           scrollWheelZoom={false}
           style={{ height: '100%', width: '100%' }}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            bounds={THAILAND_BOUNDS}
+            noWrap
           />
-          <ClickToPlace onPick={(next) => onChange({ ...value, ...next })} />
+          <ClickToPlace
+            onPick={(next) => {
+              setError('')
+              onChange({ ...value, ...next })
+            }}
+            onReject={() => setError(OUTSIDE_MESSAGE)}
+          />
           {point && <Marker position={[point.lat, point.lng]} icon={pinIcon} />}
           <Recenter point={point} />
         </MapContainer>

@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { deriveTimeBand } from '../firebase/activities'
 import { formatClock } from '../utils/time'
+import { withinThailand } from '../data/region'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -56,6 +57,13 @@ export default function CreateActivityPage() {
     // would put a real activity somewhere nobody agreed to meet.
     if (form.lat == null || form.lng == null) {
       setError('Tap the map to place the activity, or use your current location.')
+      return
+    }
+    // The picker will not let you place a pin outside the country, but the
+    // form state can also arrive from a draft, so the check is repeated where
+    // the save happens rather than trusted to the component that set it.
+    if (!withinThailand(form.lat, form.lng)) {
+      setError('SmartSync only runs in Thailand — pick a spot inside the country.')
       return
     }
     if (Number(form.capacity) < 2) {

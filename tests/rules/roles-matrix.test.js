@@ -16,7 +16,11 @@
  * Every test states the harm it is preventing, not just the mechanic.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
-import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing'
+import {
+  assertFails,
+  assertSucceeds,
+  initializeTestEnvironment,
+} from '@firebase/rules-unit-testing'
 import { readFileSync } from 'node:fs'
 import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 
@@ -279,7 +283,9 @@ describe('collision: suspension against rank', () => {
 
   test('a suspended account keeps its rank, so the suspension is reversible', async () => {
     await setRole(MOD, { role: 'moderator', suspended: true })
-    await assertSucceeds(setDoc(doc(as(ADMIN), 'roles', MOD), { role: 'moderator', suspended: false }))
+    await assertSucceeds(
+      setDoc(doc(as(ADMIN), 'roles', MOD), { role: 'moderator', suspended: false }),
+    )
   })
 
   test('a suspended account can still read — that is the difference from a ban', async () => {
@@ -410,7 +416,10 @@ describe('collision: the reviewer is involved in the report', () => {
   test('the reporter cannot close their own report either', async () => {
     // A moderator who reports somebody and then rules on it is both parties.
     await seed((db) =>
-      setDoc(doc(db, 'reports', 'rep'), report({ reporterId: MOD, targetId: USER, subjectId: USER })),
+      setDoc(
+        doc(db, 'reports', 'rep'),
+        report({ reporterId: MOD, targetId: USER, subjectId: USER }),
+      ),
     )
     await assertFails(closeReport(MOD))
   })
@@ -585,7 +594,9 @@ describe('appointing and dismissing, from inside the app', () => {
     // Two separate decisions. The client reads the row and carries `suspended`
     // across; this checks the rules accept the write it makes.
     await setRole(USER, { role: 'user', suspended: true })
-    await assertSucceeds(setDoc(doc(as(ADMIN), 'roles', USER), { role: 'moderator', suspended: true }))
+    await assertSucceeds(
+      setDoc(doc(as(ADMIN), 'roles', USER), { role: 'moderator', suspended: true }),
+    )
     let after
     await seed(async (db) => {
       after = (await getDoc(doc(db, 'roles', USER))).data()

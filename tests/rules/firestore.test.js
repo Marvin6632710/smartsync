@@ -255,6 +255,67 @@ describe('activity field validation', () => {
     rejects({ capacity: 2, participantUids: [BOB, ALICE, CAROL] }))
 })
 
+describe('the activity has to be in Thailand', () => {
+  // The map clamps to the country, so a coordinate outside it is not a
+  // far-away activity — it is one the map can never show. If the rules did
+  // not agree with the map, the REST API would be a way to put activities
+  // into everybody's feed that nobody could ever navigate to.
+  const rejects = (overrides) =>
+    assertFails(addDoc(collection(asBob(), 'activities'), activityFixture(BOB, overrides)))
+  const accepts = (overrides) =>
+    assertSucceeds(addDoc(collection(asBob(), 'activities'), activityFixture(BOB, overrides)))
+
+  test('accepts the cities the app is actually for', async () => {
+    await accepts({ lat: 13.7563, lng: 100.5018 }) // Bangkok
+    await accepts({ lat: 18.7883, lng: 98.9853 }) // Chiang Mai
+    await accepts({ lat: 7.8804, lng: 98.3923 }) // Phuket
+    await accepts({ lat: 16.4419, lng: 102.836 }) // Khon Kaen
+    await accepts({ lat: 6.5408, lng: 101.2803 }) // Narathiwat, near the southern tip
+  })
+
+  test('accepts the corners of the box exactly', async () => {
+    // Inclusive comparisons, so the boundary itself is inside. Somebody in
+    // Mae Sai should not be told their town is not in the country.
+    await accepts({ lat: 5.5, lng: 97.2 })
+    await accepts({ lat: 20.6, lng: 105.7 })
+  })
+
+  test('rejects a hair outside each edge', async () => {
+    await rejects({ lat: 5.49, lng: 100.5 })
+    await rejects({ lat: 20.61, lng: 100.5 })
+    await rejects({ lat: 13.75, lng: 97.19 })
+    await rejects({ lat: 13.75, lng: 105.71 })
+  })
+
+  test('rejects places that are plainly somewhere else', async () => {
+    await rejects({ lat: 1.3521, lng: 103.8198 }) // Singapore
+    await rejects({ lat: 35.6762, lng: 139.6503 }) // Tokyo
+    await rejects({ lat: 51.5072, lng: -0.1276 }) // London
+    await rejects({ lat: -33.8688, lng: 151.2093 }) // Sydney
+  })
+
+  test('rejects null island, which is the shape a missing coordinate takes', async () => {
+    // 0,0 is in the Gulf of Guinea and is what you get when two fields that
+    // were never filled in are coerced to numbers.
+    await rejects({ lat: 0, lng: 0 })
+  })
+
+  test('still rejects an impossible coordinate', async () => {
+    // The narrower range has to remain a superset of the old sanity check,
+    // not a replacement that accidentally lets a NaN-ish value through.
+    await rejects({ lat: 991, lng: 100.5 })
+    await rejects({ lat: 13.75, lng: -181 })
+    await rejects({ lat: 'somewhere', lng: 100.5 })
+  })
+
+  test('a latitude inside the box with a longitude outside it is still rejected', async () => {
+    // Both halves are tested independently; an `&&` written as an `||` would
+    // pass this one and nothing else in the suite would notice.
+    await rejects({ lat: 13.7563, lng: 139.6503 })
+    await rejects({ lat: 35.6762, lng: 100.5018 })
+  })
+})
+
 describe('the two ways an activity says when it is', () => {
   // `startsAt` is the instant, and every query filters on it. `date` and
   // `time` are the wall clock at the venue, which is what every card shows.
@@ -265,10 +326,13 @@ describe('the two ways an activity says when it is', () => {
 
   test('a well-formed date and time are accepted', async () => {
     await assertSucceeds(
-      setDoc(doc(asAlice(), 'activities', 'ok'), activityFixture(ALICE, {
-        date: '2030-01-01',
-        time: '19:00',
-      })),
+      setDoc(
+        doc(asAlice(), 'activities', 'ok'),
+        activityFixture(ALICE, {
+          date: '2030-01-01',
+          time: '19:00',
+        }),
+      ),
     )
   })
 
@@ -1071,7 +1135,9 @@ describe('a suspended admin', () => {
   beforeEach(() => setRole(ADMIN, { role: 'admin', suspended: true }))
 
   test('cannot appoint moderators', async () => {
-    await assertFails(setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'moderator', suspended: false }))
+    await assertFails(
+      setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'moderator', suspended: false }),
+    )
   })
 
   test('cannot restore a removed activity', async () => {
@@ -1175,44 +1241,32 @@ describe('the privilege ladder', () => {
   test('a moderator can suspend an ordinary user', async () => {
     // The whole point of the rank. A moderator who could take down one
     // activity while the same account posted ten more moderates nothing.
-    await assertSucceeds(
-      setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: true }),
-    )
+    await assertSucceeds(setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: true }))
   })
 
   test('a moderator can lift a suspension they placed', async () => {
     await setRole(ALICE, { role: 'user', suspended: true })
-    await assertSucceeds(
-      setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: false }),
-    )
+    await assertSucceeds(setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: false }))
   })
 
   test('a moderator cannot promote anyone while suspending them', async () => {
-    await assertFails(
-      setDoc(doc(asMod(), 'roles', ALICE), { role: 'moderator', suspended: true }),
-    )
+    await assertFails(setDoc(doc(asMod(), 'roles', ALICE), { role: 'moderator', suspended: true }))
   })
 
   test('a moderator cannot suspend a fellow moderator', async () => {
     // Otherwise two moderators can disable each other, and whoever moves
     // first wins. Acting on a peer is an admin's call.
     await setRole(ALICE, { role: 'moderator', suspended: false })
-    await assertFails(
-      setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: true }),
-    )
+    await assertFails(setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: true }))
   })
 
   test('a moderator cannot suspend an admin', async () => {
-    await assertFails(
-      setDoc(doc(asMod(), 'roles', ADMIN), { role: 'user', suspended: true }),
-    )
+    await assertFails(setDoc(doc(asMod(), 'roles', ADMIN), { role: 'user', suspended: true }))
   })
 
   test('a moderator cannot demote a moderator', async () => {
     await setRole(ALICE, { role: 'moderator', suspended: false })
-    await assertFails(
-      setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: false }),
-    )
+    await assertFails(setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: false }))
   })
 
   test('a moderator cannot lift their own suspension', async () => {
@@ -1231,9 +1285,7 @@ describe('the privilege ladder', () => {
     // Two admins able to disable each other is a race with no good outcome.
     // Removing an admin is a console act, like creating one.
     await setRole(CAROL, { role: 'admin', suspended: false })
-    await assertFails(
-      setDoc(doc(asAdmin(), 'roles', CAROL), { role: 'user', suspended: true }),
-    )
+    await assertFails(setDoc(doc(asAdmin(), 'roles', CAROL), { role: 'user', suspended: true }))
   })
 
   test('a plain user cannot suspend anybody, including themselves', async () => {
@@ -1278,7 +1330,9 @@ describe('a removal the host cannot walk back', () => {
 
   test('the host cannot keep editing it', async () => {
     await removeAct1()
-    await assertFails(updateDoc(doc(asAlice(), 'activities', 'act1'), { title: 'Same thing again' }))
+    await assertFails(
+      updateDoc(doc(asAlice(), 'activities', 'act1'), { title: 'Same thing again' }),
+    )
     await assertFails(
       updateDoc(doc(asAlice(), 'activities', 'act1'), { locationName: 'Somewhere else' }),
     )

@@ -71,7 +71,10 @@ describe('distanceBetween', () => {
   test('the farthest two points on Earth are half a circumference apart', () => {
     // Guards the `Math.min(1, ...)` clamp: floating point can push the term
     // just past 1 for antipodal points, and Math.asin of that is NaN.
-    const antipode = distanceBetween({ lat: 13.7563, lng: 100.5018 }, { lat: -13.7563, lng: -79.4982 })
+    const antipode = distanceBetween(
+      { lat: 13.7563, lng: 100.5018 },
+      { lat: -13.7563, lng: -79.4982 },
+    )
     expect(Number.isNaN(antipode)).toBe(false)
     expect(antipode).toBeGreaterThan(19_900)
     expect(antipode).toBeLessThan(20_100)

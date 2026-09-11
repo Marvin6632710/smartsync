@@ -306,8 +306,20 @@ service cloud.firestore {
         && data.description is string && data.description.size() <= 1000
         && isKnownCategory(data.category)
         && isString(data.locationName, 120)
-        && data.lat is number && data.lat >= -90 && data.lat <= 90
-        && data.lng is number && data.lng >= -180 && data.lng <= 180
+        // The coordinate has to be inside Thailand, not merely somewhere on
+        // Earth. SmartSync operates in one country: the map clamps to it and
+        // will not show anything outside it, so an activity pinned in the
+        // Atlantic is not a far-away activity — it is an invisible one, taking
+        // up a slot in every query and reachable only by its direct link.
+        // These four numbers are the same box as src/data/region.js; they are
+        // repeated because the rules language cannot import, so if you move
+        // one, move both.
+        //
+        // A rectangle around Thailand unavoidably includes slivers of its
+        // neighbours. That is accepted: the job here is to reject the absurd,
+        // and the client narrows it no further.
+        && data.lat is number && data.lat >= 5.5 && data.lat <= 20.6
+        && data.lng is number && data.lng >= 97.2 && data.lng <= 105.7
         && data.capacity is int && data.capacity >= 2 && data.capacity <= 500
         // Every query for activities filters on startsAt, so a document
         // without one is invisible to the app but still occupies the

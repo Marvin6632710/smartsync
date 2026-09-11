@@ -2284,31 +2284,81 @@ select:focus-visible {
   color: var(--ink-soft);
 }
 
+/* A teardrop in the category's colour, with the activity's emoji in it.
+   A coloured dot says something is here; the emoji says what, with no legend
+   to consult — which is the point of a map you choose from at a glance. */
 .leaflet-activity-pin .pin-body {
-  display: block;
-  width: 20px;
-  height: 20px;
-  margin: 4px;
-  border-radius: 50%;
-  border: 2px solid var(--surface);
-  /* The pin already carried data-category, which sets --cat on it; it just
-     was not using it. Every pin was the same indigo dot, so the map could
-     tell you where things were and nothing about what they were. */
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin: 1px;
+  /* Round except for the bottom-left, which is then rotated 45° to point down
+     — a map pin drawn with one border-radius instead of an SVG. */
+  border-radius: 50% 50% 50% 4px;
+  transform: rotate(-45deg);
+  border: 2.5px solid var(--surface);
   background: linear-gradient(
     140deg,
     var(--cat, var(--accent)),
     var(--cat-2, var(--accent-strong))
   );
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.28);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.32);
+  transform-origin: center;
   transition:
-    transform 0.16s ease,
-    box-shadow 0.16s ease;
+    transform 0.18s var(--ease-spring, ease),
+    box-shadow 0.18s ease;
+}
+/* The emoji is rotated back so it sits upright in a pin that is not. */
+.leaflet-activity-pin .pin-body i {
+  display: block;
+  transform: rotate(45deg);
+  font-size: 17px;
+  line-height: 1;
+  font-style: normal;
+  /* An emoji font, so a platform that would otherwise render a flat
+     monochrome glyph shows the colour version. */
+  font-family:
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', sans-serif;
+  /* Keeps the glyph crisp over a saturated ground. */
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+/* A group. Same teardrop, wearing the colour of whatever it holds most of,
+   with a count where the emoji goes. */
+.leaflet-activity-pin.cluster .pin-body {
+  width: 38px;
+  height: 38px;
+}
+.leaflet-activity-pin.cluster .pin-body i {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: var(--w-black);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .leaflet-activity-pin.selected .pin-body {
-  transform: scale(1.34);
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.45);
+  /* Lifts and grows, keeping the 45° that makes it a teardrop. */
+  transform: rotate(-45deg) scale(1.22) translate(3px, -3px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.45);
   border-width: 3px;
+  z-index: 500;
+}
+
+/* Pins land as they are placed rather than appearing all at once. */
+@media (prefers-reduced-motion: no-preference) {
+  .leaflet-activity-pin .pin-body {
+    animation: pinDrop 0.34s cubic-bezier(0.22, 1, 0.3, 1) backwards;
+  }
+  @keyframes pinDrop {
+    from {
+      opacity: 0;
+      transform: rotate(-45deg) scale(0.4) translate(-6px, -14px);
+    }
+  }
 }
 
 .leaflet-me-pin span {

@@ -7,6 +7,7 @@ import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { deriveTimeBand } from '../firebase/activities'
 import { formatClock } from '../utils/time'
+import { withinThailand } from '../data/region'
 
 export default function EditActivityPage() {
   const { id } = useParams()
@@ -70,6 +71,12 @@ export default function EditActivityPage() {
     }
     if (!form.locationName?.trim() || form.lat == null || form.lng == null) {
       setError('The activity needs a named place and a pin on the map.')
+      return
+    }
+    // Editing is also the path by which an older activity outside the box
+    // would be saved again, so it has to pass the same test as a new one.
+    if (!withinThailand(form.lat, form.lng)) {
+      setError('SmartSync only runs in Thailand — pick a spot inside the country.')
       return
     }
     if (Number(form.capacity) < minCapacity) {
