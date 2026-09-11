@@ -165,7 +165,11 @@ export async function setSuspended(uid, suspended) {
 
 // -------------------------------------------------------------- reports ----
 
-const REPORT_PAGE = 100
+// How many open reports the queue loads at once. Exported because the screen
+// has to be able to say when it is showing a capped view: a moderator who
+// cannot see that older reports exist has no way to know the oldest — the
+// ones that have waited longest — are the ones being hidden.
+export const REPORT_PAGE = 100
 const WARNING_PAGE = 200
 
 /** The queue a moderator works from: everything still open, newest first. */

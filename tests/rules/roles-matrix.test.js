@@ -928,8 +928,29 @@ describe('what a closed account can still do', () => {
         updatedAt: 1,
       }),
     )
+    // Shaped so the ONLY thing that can refuse it is the closure. The first
+    // version of this passed for the wrong reason — its subjectId did not
+    // match its targetId, so `namesTheRightPerson` refused it and the ban was
+    // never exercised. A test that passes for the wrong reason is worse than
+    // no test, and this one was hiding a real hole: a closed account could
+    // file reports, which a live probe then found.
     await assertFails(
-      setDoc(doc(as(USER), 'reports', 'r1'), report({ reporterId: USER, subjectId: OTHER })),
+      setDoc(
+        doc(as(USER), 'reports', 'r1'),
+        report({ reporterId: USER, targetType: 'user', targetId: OTHER, subjectId: OTHER }),
+      ),
+    )
+  })
+
+  test('and a suspended account still can, which is the difference', async () => {
+    // The limit is on what they can do to other people, not on their ability
+    // to say somebody is a danger.
+    await setRole(OTHER, { role: 'user', suspended: true })
+    await assertSucceeds(
+      setDoc(
+        doc(as(OTHER), 'reports', 'r2'),
+        report({ reporterId: OTHER, targetType: 'user', targetId: USER, subjectId: USER }),
+      ),
     )
   })
 

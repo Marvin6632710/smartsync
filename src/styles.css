@@ -3007,6 +3007,14 @@ input[type='range'] {
   font-size: var(--t-sm);
   color: var(--ink-soft);
   overflow-wrap: anywhere;
+  /* A report may run to a thousand characters, and somebody working a queue
+     needs to compare several at a glance. Capped and scrolled inside its own
+     box rather than truncated: a moderator deciding what to do about somebody
+     must be able to read all of what was said, but one long report must not
+     push every other one off the screen. Found by filing one at the limit. */
+  max-height: 8.5em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .report-meta {
   margin: 0;

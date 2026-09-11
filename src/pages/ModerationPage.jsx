@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   closeAccount,
   issueWarning,
+  REPORT_PAGE,
   liftSuspension,
   removeActivity,
   resolveReport,
@@ -481,6 +482,16 @@ export default function ModerationPage() {
         <p className="helper-text">
           Every action records who took it and why. Nothing here can be deleted.
         </p>
+        {/* At the cap the view is partial, and silently partial is the worst
+            kind: the reports that fall off the end are the oldest, which are
+            the ones that have waited longest. Say so, and say that the repeat
+            counts below are counting only what is loaded. */}
+        {reports.length >= REPORT_PAGE && (
+          <p className="form-error" role="status">
+            Showing the newest {REPORT_PAGE} open reports. Older ones are not listed, and the
+            “reported N×” counts below only count what is shown. Work the queue down to see them.
+          </p>
+        )}
       </section>
 
       {error && (

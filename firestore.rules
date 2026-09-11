@@ -630,7 +630,18 @@ service cloud.firestore {
       allow read: if signedIn()
         && !isBanned()
         && (resource.data.reporterId == request.auth.uid || isModerator());
+      // A *suspended* account may still report, deliberately. Being under a
+      // limit must not stop somebody flagging a danger to other people — that
+      // would punish everybody else for the reporter's own conduct, and the
+      // report costs nobody anything until a moderator reads it.
+      //
+      // A *closed* account may not. They are out of the community, and the
+      // queue is a scarce human resource: leaving it open to somebody who has
+      // been removed is leaving a way to generate work and to aim it at
+      // people. Found by filing one from a closed account and watching it
+      // land in the queue.
       allow create: if signedIn()
+        && !isBanned()
         && request.resource.data.reporterId == request.auth.uid
         && request.resource.data.targetType in ['user', 'activity', 'message']
         && isString(request.resource.data.targetId, 200)
