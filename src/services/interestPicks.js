@@ -18,7 +18,10 @@
  * a group.
  */
 
-const key = (value) => String(value ?? '').trim().toLowerCase()
+const key = (value) =>
+  String(value ?? '')
+    .trim()
+    .toLowerCase()
 
 /** The user's interests as a lookup, deduplicated and case-insensitive. */
 export function interestSet(interests) {
