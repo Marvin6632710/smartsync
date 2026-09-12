@@ -2425,7 +2425,7 @@ select:focus-visible {
   background: linear-gradient(
     140deg,
     var(--cat, var(--accent)),
-    var(--cat-deep, var(--accent-strong))
+    var(--cat-2, var(--accent-strong))
   );
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.32);
   transform-origin: center;
@@ -2453,6 +2453,13 @@ select:focus-visible {
 .leaflet-activity-pin.cluster .pin-body {
   width: 38px;
   height: 38px;
+  /* Unlike a single pin, this one carries a white number rather than an
+     emoji, so it keeps the deep ramp that makes the count legible. */
+  background: linear-gradient(
+    140deg,
+    var(--cat, var(--accent)),
+    var(--cat-deep, var(--accent-strong))
+  );
 }
 .leaflet-activity-pin.cluster .pin-body i {
   font-family: var(--font-display);

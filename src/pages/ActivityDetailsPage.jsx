@@ -236,7 +236,7 @@ export default function ActivityDetailsPage() {
         </div>
 
         <div className="going-row">
-          <GoingStack uids={a.participantUids} max={5} />
+          <GoingStack uids={a.participantUids} capacity={a.capacity} max={5} />
           <button
             className="secondary-button"
             onClick={() => navigate(`/activity/${id}/participants`)}

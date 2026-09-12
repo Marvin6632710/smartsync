@@ -16,7 +16,7 @@ import { useApp } from '../context/AppContext'
  */
 const UNKNOWN = { name: 'SmartSync user', avatar: '?' }
 
-export default function GoingStack({ uids = [], max = 3 }) {
+export default function GoingStack({ uids = [], capacity = null, max = 3 }) {
   const { directory } = useApp()
   const list = Array.isArray(uids) ? uids : []
   const shown = list.slice(0, max).map((uid) => ({ uid, person: directory.get(uid) || UNKNOWN }))
@@ -38,7 +38,16 @@ export default function GoingStack({ uids = [], max = 3 }) {
         ))}
         {extra > 0 && <span className="going-face more">+{extra}</span>}
       </span>
-      <span className="going-count">{list.length} going</span>
+      {/* "3 going" alone lost what the old "3/18" said: whether three means
+          nearly full or barely started. The capacity comes back — and the
+          whole sentence goes to assistive tech, which got nothing before,
+          since the meter that encodes this visually is aria-hidden. */}
+      <span
+        className="going-count"
+        aria-label={capacity ? `${list.length} of ${capacity} going` : `${list.length} going`}
+      >
+        {capacity ? `${list.length} of ${capacity}` : `${list.length} going`}
+      </span>
     </span>
   )
 }

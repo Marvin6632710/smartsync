@@ -71,7 +71,7 @@ export default function ActivityCard({ activity, compact = false }) {
         </div>
 
         <div className="activity-foot">
-          <GoingStack uids={activity.participantUids} />
+          <GoingStack uids={activity.participantUids} capacity={activity.capacity} />
           {badge && <span className={`urgency-pill tone-${badge.tone}`}>{badge.label}</span>}
           <ArrowUpRight size={16} className="card-go" aria-hidden="true" />
         </div>
