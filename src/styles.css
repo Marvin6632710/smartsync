@@ -49,7 +49,7 @@
   /* --- Text ---------------------------------------------- */
   --text: #16181d;
   --text-2: #565b66;
-  --text-3: #8a8f9a;
+  --text-3: #5f6572;
 
   /* --- Brand --------------------------------------------- */
   --accent: #4f46e5;
@@ -139,63 +139,75 @@
    ========================================================= */
 
 [data-category='football'] {
-  --cat: #0e8a4f;
+  --cat: #0d814a;
   --cat-2: #1fc472;
+  --cat-deep: #0a673b;
   --cat-soft: #e6f6ee;
 }
 [data-category='running'] {
-  --cat: #e14a38;
+  --cat: #c84232;
   --cat-2: #ff8a5c;
+  --cat-deep: #a03528;
   --cat-soft: #fdeeea;
 }
 [data-category='cycling'] {
   --cat: #0a6fa8;
   --cat-2: #2bb3e6;
+  --cat-deep: #085986;
   --cat-soft: #e6f3fa;
 }
 [data-category='gym'] {
   --cat: #5b45cf;
   --cat-2: #9a85f7;
+  --cat-deep: #4937a6;
   --cat-soft: #eeebfd;
 }
 [data-category='study'] {
   --cat: #0d7a70;
   --cat-2: #2cc0ad;
+  --cat-deep: #0a625a;
   --cat-soft: #e5f5f3;
 }
 [data-category='coffee'] {
   --cat: #8a5733;
   --cat-2: #c99160;
+  --cat-deep: #6e4629;
   --cat-soft: #f7efe8;
 }
 [data-category='gaming'] {
   --cat: #7326c9;
   --cat-2: #b163f5;
+  --cat-deep: #5c1ea1;
   --cat-soft: #f2e9fd;
 }
 [data-category='hangouts'] {
   --cat: #cc2f7b;
   --cat-2: #ff7cb5;
+  --cat-deep: #a32662;
   --cat-soft: #fdeaf2;
 }
 [data-category='movies'] {
   --cat: #a81e48;
   --cat-2: #e8547e;
+  --cat-deep: #86183a;
   --cat-soft: #fce9ee;
 }
 [data-category='food'] {
-  --cat: #c8891a;
+  --cat: #976714;
   --cat-2: #f5c44a;
+  --cat-deep: #795310;
   --cat-soft: #fbf2e2;
 }
 [data-category='events'] {
   --cat: #3a49c4;
   --cat-2: #7b8cf5;
+  --cat-deep: #2e3a9d;
   --cat-soft: #eaedfd;
 }
 [data-category='basketball'] {
-  --cat: #c85a17;
+  --cat: #b85315;
   --cat-2: #f7934c;
+  --cat-deep: #934211;
   --cat-soft: #fbf0e6;
 }
 
@@ -369,7 +381,10 @@ select:focus-visible {
   display: none;
 }
 .page-content {
-  padding: 16px 16px 104px;
+  /* The bottom bar is 64px and the create button floats 80px up from the
+     bottom and is 56 tall, so the content had to clear 136px, not 104 — the
+     end of every list was sitting underneath the button. */
+  padding: 16px 16px 148px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -462,8 +477,9 @@ select:focus-visible {
     color 0.15s ease;
 }
 .icon-button {
-  width: 38px;
-  height: 38px;
+  /* 44px is the smallest target a thumb hits reliably; these were 38. */
+  width: 44px;
+  height: 44px;
   border-radius: var(--r-pill);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -474,8 +490,9 @@ select:focus-visible {
   border-color: var(--accent-line);
 }
 .icon-button.slim {
-  width: 34px;
-  height: 34px;
+  /* "Slim" now describes its weight, not a target too small to hit. */
+  width: 44px;
+  height: 44px;
 }
 .notification-button {
   position: relative;
@@ -527,7 +544,11 @@ select:focus-visible {
 .text-button {
   background: transparent;
   color: var(--accent);
-  padding: 0;
+  /* These read as small links but are real navigation — "See all", "Edit" —
+     and measured 15px tall. The box grows; the text does not move. */
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 2px;
   font-size: var(--t-sm);
   font-weight: var(--w-medium);
 }
@@ -580,7 +601,12 @@ select:focus-visible {
   align-self: flex-start;
   color: var(--text-2);
   background: transparent;
-  padding: 0;
+  /* The label stayed 16px tall while being the way out of every subpage.
+     The padding grows the target to 44 and the negative margin keeps the
+     text optically aligned with the content below it. */
+  min-height: 44px;
+  padding: 0 10px;
+  margin-left: -10px;
   font-size: var(--t-sm);
   font-weight: var(--w-medium);
 }
@@ -756,7 +782,9 @@ select:focus-visible {
   color: var(--text-2);
   background: var(--surface);
   border: 1px solid var(--line);
-  padding: 8px 14px;
+  /* Was 33px tall. */
+  min-height: 44px;
+  padding: 8px 16px;
 }
 .filter-chip.active {
   background: var(--accent-soft);
@@ -914,7 +942,7 @@ select:focus-visible {
   background: linear-gradient(
     135deg,
     var(--cat, var(--accent)),
-    var(--cat-2, var(--accent-strong))
+    var(--cat-deep, var(--accent-strong))
   );
   color: #fff;
   isolation: isolate;
@@ -929,7 +957,9 @@ select:focus-visible {
   background: radial-gradient(120% 90% at 88% -20%, rgba(255, 255, 255, 0.32), transparent 60%);
 }
 .activity-visual .category-chip {
-  background: rgba(255, 255, 255, 0.22);
+  /* Dark glass, not light: white-on-white-tint measured 3.65:1. Tinting the
+     other way keeps the frosted look and clears 8:1. */
+  background: rgba(0, 0, 0, 0.22);
   color: #fff;
   border-color: rgba(255, 255, 255, 0.28);
   backdrop-filter: blur(2px);
@@ -1031,7 +1061,7 @@ select:focus-visible {
   background: linear-gradient(
     140deg,
     var(--cat, var(--accent)),
-    var(--cat-2, var(--accent-strong))
+    var(--cat-deep, var(--accent-strong))
   );
   box-shadow: var(--shadow-cat, var(--shadow-lg));
 }
@@ -2302,7 +2332,7 @@ select:focus-visible {
   background: linear-gradient(
     140deg,
     var(--cat, var(--accent)),
-    var(--cat-2, var(--accent-strong))
+    var(--cat-deep, var(--accent-strong))
   );
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.32);
   transform-origin: center;
@@ -2949,7 +2979,7 @@ input[type='range'] {
   justify-content: space-between;
   gap: 12px;
 }
-.discover-head h1 {
+.discover-head h2 {
   margin: 2px 0 0;
   font-family: var(--font-display);
   font-size: var(--t-hero);
@@ -2971,6 +3001,8 @@ input[type='range'] {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  /* Was 38px tall. */
+  min-height: 44px;
   padding: 10px 8px;
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
@@ -3001,7 +3033,7 @@ input[type='range'] {
   background: linear-gradient(
     140deg,
     var(--cat, var(--accent)),
-    var(--cat-2, var(--accent-strong))
+    var(--cat-deep, var(--accent-strong))
   );
   box-shadow: var(--shadow-cat, var(--shadow-lg));
   transition: transform var(--dur-fast) var(--ease);
@@ -3024,7 +3056,8 @@ input[type='range'] {
   gap: 10px;
 }
 .hero-pick .category-chip {
-  background: rgba(255, 255, 255, 0.22);
+  /* Same reason as the card chip above. */
+  background: rgba(0, 0, 0, 0.22);
   border-color: rgba(255, 255, 255, 0.3);
   color: #fff;
 }
@@ -3053,7 +3086,9 @@ input[type='range'] {
 .hero-why {
   margin: 6px 0 0;
   font-size: var(--t-sm);
-  color: rgba(255, 255, 255, 0.82);
+  /* 0.82 landed on 4.49:1, a hair under. This line is the app explaining why
+     it picked this activity, which is the sentence that earns the trust. */
+  color: rgba(255, 255, 255, 0.95);
 }
 .hero-cta {
   display: inline-flex;
@@ -3170,7 +3205,7 @@ input[type='range'] {
   background: linear-gradient(
     140deg,
     var(--cat, var(--accent)),
-    var(--cat-2, var(--accent-strong))
+    var(--cat-deep, var(--accent-strong))
   );
   color: #fff;
   border: 0;
@@ -3208,7 +3243,9 @@ input[type='range'] {
   color: #fff;
 }
 .profile-showcase p {
-  color: rgba(255, 255, 255, 0.85);
+  /* 0.85 over the header gradient measured 3.76:1 — this is the one line of
+     text a profile actually says about a person, so it reads at full strength. */
+  color: #fff;
 }
 .profile-showcase .avatar,
 .profile-showcase .avatar.large {
@@ -3320,7 +3357,10 @@ input[type='range'] {
 input,
 select,
 textarea {
+  /* 16px keeps iOS Safari from zooming the page on focus; the min-height
+     takes the fields from 40-43px up to a full target. */
   font-size: 16px;
+  min-height: 44px;
 }
 
 /* Nothing in this app is meant to scroll sideways. The vertical scroller was
@@ -3662,7 +3702,7 @@ body {
   background: linear-gradient(
     140deg,
     var(--cat, var(--accent)),
-    var(--cat-2, var(--accent-strong))
+    var(--cat-deep, var(--accent-strong))
   );
   box-shadow: var(--shadow-cat, var(--shadow));
 }

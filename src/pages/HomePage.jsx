@@ -51,7 +51,9 @@ export default function HomePage() {
           <span className="eyebrow">
             {user.anonymous ? 'Anonymous mode' : `${greetingFor(part)}, ${firstName}`}
           </span>
-          <h1>{questionFor(part)}</h1>
+          {/* h2, not h1: the topbar already carries this page's h1, and
+              every other screen in the shell follows the same shape. */}
+          <h2>{questionFor(part)}</h2>
         </div>
       </header>
 

@@ -44,7 +44,11 @@ export default function ProfilePage() {
     <div className="page-content">
       <section className="profile-showcase">
         <div className="profile-actions-top">
-          <button className="icon-button slim" onClick={() => navigate('/settings')}>
+          <button
+            className="icon-button slim"
+            onClick={() => navigate('/settings')}
+            aria-label="Settings"
+          >
             <Settings size={18} />
           </button>
           <div className="mini-actions">

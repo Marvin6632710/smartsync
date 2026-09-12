@@ -149,7 +149,11 @@ export default function LocationPicker({ value, onChange }) {
           <LocateFixed size={16} /> {busy ? 'Locating…' : 'Use my location'}
         </button>
       </div>
-      {error && <p className="form-error">{error}</p>}
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   )
 }
