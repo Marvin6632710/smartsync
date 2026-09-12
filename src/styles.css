@@ -4094,3 +4094,76 @@ body {
 .going-row .going-count {
   font-size: var(--t-sm);
 }
+
+/* =========================================================
+   MODERATION SECTIONS
+   The queue is the job, so it stays on the front page. The three reference
+   sections — everything taken down, everyone on the server, who holds the
+   rank — are things you go and look at, so they are rows you choose rather
+   than pages you scroll past.
+   ========================================================= */
+
+.mod-sections {
+  display: grid;
+  gap: 8px;
+}
+.mod-section-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 14px 14px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.2s var(--ease-spring),
+    border-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
+}
+.mod-section-row:hover {
+  border-color: var(--accent-line);
+}
+.mod-section-row:active {
+  transform: scale(0.985);
+  transition-duration: 0.09s;
+}
+.mod-section-row > svg:first-child {
+  color: var(--accent);
+}
+.mod-section-row > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.mod-section-row strong {
+  font-size: var(--t-body);
+  font-weight: var(--w-semibold);
+  line-height: 1.3;
+}
+.mod-section-row small {
+  font-size: var(--t-xs);
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+/* The count is the reason to go in or not, so it reads before the chevron. */
+.mod-section-count {
+  min-width: 26px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--bg-sunken);
+  color: var(--ink-soft);
+  font-size: var(--t-xs);
+  font-weight: var(--w-bold);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.mod-section-row > svg:last-child {
+  color: var(--text-3);
+}

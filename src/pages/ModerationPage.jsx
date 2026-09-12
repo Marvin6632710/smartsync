@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2,
+  ChevronRight,
   Eye,
   Flag,
   MessageSquareWarning,
@@ -12,7 +13,7 @@ import {
   UserRoundCheck,
   UserRoundX,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -50,6 +51,8 @@ export default function ModerationPage() {
   const { user } = useAuth()
   const { pushCelebration, directory, activities, allActivities, removedActivities } = useApp()
   const navigate = useNavigate()
+  // undefined on /moderation, otherwise the section being looked at.
+  const { section } = useParams()
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -204,6 +207,32 @@ export default function ModerationPage() {
           <ShieldAlert size={28} />
           <h3>Not available</h3>
           <p>This screen is for moderators.</p>
+        </div>
+      </div>
+    )
+
+  // The section routes are as guessable as the page itself. Two of the three
+  // are an admin's alone, and a moderator who typed the URL should be told
+  // so rather than handed a blank screen.
+  const ADMIN_ONLY = ['removed', 'moderators']
+  const KNOWN = ['removed', 'people', 'moderators']
+  if (section && !KNOWN.includes(section))
+    return (
+      <div className="page-content">
+        <div className="empty-state">
+          <ShieldAlert size={28} />
+          <h3>No such section</h3>
+          <p>Go back to Moderation to pick one.</p>
+        </div>
+      </div>
+    )
+  if (section && ADMIN_ONLY.includes(section) && !user.isAdmin)
+    return (
+      <div className="page-content">
+        <div className="empty-state">
+          <ShieldAlert size={28} />
+          <h3>Admins only</h3>
+          <p>This section is for admins. The report queue is open to you.</p>
         </div>
       </div>
     )
@@ -471,166 +500,226 @@ export default function ModerationPage() {
     }
   }
 
+  /**
+   * One component, four screens.
+   *
+   * Everything moderators can do used to sit on a single page: the report
+   * queue, suspended accounts, removed activities, every person on the
+   * server and the moderator list, stacked one after another with nothing
+   * but a heading between them. Finding anything meant scrolling past all of
+   * it, and the page grew with the server.
+   *
+   * The work queue stays on the front page, because that is the job. The
+   * three reference sections became their own screens, reached from the rows
+   * below — kept in this component rather than split into three files
+   * because they share every handler, every dialog and the same live data,
+   * and duplicating that across four files is how the four drift apart.
+   */
+  const onHub = !section
+  const showing = (name) => section === name
+
   return (
     <div className="page-content">
-      <section className="headline-block">
-        <span className="eyebrow">Moderation</span>
-        <h2>Open reports</h2>
-        <p className="helper-text">
-          Every action records who took it and why. Nothing here can be deleted.
-        </p>
-        {/* At the cap the view is partial, and silently partial is the worst
+      {onHub && (
+        <>
+          <section className="headline-block">
+            <span className="eyebrow">Moderation</span>
+            <h2>Open reports</h2>
+            <p className="helper-text">
+              Every action records who took it and why. Nothing here can be deleted.
+            </p>
+            {/* At the cap the view is partial, and silently partial is the worst
             kind: the reports that fall off the end are the oldest, which are
             the ones that have waited longest. Say so, and say that the repeat
             counts below are counting only what is loaded. */}
-        {reports.length >= REPORT_PAGE && (
-          <p className="form-error" role="status">
-            Showing the newest {REPORT_PAGE} open reports. Older ones are not listed, and the
-            “reported N×” counts below only count what is shown. Work the queue down to see them.
-          </p>
-        )}
-      </section>
-
-      {error && (
-        <p className="form-error" role="alert">
-          Could not load reports. {error.code === 'permission-denied' ? 'Check your role.' : ''}
-        </p>
-      )}
-
-      <div className="stack list-stack">
-        {queue.map((report) => {
-          const repeats = timesReported(report)
-          return (
-            <article className="report-card" key={report.id}>
-              <header>
-                <span className="report-kind">
-                  <Flag size={13} /> {report.targetType}
-                </span>
-                {repeats > 1 && <span className="report-repeat">Reported {repeats}×</span>}
-                <time>{formatRelativeTime(report.createdAt)}</time>
-              </header>
-
-              <h3>{reasonLabel(report.reason)}</h3>
-              {report.context && <p className="report-context">{report.context}</p>}
-              {report.detail && <p className="report-detail-text">“{report.detail}”</p>}
-              <p className="report-meta">
-                Reported by {nameFor(report.reporterId)}
-                {report.targetType !== 'user' && ` · about ${nameFor(subjectOf(report))}`}
-                {warningCount(subjectOf(report)) > 0 &&
-                  ` · already warned ${warningCount(subjectOf(report))}×`}
+            {reports.length >= REPORT_PAGE && (
+              <p className="form-error" role="status">
+                Showing the newest {REPORT_PAGE} open reports. Older ones are not listed, and the
+                “reported N×” counts below only count what is shown. Work the queue down to see
+                them.
               </p>
-
-              <div className="report-actions">
-                {report.targetType === 'activity' && (
-                  <button
-                    className="danger-button"
-                    onClick={() => setActing({ report, kind: 'remove' })}
-                  >
-                    <Trash2 size={15} /> Remove activity
-                  </button>
-                )}
-                {report.targetType !== 'activity' && (
-                  <button
-                    className="danger-button"
-                    onClick={() => setActing({ report, kind: 'suspend' })}
-                  >
-                    <UserRoundX size={15} /> Suspend account
-                  </button>
-                )}
-                {/* The rung between doing nothing and taking something away.
-                    Seeded with what was actually reported, so the person is
-                    told the substance rather than a category name. */}
-                <button
-                  className="secondary-button"
-                  onClick={() => {
-                    setRecordedReason(
-                      `${reasonLabel(report.reason)}${repeats > 1 ? `, reported by ${repeats} people` : ''}. Please read the community policy.`,
-                    )
-                    setRecorded({ uid: subjectOf(report), kind: 'warn', reportId: report.id })
-                  }}
-                >
-                  <MessageSquareWarning size={15} /> Warn
-                </button>
-                <button
-                  className="secondary-button"
-                  onClick={() => setActing({ report, kind: 'dismiss' })}
-                >
-                  <CheckCircle2 size={15} /> Dismiss
-                </button>
-                {report.targetType === 'activity' && (
-                  <button
-                    className="text-button"
-                    onClick={() => navigate(`/activity/${report.targetId}`)}
-                  >
-                    Look at it
-                  </button>
-                )}
-              </div>
-            </article>
-          )
-        })}
-
-        {!loading && queue.length === 0 && !error && (
-          <div className="empty-state">
-            <CheckCircle2 size={28} />
-            <h3>Nothing waiting</h3>
-            <p>Reports appear here as soon as someone files one.</p>
-          </div>
-        )}
-      </div>
-
-      {/* Suspensions have to be reversible from here. A moderator who could
-          only ever apply one would be sending every mistake to whoever has
-          Firebase console access. Ranks apply as everywhere else: a moderator
-          may lift an ordinary user, only an admin may act on a moderator. */}
-      {suspended.length > 0 && (
-        <>
-          <section className="headline-block">
-            <span className="eyebrow">Suspended</span>
-            <h2>Accounts on hold</h2>
-            <p className="helper-text">
-              They can still read SmartSync. They cannot create, join or message, and nothing they
-              host accepts new people.
-            </p>
+            )}
           </section>
 
+          {error && (
+            <p className="form-error" role="alert">
+              Could not load reports. {error.code === 'permission-denied' ? 'Check your role.' : ''}
+            </p>
+          )}
+
           <div className="stack list-stack">
-            {suspended.map((account) => {
-              const outranksMe = account.role !== 'user' && !user.isAdmin
+            {queue.map((report) => {
+              const repeats = timesReported(report)
               return (
-                <article className="report-card" key={account.uid}>
+                <article className="report-card" key={report.id}>
                   <header>
                     <span className="report-kind">
-                      <UserRoundX size={13} /> {account.role}
+                      <Flag size={13} /> {report.targetType}
                     </span>
+                    {repeats > 1 && <span className="report-repeat">Reported {repeats}×</span>}
+                    <time>{formatRelativeTime(report.createdAt)}</time>
                   </header>
-                  <h3>{nameFor(account.uid)}</h3>
-                  {outranksMe && (
-                    <p className="report-context">
-                      A moderator. Only an admin can lift this suspension.
-                    </p>
-                  )}
+
+                  <h3>{reasonLabel(report.reason)}</h3>
+                  {report.context && <p className="report-context">{report.context}</p>}
+                  {report.detail && <p className="report-detail-text">“{report.detail}”</p>}
+                  <p className="report-meta">
+                    Reported by {nameFor(report.reporterId)}
+                    {report.targetType !== 'user' && ` · about ${nameFor(subjectOf(report))}`}
+                    {warningCount(subjectOf(report)) > 0 &&
+                      ` · already warned ${warningCount(subjectOf(report))}×`}
+                  </p>
+
                   <div className="report-actions">
+                    {report.targetType === 'activity' && (
+                      <button
+                        className="danger-button"
+                        onClick={() => setActing({ report, kind: 'remove' })}
+                      >
+                        <Trash2 size={15} /> Remove activity
+                      </button>
+                    )}
+                    {report.targetType !== 'activity' && (
+                      <button
+                        className="danger-button"
+                        onClick={() => setActing({ report, kind: 'suspend' })}
+                      >
+                        <UserRoundX size={15} /> Suspend account
+                      </button>
+                    )}
+                    {/* The rung between doing nothing and taking something away.
+                    Seeded with what was actually reported, so the person is
+                    told the substance rather than a category name. */}
                     <button
                       className="secondary-button"
-                      disabled={outranksMe || lifting === account.uid}
-                      onClick={() => lift(account)}
+                      onClick={() => {
+                        setRecordedReason(
+                          `${reasonLabel(report.reason)}${repeats > 1 ? `, reported by ${repeats} people` : ''}. Please read the community policy.`,
+                        )
+                        setRecorded({ uid: subjectOf(report), kind: 'warn', reportId: report.id })
+                      }}
                     >
-                      <UserRoundCheck size={15} />{' '}
-                      {lifting === account.uid ? 'Lifting…' : 'Lift suspension'}
+                      <MessageSquareWarning size={15} /> Warn
                     </button>
+                    <button
+                      className="secondary-button"
+                      onClick={() => setActing({ report, kind: 'dismiss' })}
+                    >
+                      <CheckCircle2 size={15} /> Dismiss
+                    </button>
+                    {report.targetType === 'activity' && (
+                      <button
+                        className="text-button"
+                        onClick={() => navigate(`/activity/${report.targetId}`)}
+                      >
+                        Look at it
+                      </button>
+                    )}
                   </div>
                 </article>
               )
             })}
+
+            {!loading && queue.length === 0 && !error && (
+              <div className="empty-state">
+                <CheckCircle2 size={28} />
+                <h3>Nothing waiting</h3>
+                <p>Reports appear here as soon as someone files one.</p>
+              </div>
+            )}
           </div>
+
+          {/* Suspensions have to be reversible from here. A moderator who could
+          only ever apply one would be sending every mistake to whoever has
+          Firebase console access. Ranks apply as everywhere else: a moderator
+          may lift an ordinary user, only an admin may act on a moderator. */}
+          {suspended.length > 0 && (
+            <>
+              <section className="headline-block">
+                <span className="eyebrow">Suspended</span>
+                <h2>Accounts on hold</h2>
+                <p className="helper-text">
+                  They can still read SmartSync. They cannot create, join or message, and nothing
+                  they host accepts new people.
+                </p>
+              </section>
+
+              <div className="stack list-stack">
+                {suspended.map((account) => {
+                  const outranksMe = account.role !== 'user' && !user.isAdmin
+                  return (
+                    <article className="report-card" key={account.uid}>
+                      <header>
+                        <span className="report-kind">
+                          <UserRoundX size={13} /> {account.role}
+                        </span>
+                      </header>
+                      <h3>{nameFor(account.uid)}</h3>
+                      {outranksMe && (
+                        <p className="report-context">
+                          A moderator. Only an admin can lift this suspension.
+                        </p>
+                      )}
+                      <div className="report-actions">
+                        <button
+                          className="secondary-button"
+                          disabled={outranksMe || lifting === account.uid}
+                          onClick={() => lift(account)}
+                        >
+                          <UserRoundCheck size={15} />{' '}
+                          {lifting === account.uid ? 'Lifting…' : 'Lift suspension'}
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          <nav className="mod-sections" aria-label="Moderation sections">
+            {user.isAdmin && (
+              <button className="mod-section-row" onClick={() => navigate('/moderation/removed')}>
+                <Trash2 size={17} />
+                <span>
+                  <strong>Removed activities</strong>
+                  <small>Everything moderators have taken down</small>
+                </span>
+                <span className="mod-section-count">{removedActivities.length}</span>
+                <ChevronRight size={17} aria-hidden="true" />
+              </button>
+            )}
+            <button className="mod-section-row" onClick={() => navigate('/moderation/people')}>
+              <Eye size={17} />
+              <span>
+                <strong>Everyone on SmartSync</strong>
+                <small>Look without waiting to be told</small>
+              </span>
+              <span className="mod-section-count">{watched.length}</span>
+              <ChevronRight size={17} aria-hidden="true" />
+            </button>
+            {user.isAdmin && (
+              <button
+                className="mod-section-row"
+                onClick={() => navigate('/moderation/moderators')}
+              >
+                <ShieldCheck size={17} />
+                <span>
+                  <strong>Moderators</strong>
+                  <small>Who holds the rank, and appointing</small>
+                </span>
+                <span className="mod-section-count">{moderators.length}</span>
+                <ChevronRight size={17} aria-hidden="true" />
+              </button>
+            )}
+          </nav>
         </>
       )}
 
       {/* Undoing a takedown is an admin's job and nobody else's, so the list
           only appears for one. A moderator seeing a queue of decisions they
           cannot act on would be inviting them to try. */}
-      {user.isAdmin && removedActivities.length > 0 && (
+      {showing('removed') && user.isAdmin && (
         <>
           <section className="headline-block">
             <span className="eyebrow">Admin</span>
@@ -708,6 +797,13 @@ export default function ModerationPage() {
                 </div>
               </article>
             ))}
+            {removedActivities.length === 0 && (
+              <div className="empty-state">
+                <Trash2 size={28} />
+                <h3>Nothing has been taken down</h3>
+                <p>Activities removed by a moderator will be listed here.</p>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -717,155 +813,160 @@ export default function ModerationPage() {
           attached, and the same powers applied from here as from the queue.
           Public profile data only: the private half of a profile is readable
           by its owner and by nobody else, an admin included. */}
-      <section className="headline-block">
-        <span className="eyebrow">Oversight</span>
-        <h2>Everyone on SmartSync</h2>
-        <p className="helper-text">
-          {people.length} {people.length === 1 ? 'account' : 'accounts'}. Anyone suspended, or with
-          something taken down, is listed first. You are seeing public profiles — emails, real names
-          behind anonymous mode and stored locations are not readable by anybody but their owner.
-        </p>
-      </section>
+      {showing('people') && (
+        <>
+          <section className="headline-block">
+            <span className="eyebrow">Oversight</span>
+            <h2>Everyone on SmartSync</h2>
+            <p className="helper-text">
+              {people.length} {people.length === 1 ? 'account' : 'accounts'}. Anyone suspended, or
+              with something taken down, is listed first. You are seeing public profiles — emails,
+              real names behind anonymous mode and stored locations are not readable by anybody but
+              their owner.
+            </p>
+          </section>
 
-      <label className="report-detail watch-search">
-        Search everyone
-        <input
-          value={watchSearch}
-          maxLength={60}
-          placeholder="Name or @username"
-          onChange={(event) => setWatchSearch(event.target.value)}
-        />
-      </label>
+          <label className="report-detail watch-search">
+            Search everyone
+            <input
+              value={watchSearch}
+              maxLength={60}
+              placeholder="Name or @username"
+              onChange={(event) => setWatchSearch(event.target.value)}
+            />
+          </label>
 
-      <div className="stack list-stack">
-        {watched.slice(0, 40).map((person) => {
-          const isMe = person.uid === user.uid
-          const cannotTouch =
-            isMe || person.rank === 'admin' || (person.rank !== 'user' && !user.isAdmin)
-          return (
-            <article className="report-card" key={person.uid}>
-              <header>
-                <span className="report-kind">
-                  <Eye size={13} /> {person.rank}
-                </span>
-                {person.closed && <span className="report-repeat">closed</span>}
-                {person.suspended && !person.closed && (
-                  <span className="report-repeat">suspended</span>
-                )}
-                {person.warnings > 0 && (
-                  <span className="report-repeat">
-                    {person.warnings} warning{person.warnings === 1 ? '' : 's'}
-                  </span>
-                )}
-                {person.removedCount > 0 && (
-                  <span className="report-repeat">{person.removedCount} taken down</span>
-                )}
-              </header>
+          <div className="stack list-stack">
+            {watched.slice(0, 40).map((person) => {
+              const isMe = person.uid === user.uid
+              const cannotTouch =
+                isMe || person.rank === 'admin' || (person.rank !== 'user' && !user.isAdmin)
+              return (
+                <article className="report-card" key={person.uid}>
+                  <header>
+                    <span className="report-kind">
+                      <Eye size={13} /> {person.rank}
+                    </span>
+                    {person.closed && <span className="report-repeat">closed</span>}
+                    {person.suspended && !person.closed && (
+                      <span className="report-repeat">suspended</span>
+                    )}
+                    {person.warnings > 0 && (
+                      <span className="report-repeat">
+                        {person.warnings} warning{person.warnings === 1 ? '' : 's'}
+                      </span>
+                    )}
+                    {person.removedCount > 0 && (
+                      <span className="report-repeat">{person.removedCount} taken down</span>
+                    )}
+                  </header>
 
-              <h3>
-                {person.name}
-                {isMe ? ' (you)' : ''}
-              </h3>
-              <p className="report-context">
-                {person.username ? `${person.username} · ` : ''}
-                hosts {person.hosts}, joined {person.joinedCount}
-                {person.anonymous ? ' · anonymous mode on' : ''}
-              </p>
-              {(person.interests || []).length > 0 && (
-                <p className="report-meta">{(person.interests || []).join(' · ')}</p>
-              )}
+                  <h3>
+                    {person.name}
+                    {isMe ? ' (you)' : ''}
+                  </h3>
+                  <p className="report-context">
+                    {person.username ? `${person.username} · ` : ''}
+                    hosts {person.hosts}, joined {person.joinedCount}
+                    {person.anonymous ? ' · anonymous mode on' : ''}
+                  </p>
+                  {(person.interests || []).length > 0 && (
+                    <p className="report-meta">{(person.interests || []).join(' · ')}</p>
+                  )}
 
-              <div className="report-actions">
-                {!cannotTouch && !person.closed && (
-                  <button
-                    className="secondary-button"
-                    disabled={recording === person.uid}
-                    onClick={() => {
-                      setRecordedReason('')
-                      setRecorded({ uid: person.uid, kind: 'warn' })
-                    }}
-                  >
-                    <MessageSquareWarning size={15} />{' '}
-                    {recording === person.uid ? 'Working…' : 'Warn'}
-                  </button>
-                )}
-                {!cannotTouch && !person.suspended && !person.closed && (
-                  <button
-                    className="danger-button"
-                    disabled={suspending === person.uid}
-                    onClick={() => setSuspendTarget({ uid: person.uid, suspend: true })}
-                  >
-                    <UserRoundX size={15} />{' '}
-                    {suspending === person.uid ? 'Suspending…' : 'Suspend account'}
-                  </button>
-                )}
-                {!cannotTouch && person.suspended && !person.closed && (
-                  <button
-                    className="secondary-button"
-                    disabled={suspending === person.uid}
-                    onClick={() => setSuspendTarget({ uid: person.uid, suspend: false })}
-                  >
-                    <UserRoundCheck size={15} />{' '}
-                    {suspending === person.uid ? 'Lifting…' : 'Lift suspension'}
-                  </button>
-                )}
-                {/* The end of the ladder, and an admin's alone. */}
-                {!cannotTouch && user.isAdmin && !person.closed && (
-                  <button
-                    className="danger-button"
-                    disabled={recording === person.uid}
-                    onClick={() => {
-                      setRecordedReason('')
-                      setRecorded({ uid: person.uid, kind: 'close' })
-                    }}
-                  >
-                    <ShieldOff size={15} /> Close account
-                  </button>
-                )}
-                {!cannotTouch && user.isAdmin && person.closed && (
-                  <button
-                    className="secondary-button"
-                    disabled={recording === person.uid}
-                    onClick={() => {
-                      setRecordedReason('')
-                      setRecorded({ uid: person.uid, kind: 'reopen' })
-                    }}
-                  >
-                    <UserRoundCheck size={15} /> Reopen account
-                  </button>
-                )}
-                {cannotTouch && !isMe && (
-                  <span className="report-meta">
-                    {person.rank === 'admin'
-                      ? 'An admin. No rank can act on this account from inside the app.'
-                      : 'A moderator. Only an admin can act on this account.'}
-                  </span>
-                )}
+                  <div className="report-actions">
+                    {!cannotTouch && !person.closed && (
+                      <button
+                        className="secondary-button"
+                        disabled={recording === person.uid}
+                        onClick={() => {
+                          setRecordedReason('')
+                          setRecorded({ uid: person.uid, kind: 'warn' })
+                        }}
+                      >
+                        <MessageSquareWarning size={15} />{' '}
+                        {recording === person.uid ? 'Working…' : 'Warn'}
+                      </button>
+                    )}
+                    {!cannotTouch && !person.suspended && !person.closed && (
+                      <button
+                        className="danger-button"
+                        disabled={suspending === person.uid}
+                        onClick={() => setSuspendTarget({ uid: person.uid, suspend: true })}
+                      >
+                        <UserRoundX size={15} />{' '}
+                        {suspending === person.uid ? 'Suspending…' : 'Suspend account'}
+                      </button>
+                    )}
+                    {!cannotTouch && person.suspended && !person.closed && (
+                      <button
+                        className="secondary-button"
+                        disabled={suspending === person.uid}
+                        onClick={() => setSuspendTarget({ uid: person.uid, suspend: false })}
+                      >
+                        <UserRoundCheck size={15} />{' '}
+                        {suspending === person.uid ? 'Lifting…' : 'Lift suspension'}
+                      </button>
+                    )}
+                    {/* The end of the ladder, and an admin's alone. */}
+                    {!cannotTouch && user.isAdmin && !person.closed && (
+                      <button
+                        className="danger-button"
+                        disabled={recording === person.uid}
+                        onClick={() => {
+                          setRecordedReason('')
+                          setRecorded({ uid: person.uid, kind: 'close' })
+                        }}
+                      >
+                        <ShieldOff size={15} /> Close account
+                      </button>
+                    )}
+                    {!cannotTouch && user.isAdmin && person.closed && (
+                      <button
+                        className="secondary-button"
+                        disabled={recording === person.uid}
+                        onClick={() => {
+                          setRecordedReason('')
+                          setRecorded({ uid: person.uid, kind: 'reopen' })
+                        }}
+                      >
+                        <UserRoundCheck size={15} /> Reopen account
+                      </button>
+                    )}
+                    {cannotTouch && !isMe && (
+                      <span className="report-meta">
+                        {person.rank === 'admin'
+                          ? 'An admin. No rank can act on this account from inside the app.'
+                          : 'A moderator. Only an admin can act on this account.'}
+                      </span>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
+
+            {watched.length === 0 && (
+              <div className="empty-state">
+                <Eye size={28} />
+                <h3>Nobody matches that</h3>
+                <p>Try part of a name, or clear the search to see everyone.</p>
               </div>
-            </article>
-          )
-        })}
+            )}
 
-        {watched.length === 0 && (
-          <div className="empty-state">
-            <Eye size={28} />
-            <h3>Nobody matches that</h3>
-            <p>Try part of a name, or clear the search to see everyone.</p>
+            {watched.length > 40 && (
+              <p className="helper-text">
+                Showing the first 40 of {watched.length}. Search to narrow it down.
+              </p>
+            )}
           </div>
-        )}
-
-        {watched.length > 40 && (
-          <p className="helper-text">
-            Showing the first 40 of {watched.length}. Search to narrow it down.
-          </p>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Appointing is the one rank change that belongs in the app. It is
           routine work an admin should not need Firebase console access for —
           unlike `admin` itself, which has no button here and none anywhere,
           so that compromising any account in the app cannot mint another. */}
-      {user.isAdmin && (
+      {showing('moderators') && user.isAdmin && (
         <>
           <section className="headline-block">
             <span className="eyebrow">Admin</span>

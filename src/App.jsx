@@ -140,6 +140,10 @@ export default function App() {
         <Route path="/blocked" element={<BlockedPage />} />
         <Route path="/warnings" element={<WarningsPage />} />
         <Route path="/moderation" element={<ModerationPage />} />
+        {/* Same component: the sections share every handler, dialog and
+            subscription, so splitting them into separate files would be
+            four copies of the same live data. */}
+        <Route path="/moderation/:section" element={<ModerationPage />} />
         <Route path="/joined" element={<JoinedActivitiesPage />} />
         <Route path="/404" element={<NotFoundPage />} />
       </Route>
