@@ -36,29 +36,42 @@
   -moz-osx-font-smoothing: grayscale;
 
   /* --- Neutrals ------------------------------------------ */
-  --bg: #f5f6f8;
+  /* The ground is warm, not white.
+     It was #f5f6f8 — a cool near-white — with white cards on top, which
+     gave the whole app 1.08:1 between a card and the page behind it and
+     read as one flat sheet. A warm ground takes that to 1.15:1 and, more
+     usefully, separates by *hue* as well as lightness: paper on linen
+     rather than paper on paper. It is also the warm half of a warm/cool
+     pair with the indigo accent, which is where the app gets its energy
+     from rather than from any one loud colour.
+     Every neutral here is the same hue (78°) at falling lightness, so they
+     are one family rather than six greys that happen to coexist. */
+  --bg: #f4eee6;
   /* Channels for the few places that need the colour at partial alpha
      (gradient fade-outs, glows). Keep in sync with the hex above. */
-  --bg-rgb: 245, 246, 248;
-  --bg-sunken: #eceef1;
+  --bg-rgb: 244, 238, 230;
+  --bg-sunken: #eae3d8;
   --surface: #ffffff;
-  --surface-2: #fafbfc;
-  --line: #e4e6eb;
-  --line-strong: #d3d6dd;
+  --surface-2: #fbf8f3;
+  --line: #dfd9d0;
+  --line-strong: #cec7bc;
 
   /* --- Text ---------------------------------------------- */
-  --text: #16181d;
-  --text-2: #565b66;
-  --text-3: #5f6572;
+  /* Warmed to sit on a warm ground — a blue-grey on sand reads as a
+     mistake. Fitted against --bg-sunken, the darkest ground any of them
+     sits on, rather than against white: 14.5:1 and 5.1:1 there. */
+  --text: #17130c;
+  --text-2: #635d55;
+  --text-3: #635d55;
 
   /* `--ink` and `--ink-soft` are used 43 times between them and were never
      declared either, so text meant to sit back read at full strength and
      nothing on a dense screen stepped down. Aliases rather than new colours:
      the scale above is the real one, and these names are what the
      moderation and report styles happen to call it. */
-  --ink: #16181d;
-  --ink-soft: #565b66;
-  --surface-soft: #eceef1;
+  --ink: #17130c;
+  --ink-soft: #635d55;
+  --surface-soft: #eae3d8;
 
   /* --- Brand --------------------------------------------- */
   --accent: #4f46e5;
@@ -72,16 +85,20 @@
      One colour: the ground Leaflet's tiles sit on while they load.
      The other five here described a hand-drawn map that was
      replaced by real tiles, and had outlived it. */
-  --map-land: #eef1ec;
+  --map-land: #ece5da;
 
   /* --- Semantic ------------------------------------------ */
-  --success: #0f7b5f;
-  --success-soft: #e8f6f1;
-  --warning: #a2620a;
-  --warning-soft: #fdf3e4;
+  /* Refitted against --bg-sunken, the darkest ground any of them sits on.
+     Success and warning were failing there at 4.10 and 3.84 — invisible to
+     the page audit, because those pairings only occur on screens it does
+     not walk. */
+  --success: #007257;
+  --success-soft: #e1faf0;
+  --warning: #945500;
+  --warning-soft: #ffefdc;
   --danger: #be123c;
-  --danger-soft: #fef1f4;
-  --danger-line: #f9d6de;
+  --danger-soft: #ffe9ea;
+  --danger-line: #fbd3d8;
 
   /* --- Radii --------------------------------------------- */
   --r-sm: 10px;
@@ -153,76 +170,88 @@
    ========================================================= */
 
 [data-category='football'] {
-  --cat: #0d814a;
-  --cat-2: #1fc472;
-  --cat-deep: #0a673b;
-  --cat-soft: #e6f6ee;
+  /* pitch green */
+  --cat: #01813a;
+  --cat-2: #5bc878;
+  --cat-deep: #006821;
+  --cat-soft: #e8fceb;
 }
 [data-category='running'] {
-  --cat: #c84232;
-  --cat-2: #ff8a5c;
-  --cat-deep: #a03528;
-  --cat-soft: #fdeeea;
+  /* vermilion, effort */
+  --cat: #c04214;
+  --cat-2: #ff865a;
+  --cat-deep: #a32400;
+  --cat-soft: #ffefe8;
 }
 [data-category='cycling'] {
-  --cat: #0a6fa8;
-  --cat-2: #2bb3e6;
-  --cat-deep: #085986;
-  --cat-soft: #e6f3fa;
+  /* sky, speed */
+  --cat: #0071c7;
+  --cat-2: #51b7ff;
+  --cat-deep: #0057ab;
+  --cat-soft: #e7f8ff;
 }
 [data-category='gym'] {
-  --cat: #5b45cf;
-  --cat-2: #9a85f7;
-  --cat-deep: #4937a6;
-  --cat-soft: #eeebfd;
+  /* performance blue */
+  --cat: #0077a4;
+  --cat-2: #00bef0;
+  --cat-deep: #005d8a;
+  --cat-soft: #e1fbff;
 }
 [data-category='study'] {
-  --cat: #0d7a70;
-  --cat-2: #2cc0ad;
-  --cat-deep: #0a625a;
-  --cat-soft: #e5f5f3;
+  /* calm teal */
+  --cat: #007d78;
+  --cat-2: #0ec3bc;
+  --cat-deep: #00645f;
+  --cat-soft: #e3fcfa;
 }
 [data-category='coffee'] {
-  --cat: #8a5733;
-  --cat-2: #c99160;
-  --cat-deep: #6e4629;
-  --cat-soft: #f7efe8;
+  /* brown - the one deliberate low-chroma hue */
+  --cat: #8f674c;
+  --cat-2: #d6a98a;
+  --cat-deep: #754f34;
+  --cat-soft: #fef4ed;
 }
 [data-category='gaming'] {
-  --cat: #7326c9;
-  --cat-2: #b163f5;
-  --cat-deep: #5c1ea1;
-  --cat-soft: #f2e9fd;
+  /* neon purple */
+  --cat: #a045c4;
+  --cat-2: #ea88ff;
+  --cat-deep: #8527a8;
+  --cat-soft: #fef0ff;
 }
 [data-category='hangouts'] {
-  --cat: #cc2f7b;
-  --cat-2: #ff7cb5;
-  --cat-deep: #a32662;
-  --cat-soft: #fdeaf2;
+  /* pink, warmth */
+  --cat: #b93c8c;
+  --cat-2: #ff7fd3;
+  --cat-deep: #9c1d73;
+  --cat-soft: #ffeefa;
 }
 [data-category='movies'] {
-  --cat: #a81e48;
-  --cat-2: #e8547e;
-  --cat-deep: #86183a;
-  --cat-soft: #fce9ee;
+  /* crimson, a cinema curtain */
+  --cat: #c13b58;
+  --cat-2: #ff7f98;
+  --cat-deep: #a41c41;
+  --cat-soft: #ffeef0;
 }
 [data-category='food'] {
-  --cat: #976714;
-  --cat-2: #f5c44a;
-  --cat-deep: #795310;
-  --cat-soft: #fbf2e2;
+  /* gold, appetite */
+  --cat: #896b00;
+  --cat-2: #d0af15;
+  --cat-deep: #705200;
+  --cat-soft: #fcf6e0;
 }
 [data-category='events'] {
-  --cat: #3a49c4;
-  --cat-2: #7b8cf5;
-  --cat-deep: #2e3a9d;
-  --cat-soft: #eaedfd;
+  /* stage indigo */
+  --cat: #6c5cd5;
+  --cat-2: #aba0ff;
+  --cat-deep: #5641b9;
+  --cat-soft: #f3f3ff;
 }
 [data-category='basketball'] {
-  --cat: #b85315;
-  --cat-2: #f7934c;
-  --cat-deep: #934211;
-  --cat-soft: #fbf0e6;
+  /* orange, the ball */
+  --cat: #a65c00;
+  --cat-2: #f19f08;
+  --cat-deep: #8b4300;
+  --cat-soft: #fff3e0;
 }
 
 /* =========================================================
