@@ -5,7 +5,11 @@ import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import { AppProvider } from './context/AppContext'
 import { AuthProvider } from './context/AuthContext'
+import { installGlobalErrorReporting } from './utils/reportError'
 import './styles.css'
+
+// Before anything renders, so a failure during the first paint is caught too.
+installGlobalErrorReporting()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

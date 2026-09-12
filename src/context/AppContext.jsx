@@ -31,6 +31,7 @@ import { rankActivities, recommendationWeights } from '../services/recommendatio
 import { distanceBetween } from '../utils/geo'
 import { useListenerRetry } from '../hooks/useListenerRetry'
 import { loadStorage, saveStorage } from '../utils/storage'
+import { reportError } from '../utils/reportError'
 
 const AppContext = createContext(null)
 
@@ -149,6 +150,11 @@ export function AppProvider({ children }) {
     // function has run, which would otherwise be shown to whoever signed in
     // next as their own data failing to load.
     let live = true
+    const onlyWhileLive =
+      (set) =>
+      (...args) => {
+        if (live) set(...args)
+      }
     const report = guard((error) => {
       if (live) setDataError(error)
     })
@@ -161,10 +167,15 @@ export function AppProvider({ children }) {
           meta.fromCache ? (previous === null ? null : false) : true,
         )
       }, report),
-      watchPeers(uid, setPeers, report),
-      watchNotifications(uid, setNotifications, report),
-      watchFollowing(uid, setFollowedUserIds, report),
-      watchBlocked(uid, setBlocked, report),
+      // Every one of these goes through `live`, not just the first. Four of
+      // the five used to hand their setter straight to the SDK, so the guard
+      // that exists precisely to stop a departing session writing into the
+      // arriving one's state was protecting a fifth of the data it was
+      // written for.
+      watchPeers(uid, onlyWhileLive(setPeers), report),
+      watchNotifications(uid, onlyWhileLive(setNotifications), report),
+      watchFollowing(uid, onlyWhileLive(setFollowedUserIds), report),
+      watchBlocked(uid, onlyWhileLive(setBlocked), report),
     ]
     return () => {
       live = false
@@ -402,7 +413,12 @@ export function AppProvider({ children }) {
     if (!recipientId || recipientId === uid) return
     const recipient = peers.find((peer) => peer.uid === recipientId)
     if (recipient?.notificationsEnabled === false) return
-    pushNotification(recipientId, payload).catch(() => {})
+    // Best-effort by design — a join must not fail because the other person
+    // could not be told — but it is no longer *silent*. A notification that
+    // never arrives used to leave no trace on any device.
+    pushNotification(recipientId, payload).catch((error) =>
+      reportError('notifications.push', error, { recipientId }),
+    )
   }
 
   async function joinActivity(id) {
@@ -430,7 +446,11 @@ export function AppProvider({ children }) {
     // like football is a side effect of joining, not part of it. A rejection
     // here must not become an unhandled promise, and must not tell the user
     // their join went wrong when it did not.
-    recordCategoryHistory(uid, user.historyCategories, activity.category).catch(() => {})
+    // Feeds 15% of the ranking. Failing quietly meant recommendations could
+    // degrade for a user with nothing anywhere to say why.
+    recordCategoryHistory(uid, user.historyCategories, activity.category).catch((error) =>
+      reportError('users.recordCategoryHistory', error, { uid }),
+    )
     notifyUser(activity.hostId, {
       type: 'activity',
       title: 'Someone joined',
@@ -552,7 +572,9 @@ export function AppProvider({ children }) {
       failure: "Couldn't create activity",
     })
     if (!id) return null
-    recordCategoryHistory(uid, user.historyCategories, data.category).catch(() => {})
+    recordCategoryHistory(uid, user.historyCategories, data.category).catch((error) =>
+      reportError('users.recordCategoryHistory', error, { uid }),
+    )
     pushCelebration({
       icon: 'check',
       tone: 'success',

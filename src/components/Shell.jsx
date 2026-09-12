@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import BackButton from './BackButton'
+import RouteErrorBoundary from './RouteErrorBoundary'
 import JoinBurst from './JoinBurst'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -225,7 +226,11 @@ export default function Shell() {
         )}
 
         <main className="page-scroll" ref={scrollRef}>
-          <Outlet />
+          {/* Scoped to the page, so one screen failing leaves the bar and the
+              tabs intact rather than replacing the whole app. */}
+          <RouteErrorBoundary resetKey={location.pathname}>
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
 
         {/* An activity page is a place to act on that activity, not to start

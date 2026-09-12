@@ -9,6 +9,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -16,6 +17,7 @@ import {
 } from 'firebase/firestore'
 
 import { db } from './config'
+import { reportError } from '../utils/reportError'
 
 /**
  * Blocking and reporting.
@@ -145,10 +147,41 @@ export function watchRole(uid, callback, onError) {
  * quietly demoted them — and un-suspending them left them demoted, with
  * nothing anywhere saying it had happened.
  */
-export async function setSuspended(uid, suspended) {
+/**
+ * Changes one field of a role row without losing the others.
+ *
+ * These rows carry three independent decisions — rank, suspension, closure —
+ * taken by different people at different times, and each writer has to
+ * preserve the two it is not changing. Doing that with a read followed by a
+ * write loses updates whenever two moderators act at once: suspend somebody
+ * while a colleague is promoting them, and the promotion writes back the
+ * `suspended: false` it read a moment earlier, quietly lifting the
+ * suspension. Nothing in the rules can catch that — both writes are
+ * individually legitimate.
+ *
+ * A transaction re-runs if the document changed underneath it, so the
+ * surviving row always reflects both decisions. Notifications stay outside,
+ * because a transaction may run its body more than once and nobody should be
+ * told twice.
+ */
+async function patchRole(uid, change) {
   const ref = doc(db, 'roles', uid)
-  const existing = await getDoc(ref)
-  await setDoc(ref, { role: existing.data()?.role || 'user', suspended }, { merge: true })
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    const existing = snap.data() || {}
+    const next = {
+      role: existing.role || 'user',
+      suspended: existing.suspended === true,
+      ...(existing.banned === true ? { banned: true } : {}),
+      ...change,
+    }
+    tx.set(ref, next, { merge: true })
+    return next
+  })
+}
+
+export async function setSuspended(uid, suspended) {
+  await patchRole(uid, { suspended })
   await tell(
     uid,
     suspended
@@ -230,8 +263,13 @@ async function tell(uid, { title, body, activityId }) {
       read: false,
       createdAt: serverTimestamp(),
     })
-  } catch {
-    // Nothing to do and nothing to report: the decision stands either way.
+  } catch (error) {
+    // The decision still stands — a removal is not rolled back because we
+    // could not announce it — but "nothing to report" was too strong. This is
+    // somebody not being told their activity was taken down, or that they
+    // were warned, and it left no trace on any device. It is recorded now
+    // even though it is not surfaced.
+    reportError('moderation.tell', error, { uid })
   }
 }
 
@@ -244,14 +282,29 @@ async function tell(uid, { title, body, activityId }) {
  */
 export async function removeActivity(activityId, { moderatorId, reason }) {
   const ref = doc(db, 'activities', activityId)
-  // Read before writing, to know whose plans this is about to cancel.
-  const before = (await getDoc(ref)).data()
   const note = String(reason || '').slice(0, 300)
 
-  await updateDoc(ref, {
-    status: 'removed',
-    moderation: { by: moderatorId, reason: note },
-    updatedAt: serverTimestamp(),
+  // Read and write in one transaction.
+  //
+  // It used to read the activity, then write it in a separate call, and use
+  // the first result to decide who to notify. Between the two, a host could
+  // rename it or somebody could join or leave — so the notices could quote a
+  // title that no longer existed, or miss a person who had joined a moment
+  // before. Firestore retries the transaction when the document changes
+  // underneath it, so the roster notified is the roster at the instant of
+  // removal.
+  //
+  // The rules still decide whether this is allowed; a transaction makes the
+  // read and the write consistent, it does not grant permission.
+  const before = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) return null
+    tx.update(ref, {
+      status: 'removed',
+      moderation: { by: moderatorId, reason: note },
+      updatedAt: serverTimestamp(),
+    })
+    return snap.data()
   })
 
   if (!before) return
@@ -321,9 +374,7 @@ export function liftSuspension(uid) {
  * tool must not have.
  */
 export async function setUserRole(uid, role) {
-  const ref = doc(db, 'roles', uid)
-  const existing = await getDoc(ref)
-  await setDoc(ref, { role, suspended: existing.data()?.suspended === true }, { merge: true })
+  await patchRole(uid, { role })
   await tell(
     uid,
     role === 'moderator'
@@ -395,15 +446,8 @@ export async function suspendAccount(uid, { moderatorId }) {
  * certain they were treated arbitrarily, whether or not they were.
  */
 export async function closeAccount(uid, { adminId, reason }) {
-  const ref = doc(db, 'roles', uid)
-  const existing = (await getDoc(ref)).data()
   const note = String(reason || '').slice(0, 300)
-
-  await setDoc(
-    ref,
-    { role: existing?.role || 'user', suspended: existing?.suspended === true, banned: true },
-    { merge: true },
-  )
+  await patchRole(uid, { banned: true })
   await tell(uid, {
     title: 'Your SmartSync account has been closed',
     // Not "you can no longer sign in" — they can, and they just did, or they
@@ -419,13 +463,7 @@ export async function closeAccount(uid, { adminId, reason }) {
 
 /** Reopens a closed account. Admin only, because closing one was. */
 export async function reopenAccount(uid, { reason }) {
-  const ref = doc(db, 'roles', uid)
-  const existing = (await getDoc(ref)).data()
-  await setDoc(
-    ref,
-    { role: existing?.role || 'user', suspended: existing?.suspended === true, banned: false },
-    { merge: true },
-  )
+  await patchRole(uid, { banned: false })
   await tell(uid, {
     title: 'Your account is open again',
     body: `${String(reason || '').slice(0, 300)} Anything taken down while it was closed stays down.`,

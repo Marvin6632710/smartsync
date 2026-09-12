@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 import { observeAuth, signIn, signOutUser, signUp } from '../firebase/auth'
 import { watchRole } from '../firebase/moderation'
@@ -121,7 +121,7 @@ export function AuthProvider({ children }) {
    * Re-attempts profile creation after a failure. Exposed so the UI can offer
    * a way out rather than stranding the user on a spinner.
    */
-  const retryProfile = async () => {
+  const retryProfile = useCallback(async () => {
     if (!authUser) return
     setProfileError(null)
     try {
@@ -132,7 +132,7 @@ export function AuthProvider({ children }) {
     } catch (error) {
       setProfileError(error)
     }
-  }
+  }, [authUser])
 
   const user = useMemo(() => {
     if (!authUser || !publicProfile) return null
@@ -167,20 +167,28 @@ export function AuthProvider({ children }) {
 
   const status = authUser === undefined ? 'loading' : !authUser ? 'signed-out' : 'ready'
 
-  const value = {
-    status,
-    authUser,
-    user,
-    // Both halves must have reported before any screen renders: the routing
-    // decision depends on fields from each, and acting on half the profile
-    // sends people to the wrong place.
-    profileReady: Boolean(user) && loaded.pub && loaded.priv && loaded.role,
-    profileError,
-    retryProfile,
-    signUp,
-    signIn,
-    signOut: signOutUser,
-  }
+  // Memoised, so identity changes only when something in it actually did.
+  // An object literal here handed every consumer in the app a new context
+  // value on every render of this provider — and this provider sits above
+  // everything. The actions are safe to depend on: three are module-level
+  // imports, and `retryProfile` is now a useCallback.
+  const value = useMemo(
+    () => ({
+      status,
+      authUser,
+      user,
+      // Both halves must have reported before any screen renders: the routing
+      // decision depends on fields from each, and acting on half the profile
+      // sends people to the wrong place.
+      profileReady: Boolean(user) && loaded.pub && loaded.priv && loaded.role,
+      profileError,
+      retryProfile,
+      signUp,
+      signIn,
+      signOut: signOutUser,
+    }),
+    [status, authUser, user, loaded, profileError, retryProfile],
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

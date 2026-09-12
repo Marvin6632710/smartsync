@@ -1,5 +1,7 @@
 import React from 'react'
 
+import { reportError } from '../utils/reportError'
+
 /**
  * Catches render errors anywhere below it and shows a recoverable screen
  * instead of a blank page.
@@ -10,7 +12,11 @@ import React from 'react'
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props)
-    this.state = { error: null }
+    // `attempt` is part of the subtree's key, so retrying genuinely rebuilds
+    // the children rather than re-rendering the same failed tree. Clearing
+    // the error alone re-ran an identical render and threw again on the spot,
+    // which made "Try again" look broken rather than unlucky.
+    this.state = { error: null, attempt: 0 }
   }
 
   static getDerivedStateFromError(error) {
@@ -19,12 +25,17 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    // Runs after render; the place to send errors to a logging service later.
-    console.error('SmartSync caught a render error:', error, info)
+    // Runs after render. Goes through the one reporting funnel rather than
+    // straight to the console, so it lands wherever everything else does.
+    reportError('react.render', error, { componentStack: info?.componentStack })
   }
 
   handleRetry = () => {
-    this.setState({ error: null })
+    this.setState((current) => ({ error: null, attempt: current.attempt + 1 }))
+  }
+
+  handleReload = () => {
+    window.location.reload()
   }
 
   handleResetData = () => {
@@ -43,7 +54,9 @@ export default class ErrorBoundary extends React.Component {
   }
 
   render() {
-    if (!this.state.error) return this.props.children
+    if (!this.state.error) {
+      return <React.Fragment key={this.state.attempt}>{this.props.children}</React.Fragment>
+    }
 
     return (
       <div className="standalone-page error-page">
@@ -57,6 +70,9 @@ export default class ErrorBoundary extends React.Component {
           <div className="button-row wrap">
             <button className="primary-button" onClick={this.handleRetry}>
               Try again
+            </button>
+            <button className="secondary-button" onClick={this.handleReload}>
+              Reload
             </button>
             <button className="secondary-button" onClick={this.handleResetData}>
               Reset local settings
