@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import BackButton from '../components/BackButton'
 import { categories, MIN_INTERESTS, timeBands } from '../data/categories'
 import { useAuth } from '../context/AuthContext'
 import { updateDisplayName, updatePublicProfile } from '../firebase/users'
@@ -62,7 +61,6 @@ export default function EditProfilePage() {
 
   return (
     <div className="page-content">
-      <BackButton />
       <h2>Edit profile</h2>
       <form className="form-card" onSubmit={submit}>
         <label>

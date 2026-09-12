@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import ActivityCard from '../components/ActivityCard'
-import BackButton from '../components/BackButton'
 import FiltersEmptyState from '../components/FiltersEmptyState'
 import ActivitiesLoading from '../components/ActivitiesLoading'
 import { defaultFilters, useApp } from '../context/AppContext'
@@ -30,7 +29,6 @@ export default function SearchPage() {
 
   return (
     <div className="page-content">
-      <BackButton />
       <section className="headline-block">
         <h2>Search</h2>
         <p className="helper-text">Find activities fast.</p>

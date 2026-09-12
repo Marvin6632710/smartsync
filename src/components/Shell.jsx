@@ -18,6 +18,7 @@ import {
   User,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import BackButton from './BackButton'
 import JoinBurst from './JoinBurst'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -90,20 +91,25 @@ export default function Shell() {
   // it is a floating obstacle: it sat on top of the sticky Join button on an
   // activity page, on top of the send button in a chat, and — on a narrow
   // phone — on top of the search field in the moderation queue.
-  const showCreate = tabs.some((tab) => tab.to === location.pathname)
+  const atRootTab = tabs.some((tab) => tab.to === location.pathname)
+  const showCreate = atRootTab
   const title = routeTitles[simpleTitle] || 'Discover'
 
   return (
     <div className="app-shell">
       <div className="mobile-frame">
         <header className="topbar">
-          <button
-            className="avatar top-avatar"
-            onClick={() => navigate('/profile')}
-            aria-label="Open profile"
-          >
-            {user.avatar}
-          </button>
+          {atRootTab ? (
+            <button
+              className="avatar top-avatar"
+              onClick={() => navigate('/profile')}
+              aria-label="Open profile"
+            >
+              {user.avatar}
+            </button>
+          ) : (
+            <BackButton />
+          )}
           <div className="topbar-copy">
             <span className="eyebrow">SmartSync</span>
             <h1>{title}</h1>

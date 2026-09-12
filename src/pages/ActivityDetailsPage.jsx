@@ -15,7 +15,6 @@ import ReportDialog from '../components/ReportDialog'
 import { MORPH } from '../hooks/useMorph'
 import { removeActivity as removeAsModerator, restoreActivity } from '../firebase/moderation'
 import { useNavigate, useParams } from 'react-router-dom'
-import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { formatDistance } from '../utils/geo'
@@ -58,7 +57,6 @@ export default function ActivityDetailsPage() {
   if (!a) {
     return (
       <div className="page-content">
-        <BackButton />
         <div className="empty-state">
           <h3>Activity not found</h3>
           <p>Please go back.</p>
@@ -134,8 +132,6 @@ export default function ActivityDetailsPage() {
 
   return (
     <div className="page-content">
-      <BackButton />
-
       <section
         className="detail-hero"
         data-category={(a.category || '').toLowerCase()}

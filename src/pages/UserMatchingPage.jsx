@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react'
 import { Bell, Check, Clock3, Flag, Sparkles, UserRoundCheck, UsersRound } from 'lucide-react'
-import BackButton from '../components/BackButton'
 import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -22,8 +21,6 @@ export default function UserMatchingPage() {
 
   return (
     <div className="page-content">
-      <BackButton />
-
       <section className="headline-block">
         <span className="eyebrow">User matching</span>
         <h2>People for you</h2>

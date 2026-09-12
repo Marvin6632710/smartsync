@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { MessageSquareWarning } from 'lucide-react'
-import BackButton from '../components/BackButton'
 import { useAuth } from '../context/AuthContext'
 import { watchMyWarnings } from '../firebase/moderation'
 import { formatRelativeTime } from '../utils/time'
@@ -34,7 +33,6 @@ export default function WarningsPage() {
 
   return (
     <div className="page-content">
-      <BackButton />
       <section className="headline-block">
         <span className="eyebrow">Your account</span>
         <h2>Warnings</h2>

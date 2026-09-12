@@ -1,6 +1,5 @@
 import React from 'react'
 import { RotateCcw, Sparkles } from 'lucide-react'
-import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
 import { recommendationWeights, signalLabels } from '../services/recommendationService'
 
@@ -26,7 +25,6 @@ export default function WeightsPage() {
 
   return (
     <div className="page-content">
-      <BackButton />
       <section className="headline-block">
         <span className="eyebrow">How matching works</span>
         <h2>Signal weights</h2>

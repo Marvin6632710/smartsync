@@ -597,21 +597,36 @@ select:focus-visible {
   margin: 0;
   font-size: var(--t-h1);
 }
-.back-button {
-  align-self: flex-start;
-  color: var(--text-2);
-  background: transparent;
-  /* The label stayed 16px tall while being the way out of every subpage.
-     The padding grows the target to 44 and the negative margin keeps the
-     text optically aligned with the content below it. */
+/* The way out of a subpage, in the bar rather than in the page.
+   It used to be the first child of the scrolling content, so on a long
+   settings list or a chat you had to scroll back to the top to find it.
+   The bar sits outside the scroller, so this is now always on screen —
+   the same place, and the same promise, as the back control in iOS
+   Settings. */
+.topbar-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  /* Full-height target; the negative margin keeps the chevron optically
+     flush with the frame edge rather than indented by its own padding. */
   min-height: 44px;
-  padding: 0 10px;
-  margin-left: -10px;
+  padding: 0 8px 0 2px;
+  margin-left: -4px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
   font-size: var(--t-sm);
-  font-weight: var(--w-medium);
+  font-weight: var(--w-semibold);
+  border-radius: var(--r-md);
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
 }
-.back-button:hover {
-  color: var(--text);
+.topbar-back:hover {
+  color: var(--accent-strong);
+}
+.topbar-back:active {
+  background: var(--accent-soft);
 }
 
 /* =========================================================

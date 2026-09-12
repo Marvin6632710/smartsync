@@ -1,6 +1,5 @@
 import React from 'react'
 import { EyeOff, LocateFixed, MapPinned, ShieldCheck } from 'lucide-react'
-import BackButton from '../components/BackButton'
 import { useAuth } from '../context/AuthContext'
 import { useDeviceLocation } from '../hooks/useDeviceLocation'
 import { useSaveProfile } from '../hooks/useSaveProfile'
@@ -17,7 +16,6 @@ export default function PrivacyPage() {
 
   return (
     <div className="page-content">
-      <BackButton />
       <section>
         <span className="eyebrow">User-controlled privacy</span>
         <h2>Privacy controls</h2>

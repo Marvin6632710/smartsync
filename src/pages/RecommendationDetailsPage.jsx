@@ -1,7 +1,6 @@
 import React from 'react'
 import { BrainCircuit, Check } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
 import { recommendationWeights } from '../services/recommendationService'
 
@@ -13,7 +12,6 @@ export default function RecommendationDetailsPage() {
   if (!a)
     return (
       <div className="page-content">
-        <BackButton />
         <div className="empty-state">
           <h3>Recommendation not found</h3>
         </div>
@@ -21,7 +19,6 @@ export default function RecommendationDetailsPage() {
     )
   return (
     <div className="page-content">
-      <BackButton />
       <section className="score-card">
         <BrainCircuit size={32} />
         <span className="eyebrow">Score</span>

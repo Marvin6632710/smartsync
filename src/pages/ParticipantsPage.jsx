@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { Flag } from 'lucide-react'
 import { useParams } from 'react-router-dom'
-import BackButton from '../components/BackButton'
 import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -16,7 +15,6 @@ export default function ParticipantsPage() {
   if (!activity)
     return (
       <div className="page-content">
-        <BackButton />
         <div className="empty-state">
           <h3>Activity not found</h3>
         </div>
@@ -34,7 +32,6 @@ export default function ParticipantsPage() {
 
   return (
     <div className="page-content">
-      <BackButton />
       <span className="eyebrow">{activity.title}</span>
       <h2>Participants</h2>
       <p className="helper-text">

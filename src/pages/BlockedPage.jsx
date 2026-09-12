@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { ShieldOff } from 'lucide-react'
-import BackButton from '../components/BackButton'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useApp } from '../context/AppContext'
 import { formatRelativeTime } from '../utils/time'
@@ -18,7 +17,6 @@ export default function BlockedPage() {
 
   return (
     <div className="page-content">
-      <BackButton />
       <section className="headline-block">
         <span className="eyebrow">Safety</span>
         <h2>Blocked people</h2>

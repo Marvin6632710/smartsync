@@ -13,7 +13,6 @@ import {
   UserRoundX,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import BackButton from '../components/BackButton'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -201,7 +200,6 @@ export default function ModerationPage() {
   if (!user.isModerator)
     return (
       <div className="page-content">
-        <BackButton />
         <div className="empty-state">
           <ShieldAlert size={28} />
           <h3>Not available</h3>
@@ -475,7 +473,6 @@ export default function ModerationPage() {
 
   return (
     <div className="page-content">
-      <BackButton />
       <section className="headline-block">
         <span className="eyebrow">Moderation</span>
         <h2>Open reports</h2>

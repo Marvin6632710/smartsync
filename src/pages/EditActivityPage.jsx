@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import BackButton from '../components/BackButton'
 import LocationPicker from '../components/LocationPicker'
 import { categories } from '../data/categories'
 import { useApp } from '../context/AppContext'
@@ -22,7 +21,6 @@ export default function EditActivityPage() {
   if (!existing)
     return (
       <div className="page-content">
-        <BackButton />
         <div className="empty-state">
           <h3>Activity not found</h3>
         </div>
@@ -34,7 +32,6 @@ export default function EditActivityPage() {
   if (existing.hostId !== user.uid)
     return (
       <div className="page-content">
-        <BackButton />
         <div className="empty-state">
           <h3>Only the host can edit this</h3>
           <p>Ask {existing.hostName} to make changes.</p>
@@ -48,7 +45,6 @@ export default function EditActivityPage() {
   if (existing.status === 'removed')
     return (
       <div className="page-content">
-        <BackButton />
         <div className="empty-state">
           <h3>This activity was removed</h3>
           <p>
@@ -105,7 +101,6 @@ export default function EditActivityPage() {
 
   return (
     <div className="page-content">
-      <BackButton />
       <h2>Edit activity</h2>
       <form className="form-card" onSubmit={submit}>
         <label>

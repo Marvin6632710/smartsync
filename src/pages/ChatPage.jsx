@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Archive, Flag, Lock, Send } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import BackButton from '../components/BackButton'
 import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -35,7 +34,6 @@ export default function ChatPage() {
   if (!activity)
     return (
       <div className="page-content">
-        <BackButton />
         <div className="empty-state">
           <h3>Chat unavailable</h3>
           <p>This activity no longer exists.</p>
@@ -46,7 +44,6 @@ export default function ChatPage() {
   if (!joined)
     return (
       <div className="page-content">
-        <BackButton />
         <div className="empty-state">
           <Lock size={28} />
           <h3>Join first to unlock chat</h3>
@@ -61,7 +58,6 @@ export default function ChatPage() {
   if (closed)
     return (
       <div className="page-content">
-        <BackButton />
         <div className="empty-state">
           <Archive size={28} />
           <h3>This chat has closed</h3>
@@ -89,7 +85,6 @@ export default function ChatPage() {
 
   return (
     <div className="page-content chat-page">
-      <BackButton />
       <div className="chat-header">
         <div>
           <span className="eyebrow">Activity chat</span>

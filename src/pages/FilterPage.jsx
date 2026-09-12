@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import BackButton from '../components/BackButton'
 import { categories } from '../data/categories'
 import { defaultFilters, useApp } from '../context/AppContext'
 
@@ -15,7 +14,6 @@ export default function FilterPage() {
   }
   return (
     <div className="page-content">
-      <BackButton />
       <h2>Discovery filters</h2>
       <div className="form-card">
         <label>

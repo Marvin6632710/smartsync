@@ -11,7 +11,6 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import BackButton from '../components/BackButton'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { setNotificationsEnabled } from '../firebase/users'
@@ -26,7 +25,6 @@ export default function SettingsPage() {
 
   return (
     <div className="page-content">
-      <BackButton />
       <h2>Settings</h2>
 
       <div className="settings-card">

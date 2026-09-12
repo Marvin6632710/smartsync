@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Bell, BellOff, CalendarDays, MessageCircle, ShieldAlert, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import BackButton from '../components/BackButton'
 import { useApp } from '../context/AppContext'
 import { formatRelativeTime } from '../utils/time'
 
@@ -52,7 +51,6 @@ export default function NotificationsPage() {
   return (
     <div className="page-content">
       <div className="title-row">
-        <BackButton />
         <h2>Notifications</h2>
         {hasUnread && (
           <button

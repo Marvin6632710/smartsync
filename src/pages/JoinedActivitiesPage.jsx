@@ -1,5 +1,4 @@
 import React from 'react'
-import BackButton from '../components/BackButton'
 import ActivityCard from '../components/ActivityCard'
 import { useApp } from '../context/AppContext'
 
@@ -13,7 +12,6 @@ export default function JoinedActivitiesPage() {
     .sort((a, b) => (a.startsAt || 0) - (b.startsAt || 0))
   return (
     <div className="page-content">
-      <BackButton />
       <span className="eyebrow">Your activity history</span>
       <h2>Joined activities</h2>
       <div className="stack">
