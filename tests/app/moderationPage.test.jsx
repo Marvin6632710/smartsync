@@ -19,22 +19,44 @@ const noop = () => () => {}
 vi.mock('../../src/firebase/moderation', () => ({
   REPORT_PAGE: 100,
   REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or abuse' }],
-  watchOpenReports: (cb) => { cb([]); return noop() },
-  watchRoles: (cb) => { cb([]); return noop() },
-  watchWarnings: (cb) => { cb([]); return noop() },
-  closeAccount: vi.fn(), issueWarning: vi.fn(), liftSuspension: vi.fn(),
-  removeActivity: vi.fn(), resolveReport: vi.fn(), restoreActivity: vi.fn(),
-  setUserRole: vi.fn(), reopenAccount: vi.fn(), suspendAccount: vi.fn(),
+  watchOpenReports: (cb) => {
+    cb([])
+    return noop()
+  },
+  watchRoles: (cb) => {
+    cb([])
+    return noop()
+  },
+  watchWarnings: (cb) => {
+    cb([])
+    return noop()
+  },
+  closeAccount: vi.fn(),
+  issueWarning: vi.fn(),
+  liftSuspension: vi.fn(),
+  removeActivity: vi.fn(),
+  resolveReport: vi.fn(),
+  restoreActivity: vi.fn(),
+  setUserRole: vi.fn(),
+  reopenAccount: vi.fn(),
+  suspendAccount: vi.fn(),
 }))
 
 let currentUser = { uid: 'me', isModerator: true, isAdmin: true, name: 'Admin' }
 vi.mock('../../src/context/AuthContext', () => ({ useAuth: () => ({ user: currentUser }) }))
 
-const removed = [{
-  id: 'r1', title: 'Taken down thing', hostId: 'h1', hostName: 'Host One',
-  locationName: 'Somewhere', status: 'removed', updatedAt: Date.now(),
-  moderation: { by: 'me', reason: 'Broke the rules' },
-}]
+const removed = [
+  {
+    id: 'r1',
+    title: 'Taken down thing',
+    hostId: 'h1',
+    hostName: 'Host One',
+    locationName: 'Somewhere',
+    status: 'removed',
+    updatedAt: Date.now(),
+    moderation: { by: 'me', reason: 'Broke the rules' },
+  },
+]
 vi.mock('../../src/context/AppContext', () => ({
   useApp: () => ({
     pushCelebration: vi.fn(),

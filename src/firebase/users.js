@@ -2,7 +2,9 @@ import {
   collection,
   doc,
   getDoc,
+  limit,
   onSnapshot,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -106,10 +108,43 @@ export function watchPrivateProfile(uid, callback, onError) {
   )
 }
 
+/**
+ * How many peers the directory holds.
+ *
+ * This query had no bound: every signed-in client opened a live listener on
+ * the whole `users` collection and held it open. Two things made that the
+ * worst-scaling call in the app. Reads are O(N) per person per session, so
+ * the platform pays O(N-squared) as it grows. And because it is live, one
+ * person editing their profile pushes an update to every other connected
+ * client — write amplification that also grows with N.
+ *
+ * Five hundred keeps both bounded.
+ *
+ * Deliberately *not* ordered. The obvious version sorts by `updatedAt` so the
+ * most recently active people win the window, and it was written that way
+ * first — then measured against the emulator, where two of seven user
+ * documents turned out to have no `updatedAt` at all. Firestore drops
+ * documents missing the ordering field from the result silently, so those two
+ * people would simply have stopped existing for matching, with nothing
+ * anywhere saying so. Every account the app creates does set the field; the
+ * ones that did not came from another path entirely, which is precisely the
+ * case an invariant like that has to survive.
+ *
+ * Unordered means the window is the first five hundred by document id:
+ * arbitrary, stable, and complete. Arbitrary-but-complete beats
+ * relevant-but-lossy when the loss is invisible.
+ *
+ * Somebody outside the window is not invisible in the app — activities carry
+ * their host's name and avatar, so cards still render — they just do not take
+ * part in compatibility scoring, which is the honest consequence of scoring
+ * on the client at all (ADR-012).
+ */
+export const PEER_LIMIT = 500
+
 /** Every other signed-up user — the peer directory behind matching. */
 export function watchPeers(uid, callback, onError) {
   return onSnapshot(
-    collection(db, 'users'),
+    query(collection(db, 'users'), limit(PEER_LIMIT)),
     (snap) => callback(snap.docs.map((d) => d.data()).filter((peer) => peer.uid !== uid)),
     onError,
   )

@@ -40,6 +40,9 @@ const channel =
 
 vi.mock('../../src/firebase/activities', () => ({
   watchActivities: (cb) => channel('activities')(cb),
+  watchMyActivities: (uid, cb) => channel('mine')(uid, cb),
+  DISCOVERY_LIMIT: 400,
+  MINE_LIMIT: 200,
   createActivity: vi.fn(),
   updateActivity: vi.fn(),
   cancelActivity: vi.fn(),
@@ -135,7 +138,7 @@ describe('the five data listeners', () => {
       </AppProvider>,
     )
     expect(Object.keys(emit).sort()).toEqual(
-      ['activities', 'blocked', 'following', 'notifications', 'peers'].sort(),
+      ['activities', 'blocked', 'following', 'mine', 'notifications', 'peers'].sort(),
     )
   })
 
@@ -146,7 +149,7 @@ describe('the five data listeners', () => {
       </AppProvider>,
     )
     view.unmount()
-    for (const name of ['activities', 'peers', 'notifications', 'following', 'blocked']) {
+    for (const name of ['activities', 'mine', 'peers', 'notifications', 'following', 'blocked']) {
       expect(stops[name], `${name} was never stopped`).toBeGreaterThanOrEqual(1)
     }
   })
@@ -284,5 +287,40 @@ describe('context value identity', () => {
     )
     act(() => emit.activities([activity('a1')], { fromCache: false }))
     expect(actions.length).toBeGreaterThan(1)
+  })
+})
+
+describe('the discovery cap must not lose your own commitments', () => {
+  test('an activity beyond the discovery window still counts as joined', () => {
+    // H2. Discovery is capped by start time, so something joined far enough
+    // ahead falls outside it. Without the personal feed alongside, a person
+    // would join something and then watch it disappear from their own list.
+    render(<AppProvider><Probe /></AppProvider>)
+    // The capped feed knows nothing about it.
+    act(() => emit.activities([activity('near')], { fromCache: false }))
+    expect(screen.getByTestId('joined').textContent).toBe('near')
+
+    // The personal feed does.
+    act(() => emit.mine([activity('far-future', { startsAt: Date.now() + 400 * 86_400_000 })]))
+    expect(screen.getByTestId('joined').textContent.split(',').sort()).toEqual(
+      ['far-future', 'near'],
+    )
+  })
+
+  test('an activity in both feeds is not duplicated', () => {
+    render(<AppProvider><Probe /></AppProvider>)
+    act(() => emit.activities([activity('a1')], { fromCache: false }))
+    act(() => emit.mine([activity('a1')]))
+    expect(screen.getByTestId('joined').textContent).toBe('a1')
+    expect(screen.getByTestId('activities').textContent).toBe('1')
+  })
+
+  test('the personal feed alone is enough to open a thread', () => {
+    // The preview listeners key off joinedIds, so this proves the merge
+    // reaches everything downstream of it rather than only the count.
+    render(<AppProvider><Probe /></AppProvider>)
+    act(() => emit.activities([], { fromCache: false }))
+    act(() => emit.mine([activity('only-mine')]))
+    expect(Object.keys(threadEmit)).toContain('only-mine')
   })
 })

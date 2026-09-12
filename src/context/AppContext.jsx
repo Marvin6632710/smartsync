@@ -9,6 +9,7 @@ import {
   leaveActivity as leaveActivityDoc,
   updateActivity as updateActivityDoc,
   watchActivities,
+  watchMyActivities,
 } from '../firebase/activities'
 import { sendMessage as sendMessageDoc, watchLatestMessage } from '../firebase/messages'
 import {
@@ -49,6 +50,10 @@ export function AppProvider({ children }) {
   const uid = user?.uid || null
 
   const [activities, setActivities] = useState([])
+  // The discovery feed is capped by start time; this is not. Without it a
+  // commitment far enough ahead would fall outside the window and vanish from
+  // the list of things you had joined.
+  const [myActivities, setMyActivities] = useState([])
   const [peers, setPeers] = useState([])
   const [notifications, setNotifications] = useState([])
   const [followedUserIds, setFollowedUserIds] = useState([])
@@ -132,6 +137,7 @@ export function AppProvider({ children }) {
   if (loadedFor !== uid) {
     setLoadedFor(uid)
     setActivities([])
+    setMyActivities([])
     setPeers([])
     setNotifications([])
     setFollowedUserIds([])
@@ -172,6 +178,7 @@ export function AppProvider({ children }) {
       // that exists precisely to stop a departing session writing into the
       // arriving one's state was protecting a fifth of the data it was
       // written for.
+      watchMyActivities(uid, onlyWhileLive(setMyActivities), report),
       watchPeers(uid, onlyWhileLive(setPeers), report),
       watchNotifications(uid, onlyWhileLive(setNotifications), report),
       watchFollowing(uid, onlyWhileLive(setFollowedUserIds), report),
@@ -228,9 +235,20 @@ export function AppProvider({ children }) {
   // Membership lives on the activity itself, so "what have I joined" is a
   // question about the current data rather than a second list that has to be
   // kept in step with it. The two can no longer disagree.
+  // One list, deduplicated. Discovery wins where both hold the same activity:
+  // both come from the same documents, and preferring one keeps the identity
+  // stable so memoised derivations downstream do not churn.
+  const allKnownActivities = useMemo(() => {
+    if (myActivities.length === 0) return activities
+    const byId = new Map(activities.map((a) => [a.id, a]))
+    for (const mine of myActivities) if (!byId.has(mine.id)) byId.set(mine.id, mine)
+    return [...byId.values()]
+  }, [activities, myActivities])
+
   const joinedIds = useMemo(
-    () => activities.filter((a) => (a.participantUids || []).includes(uid)).map((a) => a.id),
-    [activities, uid],
+    () =>
+      allKnownActivities.filter((a) => (a.participantUids || []).includes(uid)).map((a) => a.id),
+    [allKnownActivities, uid],
   )
 
   // Distance is computed from where the user actually is, not typed into a
@@ -261,7 +279,7 @@ export function AppProvider({ children }) {
 
   const located = useMemo(() => {
     const from = user?.location || null
-    return activities.map((activity) => {
+    return allKnownActivities.map((activity) => {
       const host = directory.get(activity.hostId)
       return {
         ...activity,
@@ -275,7 +293,7 @@ export function AppProvider({ children }) {
         distanceKm: from ? distanceBetween(from, { lat: activity.lat, lng: activity.lng }) : null,
       }
     })
-  }, [activities, directory, user?.location])
+  }, [allKnownActivities, directory, user?.location])
 
   // Scored once, over everything. Previously only active activities were
   // ranked, so an activity you had joined and the host then cancelled lost its
@@ -522,7 +540,7 @@ export function AppProvider({ children }) {
       // place first (a real race — verified to happen), or the host cancelled
       // it underneath them.
       if (error?.code === 'permission-denied') {
-        const fresh = activities.find((item) => item.id === id) || activity
+        const fresh = allKnownActivities.find((item) => item.id === id) || activity
         const full = (fresh.participants || 0) >= (fresh.capacity || 0)
         const gone = fresh.status === 'removed'
         const off = fresh.status === 'cancelled'
@@ -554,7 +572,7 @@ export function AppProvider({ children }) {
   }
 
   async function leaveActivity(id) {
-    const activity = activities.find((item) => item.id === id)
+    const activity = allKnownActivities.find((item) => item.id === id)
     if (!activity || !joinedIds.includes(id)) return
     const ok = await attempt(() => leaveActivityDoc(id, uid), { failure: "Couldn't leave" })
     if (ok === null) return
@@ -566,7 +584,7 @@ export function AppProvider({ children }) {
   }
 
   async function cancelActivity(id) {
-    const activity = activities.find((item) => item.id === id)
+    const activity = allKnownActivities.find((item) => item.id === id)
     if (!activity || activity.hostId !== uid) return
     const ok = await attempt(() => cancelActivityDoc(id), { failure: "Couldn't cancel" })
     if (ok === null) return
@@ -596,7 +614,7 @@ export function AppProvider({ children }) {
    * host's own history.
    */
   async function removeActivity(id) {
-    const activity = activities.find((item) => item.id === id)
+    const activity = allKnownActivities.find((item) => item.id === id)
     if (!activity || activity.hostId !== uid) return
     const ok = await attempt(() => deleteActivityDoc(id), { failure: "Couldn't delete" })
     if (ok === null) return
@@ -641,7 +659,7 @@ export function AppProvider({ children }) {
   }
 
   async function sendMessage(activityId, text) {
-    const activity = activities.find((item) => item.id === activityId)
+    const activity = allKnownActivities.find((item) => item.id === activityId)
     if (blockedBySuspension('send messages')) return
     const ok = await attempt(() => sendMessageDoc(activityId, user, text), {
       failure: "Couldn't send",

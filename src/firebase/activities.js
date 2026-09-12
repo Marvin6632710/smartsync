@@ -6,6 +6,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -61,7 +62,26 @@ function normalise(snapshot) {
 }
 
 /**
- * Live feed of every activity from yesterday onwards, soonest first.
+ * How much of the future the discovery feed holds at once.
+ *
+ * This query had no bound at all: every signed-in client opened a live
+ * listener on every upcoming activity in the database and kept it open. That
+ * is fine with two dozen activities and untenable with two thousand — the
+ * cost is per document read, it is paid again by every person who opens the
+ * app, and it grows with the platform rather than with the user.
+ *
+ * Four hundred, soonest first, is far more than anybody scrolls and small
+ * enough to stay cheap. What it cannot do is guarantee that something you
+ * joined months ahead is inside the window, which is why `watchMyActivities`
+ * exists alongside it rather than instead of it.
+ */
+export const DISCOVERY_LIMIT = 400
+
+/** A person's own activities are theirs to keep; this bound is a sanity cap. */
+export const MINE_LIMIT = 200
+
+/**
+ * Live feed of the soonest activities from yesterday onwards.
  *
  * Cancelled ones are included deliberately: they must disappear from
  * discovery but stay visible to people who had joined, so the filtering is
@@ -70,12 +90,41 @@ function normalise(snapshot) {
 export function watchActivities(callback, onError) {
   const cutoff = Timestamp.fromMillis(Date.now() - HISTORY_WINDOW_MS)
   return onSnapshot(
-    query(activitiesRef, where('startsAt', '>=', cutoff), orderBy('startsAt', 'asc')),
+    query(
+      activitiesRef,
+      where('startsAt', '>=', cutoff),
+      orderBy('startsAt', 'asc'),
+      limit(DISCOVERY_LIMIT),
+    ),
     // includeMetadataChanges so the listener also fires when only the
     // connection state changes. Without it, going offline is silent until
     // some document happens to change — which offline it never will.
     { includeMetadataChanges: true },
     (snap) => callback(snap.docs.map(normalise), { fromCache: snap.metadata.fromCache }),
+    onError,
+  )
+}
+
+/**
+ * Everything this person hosts or has joined, whenever it happens.
+ *
+ * The companion to the bound above. Capping discovery is safe; capping it
+ * without this would not be, because the cap is by start time and would
+ * eventually push somebody's own commitment out of their own list — they
+ * would have joined something and then watched it vanish. The host is the
+ * first entry on their own roster, so one array-contains covers both hosting
+ * and joining, and the result set is the size of one person's social life
+ * rather than the platform's.
+ */
+export function watchMyActivities(uid, callback, onError) {
+  return onSnapshot(
+    query(
+      activitiesRef,
+      where('participantUids', 'array-contains', uid),
+      orderBy('startsAt', 'desc'),
+      limit(MINE_LIMIT),
+    ),
+    (snap) => callback(snap.docs.map(normalise)),
     onError,
   )
 }
