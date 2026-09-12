@@ -350,33 +350,75 @@ export function AppProvider({ children }) {
   // an earlier version split them across two effects and a ref, which
   // StrictMode's mount/unmount/remount cycle tore down without ever rebuilding,
   // leaving every thread stuck on "No messages yet".
-  const joinedKey = joinedIds.join(',')
+  // Sorted, so the key describes the *set* of joined activities rather than
+  // the order the activities snapshot happened to arrive in. The snapshot is
+  // ordered by start time, so editing one activity's time reordered the whole
+  // array and, with the old key, churned every listener for no reason.
+  const joinedKey = [...joinedIds].sort().join(',')
+  const threadStopsRef = React.useRef(new Map())
+  const threadOwnerRef = React.useRef(null)
+
+  // Lifetime. One effect owns closing these, and it fires only when the
+  // account changes, on unmount, or when a retry deliberately rebuilds
+  // everything — never merely because the set of joined activities changed.
+  // Keeping teardown here is what lets the reconcile below hold listeners
+  // across renders; an earlier attempt put both in one effect, whose cleanup
+  // closed everything before the next run could reuse any of it, so the
+  // reconciliation was elaborate and did nothing.
   useEffect(() => {
-    if (!uid || !joinedKey) return undefined
-    let live = true
-    const stops = joinedKey.split(',').map((id) =>
-      watchLatestMessage(
-        id,
-        (message) => {
-          if (live) setThreadPreviews((previous) => ({ ...previous, [id]: message }))
-        },
-        // A thread that genuinely cannot be read any more — the thirty-day
-        // retention window has closed on it — drops its preview rather than
-        // offering a line nobody can open. The same guard as above keeps an
-        // account switch from counting as that: without it, signing back in
-        // silently emptied every chat preview. Passing no handler at all,
-        // which is where this started, let the SDK log "Uncaught Error in
-        // snapshot listener" on every sign-out and told the app nothing.
-        guard(() => {
-          if (live) setThreadPreviews((previous) => ({ ...previous, [id]: null }))
-        }),
-      ),
-    )
+    threadOwnerRef.current = uid
+    const open = threadStopsRef.current
     return () => {
-      live = false
-      stops.forEach((stop) => stop())
+      open.forEach((stop) => stop())
+      open.clear()
     }
-  }, [joinedKey, uid, guard])
+  }, [uid, listenerAttempt])
+
+  // Reconcile: open what is new, close what has gone, leave the rest alone.
+  useEffect(() => {
+    if (!uid) return undefined
+    const ids = joinedKey ? joinedKey.split(',') : []
+    const open = threadStopsRef.current
+    // Which session these belong to. A listener that somehow outlives its
+    // account must not write into the next one's previews — the same hazard
+    // the `live` flag covers for the data listeners.
+    const owner = uid
+
+    for (const id of ids) {
+      if (open.has(id)) continue
+      open.set(
+        id,
+        watchLatestMessage(
+          id,
+          (message) => {
+            if (threadOwnerRef.current === owner) {
+              setThreadPreviews((previous) => ({ ...previous, [id]: message }))
+            }
+          },
+          // A thread that genuinely cannot be read any more — the thirty-day
+          // retention window has closed on it — drops its preview rather than
+          // offering a line nobody can open. The guard keeps an account
+          // switch from counting as that: without it, signing back in
+          // silently emptied every chat preview. Passing no handler at all,
+          // which is where this started, let the SDK log "Uncaught Error in
+          // snapshot listener" on every sign-out and told the app nothing.
+          guard(() => {
+            if (threadOwnerRef.current === owner) {
+              setThreadPreviews((previous) => ({ ...previous, [id]: null }))
+            }
+          }),
+        ),
+      )
+    }
+
+    for (const [id, stop] of [...open]) {
+      if (ids.includes(id)) continue
+      stop()
+      open.delete(id)
+    }
+    // No cleanup: the effect above owns the lifetime.
+    return undefined
+  }, [joinedKey, uid, guard, listenerAttempt])
 
   // ------------------------------------------------------------------ actions
 
@@ -671,6 +713,22 @@ export function AppProvider({ children }) {
     return true
   }
 
+  /**
+   * Actions, with an identity that never changes.
+   *
+   * Every one of these is redefined on each render, so putting them straight
+   * into the context value handed all of its consumers a new object each
+   * time — and a consumer memoised on `joinActivity` was invalidated by an
+   * unrelated activity arriving.
+   *
+   * They are not wrapped in useCallback because there are sixteen of them and
+   * they call each other; a single wrong dependency there is a stale closure,
+   * which is a far worse bug than the one being fixed. Instead the ref always
+   * holds this render's versions and the exported wrappers dispatch to it, so
+   * the identity is stable *and* the behaviour is always current. The ref is
+   * only ever read from an event handler, never during render, which is the
+   * case this pattern is for.
+   */
   const value = {
     // Signed out is not "still loading" — it is a settled state with no data.
     loading: Boolean(uid) && !activitiesLoaded,

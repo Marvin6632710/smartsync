@@ -558,3 +558,48 @@ retroactive for messages already sent.
 
 Known limitations disclosed first are a strength. Discovered by the panel,
 they are a weakness.
+
+---
+
+## ADR-012 — The peer directory is readable by every signed-in user
+
+**Context.** An audit asked whether the app exposes more than it needs to. It
+does, and the shape of it is worth writing down rather than rediscovering:
+any signed-in user can list `users` and read every activity, including its
+`participantUids`. Between the two, the whole social graph — who exists, and
+who joined what — is enumerable from a phone.
+
+**Why it is that way.** Two separate constraints, neither of which is
+incidental.
+
+Matching runs on the client (ADR-006), and compatibility is computed against
+other people's interests, preferred times and joined-category history. A
+client that cannot read peers cannot rank anybody, so the directory has to be
+readable for the feature to exist at all.
+
+The roster lives on the activity document as an array, not in a subcollection,
+because that is the only shape in which Firestore's rules can verify a
+membership change atomically — the note at the top of firestore.rules explains
+why the alternative lets anyone inflate an activity to full and lock others
+out. Anything that can read an activity can therefore read who is on it.
+
+**What is not exposed.** The public half is deliberately thin: name, avatar,
+username, bio, interests, preferred time, joined categories. Email, real name
+and precise location live in `users/{uid}/private/profile`, which only its
+owner can read — an admin included. Anonymous mode rewrites the public
+identity at the source, so a person in anonymous mode is anonymous in the
+directory too, not merely on screens that remember to check. `notifications
+Enabled` is the one setting deliberately kept public, because the sender's
+rules have to read it for it to mean anything.
+
+**Decision.** Accept it, and say so. The exposure is the cost of client-side
+matching plus atomically-verifiable membership, both of which were chosen on
+their merits.
+
+**What would change it.** Moving scoring to a Cloud Function, which would let
+the directory stop leaving the server — the same change ADR-006 already names
+as the thing to do if scoring ever needs data the client should not hold. At
+that point `users` could be closed to listing, and participation could move
+behind a function too. It is a deliberate trade now rather than an oversight,
+and it should be revisited the moment the app is used by people who did not
+choose to be in a directory with each other.

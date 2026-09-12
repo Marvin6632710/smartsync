@@ -5,8 +5,6 @@ import {
   Eye,
   Flag,
   MessageSquareWarning,
-  ShieldOff,
-  RotateCcw,
   ShieldAlert,
   ShieldCheck,
   Trash2,
@@ -15,6 +13,9 @@ import {
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ConfirmDialog from '../components/ConfirmDialog'
+import ModeratorList from './moderation/ModeratorList'
+import PeopleDirectory from './moderation/PeopleDirectory'
+import RemovedActivities from './moderation/RemovedActivities'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -720,92 +721,15 @@ export default function ModerationPage() {
           only appears for one. A moderator seeing a queue of decisions they
           cannot act on would be inviting them to try. */}
       {showing('removed') && user.isAdmin && (
-        <>
-          <section className="headline-block">
-            <span className="eyebrow">Admin</span>
-            <h2>Removed activities</h2>
-            <p className="helper-text">
-              Everything moderators have taken down. Putting one back is recorded against it, and
-              the host is told.
-            </p>
-          </section>
-
-          <div className="stack list-stack">
-            {removedActivities.map((activity) => (
-              <article className="report-card" key={activity.id}>
-                <header>
-                  <span className="report-kind">
-                    <Trash2 size={13} /> removed
-                  </span>
-                  <time>{formatRelativeTime(activity.updatedAt)}</time>
-                </header>
-                <h3>{activity.title}</h3>
-                <p className="report-context">
-                  Hosted by {activity.hostName} · {activity.locationName}
-                </p>
-                <p className="report-detail-text">
-                  “{activity.moderation?.reason || 'No reason recorded'}”
-                </p>
-                <p className="report-meta">Taken down by {nameFor(activity.moderation?.by)}</p>
-
-                <label className="report-detail">
-                  {/* One element, so the question and its note stay on one
-                      line — the label is a grid, and a bare text node beside
-                      a span becomes two rows. */}
-                  <span className="field-label">
-                    Why are you putting this back? <span className="optional">Required</span>
-                  </span>
-                  <input
-                    maxLength={300}
-                    /* Measured at exactly the field width before, so it
-                       clipped on the rounding and would clip badly on a
-                       320px phone. This leaves real headroom. */
-                    placeholder="The report was mistaken"
-                    value={restoreReasons[activity.id] || ''}
-                    onChange={(event) =>
-                      setRestoreReasons((current) => ({
-                        ...current,
-                        [activity.id]: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <div className="report-actions">
-                  <button
-                    className="secondary-button"
-                    disabled={
-                      !(restoreReasons[activity.id] || '').trim() || restoring === activity.id
-                    }
-                    // Without this the control is simply grey, which reads as
-                    // broken rather than as waiting for the reason above it.
-                    title={
-                      (restoreReasons[activity.id] || '').trim()
-                        ? undefined
-                        : 'Write a reason first'
-                    }
-                    onClick={() => restore(activity)}
-                  >
-                    <RotateCcw size={15} />{' '}
-                    {restoring === activity.id ? 'Putting it back…' : 'Put it back'}
-                  </button>
-                  <button
-                    className="text-button"
-                    onClick={() => navigate(`/activity/${activity.id}`)}
-                  >
-                    Look at it
-                  </button>
-                </div>
-              </article>
-            ))}
-            {removedActivities.length === 0 && (
-              <div className="empty-state">
-                <Trash2 size={28} />
-                <h3>Nothing has been taken down</h3>
-                <p>Activities removed by a moderator will be listed here.</p>
-              </div>
-            )}
-          </div>
-        </>
+        <RemovedActivities
+          removedActivities={removedActivities}
+          restoreReasons={restoreReasons}
+          setRestoreReasons={setRestoreReasons}
+          restoring={restoring}
+          onRestore={restore}
+          onOpen={(id) => navigate(`/activity/${id}`)}
+          nameFor={nameFor}
+        />
       )}
 
       {/* Reports tell you where to look. This is for looking without being
@@ -814,152 +738,18 @@ export default function ModerationPage() {
           Public profile data only: the private half of a profile is readable
           by its owner and by nobody else, an admin included. */}
       {showing('people') && (
-        <>
-          <section className="headline-block">
-            <span className="eyebrow">Oversight</span>
-            <h2>Everyone on SmartSync</h2>
-            <p className="helper-text">
-              {people.length} {people.length === 1 ? 'account' : 'accounts'}. Anyone suspended, or
-              with something taken down, is listed first. You are seeing public profiles — emails,
-              real names behind anonymous mode and stored locations are not readable by anybody but
-              their owner.
-            </p>
-          </section>
-
-          <label className="report-detail watch-search">
-            Search everyone
-            <input
-              value={watchSearch}
-              maxLength={60}
-              placeholder="Name or @username"
-              onChange={(event) => setWatchSearch(event.target.value)}
-            />
-          </label>
-
-          <div className="stack list-stack">
-            {watched.slice(0, 40).map((person) => {
-              const isMe = person.uid === user.uid
-              const cannotTouch =
-                isMe || person.rank === 'admin' || (person.rank !== 'user' && !user.isAdmin)
-              return (
-                <article className="report-card" key={person.uid}>
-                  <header>
-                    <span className="report-kind">
-                      <Eye size={13} /> {person.rank}
-                    </span>
-                    {person.closed && <span className="report-repeat">closed</span>}
-                    {person.suspended && !person.closed && (
-                      <span className="report-repeat">suspended</span>
-                    )}
-                    {person.warnings > 0 && (
-                      <span className="report-repeat">
-                        {person.warnings} warning{person.warnings === 1 ? '' : 's'}
-                      </span>
-                    )}
-                    {person.removedCount > 0 && (
-                      <span className="report-repeat">{person.removedCount} taken down</span>
-                    )}
-                  </header>
-
-                  <h3>
-                    {person.name}
-                    {isMe ? ' (you)' : ''}
-                  </h3>
-                  <p className="report-context">
-                    {person.username ? `${person.username} · ` : ''}
-                    hosts {person.hosts}, joined {person.joinedCount}
-                    {person.anonymous ? ' · anonymous mode on' : ''}
-                  </p>
-                  {(person.interests || []).length > 0 && (
-                    <p className="report-meta">{(person.interests || []).join(' · ')}</p>
-                  )}
-
-                  <div className="report-actions">
-                    {!cannotTouch && !person.closed && (
-                      <button
-                        className="secondary-button"
-                        disabled={recording === person.uid}
-                        onClick={() => {
-                          setRecordedReason('')
-                          setRecorded({ uid: person.uid, kind: 'warn' })
-                        }}
-                      >
-                        <MessageSquareWarning size={15} />{' '}
-                        {recording === person.uid ? 'Working…' : 'Warn'}
-                      </button>
-                    )}
-                    {!cannotTouch && !person.suspended && !person.closed && (
-                      <button
-                        className="danger-button"
-                        disabled={suspending === person.uid}
-                        onClick={() => setSuspendTarget({ uid: person.uid, suspend: true })}
-                      >
-                        <UserRoundX size={15} />{' '}
-                        {suspending === person.uid ? 'Suspending…' : 'Suspend account'}
-                      </button>
-                    )}
-                    {!cannotTouch && person.suspended && !person.closed && (
-                      <button
-                        className="secondary-button"
-                        disabled={suspending === person.uid}
-                        onClick={() => setSuspendTarget({ uid: person.uid, suspend: false })}
-                      >
-                        <UserRoundCheck size={15} />{' '}
-                        {suspending === person.uid ? 'Lifting…' : 'Lift suspension'}
-                      </button>
-                    )}
-                    {/* The end of the ladder, and an admin's alone. */}
-                    {!cannotTouch && user.isAdmin && !person.closed && (
-                      <button
-                        className="danger-button"
-                        disabled={recording === person.uid}
-                        onClick={() => {
-                          setRecordedReason('')
-                          setRecorded({ uid: person.uid, kind: 'close' })
-                        }}
-                      >
-                        <ShieldOff size={15} /> Close account
-                      </button>
-                    )}
-                    {!cannotTouch && user.isAdmin && person.closed && (
-                      <button
-                        className="secondary-button"
-                        disabled={recording === person.uid}
-                        onClick={() => {
-                          setRecordedReason('')
-                          setRecorded({ uid: person.uid, kind: 'reopen' })
-                        }}
-                      >
-                        <UserRoundCheck size={15} /> Reopen account
-                      </button>
-                    )}
-                    {cannotTouch && !isMe && (
-                      <span className="report-meta">
-                        {person.rank === 'admin'
-                          ? 'An admin. No rank can act on this account from inside the app.'
-                          : 'A moderator. Only an admin can act on this account.'}
-                      </span>
-                    )}
-                  </div>
-                </article>
-              )
-            })}
-
-            {watched.length === 0 && (
-              <div className="empty-state">
-                <Eye size={28} />
-                <h3>Nobody matches that</h3>
-                <p>Try part of a name, or clear the search to see everyone.</p>
-              </div>
-            )}
-
-            {watched.length > 40 && (
-              <p className="helper-text">
-                Showing the first 40 of {watched.length}. Search to narrow it down.
-              </p>
-            )}
-          </div>
-        </>
+        <PeopleDirectory
+          user={user}
+          people={people}
+          watched={watched}
+          watchSearch={watchSearch}
+          setWatchSearch={setWatchSearch}
+          suspending={suspending}
+          recording={recording}
+          setSuspendTarget={setSuspendTarget}
+          setRecorded={setRecorded}
+          setRecordedReason={setRecordedReason}
+        />
       )}
 
       {/* Appointing is the one rank change that belongs in the app. It is
@@ -967,108 +757,17 @@ export default function ModerationPage() {
           unlike `admin` itself, which has no button here and none anywhere,
           so that compromising any account in the app cannot mint another. */}
       {showing('moderators') && user.isAdmin && (
-        <>
-          <section className="headline-block">
-            <span className="eyebrow">Admin</span>
-            <h2>Moderators</h2>
-            <p className="helper-text">
-              Who can work this queue. From the moment they are appointed they can take activities
-              down and suspend ordinary users, and they are told so.
-            </p>
-          </section>
-
-          <div className="stack list-stack">
-            {moderators.map((account) => (
-              <article className="report-card" key={account.uid}>
-                <header>
-                  <span className="report-kind">
-                    <ShieldCheck size={13} /> moderator
-                  </span>
-                  {account.suspended && <span className="report-repeat">suspended</span>}
-                </header>
-                <h3>{nameFor(account.uid)}</h3>
-                {account.suspended && (
-                  <p className="report-context">
-                    Suspended, so they hold the rank and use none of it. Lift it above to give the
-                    powers back.
-                  </p>
-                )}
-                <div className="report-actions">
-                  <button
-                    className="danger-button"
-                    disabled={changingRole === account.uid}
-                    onClick={() => setRoleChange({ uid: account.uid, role: 'user' })}
-                  >
-                    <UserRoundX size={15} />{' '}
-                    {changingRole === account.uid ? 'Dismissing…' : 'Dismiss as moderator'}
-                  </button>
-                </div>
-              </article>
-            ))}
-
-            {moderators.length === 0 && (
-              <div className="empty-state">
-                <ShieldCheck size={28} />
-                <h3>No moderators yet</h3>
-                <p>Every report is yours alone until you appoint somebody.</p>
-              </div>
-            )}
-
-            <article className="report-card">
-              <h3>Appoint someone</h3>
-              <label className="report-detail">
-                Search people by name
-                <input
-                  value={personSearch}
-                  maxLength={60}
-                  placeholder="Start typing a name"
-                  onChange={(event) => setPersonSearch(event.target.value)}
-                />
-              </label>
-
-              {!personSearch.trim() ? (
-                <p className="report-meta">
-                  Type a name to find somebody. Current moderators and admins are not listed here.
-                </p>
-              ) : appointable.length === 0 ? (
-                <p className="report-meta">
-                  Nobody else matches “{personSearch.trim()}”. Anyone already holding a rank is left
-                  out of this list.
-                </p>
-              ) : (
-                appointable.map((person) => (
-                  <div className="report-actions appoint-row" key={person.uid}>
-                    <span>
-                      {person.name}
-                      {person.username ? ` · ${person.username}` : ''}
-                      {/* A rank somebody cannot currently use is worth saying
-                          out loud before it is handed to them, not after. */}
-                      {suspendedIds.has(person.uid) && (
-                        <em className="appoint-note"> · suspended</em>
-                      )}
-                    </span>
-                    <button
-                      className="secondary-button"
-                      disabled={changingRole === person.uid}
-                      onClick={() => setRoleChange({ uid: person.uid, role: 'moderator' })}
-                    >
-                      <UserRoundCheck size={15} />{' '}
-                      {changingRole === person.uid ? 'Appointing…' : 'Appoint'}
-                    </button>
-                  </div>
-                ))
-              )}
-            </article>
-          </div>
-
-          <p className="helper-text">
-            {admins.length === 1
-              ? `Admin: ${nameFor(admins[0].uid)}.`
-              : `Admins: ${admins.map((a) => nameFor(a.uid)).join(', ')}.`}{' '}
-            That rank is granted in the Firebase console and nowhere else — there is no button for
-            it here, on purpose.
-          </p>
-        </>
+        <ModeratorList
+          moderators={moderators}
+          admins={admins}
+          appointable={appointable}
+          personSearch={personSearch}
+          setPersonSearch={setPersonSearch}
+          changingRole={changingRole}
+          suspendedIds={suspendedIds}
+          onChangeRole={setRoleChange}
+          nameFor={nameFor}
+        />
       )}
 
       <ConfirmDialog
