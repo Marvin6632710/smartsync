@@ -753,7 +753,6 @@ select:focus-visible {
 .form-card,
 .settings-card,
 .empty-state,
-.surprise-card,
 .profile-showcase,
 .activity-card,
 .new-match-card,
@@ -766,8 +765,7 @@ select:focus-visible {
 }
 .person-card,
 .message-thread,
-.notification-card,
-.surprise-card {
+.notification-card {
   padding: 14px;
 }
 .panel,
@@ -913,44 +911,6 @@ select:focus-visible {
 .stat-card small {
   color: var(--text-3);
   font-size: var(--t-xs);
-}
-
-.surprise-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-  border-color: var(--accent-line);
-  background: linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 70%);
-}
-.surprise-copy h3 {
-  margin: 4px 0 3px;
-  font-size: var(--t-h2);
-}
-.surprise-copy p {
-  margin: 0;
-  font-size: var(--t-sm);
-}
-.surprise-score {
-  min-width: 74px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  background: var(--surface);
-  border: 1px solid var(--accent-line);
-  border-radius: var(--r-md);
-  padding: 10px 12px;
-  color: var(--accent);
-}
-.surprise-score strong {
-  font-size: var(--t-h2);
-  line-height: 1;
-}
-.surprise-score span {
-  font-size: var(--t-xs);
-  font-weight: var(--w-medium);
 }
 
 /* =========================================================
@@ -2219,16 +2179,6 @@ select:focus-visible {
   }
   .interest-grid {
     grid-template-columns: repeat(2, 1fr);
-  }
-  .surprise-card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .surprise-score {
-    width: 100%;
-    flex-direction: row;
-    justify-content: center;
-    gap: 8px;
   }
   .notify-row {
     flex-direction: column;
@@ -3938,47 +3888,6 @@ body {
   --cat-texture-size: 20px 20px;
 }
 
-/* The best match on AI Picks wears its category like everything else. It was
-   the one place left showing an activity in the brand's colour rather than
-   its own, which made it look like a different kind of object. */
-.surprise-card {
-  position: relative;
-  border: 0;
-  color: #fff;
-  isolation: isolate;
-  background: linear-gradient(
-    140deg,
-    var(--cat, var(--accent)),
-    var(--cat-deep, var(--accent-strong))
-  );
-  box-shadow: var(--shadow-cat, var(--shadow));
-}
-.surprise-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background: radial-gradient(130% 100% at 85% -25%, rgba(255, 255, 255, 0.32), transparent 62%);
-}
-.surprise-card h3 {
-  color: #fff;
-  font-size: var(--t-h1);
-}
-.surprise-card .eyebrow,
-.surprise-card p {
-  color: rgba(255, 255, 255, 0.85);
-}
-.surprise-score {
-  background: rgba(255, 255, 255, 0.95);
-  color: var(--cat, var(--accent));
-  border-radius: var(--r-pill);
-  font-weight: var(--w-bold);
-}
-.surprise-score svg {
-  color: var(--cat, var(--accent));
-}
-
 /* =========================================================
    ARRIVAL AND RESPONSE
    Two things separate an interface that feels made from one that feels
@@ -4166,4 +4075,137 @@ body {
 }
 .mod-section-row > svg:last-child {
   color: var(--text-3);
+}
+
+/* =========================================================
+   AI PICKS
+   Discover answers "what is on". This answers "what suits me", so it has to
+   look like a different kind of answer — one that shows its working rather
+   than just listing things.
+   ========================================================= */
+
+/* The strongest match, in its category's colour, with the reasons the
+   scorer actually gave. */
+.top-pick {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: var(--r-xl);
+  color: #fff;
+  isolation: isolate;
+  background: linear-gradient(
+    140deg,
+    var(--cat, var(--accent)),
+    var(--cat-deep, var(--accent-strong))
+  );
+  box-shadow: var(--shadow-cat, var(--shadow-lg));
+}
+.top-pick-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.top-pick .category-chip {
+  background: rgba(0, 0, 0, 0.22);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+.top-pick-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-display);
+  font-size: var(--t-h2);
+  font-weight: var(--w-black);
+  font-variant-numeric: tabular-nums;
+}
+.top-pick h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--t-display);
+  font-weight: var(--w-black);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.top-pick-reasons {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.top-pick-reasons li {
+  position: relative;
+  padding-left: 18px;
+  font-size: var(--t-sm);
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.96);
+}
+/* A tick drawn in CSS rather than an icon per row — twelve nodes saved on a
+   list that is never interactive. */
+.top-pick-reasons li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 6px;
+  width: 5px;
+  height: 9px;
+  border: solid rgba(255, 255, 255, 0.9);
+  border-width: 0 2px 2px 0;
+  transform: rotate(42deg);
+}
+.top-pick .primary-button {
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--cat, var(--accent));
+  font-weight: var(--w-bold);
+}
+.top-pick .primary-button:hover:not(:disabled) {
+  background: #fff;
+}
+
+/* An app that ranks what a person sees should be able to say how. */
+.how-panel .signal-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 9px;
+}
+.how-panel .signal-list li {
+  display: grid;
+  grid-template-columns: 1fr 76px 34px;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--t-sm);
+  color: var(--ink);
+}
+.signal-bar {
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.signal-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.signal-weight {
+  text-align: right;
+  font-size: var(--t-xs);
+  font-weight: var(--w-bold);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* An interest with nothing on, said quietly rather than as an error. */
+.quiet-note {
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px dashed var(--line);
+  background: var(--surface-2);
+  line-height: 1.5;
 }

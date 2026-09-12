@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useMemo, useRef } from 'react'
 import { ArrowRight, Filter, Map, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useCountUp } from '../hooks/useCountUp'
@@ -10,6 +10,7 @@ import ActivitiesLoading from '../components/ActivitiesLoading'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { formatActivityDate, formatClock, greetingFor, partOfDay, questionFor } from '../utils/time'
+import { pickForInterests } from '../services/interestPicks'
 
 /**
  * Discover.
@@ -36,8 +37,34 @@ export default function HomePage() {
   const heroRef = useRef(null)
   const { filteredActivities, recommendations, loading } = useApp()
   const { user } = useAuth()
-  const heroPick = recommendations[0]
-  const rest = recommendations.slice(1, 3)
+  /**
+   * Discover answers "what is on", AI Picks answers "what suits me".
+   *
+   * Both pages used to read the same match-ranked array, so they were one
+   * list under two names. This page is now ordered by *when*: the hero is
+   * the next thing you could still join, and the list below runs soonest
+   * first. Ranking by fit is the other page's job, and it does it properly
+   * — only your chosen interests, grouped, with its working shown.
+   */
+  const soonest = useMemo(
+    () => [...filteredActivities].sort((a, b) => (a.startsAt || 0) - (b.startsAt || 0)),
+    [filteredActivities],
+  )
+  // The next one with room. Something already full is not an answer to
+  // "what am I doing tonight".
+  const heroPick = useMemo(
+    () => soonest.find((a) => (a.participants || 0) < (a.capacity || 0)) || soonest[0],
+    [soonest],
+  )
+  // A short taste of the other page, plainly labelled as such — a pointer
+  // rather than a second copy of it.
+  const fromPicks = useMemo(
+    () =>
+      pickForInterests(recommendations, user.interests)
+        .filter((a) => a.id !== heroPick?.id)
+        .slice(0, 2),
+    [recommendations, user.interests, heroPick],
+  )
   const firstName = (user.realName || '').split(' ')[0]
   // Recomputed on every render rather than held in state: the only thing that
   // could change it is the clock crossing an hour boundary, and a screen this
@@ -95,19 +122,19 @@ export default function HomePage() {
         </button>
       )}
 
-      {rest.length > 0 && (
+      {fromPicks.length > 0 && (
         <section className="section-block">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">For you</span>
-              <h2>Also worth a look</h2>
+              <span className="eyebrow">From your interests</span>
+              <h2>AI Picks</h2>
             </div>
             <button className="text-button" onClick={() => navigate('/recommendations')}>
               See all <ArrowRight size={15} />
             </button>
           </div>
           <div className="stack">
-            {rest.map((activity) => (
+            {fromPicks.map((activity) => (
               <ActivityCard key={activity.id} activity={activity} />
             ))}
           </div>
@@ -117,10 +144,10 @@ export default function HomePage() {
       <section className="section-block">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Nearby</span>
+            <span className="eyebrow">Soonest first</span>
             <h2>Happening soon</h2>
           </div>
-          <span className="count-chip">{filteredActivities.length}</span>
+          <span className="count-chip">{soonest.length}</span>
         </div>
         <div className="stack">
           {loading ? (
@@ -128,7 +155,7 @@ export default function HomePage() {
           ) : filteredActivities.length === 0 ? (
             <FiltersEmptyState />
           ) : (
-            filteredActivities
+            soonest
               .slice(0, 6)
               .map((activity) => <ActivityCard key={activity.id} activity={activity} compact />)
           )}
