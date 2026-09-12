@@ -10,6 +10,7 @@ import {
   Users,
 } from 'lucide-react'
 import CategoryIcon from '../components/CategoryIcon'
+import GoingStack from '../components/GoingStack'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ReportDialog from '../components/ReportDialog'
 import { MORPH } from '../hooks/useMorph'
@@ -19,6 +20,7 @@ import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { formatDistance } from '../utils/geo'
 import { formatActivityDate, formatClock } from '../utils/time'
+import { activityBadge } from '../utils/urgency'
 
 export default function ActivityDetailsPage() {
   const { id } = useParams()
@@ -130,6 +132,8 @@ export default function ActivityDetailsPage() {
     navigate('/home')
   }
 
+  const badge = activityBadge(a)
+
   return (
     <div className="page-content">
       <section
@@ -145,6 +149,11 @@ export default function ActivityDetailsPage() {
           <span className="match-pill">{a.matchScore}% match</span>
         </div>
         <h2>{a.title}</h2>
+        {/* The same badge the card carried, so opening it does not quietly
+            drop the reason you tapped. */}
+        {badge && (
+          <span className={`urgency-pill tone-${badge.tone} detail-badge`}>{badge.label}</span>
+        )}
         {isCancelled && (
           <p className="cancelled-banner">This activity was cancelled by the host.</p>
         )}
@@ -213,13 +222,28 @@ export default function ActivityDetailsPage() {
             <h3>{a.hostName}</h3>
           </div>
         </div>
-        <p className="helper-text">See who else is going.</p>
-        <button
-          className="secondary-button"
-          onClick={() => navigate(`/activity/${id}/participants`)}
-        >
-          <Users size={17} /> View participants
-        </button>
+        {/* A name with no face is a database row. The avatar is already on
+            the activity, so this costs nothing and makes the host a person
+            you are deciding whether to spend an evening with. */}
+        <div className="host-row">
+          <span className="avatar" aria-hidden="true">
+            {a.hostAvatar || '?'}
+          </span>
+          <span className="host-copy">
+            <strong>{a.hostName}</strong>
+            <small>Hosting this activity</small>
+          </span>
+        </div>
+
+        <div className="going-row">
+          <GoingStack uids={a.participantUids} max={5} />
+          <button
+            className="secondary-button"
+            onClick={() => navigate(`/activity/${id}/participants`)}
+          >
+            <Users size={17} /> View all
+          </button>
+        </div>
       </section>
 
       {/* No edit button on something that was taken down. The rules refuse the
