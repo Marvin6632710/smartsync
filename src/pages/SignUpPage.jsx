@@ -50,7 +50,7 @@ export default function SignUpPage() {
       <div className="entry-copy">
         <span className="eyebrow">SmartSync</span>
         <h1>Create your account</h1>
-        <p>Join activities near you and meet people by doing.</p>
+        <p>Activities near you, and the people going to them. Takes about a minute.</p>
       </div>
 
       <form className="form-card auth-card" onSubmit={submit}>
@@ -99,6 +99,12 @@ export default function SignUpPage() {
       <p className="auth-switch">
         Already have an account? <Link to="/signin">Sign in</Link>
       </p>
+
+      {/* Reachable directly from a link, so the one screen that explains
+          what this is has to be reachable back from here. */}
+      <button className="text-button" type="button" onClick={() => navigate('/')}>
+        What is SmartSync?
+      </button>
     </div>
   )
 }

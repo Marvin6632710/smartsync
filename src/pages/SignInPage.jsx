@@ -95,6 +95,12 @@ export default function SignInPage() {
       <p className="auth-switch">
         New here? <Link to="/signup">Create an account</Link>
       </p>
+
+      {/* Reachable directly from a link, so the one screen that explains
+          what this is has to be reachable back from here. */}
+      <button className="text-button" type="button" onClick={() => navigate('/')}>
+        What is SmartSync?
+      </button>
     </div>
   )
 }
