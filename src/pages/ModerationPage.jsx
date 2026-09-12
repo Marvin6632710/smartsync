@@ -660,10 +660,18 @@ export default function ModerationPage() {
                 <p className="report-meta">Taken down by {nameFor(activity.moderation?.by)}</p>
 
                 <label className="report-detail">
-                  Why are you putting this back?
+                  {/* One element, so the question and its note stay on one
+                      line — the label is a grid, and a bare text node beside
+                      a span becomes two rows. */}
+                  <span className="field-label">
+                    Why are you putting this back? <span className="optional">Required</span>
+                  </span>
                   <input
                     maxLength={300}
-                    placeholder="Reviewed again — the report was mistaken"
+                    /* Measured at exactly the field width before, so it
+                       clipped on the rounding and would clip badly on a
+                       320px phone. This leaves real headroom. */
+                    placeholder="The report was mistaken"
                     value={restoreReasons[activity.id] || ''}
                     onChange={(event) =>
                       setRestoreReasons((current) => ({
@@ -678,6 +686,13 @@ export default function ModerationPage() {
                     className="secondary-button"
                     disabled={
                       !(restoreReasons[activity.id] || '').trim() || restoring === activity.id
+                    }
+                    // Without this the control is simply grey, which reads as
+                    // broken rather than as waiting for the reason above it.
+                    title={
+                      (restoreReasons[activity.id] || '').trim()
+                        ? undefined
+                        : 'Write a reason first'
                     }
                     onClick={() => restore(activity)}
                   >

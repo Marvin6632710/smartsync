@@ -51,6 +51,15 @@
   --text-2: #565b66;
   --text-3: #5f6572;
 
+  /* `--ink` and `--ink-soft` are used 43 times between them and were never
+     declared either, so text meant to sit back read at full strength and
+     nothing on a dense screen stepped down. Aliases rather than new colours:
+     the scale above is the real one, and these names are what the
+     moderation and report styles happen to call it. */
+  --ink: #16181d;
+  --ink-soft: #565b66;
+  --surface-soft: #eceef1;
+
   /* --- Brand --------------------------------------------- */
   --accent: #4f46e5;
   --accent-rgb: 79, 70, 229;
@@ -94,6 +103,11 @@
   --t-body: 14px;
   --t-sm: 13px;
   --t-xs: 12px;
+  /* Used 14 times and never declared, so every one of those rules was
+     invalid at computed-value time and silently inherited the body size
+     instead. That is why the moderation cards had no typographic
+     hierarchy — it was written and then thrown away by the cascade. */
+  --t-tiny: 12px;
 
   /* --- Weights ------------------------------------------- */
   --w-regular: 400;
@@ -2923,10 +2937,16 @@ input[type='range'] {
 
 .report-detail {
   display: grid;
-  gap: 5px;
+  /* The label sat almost on top of the field it names. */
+  gap: 7px;
   font-size: var(--t-tiny);
   font-weight: var(--w-medium);
   color: var(--ink-soft);
+}
+/* Keeps the question and its "Required" note as one line of the grid,
+   rather than each becoming its own row. */
+.report-detail .field-label {
+  display: block;
 }
 .report-detail .optional {
   font-weight: var(--w-regular);
@@ -2979,12 +2999,32 @@ input[type='range'] {
 
 .report-card {
   display: grid;
-  gap: 8px;
-  padding: 15px;
+  /* Every child used to be 8px from the next, so the title, the quote, the
+     byline and the form all read as one undifferentiated column. Grouping is
+     done with margins below instead: things that belong together sit close,
+     and the gap here only separates the groups. */
+  gap: 13px;
+  padding: 17px 16px;
+  /* Somebody works through this queue one card after another, so the lines
+     need room to be read rather than scanned. */
+  line-height: 1.55;
   border-radius: var(--r-lg);
   border: 1px solid var(--line);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+}
+/* Title and the line under it are one object. */
+.report-card h3 + .report-context {
+  margin-top: -9px;
+}
+/* The form at the foot is a different act from reading the card, so it gets
+   a rule and real space above it. */
+.report-card .report-detail {
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+.report-card .report-detail + .report-actions {
+  margin-top: -3px;
 }
 .report-card header {
   display: flex;
@@ -2999,7 +3039,12 @@ input[type='range'] {
 }
 .report-card h3 {
   margin: 0;
-  font-size: var(--t-h3);
+  /* The title was the same size as the body text around it. It is the one
+     thing you scan for when working down a queue. */
+  font-size: var(--t-h2);
+  font-weight: var(--w-bold);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 
 .report-kind {
@@ -3030,8 +3075,12 @@ input[type='range'] {
 }
 .report-detail-text {
   margin: 0;
-  padding-left: 10px;
-  border-left: 2px solid var(--line-strong, var(--line));
+  /* It is somebody's words, so it should look quoted rather than merely
+     indented — set on its own ground, away from the app's own voice. */
+  padding: 9px 12px;
+  border-left: 3px solid var(--accent-line, var(--line));
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--surface-2);
   font-size: var(--t-sm);
   color: var(--ink-soft);
   overflow-wrap: anywhere;
