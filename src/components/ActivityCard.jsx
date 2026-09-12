@@ -1,9 +1,11 @@
 import React, { useRef } from 'react'
-import { ArrowUpRight, Clock3, MapPin, Users } from 'lucide-react'
+import { ArrowUpRight, Clock3, MapPin } from 'lucide-react'
 import CategoryIcon from './CategoryIcon'
+import GoingStack from './GoingStack'
 import { useMorph } from '../hooks/useMorph'
 import { formatDistance } from '../utils/geo'
 import { formatActivityDate, formatClock } from '../utils/time'
+import { activityBadge } from '../utils/urgency'
 
 export default function ActivityCard({ activity, compact = false }) {
   const morph = useMorph()
@@ -12,6 +14,8 @@ export default function ActivityCard({ activity, compact = false }) {
   // stretching into a coloured one looks like a glitch rather than a move.
   const visual = useRef(null)
   const categoryKey = (activity.category || '').toLowerCase()
+  // At most one, chosen by what would change your mind: see activityBadge.
+  const badge = activityBadge(activity)
   const fill = Math.max(
     0,
     Math.min(
@@ -67,14 +71,17 @@ export default function ActivityCard({ activity, compact = false }) {
         </div>
 
         <div className="activity-foot">
-          <span className="going-count">
-            <Users size={13} /> {activity.participants}/{activity.capacity}
-          </span>
-          <div className="capacity-meter" aria-hidden="true">
-            <span style={{ width: `${fill}%` }} />
-          </div>
-          <ArrowUpRight size={16} />
+          <GoingStack uids={activity.participantUids} />
+          {badge && <span className={`urgency-pill tone-${badge.tone}`}>{badge.label}</span>}
+          <ArrowUpRight size={16} className="card-go" aria-hidden="true" />
         </div>
+      </div>
+
+      {/* A hairline across the foot of the card rather than a bar squeezed
+          between the count and the arrow: it reads as how full this is
+          without asking for a share of the row. */}
+      <div className="capacity-meter" aria-hidden="true">
+        <span style={{ width: `${fill}%` }} />
       </div>
     </button>
   )

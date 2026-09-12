@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Bell,
@@ -93,12 +93,62 @@ export default function Shell() {
   // phone — on top of the search field in the moderation queue.
   const atRootTab = tabs.some((tab) => tab.to === location.pathname)
   const showCreate = atRootTab
+
+  /**
+   * The bar's title, the way iOS does it.
+   *
+   * Every screen printed its name twice — once in the bar and again as the
+   * heading directly beneath it. So the bar holds its title back while the
+   * page's own heading is still on screen, and takes it over once you have
+   * scrolled past it. You always know where you are; you are never told
+   * twice at once.
+   *
+   * A page too short to scroll never reaches that point, so it shows the
+   * title immediately rather than sitting nameless forever.
+   */
+  const scrollRef = useRef(null)
+  const lastScroll = useRef(0)
+  const [barTitled, setBarTitled] = useState(false)
+  // The create button floats over the list, so while you are reading downwards
+  // it steps out of the way of the card underneath it and comes back the
+  // moment you scroll up — which is also the moment you are most likely to be
+  // looking for it. It is never hidden at rest at the top of a list.
+  const [createTucked, setCreateTucked] = useState(false)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return undefined
+    lastScroll.current = el.scrollTop
+    const update = () => {
+      const canScroll = el.scrollHeight > el.clientHeight + 8
+      const top = el.scrollTop
+      setBarTitled(!canScroll || top > 10)
+
+      const delta = top - lastScroll.current
+      // A dead band, so a thumb resting on the glass does not flicker it.
+      if (Math.abs(delta) > 6) {
+        setCreateTucked(delta > 0 && top > 140)
+        lastScroll.current = top
+      }
+      if (top <= 140) setCreateTucked(false)
+    }
+    el.addEventListener('scroll', update, { passive: true })
+    // Fires once on observe, which is what initialises the state — and again
+    // whenever content arriving changes whether the page can scroll at all.
+    const resize = new ResizeObserver(update)
+    resize.observe(el)
+    if (el.firstElementChild) resize.observe(el.firstElementChild)
+    return () => {
+      el.removeEventListener('scroll', update)
+      resize.disconnect()
+    }
+  }, [location.pathname])
   const title = routeTitles[simpleTitle] || 'Discover'
 
   return (
     <div className="app-shell">
       <div className="mobile-frame">
-        <header className="topbar">
+        <header className="topbar" data-titled={barTitled ? 'yes' : 'no'}>
           {atRootTab ? (
             <button
               className="avatar top-avatar"
@@ -174,7 +224,7 @@ export default function Shell() {
           </div>
         )}
 
-        <main className="page-scroll">
+        <main className="page-scroll" ref={scrollRef}>
           <Outlet />
         </main>
 
@@ -183,6 +233,7 @@ export default function Shell() {
         {showCreate && (
           <button
             className="fab-create"
+            data-tucked={createTucked ? 'yes' : 'no'}
             onClick={() => navigate('/create')}
             aria-label="Create activity"
             // The rules refuse it anyway; disabling here means the answer is

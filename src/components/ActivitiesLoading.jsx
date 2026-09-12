@@ -21,6 +21,16 @@ export default function ActivitiesLoading({ rows = 3 }) {
           <span className="skeleton-head" />
           <span className="skeleton-line" />
           <span className="skeleton-line short" />
+          {/* The card that replaces this one ends with faces and a count, so
+              the placeholder does too — otherwise the foot row appears from
+              nowhere and nudges everything below it at the exact moment the
+              content lands. */}
+          <span className="skeleton-foot">
+            <span className="skeleton-face" />
+            <span className="skeleton-face" />
+            <span className="skeleton-face" />
+            <span className="skeleton-line tiny" />
+          </span>
         </div>
       ))}
     </div>

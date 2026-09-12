@@ -1,0 +1,44 @@
+import React from 'react'
+import { useApp } from '../context/AppContext'
+
+/**
+ * The faces of the people already going.
+ *
+ * A count told you three people had joined. It did not tell you that this is
+ * a thing other humans are doing — which, for an app whose entire purpose is
+ * meeting people, is the fact that matters most on the card. Costs nothing:
+ * these profiles are already loaded for matching, so nothing extra is read.
+ *
+ * Identity here is the public one. Anonymity is resolved where the profile is
+ * written, not here, so somebody in anonymous mode is already carrying the
+ * anonymous name and avatar by the time this sees them — there is no way for
+ * this component to leak a real name by forgetting to check.
+ */
+const UNKNOWN = { name: 'SmartSync user', avatar: '?' }
+
+export default function GoingStack({ uids = [], max = 3 }) {
+  const { directory } = useApp()
+  const list = Array.isArray(uids) ? uids : []
+  const shown = list.slice(0, max).map((uid) => ({ uid, person: directory.get(uid) || UNKNOWN }))
+  const extra = Math.max(0, list.length - shown.length)
+
+  if (list.length === 0) {
+    return <span className="going-line empty">Be the first to join</span>
+  }
+
+  return (
+    <span className="going-line">
+      {/* The faces are the decoration; the sentence beside them is what a
+          screen reader should read, so the stack itself is hidden from it. */}
+      <span className="going-stack" aria-hidden="true">
+        {shown.map(({ uid, person }) => (
+          <span className="going-face" key={uid} title={person.name}>
+            {person.avatar || '?'}
+          </span>
+        ))}
+        {extra > 0 && <span className="going-face more">+{extra}</span>}
+      </span>
+      <span className="going-count">{list.length} going</span>
+    </span>
+  )
+}

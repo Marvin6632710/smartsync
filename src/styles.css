@@ -359,6 +359,33 @@ select:focus-visible {
   align-items: center;
   text-align: center;
   gap: 1px;
+  /* Held back while the page's own heading is still on screen, handed over
+     once you scroll past it. See the note in Shell. */
+  opacity: 0;
+  transform: translateY(7px);
+  transition:
+    opacity 0.22s var(--ease),
+    transform 0.28s var(--ease-spring);
+  pointer-events: none;
+}
+.topbar[data-titled='yes'] .topbar-copy {
+  opacity: 1;
+  transform: none;
+}
+/* The bar lifts off the content it now overlaps, the way a real nav bar
+   separates itself once there is something underneath it. */
+.topbar {
+  transition:
+    box-shadow 0.24s var(--ease),
+    border-color 0.24s var(--ease);
+}
+.topbar[data-titled='yes'] {
+  box-shadow: 0 1px 12px rgba(15, 23, 42, 0.06);
+}
+@media (prefers-reduced-motion: reduce) {
+  .topbar-copy {
+    transition: none;
+  }
 }
 .topbar h1 {
   margin: 0;
@@ -455,6 +482,28 @@ select:focus-visible {
 .fab-create:hover {
   background: var(--accent-strong);
   transform: translateY(-1px);
+}
+/* Steps aside while you read down a list rather than sitting on top of the
+   card underneath it. It never hides at the top of a page, and it comes
+   straight back the moment you scroll up. */
+.fab-create[data-tucked='yes'] {
+  transform: translateY(96px) scale(0.85);
+  opacity: 0;
+  pointer-events: none;
+}
+.fab-create {
+  transition:
+    background 0.15s ease,
+    opacity 0.22s var(--ease),
+    transform 0.34s var(--ease-spring);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fab-create {
+    transition: opacity 0.15s linear;
+  }
+  .fab-create[data-tucked='yes'] {
+    transform: none;
+  }
 }
 
 /* =========================================================
@@ -1799,6 +1848,30 @@ select:focus-visible {
   color: var(--text);
   box-shadow: var(--shadow);
 }
+
+/* The card answers a tap on a pin, so it should arrive like something that
+   was thrown rather than something that was switched on: it overshoots very
+   slightly and settles. The spring curve is the same one the pins use, so
+   the two movements feel related instead of merely simultaneous. */
+@media (prefers-reduced-motion: no-preference) {
+  .map-activity-preview {
+    animation: sheetIn 0.34s var(--ease-spring) backwards;
+  }
+  @keyframes sheetIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.94);
+    }
+  }
+}
+.map-activity-preview {
+  transition: transform 0.18s var(--ease-spring);
+}
+.map-activity-preview:active {
+  transform: scale(0.97);
+  transition-duration: 0.08s;
+}
+
 .preview-icon {
   width: 36px;
   height: 36px;
@@ -3138,23 +3211,31 @@ input[type='range'] {
 /* Lists arrive rather than appear. Staggered by a few frames each, and only
    for the first handful — past that it stops reading as life and starts
    reading as lag. */
-.stack > * {
-  animation: riseIn var(--dur-slow) var(--ease) backwards;
-}
-.stack > *:nth-child(1) {
-  animation-delay: 0.02s;
-}
-.stack > *:nth-child(2) {
-  animation-delay: 0.07s;
-}
-.stack > *:nth-child(3) {
-  animation-delay: 0.12s;
-}
-.stack > *:nth-child(4) {
-  animation-delay: 0.17s;
-}
-.stack > *:nth-child(5) {
-  animation-delay: 0.21s;
+@media (prefers-reduced-motion: no-preference) {
+  .stack > * {
+    animation: riseIn var(--dur-slow) var(--ease) backwards;
+  }
+  .stack > *:nth-child(1) {
+    animation-delay: 0.02s;
+  }
+  .stack > *:nth-child(2) {
+    animation-delay: 0.07s;
+  }
+  .stack > *:nth-child(3) {
+    animation-delay: 0.12s;
+  }
+  .stack > *:nth-child(4) {
+    animation-delay: 0.17s;
+  }
+  .stack > *:nth-child(5) {
+    animation-delay: 0.21s;
+  }
+  /* Everything past the fifth shares the last delay rather than arriving
+     with no animation at all, which made the sixth card pop in beside a
+     fifth still moving. */
+  .stack > *:nth-child(n + 6) {
+    animation-delay: 0.24s;
+  }
 }
 @keyframes riseIn {
   from {
@@ -3455,6 +3536,51 @@ body {
 .activity-card:hover .activity-foot > svg {
   transform: translate(2px, -2px);
 }
+
+/* WHO IS GOING
+   A count said three people had joined. Faces say other humans are doing
+   this, which for an app about meeting people is the fact that belongs on
+   the card. The profiles are already loaded for matching, so this is free. */
+.going-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.going-line.empty {
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+  color: var(--text-3);
+}
+.going-stack {
+  display: inline-flex;
+  align-items: center;
+}
+.going-face {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-pill);
+  /* The ring is the surface colour, so overlapping faces read as separate
+     discs rather than one smudge. */
+  border: 2px solid var(--surface);
+  background: var(--bg-sunken);
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: var(--w-bold);
+  letter-spacing: 0;
+  /* Overlap, and stack so the first face sits on top of the second. */
+  margin-right: -8px;
+}
+.going-face:last-child {
+  margin-right: 0;
+}
+.going-face.more {
+  background: var(--cat-soft, var(--accent-soft));
+  color: var(--cat, var(--accent));
+  font-variant-numeric: tabular-nums;
+}
 .going-count {
   display: flex;
   align-items: center;
@@ -3463,12 +3589,57 @@ body {
   font-weight: var(--w-semibold);
   color: var(--text-2);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .going-count svg {
   color: var(--text-3);
 }
-.activity-foot .capacity-meter {
-  height: 4px;
+
+/* THE ONE BADGE
+   Never more than one per card — see activityBadge. Each tone's wording
+   stands on its own ("Full", "2 spots left", "In 3 hours"), so the colour
+   is reinforcement rather than the only way to read it. */
+.urgency-pill {
+  justify-self: end;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  font-size: var(--t-xs);
+  font-weight: var(--w-bold);
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.urgency-pill.tone-now {
+  background: #fdecea;
+  color: #a8281a;
+  border-color: #f6d2cd;
+}
+.urgency-pill.tone-soon {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: var(--accent-line);
+}
+.urgency-pill.tone-last {
+  background: #fdf0dd;
+  color: #8a5a06;
+  border-color: #f2ddb8;
+}
+.urgency-pill.tone-filling {
+  background: var(--bg-sunken);
+  color: var(--text-2);
+  border-color: var(--line);
+}
+.urgency-pill.tone-full {
+  background: var(--bg-sunken);
+  color: var(--text-2);
+  border-color: var(--line);
+}
+
+/* The fill runs the width of the card as a hairline under everything,
+   instead of competing for room inside the foot row. */
+.activity-card > .capacity-meter {
+  height: 3px;
+  border-radius: 0;
+  background: var(--bg-sunken);
 }
 
 /* Compact keeps the description hidden the way it always did; there is no
@@ -3745,4 +3916,65 @@ body {
 }
 .surprise-score svg {
   color: var(--cat, var(--accent));
+}
+
+/* =========================================================
+   ARRIVAL AND RESPONSE
+   Two things separate an interface that feels made from one that feels
+   generated: content that arrives in order rather than all at once, and
+   controls that answer the finger immediately. Both are CSS only — no
+   library, no measurable cost on a phone.
+   ========================================================= */
+
+/* A card is a button, so it should feel like one under the thumb. The press
+   is deliberately faster than the release: that asymmetry is what reads as
+   responsive rather than springy-for-its-own-sake. */
+.activity-card {
+  transition:
+    transform 0.22s var(--ease-spring),
+    box-shadow 0.22s var(--ease),
+    border-color 0.22s var(--ease);
+}
+.activity-card:active {
+  transform: scale(0.978);
+  transition-duration: 0.09s;
+}
+.hero-pick {
+  transition:
+    transform 0.22s var(--ease-spring),
+    box-shadow 0.22s var(--ease);
+}
+.hero-pick:active {
+  transform: scale(0.985);
+  transition-duration: 0.09s;
+}
+
+/* Faces must never be squeezed into ovals when a name list is long. */
+.going-face {
+  flex: none;
+}
+
+/* The placeholder carries the same foot row as the card that replaces it,
+   so the swap does not shuffle the layout at the exact moment somebody is
+   looking at it. */
+.skeleton-line.tiny {
+  width: 58px;
+  height: 9px;
+  margin-left: 4px;
+}
+.skeleton-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.skeleton-face {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-pill);
+  background: rgba(100, 116, 139, 0.13);
+  margin-right: -8px;
+}
+.skeleton-face:last-of-type {
+  margin-right: 0;
 }
