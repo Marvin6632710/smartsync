@@ -9,6 +9,7 @@ import {
 
 import { auth } from './config'
 import { ensureUserProfile, updateDisplayName } from './users'
+import { reportError } from '../utils/reportError'
 
 /**
  * Firebase error codes are precise but unreadable ("auth/invalid-credential").
@@ -83,6 +84,9 @@ export function currentUid() {
   return auth.currentUser?.uid || null
 }
 
+/** How long to wait for a new token before giving up and retrying anyway. */
+const TOKEN_REFRESH_TIMEOUT_MS = 8000
+
 /**
  * Forces a fresh ID token from the auth service.
  *
@@ -92,14 +96,36 @@ export function currentUid() {
  * fixed number of milliseconds and hoping is not a fix; asking for a new
  * token and then re-subscribing addresses the actual cause.
  *
- * Resolves either way. A failure here is not worth reporting on its own: the
- * caller is about to retry a listener that will report its own error.
+ * Always settles, and now always settles *in bounded time*. It already
+ * swallowed a rejection, so a failed refresh let the retry proceed — but a
+ * request that simply never came back, which is what a stalled connection
+ * looks like rather than a broken one, left the caller waiting forever. The
+ * listener was never remade and the user was shown neither data nor an
+ * error. Racing a timer means the retry happens either way; a token that
+ * arrives late is not worth more than a screen that never loads.
  */
 export async function refreshCredential() {
+  const user = auth.currentUser
+  if (!user) return
+  let timer
   try {
-    await auth.currentUser?.getIdToken(true)
-  } catch {
-    // Nothing useful to do — the retry will surface anything that persists.
+    await Promise.race([
+      user.getIdToken(true),
+      new Promise((resolve) => {
+        timer = setTimeout(() => {
+          reportError('auth.refreshCredential', new Error('token refresh timed out'), {
+            timeoutMs: TOKEN_REFRESH_TIMEOUT_MS,
+          })
+          resolve()
+        }, TOKEN_REFRESH_TIMEOUT_MS)
+      }),
+    ])
+  } catch (error) {
+    // The retry will surface anything that persists, but the failure itself
+    // is worth knowing about rather than discarding.
+    reportError('auth.refreshCredential', error)
+  } finally {
+    clearTimeout(timer)
   }
 }
 
