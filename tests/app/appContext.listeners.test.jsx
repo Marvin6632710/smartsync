@@ -694,3 +694,51 @@ describe('a message in a thread', () => {
     expect(reportError.mock.calls[0][0]).toBe('notifications.chat')
   })
 })
+
+describe('the order your commitments are kept in', () => {
+  function Joined() {
+    const { joinedActivities } = useApp()
+    return <span data-testid="order">{joinedActivities.map((a) => a.id).join(',')}</span>
+  }
+  const DAY = 86_400_000
+
+  test('upcoming soonest first, then the past most recent first', () => {
+    // One ascending sort put a month-old activity at the top and tonight's
+    // at the bottom once the personal feed started carrying history.
+    render(
+      <AppProvider>
+        <Joined />
+      </AppProvider>,
+    )
+    const now = Date.now()
+    act(() =>
+      emit.activities(
+        [
+          activity('next-week', { startsAt: now + 7 * DAY }),
+          activity('tonight', { startsAt: now + 3 * 60 * 60_000 }),
+        ],
+        { fromCache: false },
+      ),
+    )
+    act(() =>
+      emit.mine([
+        activity('last-month', { startsAt: now - 30 * DAY }),
+        activity('yesterday', { startsAt: now - DAY }),
+        activity('not-mine', { startsAt: now - 2 * DAY, participantUids: ['someone'] }),
+      ]),
+    )
+    expect(screen.getByTestId('order').textContent).toBe('tonight,next-week,yesterday,last-month')
+  })
+
+  test('a cancelled activity you joined stays in the list', () => {
+    render(
+      <AppProvider>
+        <Joined />
+      </AppProvider>,
+    )
+    act(() =>
+      emit.activities([activity('called-off', { status: 'cancelled' })], { fromCache: false }),
+    )
+    expect(screen.getByTestId('order').textContent).toBe('called-off')
+  })
+})

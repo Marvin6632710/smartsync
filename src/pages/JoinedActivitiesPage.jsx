@@ -3,13 +3,10 @@ import ActivityCard from '../components/ActivityCard'
 import { useApp } from '../context/AppContext'
 
 export default function JoinedActivitiesPage() {
-  // From `activities`: an activity you joined that the host later cancelled
-  // still belongs in your history, and recommendations drops those.
-  const { activities, joinedIds } = useApp()
-  const joined = activities
-    .filter((a) => joinedIds.includes(a.id))
-    // Your own commitments read best soonest-first, not best-match-first.
-    .sort((a, b) => (a.startsAt || 0) - (b.startsAt || 0))
+  // Already in the order commitments are kept: upcoming soonest first, then
+  // what has been. An activity you joined that the host later cancelled is
+  // still in it — this is your history, and recommendations drops those.
+  const { joinedActivities: joined } = useApp()
   return (
     <div className="page-content">
       <span className="eyebrow">Your activity history</span>

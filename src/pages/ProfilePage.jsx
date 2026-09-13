@@ -6,12 +6,11 @@ import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 
 export default function ProfilePage() {
-  const { joinedIds, activities, recommendations, pushCelebration } = useApp()
+  const { joinedActivities: joined, recommendations, pushCelebration } = useApp()
   const { user } = useAuth()
   const navigate = useNavigate()
-  // From `activities`, not `recommendations`: a cancelled activity you joined
-  // still belongs in your list, and recommendations excludes those.
-  const joined = activities.filter((a) => joinedIds.includes(a.id))
+  // Ordered upcoming-first, so "recent" below means the next two things you
+  // are going to, then what you went to last.
   const best = recommendations[0]
 
   const shareProfile = async () => {

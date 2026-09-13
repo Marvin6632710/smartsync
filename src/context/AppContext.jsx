@@ -348,6 +348,19 @@ export function AppProvider({ children }) {
     [timed, joinedIds],
   )
 
+  // Your commitments, in the order a person keeps them: what is coming,
+  // soonest first; then what has been, most recent first. One ascending sort
+  // was right while the feed stopped at yesterday — once the personal feed
+  // carried real history, "soonest first" put something from months ago at
+  // the top of the list and the thing tonight at the bottom.
+  const joinedActivities = useMemo(() => {
+    const mine = visibleActivities.filter((a) => joinedIds.includes(a.id))
+    const at = (a) => (Number.isFinite(a.startsAt) ? a.startsAt : 0)
+    const upcoming = mine.filter((a) => !a.isPast).sort((a, b) => at(a) - at(b))
+    const past = mine.filter((a) => a.isPast).sort((a, b) => at(b) - at(a))
+    return [...upcoming, ...past]
+  }, [visibleActivities, joinedIds])
+
   // Everything a moderator has taken down, for the admin review queue. Derived
   // from the listener that is already open, so seeing it costs no extra read —
   // and the rules, not this line, are what keep the list to admins: anyone can
@@ -874,6 +887,7 @@ export function AppProvider({ children }) {
     directory,
 
     joinedIds,
+    joinedActivities,
     joinActivity,
     leaveActivity,
     cancelActivity,
