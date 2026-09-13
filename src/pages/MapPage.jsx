@@ -253,7 +253,16 @@ export default function MapPage() {
     [filteredActivities],
   )
 
-  const points = useMemo(() => located.map((a) => [a.lat, a.lng]), [located])
+  // Keyed on the coordinates, not the array. `filteredActivities` is rebuilt
+  // every minute by the clock that decides what has started, and on every
+  // snapshot, so `points` was a new array each time and the map re-fitted to
+  // it — snapping the view back while somebody was panning around the city.
+  // The view now moves only when the set of places on it actually changes.
+  const pointsKey = useMemo(() => located.map((a) => `${a.lat},${a.lng}`).join('|'), [located])
+  const points = useMemo(
+    () => (pointsKey ? pointsKey.split('|').map((pair) => pair.split(',').map(Number)) : []),
+    [pointsKey],
+  )
 
   const mapCentre = useMemo(() => {
     if (user.location) return [user.location.lat, user.location.lng]

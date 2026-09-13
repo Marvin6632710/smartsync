@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { LocateFixed, MapPin } from 'lucide-react'
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
@@ -63,7 +63,13 @@ function Recenter({ point }) {
 export default function LocationPicker({ value, onChange }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const point = value?.lat != null && value?.lng != null ? { lat: value.lat, lng: value.lng } : null
+  // Memoised on the coordinates: the form re-renders this on every keystroke
+  // in every other field, and a fresh object each time re-ran the recentre
+  // below — so once a pin was placed, typing the title dragged the map back
+  // to it on each character.
+  const lat = value?.lat
+  const lng = value?.lng
+  const point = useMemo(() => (lat != null && lng != null ? { lat, lng } : null), [lat, lng])
 
   // An existing pin outside the box would otherwise open the map at a centre
   // `maxBounds` immediately drags away from, which looks like a glitch. Only
