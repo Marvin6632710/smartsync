@@ -10,13 +10,9 @@ import { withinThailand } from '../data/region'
 
 export default function EditActivityPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
-  const { activities, updateActivity } = useApp()
+  const { activities } = useApp()
   const { user } = useAuth()
   const existing = useMemo(() => activities.find((item) => item.id === id), [activities, id])
-  const [form, setForm] = useState(() => existing || {})
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
 
   if (!existing)
     return (
@@ -55,6 +51,28 @@ export default function EditActivityPage() {
         </div>
       </div>
     )
+
+  return <EditActivityForm existing={existing} />
+}
+
+/**
+ * The form itself, mounted only once the activity is known.
+ *
+ * It used to live in the component above, seeded with `existing || {}` on
+ * first render. On a cold load of this URL the listener has not delivered
+ * anything yet, so the seed was `{}` — and when the activity arrived a moment
+ * later the screen showed an edit form with every field empty. Seeding here
+ * means the first render this form ever does already has the data; a later
+ * snapshot updates `existing` without touching what is being typed, exactly
+ * as before.
+ */
+function EditActivityForm({ existing }) {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const { updateActivity } = useApp()
+  const [form, setForm] = useState(existing)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const minCapacity = Math.max(2, existing.participants)
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
