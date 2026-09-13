@@ -447,6 +447,26 @@ describe('closed threads and the retry budget', () => {
     expect(threadEmit.clear).toBeDefined()
   })
 
+  test('a thread is not opened while the write that joined it is still in flight', () => {
+    // Creating or joining updates the local copy before the server has
+    // accepted it. The messages rule reads the activity on the server, where
+    // you are not yet on the roster, so a listener opened now is refused —
+    // and the refusal spent a retry. Every creation and every join did this.
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
+    act(() => emit.activities([activity('fresh', { pendingWrite: true })], { fromCache: false }))
+    expect(screen.getByTestId('joined').textContent).toBe('fresh')
+    expect(threadEmit.fresh).toBeUndefined()
+
+    // The server accepts it: the snapshot fires again without the flag.
+    act(() => emit.activities([activity('fresh')], { fromCache: false }))
+    expect(threadEmit.fresh).toBeDefined()
+    expect(refreshCredential).not.toHaveBeenCalled()
+  })
+
   test('a genuine denial on an open thread still buys a refresh and a rebuild', async () => {
     // The guard exists for the sign-in race: the watch stream reattaches
     // carrying a token that has just been revoked, and every listener is

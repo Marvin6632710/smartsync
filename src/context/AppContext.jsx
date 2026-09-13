@@ -437,12 +437,22 @@ export function AppProvider({ children }) {
   // this decides with the phone's; a phone running behind would open a
   // listener the server had already closed, which is the same denial again.
   // A preview missing from a thread in its last hour costs nothing.
+  //
+  // And not while the write that put you on the roster is still in flight.
+  // Creating or joining an activity updates the local copy at once, before
+  // the server has accepted it; the messages rule reads the activity *on the
+  // server*, where you are not yet a participant — or the activity does not
+  // yet exist — so the listener is refused, and a refusal is what the retry
+  // guard spends a token refresh and a full rebuild on. Every creation and
+  // every join used to cost one of the two retries. The snapshot fires again
+  // when the server accepts the write, and the listener opens then.
   const previewIds = useMemo(
     () =>
       allKnownActivities
         .filter(
           (a) =>
             (a.participantUids || []).includes(uid) &&
+            !a.pendingWrite &&
             !isChatClosed(a, now + PREVIEW_CLOSE_MARGIN_MS),
         )
         .map((a) => a.id),

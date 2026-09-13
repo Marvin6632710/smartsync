@@ -25,7 +25,10 @@ export default function ChatPage() {
   // visit would log a permission error.
   // Not opened on a closed thread: the rules refuse the read, so the only
   // thing a listener would achieve is a permission error in the console.
-  const { messages, loading } = useThread(id, joined && !closed)
+  // Nor while the join that put you on the roster is still in flight — the
+  // rule reads the roster on the server, which has not seen it yet. The
+  // flag clears when the write is accepted, and the listener opens then.
+  const { messages, loading } = useThread(id, joined && !closed && !activity?.pendingWrite)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })

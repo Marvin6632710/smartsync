@@ -62,6 +62,11 @@ function normalise(snapshot) {
     startsAt: data.startsAt?.toMillis?.() ?? null,
     createdAt: data.createdAt?.toMillis?.() ?? null,
     updatedAt: data.updatedAt?.toMillis?.() ?? null,
+    // True while a local write to this document has not yet been accepted by
+    // the server. The screen may act on the optimistic version; anything that
+    // asks the *server* about it — a listener whose rule reads the document —
+    // has to wait, because the server has not seen the write yet.
+    pendingWrite: snapshot.metadata?.hasPendingWrites === true,
   }
 }
 
