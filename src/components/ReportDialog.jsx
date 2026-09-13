@@ -32,6 +32,14 @@ export default function ReportDialog({ open, subject, onClose }) {
   const dialogRef = useRef(null)
   const firstRef = useRef(null)
   const previouslyFocused = useRef(null)
+  // Same reason as ConfirmDialog: `onClose` is an inline arrow in every
+  // caller, and the parent re-renders whenever a snapshot lands or the clock
+  // ticks. Keying the focus effect on it moved focus to the first reason chip
+  // in the middle of somebody typing what happened.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
 
   const isPerson = subject?.type === 'user'
   const alreadyBlocked = isPerson && isBlocked(subject.id)
@@ -57,7 +65,7 @@ export default function ReportDialog({ open, subject, onClose }) {
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose?.()
+        onCloseRef.current?.()
         return
       }
       if (event.key !== 'Tab') return
@@ -80,7 +88,7 @@ export default function ReportDialog({ open, subject, onClose }) {
       document.removeEventListener('keydown', onKeyDown)
       previouslyFocused.current?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open || !subject) return null
 
