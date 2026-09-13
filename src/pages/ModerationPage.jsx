@@ -34,6 +34,8 @@ import {
   watchWarnings,
 } from '../firebase/moderation'
 import { REPORT_REASONS } from '../firebase/moderation'
+import { PEER_LIMIT } from '../firebase/users'
+import { usePeopleSearch } from '../hooks/usePeopleSearch'
 import { formatRelativeTime } from '../utils/time'
 
 const reasonLabel = (key) => REPORT_REASONS.find((r) => r.key === key)?.label || key
@@ -80,6 +82,20 @@ export default function ModerationPage() {
   const [recorded, setRecorded] = useState(null)
   const [recordedReason, setRecordedReason] = useState('')
   const [recording, setRecording] = useState(null)
+
+  // The directory in memory is the peer window — complete up to PEER_LIMIT
+  // accounts and silent beyond it. A search term is also run on the server,
+  // so somebody outside the window can still be found, warned, suspended or
+  // appointed. In-memory rows win where both exist: they are live and carry
+  // the counts.
+  const onPeople = section === 'people'
+  const onModerators = section === 'moderators'
+  const { found: watchFound, searching: watchSearching } = usePeopleSearch(
+    watchSearch,
+    user.isModerator && onPeople,
+  )
+  const { found: appointFound } = usePeopleSearch(personSearch, user.isAdmin && onModerators)
+  const windowFull = directory.size >= PEER_LIMIT
 
   useEffect(() => {
     if (!user.isModerator) return undefined
@@ -153,10 +169,19 @@ export default function ModerationPage() {
         if (memberId !== activity.hostId) joined.set(memberId, (joined.get(memberId) || 0) + 1)
       }
     }
+    const everyone = new Map(directory)
+    // Only the counts are window-bound: rank, suspension, closure and
+    // warnings come from listeners that cover everybody.
+    for (const person of watchFound) {
+      if (person?.uid && !everyone.has(person.uid)) {
+        everyone.set(person.uid, { ...person, inWindow: false })
+      }
+    }
     return (
-      [...directory.values()]
+      [...everyone.values()]
         .map((person) => ({
           ...person,
+          inWindow: person.inWindow !== false,
           rank: rankOf(person.uid),
           suspended: suspendedIds.has(person.uid),
           closed: bannedIds.has(person.uid),
@@ -177,7 +202,7 @@ export default function ModerationPage() {
             (a.name || '').localeCompare(b.name || ''),
         )
     )
-  }, [allActivities, bannedIds, directory, rankOf, suspendedIds, warningCount])
+  }, [allActivities, bannedIds, directory, rankOf, suspendedIds, warningCount, watchFound])
 
   const watched = useMemo(() => {
     const term = watchSearch.trim().toLowerCase()
@@ -189,7 +214,11 @@ export default function ModerationPage() {
   const appointable = useMemo(() => {
     const term = personSearch.trim().toLowerCase()
     if (!term) return []
-    return [...directory.values()]
+    const everyone = new Map(directory)
+    for (const person of appointFound) {
+      if (person?.uid && !everyone.has(person.uid)) everyone.set(person.uid, person)
+    }
+    return [...everyone.values()]
       .filter(
         (person) =>
           person.uid !== user.uid &&
@@ -197,7 +226,7 @@ export default function ModerationPage() {
           `${person.name} ${person.username || ''}`.toLowerCase().includes(term),
       )
       .slice(0, 6)
-  }, [directory, personSearch, ranked, user.uid])
+  }, [appointFound, directory, personSearch, ranked, user.uid])
 
   // Someone who is not a moderator should never have got here, but the route
   // is guessable and the screen must not depend on the menu hiding it.
@@ -744,6 +773,8 @@ export default function ModerationPage() {
           watched={watched}
           watchSearch={watchSearch}
           setWatchSearch={setWatchSearch}
+          searching={watchSearching}
+          windowFull={windowFull}
           suspending={suspending}
           recording={recording}
           setSuspendTarget={setSuspendTarget}

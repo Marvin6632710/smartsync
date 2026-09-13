@@ -20,6 +20,8 @@ export default function PeopleDirectory({
   setSuspendTarget,
   setRecorded,
   setRecordedReason,
+  searching = false,
+  windowFull = false,
 }) {
   return (
     <>
@@ -27,10 +29,19 @@ export default function PeopleDirectory({
         <span className="eyebrow">Oversight</span>
         <h2>Everyone on SmartSync</h2>
         <p className="helper-text">
-          {people.length} {people.length === 1 ? 'account' : 'accounts'}. Anyone suspended, or with
-          something taken down, is listed first. You are seeing public profiles — emails, real names
-          behind anonymous mode and stored locations are not readable by anybody but their owner.
+          {people.length} {people.length === 1 ? 'account' : 'accounts'}
+          {windowFull ? ' loaded' : ''}. Anyone suspended, or with something taken down, is listed
+          first. You are seeing public profiles — emails, real names behind anonymous mode and
+          stored locations are not readable by anybody but their owner.
         </p>
+        {/* Past the window the list is partial, and silently partial is the
+            worst kind. Say so, and say what still works. */}
+        {windowFull && (
+          <p className="form-error" role="status">
+            The first {people.length} accounts are loaded. Anyone else can still be found by
+            searching — the search also asks the server.
+          </p>
+        )}
       </section>
 
       <label className="report-detail watch-search">
@@ -42,6 +53,11 @@ export default function PeopleDirectory({
           onChange={(event) => setWatchSearch(event.target.value)}
         />
       </label>
+      {searching && (
+        <p className="helper-text" role="status">
+          Searching everyone…
+        </p>
+      )}
 
       <div className="stack list-stack">
         {watched.slice(0, 40).map((person) => {
@@ -74,7 +90,9 @@ export default function PeopleDirectory({
               </h3>
               <p className="report-context">
                 {person.username ? `${person.username} · ` : ''}
-                hosts {person.hosts}, joined {person.joinedCount}
+                {person.inWindow
+                  ? `hosts ${person.hosts}, joined ${person.joinedCount}`
+                  : 'found by search — activity counts not loaded'}
                 {person.anonymous ? ' · anonymous mode on' : ''}
               </p>
               {(person.interests || []).length > 0 && (

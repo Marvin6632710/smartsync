@@ -11,7 +11,7 @@
  * These assert behaviour, not structure, so they stay true after the split.
  */
 import React from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -45,6 +45,10 @@ vi.mock('../../src/firebase/moderation', () => ({
 let currentUser = { uid: 'me', isModerator: true, isAdmin: true, name: 'Admin' }
 vi.mock('../../src/context/AuthContext', () => ({ useAuth: () => ({ user: currentUser }) }))
 
+// The peer window, and the server search that reaches past it.
+const searchUsers = vi.fn(async () => [])
+vi.mock('../../src/firebase/users', () => ({ PEER_LIMIT: 3, searchUsers }))
+
 const removed = [
   {
     id: 'r1',
@@ -57,10 +61,11 @@ const removed = [
     moderation: { by: 'me', reason: 'Broke the rules' },
   },
 ]
+let directory = new Map([['me', { uid: 'me', name: 'Admin', avatar: 'AD' }]])
 vi.mock('../../src/context/AppContext', () => ({
   useApp: () => ({
     pushCelebration: vi.fn(),
-    directory: new Map([['me', { uid: 'me', name: 'Admin', avatar: 'AD' }]]),
+    directory,
     activities: [],
     allActivities: [],
     removedActivities: removed,
@@ -81,6 +86,9 @@ const at = (path) =>
 
 beforeEach(() => {
   currentUser = { uid: 'me', isModerator: true, isAdmin: true, name: 'Admin' }
+  directory = new Map([['me', { uid: 'me', name: 'Admin', avatar: 'AD' }]])
+  searchUsers.mockReset()
+  searchUsers.mockResolvedValue([])
 })
 afterEach(cleanup)
 
@@ -148,5 +156,67 @@ describe('the guards — these routes are guessable', () => {
   test('an unknown section says so rather than rendering an empty page', () => {
     at('/moderation/nonsense')
     expect(screen.getByText('No such section')).toBeTruthy()
+  })
+})
+
+describe('everyone on SmartSync, past the window', () => {
+  // The directory in memory is the first PEER_LIMIT accounts. Somebody
+  // beyond it used to be unfindable from here, and the heading counted the
+  // window as if it were the whole server.
+  const person = (uid, name) => [uid, { uid, name, avatar: name.slice(0, 2), username: `@${uid}` }]
+
+  test('says when the list is only the loaded window', () => {
+    directory = new Map([person('me', 'Admin'), person('a', 'Ann'), person('b', 'Ben')])
+    at('/moderation/people')
+    expect(screen.getByText(/The first 3 accounts are loaded/)).toBeTruthy()
+    expect(screen.getByText(/3 accounts loaded/)).toBeTruthy()
+  })
+
+  test('and does not say so while it is complete', () => {
+    at('/moderation/people')
+    expect(screen.queryByText(/accounts are loaded/)).toBeNull()
+  })
+
+  test('a search also asks the server, and lists who it finds', async () => {
+    vi.useFakeTimers()
+    searchUsers.mockResolvedValue([
+      { uid: 'zed', name: 'Zed Outside', avatar: 'ZO', username: '@zed' },
+    ])
+    at('/moderation/people')
+    fireEvent.change(screen.getByLabelText('Search everyone'), { target: { value: 'Zed' } })
+    expect(screen.getByText('Searching everyone…')).toBeTruthy()
+    expect(searchUsers).not.toHaveBeenCalled() // not until typing pauses
+
+    await act(async () => {
+      vi.advanceTimersByTime(300)
+      await Promise.resolve()
+    })
+    vi.useRealTimers()
+    expect(searchUsers).toHaveBeenCalledWith('Zed')
+    expect(await screen.findByText('Zed Outside')).toBeTruthy()
+    // Nothing about their activity is loaded, and the row says so rather
+    // than printing "hosts 0, joined 0".
+    expect(screen.getByText(/found by search — activity counts not loaded/)).toBeTruthy()
+    expect(screen.queryByText('Searching everyone…')).toBeNull()
+  })
+
+  test('someone in the window is listed once, with their counts', async () => {
+    vi.useFakeTimers()
+    directory = new Map([person('me', 'Admin'), person('a', 'Ann Able')])
+    searchUsers.mockResolvedValue([{ uid: 'a', name: 'Ann Able', avatar: 'AA', username: '@a' }])
+    at('/moderation/people')
+    fireEvent.change(screen.getByLabelText('Search everyone'), { target: { value: 'Ann' } })
+    await act(async () => {
+      vi.advanceTimersByTime(300)
+      await Promise.resolve()
+    })
+    vi.useRealTimers()
+    expect(await screen.findAllByText('Ann Able')).toHaveLength(1)
+    expect(screen.getByText(/hosts 0, joined 0/)).toBeTruthy()
+  })
+
+  test('the search is not run for the queue, only for the directory', () => {
+    at('/moderation')
+    expect(searchUsers).not.toHaveBeenCalled()
   })
 })

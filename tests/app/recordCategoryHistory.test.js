@@ -24,7 +24,11 @@ vi.mock('../../src/firebase/activities', () => ({ syncHostIdentity: vi.fn() }))
 
 const { recordCategoryHistory } = await import('../../src/firebase/users')
 
-beforeEach(() => updateDoc.mockClear())
+// Braces matter: a hook that returns the mock hands vitest a "cleanup"
+// function, and vitest then calls the mock itself after every test.
+beforeEach(() => {
+  updateDoc.mockClear()
+})
 
 test('appends with a union rather than replacing the list', async () => {
   await recordCategoryHistory('u1', ['Football'], 'Coffee')

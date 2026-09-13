@@ -3,12 +3,14 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   limit,
   onSnapshot,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from 'firebase/firestore'
 
@@ -149,6 +151,47 @@ export function watchPeers(uid, callback, onError) {
     (snap) => callback(snap.docs.map((d) => d.data()).filter((peer) => peer.uid !== uid)),
     onError,
   )
+}
+
+/** How many matches one search brings back, per field it searches. */
+export const SEARCH_LIMIT = 20
+
+/**
+ * Finds people by the start of their name or username, on the server.
+ *
+ * The moderation screens list "everyone" from the directory the app already
+ * holds — which is the first five hundred accounts, and no more (see
+ * PEER_LIMIT). Past that, somebody a moderator needed to find could not be
+ * found, and nothing on the screen said so. This asks Firestore instead: two
+ * prefix queries, one per field, bounded, merged. Reads whatever the rules
+ * let the caller read, which for public profiles is any signed-in account;
+ * nothing here widens that.
+ *
+ * Prefix, and case-sensitive, because that is what a range on a string
+ * field can do without an index per casing. Names are stored as typed and
+ * usernames as typed, so "Ma" finds Marvin and "@ma" finds @marvin.
+ */
+export async function searchUsers(term) {
+  const needle = String(term || '').trim()
+  if (!needle) return []
+  const prefix = (field) =>
+    getDocs(
+      query(
+        collection(db, 'users'),
+        where(field, '>=', needle),
+        where(field, '<', `${needle}\uf8ff`),
+        limit(SEARCH_LIMIT),
+      ),
+    )
+  const [byName, byUsername] = await Promise.all([prefix('name'), prefix('username')])
+  const found = new Map()
+  for (const snap of [byName, byUsername]) {
+    snap.docs.forEach((d) => {
+      const data = d.data()
+      if (data?.uid) found.set(data.uid, data)
+    })
+  }
+  return [...found.values()]
 }
 
 /** Public-profile fields the user is allowed to edit. */
