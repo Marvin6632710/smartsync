@@ -14,8 +14,10 @@ export default function PermissionPage() {
   const { save } = useSaveProfile()
   const privacy = user.privacy
 
-  const setPrivacy = (patch) =>
-    save(() => updatePrivateProfile(user.uid, { privacy: { ...privacy, ...patch } }))
+  // Only the field that changed: the merge keeps the rest of the map, and
+  // spreading it back in copied the notifications preference — which lives
+  // on the public profile — into the private one, where nothing reads it.
+  const setPrivacy = (patch) => save(() => updatePrivateProfile(user.uid, { privacy: patch }))
 
   // The location switch is not a preference that is merely recorded — it
   // triggers the browser's real permission prompt and stores a real position.

@@ -107,6 +107,27 @@ describe('editing', () => {
     expect(updateActivity).not.toHaveBeenCalled()
   })
 
+  test('moving the time into the past is refused; leaving it alone is not', async () => {
+    // A host fixing the description of something that already happened must
+    // not be told to reschedule it.
+    activities = [{ ...saturday, date: '2020-01-01', time: '19:00', isPast: true }]
+    updateActivity.mockResolvedValue(true)
+    render(page())
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Was great' } })
+    fireEvent.click(screen.getByText('Save changes'))
+    await waitFor(() => expect(updateActivity).toHaveBeenCalled())
+
+    updateActivity.mockClear()
+    cleanup()
+    render(page())
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2020-02-02' } })
+    fireEvent.click(screen.getByText('Save changes'))
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Pick a date and time in the future.',
+    )
+    expect(updateActivity).not.toHaveBeenCalled()
+  })
+
   test('a save that lands goes to the activity', async () => {
     updateActivity.mockResolvedValue(true)
     render(page())

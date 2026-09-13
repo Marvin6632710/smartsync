@@ -304,6 +304,19 @@ export default function ModerationPage() {
   const act = async () => {
     const { report, kind } = acting
     setActing(null)
+    // Who a report is about is known for every report filed since
+    // `subjectId` existed; older activity reports resolve it from the
+    // activity, which may no longer be loaded. Acting on nobody used to
+    // reach the database as a role write against `undefined`.
+    if (kind === 'suspend' && !subjectOf(report)) {
+      pushCelebration({
+        icon: 'alert',
+        tone: 'warning',
+        title: "Couldn't tell who this is about",
+        body: 'The activity it names is no longer loaded. Dismiss it, or look at the activity first.',
+      })
+      return
+    }
     try {
       if (kind === 'remove') {
         await removeActivity(report.targetId, {

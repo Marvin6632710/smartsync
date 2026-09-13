@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Bell, BellOff, CalendarDays, MessageCircle, ShieldAlert, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { reportError } from '../utils/reportError'
 import { formatRelativeTime } from '../utils/time'
 
 // Each chip maps to notification types the app genuinely writes, so no filter
@@ -44,20 +45,25 @@ export default function NotificationsPage() {
   }, [notifications, filter])
 
   const open = (notification) => {
-    markNotificationRead(notification.id)
+    // Best effort, and not awaited — the tap opens the activity either way —
+    // but no longer left unhandled if it is refused.
+    if (!notification.read) {
+      markNotificationRead(notification.id).catch((error) =>
+        reportError('notifications.markRead', error, { id: notification.id }),
+      )
+    }
     if (notification.activityId) navigate(`/activity/${notification.activityId}`)
   }
+
+  const markAll = () =>
+    markAllNotificationsRead().catch((error) => reportError('notifications.markAll', error))
 
   return (
     <div className="page-content">
       <div className="title-row">
         <h2>Notifications</h2>
         {hasUnread && (
-          <button
-            className="text-button"
-            style={{ marginLeft: 'auto' }}
-            onClick={markAllNotificationsRead}
-          >
+          <button className="text-button" style={{ marginLeft: 'auto' }} onClick={markAll}>
             Mark all read
           </button>
         )}

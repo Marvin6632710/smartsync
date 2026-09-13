@@ -44,7 +44,13 @@ export function useListenerRetry(uid) {
         // group reports the same denial at the same moment and each lands
         // here, so this is written to be idempotent: they all set the same
         // attempt number, and React collapses that to one re-render.
-        refreshCredential().then(() => setAttempt(attempt + 1))
+        // Checked again once the refresh is back: if the account changed in
+        // the meantime, this belongs to a session that has ended, and
+        // bumping the attempt now would rebuild the next account's listeners
+        // for no reason.
+        refreshCredential().then(() => {
+          if (currentUid() === uid) setAttempt(attempt + 1)
+        })
         return
       }
       onError?.(error)

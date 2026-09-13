@@ -97,6 +97,13 @@ function EditActivityForm({ existing }) {
       setError(`Capacity can't be below the ${existing.participants} people already joined.`)
       return
     }
+    // Only when the time is being moved: a host fixing the description of
+    // something that has already happened must not be told to reschedule it.
+    const moved = form.date !== existing.date || form.time !== existing.time
+    if (moved && new Date(`${form.date}T${form.time}`) < new Date()) {
+      setError('Pick a date and time in the future.')
+      return
+    }
     setError('')
     setBusy(true)
     const saved = await updateActivity(id, {

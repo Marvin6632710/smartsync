@@ -1,11 +1,12 @@
 import { useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
-import { saveLocation, updatePrivateProfile } from '../firebase/users'
+import { updatePrivateProfile } from '../firebase/users'
 import { coarsen, getCurrentPosition } from '../utils/geo'
 
 const DENIED_MESSAGE =
   'Location is blocked for this site. Enable it in your browser settings, then try again.'
+const SAVE_MESSAGE = 'Could not save your location. Check your connection and try again.'
 
 /**
  * Requests the device's real position and stores it on the user's private
@@ -24,16 +25,29 @@ export function useDeviceLocation() {
   const request = async () => {
     setBusy(true)
     setError('')
+    let precise
     try {
-      const precise = await getCurrentPosition()
-      const stored = user.privacy.approximateLocation ? coarsen(precise) : precise
-      await saveLocation(user.uid, stored)
-      await updatePrivateProfile(user.uid, {
-        privacy: { ...user.privacy, locationPermission: true },
-      })
-      return true
+      precise = await getCurrentPosition()
     } catch (locationError) {
       setError(locationError?.code === 1 ? DENIED_MESSAGE : 'Could not get your location.')
+      setBusy(false)
+      return false
+    }
+    try {
+      const stored = user.privacy.approximateLocation ? coarsen(precise) : precise
+      // One write, and only the field that changed. The merge keeps the
+      // rest of the privacy map as it is; spreading the whole map back in
+      // used to copy the notifications preference — which lives on the
+      // public profile — into the private one, where nothing reads it.
+      await updatePrivateProfile(user.uid, {
+        location: stored,
+        privacy: { locationPermission: true },
+      })
+      return true
+    } catch {
+      // A write that failed is not a device that failed, and the message
+      // used to blame the device for it.
+      setError(SAVE_MESSAGE)
       return false
     } finally {
       setBusy(false)
@@ -41,10 +55,20 @@ export function useDeviceLocation() {
   }
 
   const clear = async () => {
-    await saveLocation(user.uid, null)
-    await updatePrivateProfile(user.uid, {
-      privacy: { ...user.privacy, locationPermission: false },
-    })
+    setBusy(true)
+    setError('')
+    try {
+      await updatePrivateProfile(user.uid, {
+        location: null,
+        privacy: { locationPermission: false },
+      })
+      return true
+    } catch {
+      setError(SAVE_MESSAGE)
+      return false
+    } finally {
+      setBusy(false)
+    }
   }
 
   return { request, clear, busy, error }

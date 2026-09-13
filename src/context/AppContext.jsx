@@ -161,6 +161,11 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!uid) return undefined
+    // A closed account is refused every one of these by the rules, and sees
+    // one screen that needs none of them. Opening them anyway meant six
+    // denials on every boot, each spending the retry budget and a token
+    // refresh on listeners that were never going to be allowed.
+    if (user?.banned) return undefined
     // Same teardown race as AuthContext: a listener belonging to the account
     // that just signed out can deliver a permission-denied after its stop
     // function has run, which would otherwise be shown to whoever signed in
@@ -198,7 +203,7 @@ export function AppProvider({ children }) {
       live = false
       stops.forEach((stop) => stop())
     }
-  }, [uid, listenerAttempt, guard])
+  }, [uid, user?.banned, listenerAttempt, guard])
 
   // Follows made before the host-side mirror existed have only the private
   // half, so the host has never heard of them and could not tell them
@@ -847,20 +852,18 @@ export function AppProvider({ children }) {
   }
 
   /**
-   * Actions, with an identity that never changes.
+   * The context value, rebuilt on every render — deliberately.
    *
-   * Every one of these is redefined on each render, so putting them straight
-   * into the context value handed all of its consumers a new object each
-   * time — and a consumer memoised on `joinActivity` was invalidated by an
-   * unrelated activity arriving.
-   *
-   * They are not wrapped in useCallback because there are sixteen of them and
-   * they call each other; a single wrong dependency there is a stale closure,
-   * which is a far worse bug than the one being fixed. Instead the ref always
-   * holds this render's versions and the exported wrappers dispatch to it, so
-   * the identity is stable *and* the behaviour is always current. The ref is
-   * only ever read from an event handler, never during render, which is the
-   * case this pattern is for.
+   * Every action above is redefined each render, so this object is new each
+   * time and every consumer re-renders with the provider. A stable-identity
+   * version was built (the actions behind a ref, the exported wrappers
+   * dispatching to it) and then reverted: it tripped the hooks lint twenty
+   * times over, and measuring consumer renders showed no reduction, because
+   * every consumer also reads data that changes on the same renders. The
+   * sixteen actions are not wrapped in useCallback for the reason that still
+   * holds — they call each other, and one wrong dependency there is a stale
+   * closure, which is a far worse bug than a spare render. The trade is
+   * recorded in tests/app/appContext.listeners.test.jsx.
    */
   const value = {
     // Signed out is not "still loading" — it is a settled state with no data.

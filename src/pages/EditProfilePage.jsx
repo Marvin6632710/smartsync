@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { categories, MIN_INTERESTS, timeBands } from '../data/categories'
 import { useAuth } from '../context/AuthContext'
-import { updateDisplayName, updatePublicProfile } from '../firebase/users'
+import { updateDisplayName } from '../firebase/users'
 
 export default function EditProfilePage() {
   const { user } = useAuth()
@@ -40,17 +40,24 @@ export default function EditProfilePage() {
       setError(`Pick at least ${MIN_INTERESTS} interests.`)
       return
     }
+    // The rules refuse an empty username; saying so here beats a generic
+    // "could not save" after a round trip.
+    if (!form.username.trim()) {
+      setError('Please enter a username.')
+      return
+    }
     setError('')
     setBusy(true)
     try {
-      await updatePublicProfile(user.uid, {
+      // One batch: the name lives in both documents and has to move in both
+      // at once, and the rest of the profile goes with it rather than in a
+      // second write that could land without the first.
+      await updateDisplayName(user.uid, form.name.trim(), user.anonymous, {
         username: form.username.trim(),
         bio: form.bio.trim(),
         preferredTime: form.preferredTime,
         interests: form.interests,
       })
-      // The name lives in both documents and has to move in both at once.
-      await updateDisplayName(user.uid, form.name.trim(), user.anonymous)
       navigate('/profile')
     } catch {
       setError('Could not save. Please try again.')

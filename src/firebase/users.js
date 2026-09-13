@@ -242,12 +242,18 @@ async function writeIdentity(uid, identity, { publicPatch, privatePatch }) {
   await last.commit()
 }
 
-/** Renaming has to land in both documents at once, or they disagree. */
-export async function updateDisplayName(uid, realName, anonymous) {
+/**
+ * Renaming has to land in both documents at once, or they disagree.
+ *
+ * `publicPatch` carries any other public fields being saved in the same
+ * breath — the profile editor's bio, interests and username — so a profile
+ * save is one batch rather than two writes that could half-land.
+ */
+export async function updateDisplayName(uid, realName, anonymous, publicPatch = {}) {
   const identity = publicIdentity({ realName, anonymous })
   // The activities carry their own copy of the name; without them a rename
   // is visible on the profile and nowhere else.
-  await writeIdentity(uid, identity, { publicPatch: {}, privatePatch: { realName } })
+  await writeIdentity(uid, identity, { publicPatch, privatePatch: { realName } })
 }
 
 /**

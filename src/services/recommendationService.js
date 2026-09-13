@@ -222,8 +222,9 @@ export function computeParticipantSimilarity(user, activity, peers = []) {
   const others = (activity?.participantUids || []).filter((id) => id !== user?.uid)
   if (others.length === 0) return null
 
+  const byUid = peers instanceof Map ? peers : new Map(peers.map((peer) => [peer.uid, peer]))
   const scores = others
-    .map((id) => peers.find((peer) => peer.uid === id))
+    .map((id) => byUid.get(id))
     .filter(Boolean)
     .map((peer) => calculateUserCompatibility(user, peer).score)
 
@@ -241,12 +242,16 @@ export function computeSimilarUsersJoined(user, activity, peers = []) {
 }
 
 export function rankActivities(user, activities, peers = [], weights) {
+  // Indexed once. Looking each participant up by scanning the peer list
+  // made this O(activities × roster × peers) on every snapshot — cubic in
+  // the size of the platform, on the main thread.
+  const byUid = new Map((peers || []).map((peer) => [peer.uid, peer]))
   return [...activities]
     .map((activity) => {
       // Computed once before scoring: the score reads the continuous value and
       // the reasons read the thresholded one, and deriving both from a single
       // pass avoids scoring every peer twice.
-      const similarity = computeParticipantSimilarity(user, activity, peers)
+      const similarity = computeParticipantSimilarity(user, activity, byUid)
       const enriched = {
         ...activity,
         participantSimilarity: similarity,

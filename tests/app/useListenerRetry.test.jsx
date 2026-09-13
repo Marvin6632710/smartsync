@@ -131,3 +131,37 @@ describe('what the audit got wrong, and what it got right', () => {
     expect(view.getByTestId('attempt').textContent).toBe('1')
   })
 })
+
+describe('a refresh that outlives its session', () => {
+  test('does not bump the attempt for whoever signed in next', async () => {
+    // The refresh is in flight when the account changes. When it comes back
+    // it belongs to a session that has ended, and bumping the attempt now
+    // would rebuild the next account's listeners for nothing — and spend one
+    // of their two retries doing it.
+    let release
+    refreshBehaviour = () => new Promise((resolve) => (release = resolve))
+    const { getByTestId, rerender } = render(<Harness uid="me" onError={vi.fn()} />)
+    act(() => Harness.latest.guard(denied))
+    expect(refreshCalls.n).toBe(1)
+
+    uidNow = 'next'
+    rerender(<Harness uid="next" onError={vi.fn()} />)
+    await act(async () => {
+      release()
+      await Promise.resolve()
+    })
+    expect(getByTestId('attempt').textContent).toBe('0')
+  })
+
+  test('but does bump it when the session is still the same one', async () => {
+    let release
+    refreshBehaviour = () => new Promise((resolve) => (release = resolve))
+    const { getByTestId } = render(<Harness uid="me" onError={vi.fn()} />)
+    act(() => Harness.latest.guard(denied))
+    await act(async () => {
+      release()
+      await Promise.resolve()
+    })
+    expect(getByTestId('attempt').textContent).toBe('1')
+  })
+})

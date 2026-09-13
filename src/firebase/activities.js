@@ -14,7 +14,6 @@ import {
   Timestamp,
   updateDoc,
   where,
-  writeBatch,
 } from 'firebase/firestore'
 
 import { db } from './config'
@@ -34,8 +33,13 @@ const HISTORY_WINDOW_MS = 24 * 60 * 60 * 1000
  * tag, so a typo silently corrupted 15% of every score.
  */
 export function deriveTimeBand(time) {
-  const hour = Number(String(time || '').split(':')[0])
-  if (!Number.isFinite(hour)) return 'Evening'
+  // The shape is checked before the number is: `Number('')` is 0, not NaN,
+  // so an emptied time field parsed as midnight and came out "Morning"
+  // rather than falling through to the default — the same slip formatClock
+  // already guards against.
+  const match = /^(\d{1,2}):\d{2}$/.exec(String(time || '').trim())
+  const hour = match ? Number(match[1]) : NaN
+  if (!Number.isFinite(hour) || hour > 23) return 'Evening'
   if (hour < 12) return 'Morning'
   if (hour < 17) return 'Afternoon'
   return 'Evening'
@@ -159,7 +163,18 @@ export async function createActivity(user, data) {
 export function updateActivity(activityId, updates) {
   const patch = { ...updates, updatedAt: serverTimestamp() }
   if (updates.capacity !== undefined) patch.capacity = Math.round(Number(updates.capacity))
-  if (updates.time) {
+  // `startsAt` is the instant every query runs on, and it is derived from
+  // the date and the time together. Moving one without the other used to
+  // leave it where it was — silently, since only `time` triggered the
+  // recompute. Refused loudly instead: the one caller sends both, and a
+  // future one that does not should find out here rather than in a feed
+  // that quietly shows the old day.
+  const movesDate = updates.date !== undefined
+  const movesTime = updates.time !== undefined
+  if (movesDate || movesTime) {
+    if (!updates.date || !updates.time) {
+      return Promise.reject(new Error('updateActivity: date and time must be given together'))
+    }
     patch.timeBand = deriveTimeBand(updates.time)
     patch.startsAt = toStartsAt(updates.date, updates.time)
   }
@@ -190,26 +205,15 @@ export function leaveActivity(activityId, uid) {
 }
 
 /**
- * Rewrites the host's name and avatar on every activity they host.
- *
- * Those two fields are copied onto the activity so a list can be rendered
- * without resolving every host, and a copy that is never refreshed goes stale
- * the moment the original changes. That was not merely untidy: turning on
- * anonymous mode rewrote the profile document but left the real name sitting
- * on each hosted activity, readable by any signed-in stranger. The privacy
- * setting was doing half of what it claimed.
- *
- * Batched, so either every activity is updated or none is — a partial sweep
- * would leave anonymity applied to some of a person's activities and not
- * others, which is arguably worse than not applying it at all.
+ * The host's name and avatar are copied onto every activity they host, so a
+ * list can be rendered without resolving every host — and a copy that is
+ * never refreshed goes stale the moment the original changes. That was not
+ * merely untidy: turning on anonymous mode once rewrote the profile and left
+ * the real name sitting on each hosted activity, readable by any signed-in
+ * stranger. The two functions below are the halves of the rewrite; users.js
+ * puts them in the same batch as the profile, so the profile and every copy
+ * of the name change together or not at all.
  */
-export async function syncHostIdentity(uid, identity) {
-  const refs = await hostedActivityRefs(uid)
-  if (refs.length === 0) return
-  const batch = writeBatch(db)
-  stampHostIdentity(batch, refs, identity)
-  await batch.commit()
-}
 
 /** Every activity this person hosts, as references, for a batch to stamp. */
 export async function hostedActivityRefs(uid) {

@@ -325,6 +325,22 @@ describe('context value identity', () => {
   })
 })
 
+describe('a closed account', () => {
+  test('opens no listeners at all', () => {
+    // Every one of them is refused by the rules, and the account sees one
+    // screen that needs none of them. Opening them anyway spent the retry
+    // budget and two token refreshes on every boot.
+    currentUser = { uid: 'me', banned: true, interests: [], historyCategories: [] }
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
+    expect(Object.keys(emit)).toEqual([])
+    expect(refreshCredential).not.toHaveBeenCalled()
+  })
+})
+
 describe('the discovery cap must not lose your own commitments', () => {
   test('an activity beyond the discovery window still counts as joined', () => {
     // H2. Discovery is capped by start time, so something joined far enough
