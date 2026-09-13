@@ -3,7 +3,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -164,24 +163,37 @@ export function watchRole(uid, callback, onError) {
  * because a transaction may run its body more than once and nobody should be
  * told twice.
  */
+/**
+ * Returns the row as it was and as it is, so a caller can tell whether the
+ * change was a change. Every notice below is sent only when it was: a
+ * moderator whose first attempt half-succeeded — the row written, the
+ * report's resolution refused — presses the button again, and the person
+ * must not be told twice that the same thing happened to them.
+ */
 async function patchRole(uid, change) {
   const ref = doc(db, 'roles', uid)
   return runTransaction(db, async (tx) => {
     const snap = await tx.get(ref)
     const existing = snap.data() || {}
-    const next = {
+    const before = {
       role: existing.role || 'user',
       suspended: existing.suspended === true,
-      ...(existing.banned === true ? { banned: true } : {}),
+      banned: existing.banned === true,
+    }
+    const next = {
+      role: before.role,
+      suspended: before.suspended,
+      ...(before.banned ? { banned: true } : {}),
       ...change,
     }
     tx.set(ref, next, { merge: true })
-    return next
+    return { before, after: { ...before, ...change } }
   })
 }
 
 export async function setSuspended(uid, suspended) {
-  await patchRole(uid, { suspended })
+  const { before } = await patchRole(uid, { suspended })
+  if (before.suspended === suspended) return
   await tell(
     uid,
     suspended
@@ -296,9 +308,15 @@ export async function removeActivity(activityId, { moderatorId, reason }) {
   //
   // The rules still decide whether this is allowed; a transaction makes the
   // read and the write consistent, it does not grant permission.
+  //
+  // Already removed means nothing to do — not a second record and not a
+  // second round of notices. The queue can present the same activity twice
+  // (two reports, or one whose resolution failed after the takedown landed),
+  // and pressing Remove on it again used to tell the host and every
+  // participant, again, that it had been removed.
   const before = await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref)
-    if (!snap.exists()) return null
+    if (!snap.exists() || snap.data().status === 'removed') return null
     tx.update(ref, {
       status: 'removed',
       moderation: { by: moderatorId, reason: note },
@@ -374,7 +392,8 @@ export function liftSuspension(uid) {
  * tool must not have.
  */
 export async function setUserRole(uid, role) {
-  await patchRole(uid, { role })
+  const { before } = await patchRole(uid, { role })
+  if (before.role === role) return
   await tell(
     uid,
     role === 'moderator'
@@ -447,7 +466,15 @@ export async function suspendAccount(uid, { moderatorId }) {
  */
 export async function closeAccount(uid, { adminId, reason }) {
   const note = String(reason || '').slice(0, 300)
-  await patchRole(uid, { banned: true })
+  const { before } = await patchRole(uid, { banned: true })
+  if (before.banned) {
+    // Closed already. Still stand down anything left standing — that half
+    // may be what failed last time — but say nothing twice.
+    return standDownHosted(uid, {
+      moderatorId: adminId,
+      reason: 'The host\u2019s account was closed',
+    })
+  }
   await tell(uid, {
     title: 'Your SmartSync account has been closed',
     // Not "you can no longer sign in" — they can, and they just did, or they
@@ -463,7 +490,8 @@ export async function closeAccount(uid, { adminId, reason }) {
 
 /** Reopens a closed account. Admin only, because closing one was. */
 export async function reopenAccount(uid, { reason }) {
-  await patchRole(uid, { banned: false })
+  const { before } = await patchRole(uid, { banned: false })
+  if (!before.banned) return
   await tell(uid, {
     title: 'Your account is open again',
     body: `${String(reason || '').slice(0, 300)} Anything taken down while it was closed stays down.`,
@@ -539,11 +567,18 @@ export async function issueWarning(uid, { moderatorId, reason, reportId }) {
  */
 export async function restoreActivity(activityId, { adminId, reason }) {
   const ref = doc(db, 'activities', activityId)
-  const before = (await getDoc(ref)).data()
-  await updateDoc(ref, {
-    status: 'active',
-    moderation: { by: adminId, reason: String(reason || '').slice(0, 300) },
-    updatedAt: serverTimestamp(),
+  // One transaction, like the removal, and for the same reason: the notice
+  // names what was read, so what was read has to be what was written. And
+  // nothing to do if it is not removed — a repeat is not a second decision.
+  const before = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists() || snap.data().status !== 'removed') return null
+    tx.update(ref, {
+      status: 'active',
+      moderation: { by: adminId, reason: String(reason || '').slice(0, 300) },
+      updatedAt: serverTimestamp(),
+    })
+    return snap.data()
   })
   if (before?.hostId) {
     await tell(before.hostId, {
