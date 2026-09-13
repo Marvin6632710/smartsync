@@ -55,6 +55,23 @@ function resolveWeights(weights) {
   return safe
 }
 
+/**
+ * Each signal's share of the whole, as a percentage.
+ *
+ * The raw numbers are whatever the sliders were left at, and only their
+ * ratios matter — 20 of 60 and 40 of 120 rank identically. Every screen that
+ * describes the ranking reads this, so they all describe the same thing and
+ * describe it the way the sliders screen already does. Sanitised through
+ * `resolveWeights`, so a hand-edited value cannot produce "NaN%".
+ */
+export function weightShares(weights) {
+  const w = resolveWeights(weights)
+  const total = Object.values(w).reduce((sum, value) => sum + value, 0)
+  const shares = {}
+  for (const key of Object.keys(w)) shares[key] = total > 0 ? Math.round((w[key] / total) * 100) : 0
+  return shares
+}
+
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value))
 
 // Every comparison in this file is done on lowercased strings, and the values

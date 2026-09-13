@@ -2,12 +2,12 @@ import React from 'react'
 import { BrainCircuit, Check } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { recommendationWeights } from '../services/recommendationService'
+import { weightShares } from '../services/recommendationService'
 
 export default function RecommendationDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { recommendations } = useApp()
+  const { recommendations, weights } = useApp()
   const a = recommendations.find((x) => x.id === id)
   if (!a)
     return (
@@ -42,7 +42,9 @@ export default function RecommendationDetailsPage() {
       <section className="panel">
         <h3>Signals</h3>
         <div className="weight-grid">
-          {Object.entries(recommendationWeights).map(([k, v]) => (
+          {/* The weights this score was computed with, as shares of the
+              total — the same numbers the sliders screen shows. */}
+          {Object.entries(weightShares(weights)).map(([k, v]) => (
             <div key={k}>
               <span>{k}</span>
               <strong>{v}%</strong>

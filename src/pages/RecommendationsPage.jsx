@@ -7,7 +7,7 @@ import ActivitiesLoading from '../components/ActivitiesLoading'
 import CategoryIcon from '../components/CategoryIcon'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-import { recommendationWeights, signalLabels } from '../services/recommendationService'
+import { signalLabels, weightShares } from '../services/recommendationService'
 import {
   groupByInterest,
   interestsWithNothing,
@@ -34,7 +34,7 @@ import {
  * somebody ends up believing there is nothing on.
  */
 export default function RecommendationsPage() {
-  const { recommendations, loading } = useApp()
+  const { recommendations, loading, weights } = useApp()
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -49,12 +49,16 @@ export default function RecommendationsPage() {
 
   // Ordered strongest first, so the explanation reads in the order the
   // scoring actually applies rather than the order the object was typed.
+  // The weights in force, not the shipped ones: this page ranks with what
+  // the sliders say, so it has to describe the same thing. It showed the
+  // defaults, so moving a slider changed the list and left the explanation
+  // contradicting it.
   const signals = useMemo(
     () =>
-      Object.entries(recommendationWeights)
+      Object.entries(weightShares(weights))
         .map(([id, weight]) => ({ id, weight, label: signalLabels[id] || id }))
         .sort((a, b) => b.weight - a.weight),
-    [],
+    [weights],
   )
 
   if (loading) {
