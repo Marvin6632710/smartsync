@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const updateDoc = vi.fn(() => Promise.resolve())
+const onSnapshot = vi.fn(() => () => {})
 vi.mock('firebase/firestore', () => ({
   addDoc: vi.fn(),
   arrayRemove: vi.fn(),
@@ -13,7 +14,7 @@ vi.mock('firebase/firestore', () => ({
   doc: (_db, ...path) => ({ path: path.join('/') }),
   getDocs: vi.fn(),
   limit: vi.fn(),
-  onSnapshot: vi.fn(),
+  onSnapshot,
   orderBy: vi.fn(),
   query: vi.fn(),
   serverTimestamp: () => 'server-time',
@@ -23,7 +24,8 @@ vi.mock('firebase/firestore', () => ({
 }))
 vi.mock('../../src/firebase/config', () => ({ db: {} }))
 
-const { deriveTimeBand, updateActivity } = await import('../../src/firebase/activities')
+const { deriveTimeBand, updateActivity, watchActivities, watchMyActivities } =
+  await import('../../src/firebase/activities')
 
 beforeEach(() => {
   updateDoc.mockClear()
@@ -72,5 +74,49 @@ describe('updateActivity', () => {
     await expect(updateActivity('a1', { date: '2030-05-05' })).rejects.toThrow(/together/)
     await expect(updateActivity('a1', { time: '' })).rejects.toThrow(/together/)
     expect(updateDoc).not.toHaveBeenCalled()
+  })
+})
+
+describe('the two activity feeds', () => {
+  // `pendingWrite` comes from snapshot metadata, and a write being accepted
+  // is a metadata-only change. A feed that does not ask for those would leave
+  // an activity marked pending forever — and its chat gated behind it.
+  const optionsOf = (call) =>
+    call.find((arg) => arg && typeof arg === 'object' && 'includeMetadataChanges' in arg)
+
+  test('both ask to be told when a pending write lands', () => {
+    onSnapshot.mockClear()
+    watchActivities(
+      () => {},
+      () => {},
+    )
+    watchMyActivities(
+      'me',
+      () => {},
+      () => {},
+    )
+    expect(onSnapshot).toHaveBeenCalledTimes(2)
+    for (const call of onSnapshot.mock.calls) {
+      expect(optionsOf(call)).toEqual({ includeMetadataChanges: true })
+    }
+  })
+
+  test('a row carries whether its write is still in flight', () => {
+    onSnapshot.mockClear()
+    const rows = []
+    watchMyActivities(
+      'me',
+      (list) => rows.push(...list),
+      () => {},
+    )
+    const [, , handler] = onSnapshot.mock.calls[0]
+    const doc = (pending) => ({
+      id: 'a1',
+      metadata: { hasPendingWrites: pending },
+      data: () => ({ title: 'x', participantUids: ['me'], startsAt: null }),
+    })
+    handler({ docs: [doc(true)] })
+    handler({ docs: [doc(false)] })
+    expect(rows.map((r) => r.pendingWrite)).toEqual([true, false])
   })
 })

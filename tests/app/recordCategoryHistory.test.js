@@ -20,7 +20,10 @@ vi.mock('firebase/firestore', () => ({
   writeBatch: vi.fn(),
 }))
 vi.mock('../../src/firebase/config', () => ({ db: {} }))
-vi.mock('../../src/firebase/activities', () => ({ syncHostIdentity: vi.fn() }))
+vi.mock('../../src/firebase/activities', () => ({
+  hostedActivityRefs: vi.fn(),
+  stampHostIdentity: vi.fn(),
+}))
 
 const { recordCategoryHistory } = await import('../../src/firebase/users')
 

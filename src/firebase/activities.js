@@ -133,6 +133,12 @@ export function watchMyActivities(uid, callback, onError) {
       orderBy('startsAt', 'desc'),
       limit(MINE_LIMIT),
     ),
+    // Metadata changes too, and this one is not optional: `pendingWrite` is
+    // read from the snapshot, and a write being accepted by the server is a
+    // metadata-only change. Without this, an activity held only by this feed
+    // — one outside the discovery window — would stay marked pending after
+    // its create or join landed, and its chat would never open.
+    { includeMetadataChanges: true },
     (snap) => callback(snap.docs.map(normalise)),
     onError,
   )

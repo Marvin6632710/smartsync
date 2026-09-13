@@ -89,9 +89,14 @@ export function watchNotifications(uid, callback, onError) {
     // Recorded, never fatal. This query needs a composite index, and a
     // deploy that ships the code before the index would otherwise turn every
     // inbox into "Couldn't load the latest data". The main listener above is
-    // the one that decides whether the inbox works; a denial that is real
-    // reaches it too, and the retry it triggers rebuilds both.
-    (error) => reportError('notifications.safety', error, { uid }),
+    // the one that decides whether the inbox works; a denial reaches it too
+    // — the same collection, the same rule — and the retry it triggers
+    // rebuilds both, so a denial here is never new information and is not
+    // worth a record of its own (signing out produces one every time).
+    (error) => {
+      if (error?.code === 'permission-denied') return
+      reportError('notifications.safety', error, { uid })
+    },
   )
   return () => {
     stopLatest()

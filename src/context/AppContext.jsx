@@ -85,6 +85,9 @@ export function AppProvider({ children }) {
     loadStorage('smartsync:weights', recommendationWeights),
   )
   const [celebration, setCelebration] = useState(null)
+  // Joins this client has sent that the server has not yet answered. See
+  // `rosterPending` below for why that has to be known.
+  const [pendingJoins, setPendingJoins] = useState(() => new Set())
 
   // A minute-resolution clock. Whether an activity has started is a fact about
   // the current time, not about the data, so it has to be re-evaluated while
@@ -343,9 +346,28 @@ export function AppProvider({ children }) {
   // Activities are fetched from a day ago onwards so that ones you joined stay
   // reachable after they happen. That window is a storage decision, not a
   // product one: something that already started must not be offered as a plan.
+  // `rosterPending`: this client put itself on the roster and the server has
+  // not confirmed it yet. Creating or joining updates the local copy at once;
+  // the messages rule reads the activity *on the server*, where the activity
+  // does not exist yet or you are not yet a participant, so a thread listener
+  // opened in that window is refused — and a refusal is what the retry guard
+  // spends a token refresh and a full rebuild on. Every creation and every
+  // join used to cost one of the two retries.
+  //
+  // Precisely that, and not every pending write: a host editing a title has
+  // a pending write too, and gating on it would close and reopen their chat
+  // for nothing — or, offline, hide the messages they had cached. A create
+  // in flight is a pending write whose server timestamp has not resolved
+  // (`createdAt` is null until the server sets it); a join in flight is one
+  // this client sent and is still waiting on.
   const timed = useMemo(
-    () => scored.map((a) => ({ ...a, isPast: Number.isFinite(a.startsAt) && a.startsAt < now })),
-    [scored, now],
+    () =>
+      scored.map((a) => ({
+        ...a,
+        isPast: Number.isFinite(a.startsAt) && a.startsAt < now,
+        rosterPending: (a.pendingWrite && a.createdAt === null) || pendingJoins.has(a.id),
+      })),
+    [scored, now, pendingJoins],
   )
 
   const visibleActivities = useMemo(
@@ -438,25 +460,20 @@ export function AppProvider({ children }) {
   // listener the server had already closed, which is the same denial again.
   // A preview missing from a thread in its last hour costs nothing.
   //
-  // And not while the write that put you on the roster is still in flight.
-  // Creating or joining an activity updates the local copy at once, before
-  // the server has accepted it; the messages rule reads the activity *on the
-  // server*, where you are not yet a participant — or the activity does not
-  // yet exist — so the listener is refused, and a refusal is what the retry
-  // guard spends a token refresh and a full rebuild on. Every creation and
-  // every join used to cost one of the two retries. The snapshot fires again
-  // when the server accepts the write, and the listener opens then.
+  // And not while the write that put you on the roster is still in flight —
+  // see `rosterPending`. The snapshot fires again when the server accepts
+  // the write, and the listener opens then.
   const previewIds = useMemo(
     () =>
-      allKnownActivities
+      timed
         .filter(
           (a) =>
             (a.participantUids || []).includes(uid) &&
-            !a.pendingWrite &&
+            !a.rosterPending &&
             !isChatClosed(a, now + PREVIEW_CLOSE_MARGIN_MS),
         )
         .map((a) => a.id),
-    [allKnownActivities, uid, now],
+    [timed, uid, now],
   )
   const joinedKey = [...previewIds].sort().join(',')
   const threadStopsRef = React.useRef(new Map())
@@ -567,9 +584,16 @@ export function AppProvider({ children }) {
     )
   }
 
+  // A join already in flight for this activity, checked synchronously: the
+  // state below drives rendering, but a second tap in the same tick would
+  // read the state from before the first, and send the host a second
+  // "Someone joined". The write itself was always idempotent; the notice
+  // was not.
+  const joinBusyRef = React.useRef(new Set())
   async function joinActivity(id) {
     const activity = visibleActivities.find((item) => item.id === id)
     if (!activity || joinedIds.includes(id)) return
+    if (joinBusyRef.current.has(id)) return
     if (blockedBySuspension('join activities')) return
     if (activity.isPast) {
       pushCelebration({
@@ -587,6 +611,17 @@ export function AppProvider({ children }) {
     // minutes later when the connection returns. Confirm what they can already
     // see, and correct it if the server disagrees.
     const pending = joinActivityDoc(id, uid)
+    joinBusyRef.current.add(id)
+    setPendingJoins((current) => new Set(current).add(id))
+    const settled = () => {
+      joinBusyRef.current.delete(id)
+      setPendingJoins((current) => {
+        const next = new Set(current)
+        next.delete(id)
+        return next
+      })
+    }
+    pending.then(settled, settled)
 
     // Not awaited, and failure is swallowed on purpose: learning that you
     // like football is a side effect of joining, not part of it. A rejection

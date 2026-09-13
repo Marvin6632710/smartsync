@@ -447,24 +447,95 @@ describe('closed threads and the retry budget', () => {
     expect(threadEmit.clear).toBeDefined()
   })
 
-  test('a thread is not opened while the write that joined it is still in flight', () => {
-    // Creating or joining updates the local copy before the server has
-    // accepted it. The messages rule reads the activity on the server, where
-    // you are not yet on the roster, so a listener opened now is refused —
-    // and the refusal spent a retry. Every creation and every join did this.
+  test('a thread is not opened while the create that put you on it is in flight', () => {
+    // Creating updates the local copy before the server has accepted it. The
+    // messages rule reads the activity on the server, where it does not exist
+    // yet, so a listener opened now is refused — and the refusal spent a
+    // retry. A create in flight is a pending write whose server timestamp has
+    // not resolved.
     render(
       <AppProvider>
         <Probe />
       </AppProvider>,
     )
-    act(() => emit.activities([activity('fresh', { pendingWrite: true })], { fromCache: false }))
+    act(() =>
+      emit.activities([activity('fresh', { pendingWrite: true, createdAt: null })], {
+        fromCache: false,
+      }),
+    )
     expect(screen.getByTestId('joined').textContent).toBe('fresh')
     expect(threadEmit.fresh).toBeUndefined()
 
-    // The server accepts it: the snapshot fires again without the flag.
-    act(() => emit.activities([activity('fresh')], { fromCache: false }))
+    // The server accepts it: the snapshot fires again with the timestamp set.
+    act(() =>
+      emit.activities([activity('fresh', { pendingWrite: false, createdAt: 1 })], {
+        fromCache: false,
+      }),
+    )
     expect(threadEmit.fresh).toBeDefined()
     expect(refreshCredential).not.toHaveBeenCalled()
+  })
+
+  test('but a host editing their own activity keeps their thread open', () => {
+    // An edit is a pending write too. Gating on that would close and reopen
+    // the host's chat for nothing — or, offline, hide the messages they had.
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
+    act(() => emit.activities([activity('mine', { createdAt: 1 })], { fromCache: false }))
+    expect(threadEmit.mine).toBeDefined()
+    act(() =>
+      emit.activities([activity('mine', { createdAt: 1, pendingWrite: true, title: 'Renamed' })], {
+        fromCache: false,
+      }),
+    )
+    expect(threadStops.mine).toBe(0)
+  })
+
+  test('nor while a join this client sent is still unanswered', async () => {
+    let resolveJoin
+    const { joinActivity: joinDoc } = await import('../../src/firebase/activities')
+    joinDoc.mockImplementationOnce(() => new Promise((resolve) => (resolveJoin = resolve)))
+    function Joiner() {
+      const { joinActivity } = useApp()
+      return <button onClick={() => joinActivity('open')}>join</button>
+    }
+    render(
+      <AppProvider>
+        <Probe />
+        <Joiner />
+      </AppProvider>,
+    )
+    act(() =>
+      emit.activities([activity('open', { participantUids: ['someone'], createdAt: 1 })], {
+        fromCache: false,
+      }),
+    )
+    fireEvent.click(screen.getByText('join'))
+    // The local snapshot now shows us on the roster, write still pending.
+    act(() =>
+      emit.activities(
+        [
+          activity('open', {
+            participantUids: ['someone', 'me'],
+            createdAt: 1,
+            pendingWrite: true,
+          }),
+        ],
+        { fromCache: false },
+      ),
+    )
+    expect(screen.getByTestId('joined').textContent).toBe('open')
+    expect(threadEmit.open).toBeUndefined()
+
+    await act(async () => {
+      resolveJoin()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(threadEmit.open).toBeDefined()
   })
 
   test('a genuine denial on an open thread still buys a refresh and a rebuild', async () => {
@@ -728,6 +799,44 @@ describe('a message in a thread', () => {
     await flush()
     expect(reportError).toHaveBeenCalledTimes(1)
     expect(reportError.mock.calls[0][0]).toBe('notifications.chat')
+  })
+})
+
+describe('joining twice', () => {
+  test('two taps before the first lands send one join and one notice', async () => {
+    const { joinActivity: joinDoc } = await import('../../src/firebase/activities')
+    const { pushNotification } = await import('../../src/firebase/notifications')
+    let resolveJoin
+    joinDoc.mockImplementationOnce(() => new Promise((resolve) => (resolveJoin = resolve)))
+    pushNotification.mockClear()
+    function Joiner() {
+      const { joinActivity } = useApp()
+      return <button onClick={() => joinActivity('open')}>join</button>
+    }
+    render(
+      <AppProvider>
+        <Joiner />
+      </AppProvider>,
+    )
+    act(() =>
+      emit.activities(
+        [activity('open', { participantUids: ['host'], hostId: 'host', createdAt: 1 })],
+        { fromCache: false },
+      ),
+    )
+    act(() => emit.peers([{ uid: 'host', name: 'Host', notificationsEnabled: true }]))
+    fireEvent.click(screen.getByText('join'))
+    fireEvent.click(screen.getByText('join'))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(joinDoc).toHaveBeenCalledTimes(1)
+    expect(pushNotification).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      resolveJoin()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
   })
 })
 

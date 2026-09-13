@@ -28,7 +28,7 @@ export default function ChatPage() {
   // Nor while the join that put you on the roster is still in flight — the
   // rule reads the roster on the server, which has not seen it yet. The
   // flag clears when the write is accepted, and the listener opens then.
-  const { messages, loading } = useThread(id, joined && !closed && !activity?.pendingWrite)
+  const { messages, loading } = useThread(id, joined && !closed && !activity?.rosterPending)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })

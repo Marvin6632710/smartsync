@@ -205,6 +205,17 @@ describe('watchNotifications', () => {
     )
   })
 
+  test('a denial on the safety listener is left to the main one', async () => {
+    const onError = vi.fn()
+    watchNotifications('u', () => {}, onError)
+    const [, safety] = listeners
+    const { reportError } = await import('../../src/utils/reportError')
+    reportError.mockClear()
+    safety.onError({ code: 'permission-denied' })
+    expect(onError).not.toHaveBeenCalled()
+    expect(reportError).not.toHaveBeenCalled()
+  })
+
   test('stopping stops both', () => {
     const stops = [vi.fn(), vi.fn()]
     onSnapshot.mockImplementationOnce(() => stops[0]).mockImplementationOnce(() => stops[1])
