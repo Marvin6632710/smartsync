@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import CategoryIcon from '../components/CategoryIcon'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
+import { isChatClosed } from '../firebase/messages'
 import { formatMessageTime } from '../utils/time'
 
 // Chips are backed by facts the app actually holds. "Unread" was in the
@@ -24,27 +25,34 @@ export default function MessagesPage() {
 
   const threads = useMemo(() => {
     const term = search.trim().toLowerCase()
-    return activities
-      .filter((activity) => joinedIds.includes(activity.id))
-      .filter((activity) => {
-        if (filter === 'hosting') return activity.hostId === user.uid
-        if (filter === 'joined') return activity.hostId !== user.uid
-        return true
-      })
-      .filter((activity) => {
-        if (!term) return true
-        const preview = threadPreviews[activity.id]
-        return [activity.title, activity.category, preview?.text]
-          .filter(Boolean)
-          .some((field) => field.toLowerCase().includes(term))
-      })
-      .sort((a, b) => {
-        // Threads with recent activity float up; silent ones keep their
-        // chronological order underneath.
-        const left = threadPreviews[a.id]?.createdAt || 0
-        const right = threadPreviews[b.id]?.createdAt || 0
-        return right - left
-      })
+    return (
+      activities
+        .filter((activity) => joinedIds.includes(activity.id))
+        // A thread the rules have closed cannot be opened by anybody, so a row
+        // for it is a dead end that reads "No messages yet" — untrue, since the
+        // messages exist and simply cannot be read any more. It appeared once
+        // the personal feed started carrying old activities.
+        .filter((activity) => !isChatClosed(activity))
+        .filter((activity) => {
+          if (filter === 'hosting') return activity.hostId === user.uid
+          if (filter === 'joined') return activity.hostId !== user.uid
+          return true
+        })
+        .filter((activity) => {
+          if (!term) return true
+          const preview = threadPreviews[activity.id]
+          return [activity.title, activity.category, preview?.text]
+            .filter(Boolean)
+            .some((field) => field.toLowerCase().includes(term))
+        })
+        .sort((a, b) => {
+          // Threads with recent activity float up; silent ones keep their
+          // chronological order underneath.
+          const left = threadPreviews[a.id]?.createdAt || 0
+          const right = threadPreviews[b.id]?.createdAt || 0
+          return right - left
+        })
+    )
   }, [activities, joinedIds, threadPreviews, search, filter, user.uid])
 
   return (

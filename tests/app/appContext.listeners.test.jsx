@@ -69,15 +69,29 @@ vi.mock('../../src/firebase/moderation', () => ({
   unblockUser: vi.fn(),
   fileReport: vi.fn(),
 }))
-vi.mock('../../src/firebase/messages', () => ({
+const threadError = {} // activity id -> the error callback
+vi.mock('../../src/firebase/messages', async () => ({
+  // The real one: the thread gate below is decided by it, and faking it
+  // here would only prove the fake agrees with itself.
+  isChatClosed: (await vi.importActual('../../src/firebase/messages')).isChatClosed,
   sendMessage: vi.fn(),
-  watchLatestMessage: (id, cb) => {
+  watchLatestMessage: (id, cb, onError) => {
     threadEmit[id] = cb
+    threadError[id] = onError
     threadStops[id] = threadStops[id] || 0
     return () => {
       threadStops[id] += 1
     }
   },
+}))
+
+// The credential layer under the retry guard. `currentUid` agrees with the
+// signed-in user so the guard is live, and the refresh is a spy so a test can
+// say whether the retry machinery fired.
+const refreshCredential = vi.fn(() => Promise.resolve())
+vi.mock('../../src/firebase/auth', () => ({
+  currentUid: () => currentUser?.uid || null,
+  refreshCredential,
 }))
 
 // Identity is supplied directly rather than through Firebase Auth.
@@ -126,6 +140,8 @@ beforeEach(() => {
   for (const k of Object.keys(stops)) delete stops[k]
   for (const k of Object.keys(threadStops)) delete threadStops[k]
   for (const k of Object.keys(threadEmit)) delete threadEmit[k]
+  for (const k of Object.keys(threadError)) delete threadError[k]
+  refreshCredential.mockClear()
   localStorage.clear()
 })
 afterEach(cleanup)
@@ -295,20 +311,29 @@ describe('the discovery cap must not lose your own commitments', () => {
     // H2. Discovery is capped by start time, so something joined far enough
     // ahead falls outside it. Without the personal feed alongside, a person
     // would join something and then watch it disappear from their own list.
-    render(<AppProvider><Probe /></AppProvider>)
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
     // The capped feed knows nothing about it.
     act(() => emit.activities([activity('near')], { fromCache: false }))
     expect(screen.getByTestId('joined').textContent).toBe('near')
 
     // The personal feed does.
     act(() => emit.mine([activity('far-future', { startsAt: Date.now() + 400 * 86_400_000 })]))
-    expect(screen.getByTestId('joined').textContent.split(',').sort()).toEqual(
-      ['far-future', 'near'],
-    )
+    expect(screen.getByTestId('joined').textContent.split(',').sort()).toEqual([
+      'far-future',
+      'near',
+    ])
   })
 
   test('an activity in both feeds is not duplicated', () => {
-    render(<AppProvider><Probe /></AppProvider>)
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
     act(() => emit.activities([activity('a1')], { fromCache: false }))
     act(() => emit.mine([activity('a1')]))
     expect(screen.getByTestId('joined').textContent).toBe('a1')
@@ -318,9 +343,119 @@ describe('the discovery cap must not lose your own commitments', () => {
   test('the personal feed alone is enough to open a thread', () => {
     // The preview listeners key off joinedIds, so this proves the merge
     // reaches everything downstream of it rather than only the count.
-    render(<AppProvider><Probe /></AppProvider>)
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
     act(() => emit.activities([], { fromCache: false }))
     act(() => emit.mine([activity('only-mine')]))
     expect(Object.keys(threadEmit)).toContain('only-mine')
+  })
+})
+
+describe('closed threads and the retry budget', () => {
+  const DAY = 86_400_000
+  const denial = { code: 'permission-denied' }
+  const flush = () =>
+    act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+  test('a thread the rules have closed is never opened', () => {
+    // The personal feed has no time floor, so it carries activities from
+    // months ago. Their chat closed thirty days after they happened; asking
+    // for a preview is refused, and the refusal used to look like a revoked
+    // token.
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
+    act(() => emit.activities([], { fromCache: false }))
+    act(() => emit.mine([activity('long-ago', { startsAt: Date.now() - 45 * DAY })]))
+
+    expect(screen.getByTestId('joined').textContent).toBe('long-ago')
+    expect(threadEmit['long-ago']).toBeUndefined()
+    expect(refreshCredential).not.toHaveBeenCalled()
+  })
+
+  test('a thread inside retention is still opened', () => {
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
+    act(() => emit.activities([], { fromCache: false }))
+    act(() => emit.mine([activity('last-week', { startsAt: Date.now() - 7 * DAY })]))
+    expect(threadEmit['last-week']).toBeDefined()
+  })
+
+  test('the last hour before the cut-off is left alone too', () => {
+    // The server decides with its clock and the app with the phone's. A
+    // phone a few minutes behind would open a listener the server had already
+    // closed — which is the same wasted retry. So the app stops an hour early.
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
+    act(() => emit.activities([], { fromCache: false }))
+    act(() =>
+      emit.mine([
+        activity('edge', { startsAt: Date.now() - 30 * DAY + 30 * 60_000 }),
+        activity('clear', { startsAt: Date.now() - 30 * DAY + 2 * 60 * 60_000 }),
+      ]),
+    )
+    expect(threadEmit.edge).toBeUndefined()
+    expect(threadEmit.clear).toBeDefined()
+  })
+
+  test('a genuine denial on an open thread still buys a refresh and a rebuild', async () => {
+    // The guard exists for the sign-in race: the watch stream reattaches
+    // carrying a token that has just been revoked, and every listener is
+    // refused once. That behaviour has to survive the gate above.
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
+    act(() => emit.activities([activity('live')], { fromCache: false }))
+    const before = { ...stops }
+
+    await act(async () => {
+      threadError.live(denial)
+      await flush()
+    })
+    expect(refreshCredential).toHaveBeenCalledTimes(1)
+    expect(stops.activities).toBe(before.activities + 1)
+    expect(threadStops.live).toBe(1)
+    // Rebuilt, and listening again.
+    expect(threadError.live).toBeDefined()
+  })
+
+  test('and after the budget, a denial empties the preview rather than looping', async () => {
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
+    act(() => emit.activities([activity('live')], { fromCache: false }))
+    act(() => threadEmit.live({ id: 'm1', text: 'hi', senderName: 'A', createdAt: 1 }))
+
+    for (let i = 0; i < 2; i += 1) {
+      await act(async () => {
+        threadError.live(denial)
+        await flush()
+      })
+    }
+    expect(refreshCredential).toHaveBeenCalledTimes(2)
+    await act(async () => {
+      threadError.live(denial)
+      await flush()
+    })
+    expect(refreshCredential).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(screen.getByTestId('previews').textContent)).toEqual({ live: null })
   })
 })

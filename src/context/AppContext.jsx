@@ -11,7 +11,11 @@ import {
   watchActivities,
   watchMyActivities,
 } from '../firebase/activities'
-import { sendMessage as sendMessageDoc, watchLatestMessage } from '../firebase/messages'
+import {
+  isChatClosed,
+  sendMessage as sendMessageDoc,
+  watchLatestMessage,
+} from '../firebase/messages'
 import {
   followUser,
   markAllNotificationsRead as markAllReadDoc,
@@ -38,6 +42,9 @@ const AppContext = createContext(null)
 
 // Single source of truth — previously duplicated in the initial state,
 // resetPrototype and FilterPage's own reset.
+/** How far ahead of the rules' thirty-day cut-off a chat preview is closed. */
+const PREVIEW_CLOSE_MARGIN_MS = 60 * 60 * 1000
+
 export const defaultFilters = {
   category: 'All',
   maxDistance: 10,
@@ -372,7 +379,33 @@ export function AppProvider({ children }) {
   // the order the activities snapshot happened to arrive in. The snapshot is
   // ordered by start time, so editing one activity's time reordered the whole
   // array and, with the old key, churned every listener for no reason.
-  const joinedKey = [...joinedIds].sort().join(',')
+  //
+  // Only threads that can still be read. The personal feed has no time floor,
+  // so it holds everything you ever joined — and the rules close a chat thirty
+  // days after the activity. Opening a preview on a closed thread is refused,
+  // and a refusal is exactly what the retry guard treats as "the token has
+  // just been revoked, ask for a new one and rebuild everything": one old
+  // activity cost two token refreshes and two full rebuilds of every listener
+  // on each launch, and then left no retry for a denial that was real. Found
+  // by test after the personal feed shipped; it could not happen while the
+  // feed stopped at yesterday.
+  //
+  // An hour early, deliberately. The rules decide with the server's clock and
+  // this decides with the phone's; a phone running behind would open a
+  // listener the server had already closed, which is the same denial again.
+  // A preview missing from a thread in its last hour costs nothing.
+  const previewIds = useMemo(
+    () =>
+      allKnownActivities
+        .filter(
+          (a) =>
+            (a.participantUids || []).includes(uid) &&
+            !isChatClosed(a, now + PREVIEW_CLOSE_MARGIN_MS),
+        )
+        .map((a) => a.id),
+    [allKnownActivities, uid, now],
+  )
+  const joinedKey = [...previewIds].sort().join(',')
   const threadStopsRef = React.useRef(new Map())
   const threadOwnerRef = React.useRef(null)
 
