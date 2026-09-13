@@ -568,15 +568,152 @@ describe('notifications', () => {
     await assertFails(getDocs(collection(asBob(), 'users', ALICE, 'notifications')))
   })
 
-  test('another user can notify them', async () => {
+  // Puts Bob on Alice's roster, which is what every legitimate notification
+  // between them is about: he joined, so he tells her; she cancels, so she
+  // tells him; either of them writes in the chat.
+  const bobJoins = () =>
+    testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'activities', 'act1'),
+        activityFixture(ALICE, { participantUids: [ALICE, BOB] }),
+      )
+    })
+
+  // The shape the app writes, so every test below fails for exactly the
+  // reason it names and not for a missing field.
+  const note = (overrides = {}) => ({
+    type: 'activity',
+    title: 'Bob joined',
+    body: 'Bob joined your football night',
+    activityId: 'act1',
+    read: false,
+    ...overrides,
+  })
+
+  test('a participant can notify the host about the activity', async () => {
+    await bobJoins()
+    await assertSucceeds(addDoc(collection(asBob(), 'users', ALICE, 'notifications'), note()))
+  })
+
+  test('a participant can notify another participant about the chat', async () => {
+    await bobJoins()
     await assertSucceeds(
-      addDoc(collection(asBob(), 'users', ALICE, 'notifications'), {
-        type: 'activity',
-        title: 'Bob joined',
-        body: 'Bob joined your football night',
+      addDoc(
+        collection(asAlice(), 'users', BOB, 'notifications'),
+        note({ type: 'chat', title: 'New message in Football Night', body: 'Alice: hi' }),
+      ),
+    )
+  })
+
+  test('a host can tell a follower about something they are hosting', async () => {
+    await assertSucceeds(
+      addDoc(
+        collection(asAlice(), 'users', BOB, 'notifications'),
+        note({ type: 'follow', title: 'Alice posted an activity', body: 'Football Night' }),
+      ),
+    )
+  })
+
+  // The hole this closes: any account could write a notice that looked like
+  // a moderation decision — "your account has been closed, email us to
+  // appeal" — into anybody's inbox. It rendered under Safety.
+  test('an ordinary user cannot forge a moderation notice', async () => {
+    await bobJoins()
+    await assertFails(
+      addDoc(
+        collection(asBob(), 'users', ALICE, 'notifications'),
+        note({
+          type: 'moderation',
+          title: 'Your SmartSync account has been closed',
+          body: 'To appeal, email admin@evil.example within 24 hours.',
+        }),
+      ),
+    )
+  })
+
+  test('nor a notification of a type the app does not have', async () => {
+    await bobJoins()
+    await assertFails(
+      addDoc(collection(asBob(), 'users', ALICE, 'notifications'), note({ type: 'system' })),
+    )
+  })
+
+  test('nor one about an activity the sender is not part of', async () => {
+    // Bob is not on act1's roster here.
+    await assertFails(addDoc(collection(asBob(), 'users', ALICE, 'notifications'), note()))
+  })
+
+  test('nor one pointing at an activity that does not exist', async () => {
+    await bobJoins()
+    await assertFails(
+      addDoc(collection(asBob(), 'users', ALICE, 'notifications'), note({ activityId: 'nowhere' })),
+    )
+  })
+
+  test('nor one with no activity at all', async () => {
+    await bobJoins()
+    const { activityId: _dropped, ...withoutActivity } = note()
+    await assertFails(addDoc(collection(asBob(), 'users', ALICE, 'notifications'), withoutActivity))
+  })
+
+  test('nor one carrying fields the app never writes', async () => {
+    await bobJoins()
+    await assertFails(
+      addDoc(
+        collection(asBob(), 'users', ALICE, 'notifications'),
+        note({ link: 'https://evil.example' }),
+      ),
+    )
+  })
+
+  test('a moderator can send a moderation notice, with or without an activity', async () => {
+    await assertSucceeds(
+      addDoc(collection(asMod(), 'users', ALICE, 'notifications'), {
+        type: 'moderation',
+        title: 'Your activity was removed',
+        body: 'SmartSync removed "Football Night": a safety concern.',
+        activityId: 'act1',
         read: false,
       }),
     )
+    await assertSucceeds(
+      addDoc(collection(asMod(), 'users', ALICE, 'notifications'), {
+        type: 'moderation',
+        title: 'A warning about your SmartSync account',
+        body: 'Please read the community policy.',
+        read: false,
+      }),
+    )
+  })
+
+  test('a moderator is not exempt from the roster rule for ordinary notices', async () => {
+    // The rank lets them write moderation notices. It does not let them
+    // write "Bob joined" on behalf of a roster they are not on.
+    await assertFails(
+      addDoc(collection(asMod(), 'users', ALICE, 'notifications'), note({ type: 'activity' })),
+    )
+  })
+
+  test('a suspended moderator cannot send a moderation notice', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'roles', MOD), { role: 'moderator', suspended: true })
+    })
+    await assertFails(
+      addDoc(collection(asMod(), 'users', ALICE, 'notifications'), {
+        type: 'moderation',
+        title: 'A warning about your SmartSync account',
+        body: 'x',
+        read: false,
+      }),
+    )
+  })
+
+  test('being on the roster does not get past a block', async () => {
+    await bobJoins()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', ALICE, 'blocked', BOB), { name: 'Bob' })
+    })
+    await assertFails(addDoc(collection(asBob(), 'users', ALICE, 'notifications'), note()))
   })
 
   test('a user who turned notifications off cannot be notified', async () => {
@@ -587,24 +724,14 @@ describe('notifications', () => {
         notificationsEnabled: false,
       })
     })
-    await assertFails(
-      addDoc(collection(asBob(), 'users', ALICE, 'notifications'), {
-        type: 'activity',
-        title: 'Bob joined',
-        body: 'Bob joined your football night',
-        read: false,
-      }),
-    )
+    await bobJoins()
+    await assertFails(addDoc(collection(asBob(), 'users', ALICE, 'notifications'), note()))
   })
 
   test('a forged pre-read notification is rejected', async () => {
+    await bobJoins()
     await assertFails(
-      addDoc(collection(asBob(), 'users', ALICE, 'notifications'), {
-        type: 'activity',
-        title: 'Nothing to see',
-        body: 'x',
-        read: true,
-      }),
+      addDoc(collection(asBob(), 'users', ALICE, 'notifications'), note({ read: true })),
     )
   })
 

@@ -254,15 +254,51 @@ service cloud.firestore {
         // somebody's list. A suspended account cannot do it, and neither can
         // somebody the recipient has blocked — blocking is meant to stop them
         // reaching you, and this is reaching you.
+        //
+        // And the limit that was missing: *what* may be written. The screen
+        // files a notification by its `type`, and a `type` of 'moderation'
+        // lands under "Safety" looking exactly like a decision SmartSync made.
+        // Nothing here checked the field, so any account could write "Your
+        // account has been closed — email us to appeal" into anybody's inbox,
+        // pointing at whatever listing it liked. Now a notification about an
+        // activity has to come from somebody on that activity's roster, and a
+        // moderation notice has to come from a moderator. Nothing else exists.
+        function notificationShape(n) {
+          return n.keys().hasOnly(['type', 'title', 'body', 'activityId', 'read', 'createdAt'])
+            && n.type is string
+            && isString(n.title, 120)
+            && n.body is string
+            && n.body.size() <= 300
+            && n.read == false;
+        }
+
+        // "Bob joined", "the host cancelled", "Bob wrote" — every one of those
+        // is written by somebody on the roster of the activity it names.
+        // Requiring that is also what stops a notification being used to send
+        // somebody to a listing the sender has nothing to do with.
+        function senderOnRoster(n) {
+          return n.activityId is string
+            && exists(/databases/$(database)/documents/activities/$(n.activityId))
+            && request.auth.uid in
+                 get(/databases/$(database)/documents/activities/$(n.activityId))
+                   .data.participantUids;
+        }
+
         allow create: if signedIn()
           && !cannotAct()
           && !hasBlocked(uid, request.auth.uid)
-          && isString(request.resource.data.title, 120)
-          && request.resource.data.body is string
-          && request.resource.data.body.size() <= 300
-          && request.resource.data.read == false
+          && notificationShape(request.resource.data)
           && get(/databases/$(database)/documents/users/$(uid))
-               .data.notificationsEnabled == true;
+               .data.notificationsEnabled == true
+          && (
+            (
+              request.resource.data.type in ['activity', 'chat', 'follow']
+              && senderOnRoster(request.resource.data)
+            ) || (
+              request.resource.data.type == 'moderation'
+              && isModerator()
+            )
+          );
         allow update: if isSelf(uid) && touches(['read']);
         allow delete: if isSelf(uid);
       }

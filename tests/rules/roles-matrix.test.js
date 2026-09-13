@@ -336,11 +336,14 @@ describe('collision: suspension against rank', () => {
     // suspension: no activity, no message, just a direct write to somebody's
     // notification list.
     await setRole(USER, { suspended: true })
+    // Hosting act_user, so the roster check passes and the suspension is the
+    // only thing standing in the way.
     await assertFails(
       setDoc(doc(as(USER), 'users', OTHER, 'notifications', 'n1'), {
         type: 'activity',
         title: 'Look at this',
         body: 'Reaching you anyway',
+        activityId: 'act_user',
         read: false,
       }),
     )
@@ -535,12 +538,20 @@ describe('collision: moderation against blocking', () => {
   test('somebody you blocked cannot reach you through notifications', async () => {
     // Blocking is meant to stop them reaching you. A direct write to your
     // notification list is reaching you.
-    await seed((db) => setDoc(doc(db, 'users', USER, 'blocked', OTHER), { name: 'Other' }))
+    await seed(async (db) => {
+      await setDoc(doc(db, 'users', USER, 'blocked', OTHER), { name: 'Other' })
+      // On the roster, so the block is the only reason this is refused.
+      await setDoc(
+        doc(db, 'activities', 'act_user'),
+        activity(USER, { participantUids: [USER, OTHER] }),
+      )
+    })
     await assertFails(
       setDoc(doc(as(OTHER), 'users', USER, 'notifications', 'n1'), {
         type: 'activity',
         title: 'Hello again',
         body: 'Still here',
+        activityId: 'act_user',
         read: false,
       }),
     )
@@ -971,6 +982,7 @@ describe('what a closed account can still do', () => {
         type: 'activity',
         title: 'Still here',
         body: 'Reaching you anyway',
+        activityId: 'act_user',
         read: false,
       }),
     )
