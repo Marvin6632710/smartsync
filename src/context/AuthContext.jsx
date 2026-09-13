@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-import { observeAuth, signIn, signOutUser, signUp } from '../firebase/auth'
+import { observeAuth, refreshCredential, signIn, signOutUser, signUp } from '../firebase/auth'
 import { watchRole } from '../firebase/moderation'
 import { useListenerRetry } from '../hooks/useListenerRetry'
 import {
@@ -11,6 +11,29 @@ import {
 } from '../firebase/users'
 
 const AuthContext = createContext(null)
+
+/**
+ * Makes sure the profile documents exist, tolerating one stale credential.
+ *
+ * The first read after signing up — or after signing out and straight back
+ * in on the same page — can go out on a stream that is still carrying the
+ * credential that was just revoked, and the rules refuse it. That is the
+ * same race the listeners recover from with a fresh token; this one-shot
+ * read had no such recovery, so a person who created an account was shown
+ * "Can't load your profile" within half a second while their profile was,
+ * in fact, being created. One refusal buys one refresh and one more try;
+ * a second refusal is real and is surfaced.
+ */
+async function ensureProfileWithRetry(firebaseUser) {
+  const details = { name: firebaseUser.displayName, email: firebaseUser.email }
+  try {
+    await ensureUserProfile(firebaseUser.uid, details)
+  } catch (error) {
+    if (error?.code !== 'permission-denied') throw error
+    await refreshCredential()
+    await ensureUserProfile(firebaseUser.uid, details)
+  }
+}
 
 /**
  * Identity, kept separate from application data.
@@ -62,15 +85,20 @@ export function AuthProvider({ children }) {
       try {
         // Covers accounts created before the profile write landed, and any
         // account created outside the sign-up form.
-        await ensureUserProfile(firebaseUser.uid, {
-          name: firebaseUser.displayName,
-          email: firebaseUser.email,
-        })
+        await ensureProfileWithRetry(firebaseUser)
       } catch (error) {
         setProfileError(error)
       }
     })
   }, [resetAttempts])
+
+  // A serial number for "subscribe again". Bumped by Try again, so the three
+  // listeners are remade rather than left as they were: after a refusal
+  // that spent the retry budget they are dead, and re-running only the
+  // profile write — which is what Try again used to do — cleared the error
+  // and then sat on "Loading your profile…" for good, because nothing was
+  // listening any more. A reload fixed it, which is the tell.
+  const [resubscribe, setResubscribe] = useState(0)
 
   useEffect(() => {
     if (!authUser) return undefined
@@ -115,7 +143,7 @@ export function AuthProvider({ children }) {
       stopPrivate()
       stopRole()
     }
-  }, [authUser, profileAttempt, guard])
+  }, [authUser, profileAttempt, guard, resubscribe])
 
   /**
    * Re-attempts profile creation after a failure. Exposed so the UI can offer
@@ -124,15 +152,17 @@ export function AuthProvider({ children }) {
   const retryProfile = useCallback(async () => {
     if (!authUser) return
     setProfileError(null)
+    // A fresh token first, then fresh listeners, then the profile write —
+    // the same order a reload produces, which is the recovery that worked.
+    await refreshCredential()
+    resetAttempts()
+    setResubscribe((current) => current + 1)
     try {
-      await ensureUserProfile(authUser.uid, {
-        name: authUser.displayName,
-        email: authUser.email,
-      })
+      await ensureProfileWithRetry(authUser)
     } catch (error) {
       setProfileError(error)
     }
-  }, [authUser])
+  }, [authUser, resetAttempts])
 
   const user = useMemo(() => {
     if (!authUser || !publicProfile) return null
