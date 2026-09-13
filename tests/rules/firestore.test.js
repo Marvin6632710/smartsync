@@ -22,6 +22,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore'
 
 let testEnv
@@ -931,6 +932,81 @@ describe('following', () => {
 
   test('a follow list is private to its owner', async () => {
     await assertFails(getDocs(collection(asBob(), 'users', ALICE, 'following')))
+  })
+
+  // The host-side half. This is what lets the host's own client find out who
+  // is listening, which is the only way "you'll be alerted when they post"
+  // can be true without a server.
+  const mirror = (db, hostId, followerId) => doc(db, 'users', hostId, 'followers', followerId)
+
+  test('a follower can write their own row on the host', async () => {
+    await assertSucceeds(setDoc(mirror(asAlice(), BOB, ALICE), { createdAt: 1 }))
+  })
+
+  test('the host can read who follows them', async () => {
+    await testEnv.withSecurityRulesDisabled((context) =>
+      setDoc(mirror(context.firestore(), BOB, ALICE), { createdAt: 1 }),
+    )
+    await assertSucceeds(getDocs(collection(asBob(), 'users', BOB, 'followers')))
+  })
+
+  test('the follower can read their own row, and nobody else can see the list', async () => {
+    await testEnv.withSecurityRulesDisabled((context) =>
+      setDoc(mirror(context.firestore(), BOB, ALICE), { createdAt: 1 }),
+    )
+    await assertSucceeds(getDoc(mirror(asAlice(), BOB, ALICE)))
+    await assertFails(getDocs(collection(asCarol(), 'users', BOB, 'followers')))
+    await assertFails(getDoc(mirror(asCarol(), BOB, ALICE)))
+  })
+
+  test('nobody can sign somebody else up as a follower', async () => {
+    await assertFails(setDoc(mirror(asCarol(), BOB, ALICE), { createdAt: 1 }))
+    // Nor the host, on their own behalf.
+    await assertFails(setDoc(mirror(asBob(), BOB, ALICE), { createdAt: 1 }))
+  })
+
+  test('nobody follows themselves', async () => {
+    await assertFails(setDoc(mirror(asAlice(), ALICE, ALICE), { createdAt: 1 }))
+  })
+
+  test('a row carries a timestamp and nothing else', async () => {
+    await assertFails(setDoc(mirror(asAlice(), BOB, ALICE), { createdAt: 1, note: 'hi' }))
+  })
+
+  test('a row cannot be edited, and only the follower removes it', async () => {
+    await testEnv.withSecurityRulesDisabled((context) =>
+      setDoc(mirror(context.firestore(), BOB, ALICE), { createdAt: 1 }),
+    )
+    await assertFails(updateDoc(mirror(asAlice(), BOB, ALICE), { createdAt: 2 }))
+    await assertFails(deleteDoc(mirror(asBob(), BOB, ALICE)))
+    await assertFails(deleteDoc(mirror(asCarol(), BOB, ALICE)))
+    await assertSucceeds(deleteDoc(mirror(asAlice(), BOB, ALICE)))
+  })
+
+  test('a closed account cannot follow anybody', async () => {
+    await testEnv.withSecurityRulesDisabled((context) =>
+      setDoc(doc(context.firestore(), 'roles', ALICE), {
+        role: 'user',
+        suspended: false,
+        banned: true,
+      }),
+    )
+    await assertFails(setDoc(mirror(asAlice(), BOB, ALICE), { createdAt: 1 }))
+  })
+
+  test('the two halves commit together', async () => {
+    // The app writes both in one batch. Either side being refused refuses
+    // the pair, so the button and the delivery cannot disagree.
+    const db = asAlice()
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'users', ALICE, 'following', BOB), { createdAt: 1 })
+    batch.set(mirror(db, BOB, ALICE), { createdAt: 1 })
+    await assertSucceeds(batch.commit())
+
+    const bad = writeBatch(db)
+    bad.set(doc(db, 'users', ALICE, 'following', CAROL), { createdAt: 1 })
+    bad.set(mirror(db, CAROL, BOB), { createdAt: 1 }) // naming Bob, not herself
+    await assertFails(bad.commit())
   })
 })
 

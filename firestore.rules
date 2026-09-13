@@ -307,6 +307,22 @@ service cloud.firestore {
         allow read, write: if isSelf(uid);
       }
 
+      // The other half of a follow: who is listening to this person. Written
+      // by the follower, about themselves, and readable by the host — that is
+      // what lets the host's own client tell followers when it posts
+      // something, which is the promise the Follow button makes. A list of
+      // ids and a timestamp; nothing else may be written, nothing may be
+      // edited, and nobody but the host and the follower can see a row.
+      match /followers/{followerId} {
+        allow read: if isSelf(uid) || isSelf(followerId);
+        allow create: if isSelf(followerId)
+          && followerId != uid
+          && !isBanned()
+          && request.resource.data.keys().hasOnly(['createdAt']);
+        allow update: if false;
+        allow delete: if isSelf(followerId);
+      }
+
       // Who this user has blocked. Private to them: publishing it would tell
       // people they had been blocked, and by whom, which is its own kind of
       // harm. The rules above read it with exists(), which sees past read

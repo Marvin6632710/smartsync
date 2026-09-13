@@ -17,9 +17,11 @@ import {
   watchLatestMessage,
 } from '../firebase/messages'
 import {
+  ensureFollowerMirror,
   followUser,
   markAllNotificationsRead as markAllReadDoc,
   markNotificationRead as markReadDoc,
+  notifyFollowers,
   pushNotification,
   unfollowUser,
   watchFollowing,
@@ -196,6 +198,28 @@ export function AppProvider({ children }) {
       stops.forEach((stop) => stop())
     }
   }, [uid, listenerAttempt, guard])
+
+  // Follows made before the host-side mirror existed have only the private
+  // half, so the host has never heard of them and could not tell them
+  // anything. Written once per followed person per session, only where the
+  // mirror is missing, and never for a session that has ended.
+  const mirroredRef = React.useRef(new Set())
+  useEffect(() => {
+    mirroredRef.current = new Set()
+  }, [uid])
+  useEffect(() => {
+    if (!uid) return
+    const done = mirroredRef.current
+    for (const targetId of followedUserIds) {
+      if (done.has(targetId)) continue
+      done.add(targetId)
+      ensureFollowerMirror(uid, targetId).catch((error) => {
+        // Not marked done: a later snapshot, or the next session, tries again.
+        done.delete(targetId)
+        reportError('notifications.followerMirror', error, { uid, targetId })
+      })
+    }
+  }, [uid, followedUserIds])
 
   // ---------------------------------------------------------------- toasts
 
@@ -668,6 +692,17 @@ export function AppProvider({ children }) {
     recordCategoryHistory(uid, user.historyCategories, data.category).catch((error) =>
       reportError('users.recordCategoryHistory', error, { uid }),
     )
+    // The promise the Follow button makes, kept from the only place that can
+    // keep it: the host's client, which is the one that knows something was
+    // posted. Not awaited — the activity exists whether or not anybody could
+    // be told — and it never throws. Somebody the host has blocked is not
+    // told; the rules would refuse the write anyway, but a refusal is not a
+    // thing to attempt on purpose.
+    notifyFollowers(uid, id, {
+      title: `${user.name} posted an activity`,
+      body: `${String(data.title || '').trim()} at ${String(data.locationName || '').trim()}`,
+      skip: blockedIds,
+    })
     pushCelebration({
       icon: 'check',
       tone: 'success',
@@ -708,24 +743,45 @@ export function AppProvider({ children }) {
     )
   }
 
-  function toggleUserNotifications(targetUser) {
+  // Awaited through `attempt`, like every other write. This one was fired
+  // and forgotten, so a refused follow was an unhandled rejection in the
+  // console and a "Notifications on" toast on the screen.
+  //
+  // One write in flight per person. A second tap before the first lands would
+  // read the same "not following" and write the same follow again — and the
+  // host-side half of a follow may not be rewritten once it exists, so the
+  // repeat would be refused and announce a failure for something that worked.
+  const followBusyRef = React.useRef(new Set())
+  async function toggleUserNotifications(targetUser) {
     if (!targetUser?.uid) return
-    const alreadyOn = followedUserIds.includes(targetUser.uid)
-    if (alreadyOn) {
-      unfollowUser(uid, targetUser.uid)
-      pushCelebration({
-        icon: 'bell-off',
-        title: 'Notifications off',
-        body: `${targetUser.name} activity alerts turned off.`,
+    if (followBusyRef.current.has(targetUser.uid)) return
+    followBusyRef.current.add(targetUser.uid)
+    try {
+      const alreadyOn = followedUserIds.includes(targetUser.uid)
+      if (alreadyOn) {
+        const ok = await attempt(() => unfollowUser(uid, targetUser.uid), {
+          failure: "Couldn't turn those off",
+        })
+        if (ok === null) return
+        pushCelebration({
+          icon: 'bell-off',
+          title: 'Notifications off',
+          body: `${targetUser.name} activity alerts turned off.`,
+        })
+        return
+      }
+      const ok = await attempt(() => followUser(uid, targetUser.uid), {
+        failure: "Couldn't turn those on",
       })
-      return
+      if (ok === null) return
+      pushCelebration({
+        icon: 'bell',
+        title: 'Notifications on',
+        body: `You'll get ${targetUser.name}'s activity alerts.`,
+      })
+    } finally {
+      followBusyRef.current.delete(targetUser.uid)
     }
-    followUser(uid, targetUser.uid)
-    pushCelebration({
-      icon: 'bell',
-      title: 'Notifications on',
-      body: `You'll get ${targetUser.name}'s activity alerts.`,
-    })
   }
 
   const isFollowingUser = (userId) => followedUserIds.includes(userId)

@@ -14,7 +14,7 @@
  * writes into.
  */
 import React from 'react'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 // ---- the layer underneath, replaced by controllable fakes ----------------
@@ -38,12 +38,13 @@ const channel =
     }
   }
 
+const createActivityDoc = vi.fn()
 vi.mock('../../src/firebase/activities', () => ({
   watchActivities: (cb) => channel('activities')(cb),
   watchMyActivities: (uid, cb) => channel('mine')(uid, cb),
   DISCOVERY_LIMIT: 400,
   MINE_LIMIT: 200,
-  createActivity: vi.fn(),
+  createActivity: createActivityDoc,
   updateActivity: vi.fn(),
   cancelActivity: vi.fn(),
   deleteActivity: vi.fn(),
@@ -54,11 +55,17 @@ vi.mock('../../src/firebase/users', () => ({
   watchPeers: (uid, cb) => channel('peers')(uid, cb),
   recordCategoryHistory: vi.fn(() => Promise.resolve()),
 }))
+const followUser = vi.fn(() => Promise.resolve())
+const unfollowUser = vi.fn(() => Promise.resolve())
+const ensureFollowerMirror = vi.fn(() => Promise.resolve(false))
+const notifyFollowers = vi.fn(() => Promise.resolve({ told: 0, declined: 0, failed: 0 }))
 vi.mock('../../src/firebase/notifications', () => ({
   watchNotifications: (uid, cb) => channel('notifications')(uid, cb),
   watchFollowing: (uid, cb) => channel('following')(uid, cb),
-  followUser: vi.fn(),
-  unfollowUser: vi.fn(),
+  followUser,
+  unfollowUser,
+  ensureFollowerMirror,
+  notifyFollowers,
   pushNotification: vi.fn(() => Promise.resolve()),
   markNotificationRead: vi.fn(),
   markAllNotificationsRead: vi.fn(),
@@ -142,6 +149,11 @@ beforeEach(() => {
   for (const k of Object.keys(threadEmit)) delete threadEmit[k]
   for (const k of Object.keys(threadError)) delete threadError[k]
   refreshCredential.mockClear()
+  followUser.mockClear()
+  unfollowUser.mockClear()
+  ensureFollowerMirror.mockClear()
+  notifyFollowers.mockClear()
+  createActivityDoc.mockReset()
   localStorage.clear()
 })
 afterEach(cleanup)
@@ -457,5 +469,161 @@ describe('closed threads and the retry budget', () => {
     })
     expect(refreshCredential).toHaveBeenCalledTimes(2)
     expect(JSON.parse(screen.getByTestId('previews').textContent)).toEqual({ live: null })
+  })
+})
+
+describe('following somebody', () => {
+  // A screen with the two actions and the toast, the way UserMatchingPage and
+  // CreateActivityPage see them.
+  function Actions() {
+    const { toggleUserNotifications, createActivity, celebration, followedUserIds } = useApp()
+    return (
+      <div>
+        <button onClick={() => toggleUserNotifications({ uid: 'them', name: 'Them' })}>
+          toggle
+        </button>
+        <button
+          onClick={() =>
+            createActivity({ title: 'Five-a-side', locationName: 'The park', category: 'Football' })
+          }
+        >
+          create
+        </button>
+        <span data-testid="toast">{celebration?.title || ''}</span>
+        <span data-testid="following">{followedUserIds.join(',')}</span>
+      </div>
+    )
+  }
+  const flush = () =>
+    act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+  const mount = () => {
+    render(
+      <AppProvider>
+        <Actions />
+      </AppProvider>,
+    )
+    act(() => emit.activities([], { fromCache: false }))
+  }
+
+  test('a follow that lands says so', async () => {
+    mount()
+    act(() => emit.following([]))
+    fireEvent.click(screen.getByText('toggle'))
+    await flush()
+    expect(followUser).toHaveBeenCalledWith('me', 'them')
+    expect(screen.getByTestId('toast').textContent).toBe('Notifications on')
+  })
+
+  test('a follow that is refused says that instead — and nothing is left unhandled', async () => {
+    // It used to fire the write, forget it, and show "Notifications on"
+    // regardless. The rejection went to the console as unhandled.
+    followUser.mockImplementationOnce(() => Promise.reject({ code: 'permission-denied' }))
+    const unhandled = vi.fn()
+    process.on('unhandledRejection', unhandled)
+    mount()
+    act(() => emit.following([]))
+    fireEvent.click(screen.getByText('toggle'))
+    await flush()
+    process.off('unhandledRejection', unhandled)
+    expect(screen.getByTestId('toast').textContent).toBe("Couldn't turn those on")
+    expect(unhandled).not.toHaveBeenCalled()
+  })
+
+  test('two taps before the first lands write one follow, not two', async () => {
+    // The host-side half may not be rewritten once it exists, so a repeat
+    // would be refused — and report a failure for something that worked.
+    let release
+    followUser.mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
+    mount()
+    act(() => emit.following([]))
+    fireEvent.click(screen.getByText('toggle'))
+    fireEvent.click(screen.getByText('toggle'))
+    await flush()
+    expect(followUser).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      release()
+      await flush()
+    })
+    expect(screen.getByTestId('toast').textContent).toBe('Notifications on')
+    // And once it has landed, the next tap is a real one again.
+    act(() => emit.following(['them']))
+    fireEvent.click(screen.getByText('toggle'))
+    await flush()
+    expect(unfollowUser).toHaveBeenCalledTimes(1)
+  })
+
+  test('unfollowing goes through the same door', async () => {
+    mount()
+    act(() => emit.following(['them']))
+    fireEvent.click(screen.getByText('toggle'))
+    await flush()
+    expect(unfollowUser).toHaveBeenCalledWith('me', 'them')
+    expect(screen.getByTestId('toast').textContent).toBe('Notifications off')
+  })
+
+  test('creating an activity tells the followers, skipping anyone the host blocked', async () => {
+    createActivityDoc.mockResolvedValue('new-id')
+    mount()
+    act(() => emit.blocked([{ uid: 'blocked-one', name: 'B' }]))
+    fireEvent.click(screen.getByText('create'))
+    await flush()
+    expect(notifyFollowers).toHaveBeenCalledTimes(1)
+    const [hostId, activityId, options] = notifyFollowers.mock.calls[0]
+    expect(hostId).toBe('me')
+    expect(activityId).toBe('new-id')
+    expect(options.skip.has('blocked-one')).toBe(true)
+    expect(options.body).toBe('Five-a-side at The park')
+  })
+
+  test('a creation that failed tells nobody', async () => {
+    createActivityDoc.mockRejectedValue({ code: 'permission-denied' })
+    mount()
+    fireEvent.click(screen.getByText('create'))
+    await flush()
+    expect(notifyFollowers).not.toHaveBeenCalled()
+    expect(screen.getByTestId('toast').textContent).toBe("Couldn't create activity")
+  })
+
+  test('older follows get their host-side half written, once each', async () => {
+    // Follows made before the mirror existed are invisible to the host. Each
+    // is checked once per session, and a later snapshot does not check again.
+    ensureFollowerMirror.mockResolvedValue(true)
+    mount()
+    act(() => emit.following(['a', 'b']))
+    await flush()
+    expect(ensureFollowerMirror.mock.calls.map((c) => c[1]).sort()).toEqual(['a', 'b'])
+
+    act(() => emit.following(['a', 'b', 'c']))
+    await flush()
+    expect(ensureFollowerMirror).toHaveBeenCalledTimes(3)
+    expect(ensureFollowerMirror.mock.calls[2]).toEqual(['me', 'c'])
+  })
+
+  test('a mirror that could not be written is tried again next time', async () => {
+    ensureFollowerMirror.mockRejectedValueOnce(new Error('offline'))
+    mount()
+    act(() => emit.following(['a']))
+    await flush()
+    act(() => emit.following(['a']))
+    await flush()
+    expect(ensureFollowerMirror).toHaveBeenCalledTimes(2)
+  })
+
+  test('a new account starts the mirror bookkeeping afresh', async () => {
+    mount()
+    act(() => emit.following(['a']))
+    await flush()
+    expect(ensureFollowerMirror).toHaveBeenCalledTimes(1)
+
+    currentUser = { uid: 'someone-else', interests: [], historyCategories: [] }
+    cleanup()
+    mount()
+    act(() => emit.following(['a']))
+    await flush()
+    expect(ensureFollowerMirror).toHaveBeenCalledTimes(2)
+    expect(ensureFollowerMirror.mock.calls[1]).toEqual(['someone-else', 'a'])
   })
 })
