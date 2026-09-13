@@ -107,6 +107,14 @@ describe('editing', () => {
     expect(updateActivity).not.toHaveBeenCalled()
   })
 
+  test('a cleared time is refused before the round trip', async () => {
+    render(page())
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '' } })
+    fireEvent.click(screen.getByText('Save changes'))
+    expect((await screen.findByRole('alert')).textContent).toBe('Pick a date and a time.')
+    expect(updateActivity).not.toHaveBeenCalled()
+  })
+
   test('moving the time into the past is refused; leaving it alone is not', async () => {
     // A host fixing the description of something that already happened must
     // not be told to reschedule it.

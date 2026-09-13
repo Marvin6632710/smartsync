@@ -97,6 +97,12 @@ function EditActivityForm({ existing }) {
       setError(`Capacity can't be below the ${existing.participants} people already joined.`)
       return
     }
+    // Both halves of the instant, always: the data layer refuses one without
+    // the other, and the rules refuse an empty time, so say so here.
+    if (!form.date || !form.time) {
+      setError('Pick a date and a time.')
+      return
+    }
     // Only when the time is being moved: a host fixing the description of
     // something that has already happened must not be told to reschedule it.
     const moved = form.date !== existing.date || form.time !== existing.time
