@@ -22,6 +22,7 @@ import {
   markAllNotificationsRead as markAllReadDoc,
   markNotificationRead as markReadDoc,
   notifyFollowers,
+  pushChatNotification,
   pushNotification,
   unfollowUser,
   watchFollowing,
@@ -733,14 +734,26 @@ export function AppProvider({ children }) {
       failure: "Couldn't send",
     })
     if (ok === null || !activity) return
-    ;(activity.participantUids || []).forEach((participantId) =>
-      notifyUser(participantId, {
-        type: 'chat',
+    // Bounded: one notification per person per thread per ten minutes,
+    // however many messages there are and whoever sends them. See
+    // pushChatNotification for how the bucket makes that hold across
+    // senders without anybody coordinating.
+    for (const participantId of activity.participantUids || []) {
+      if (!participantId || participantId === uid) continue
+      const recipient = peers.find((peer) => peer.uid === participantId)
+      if (recipient?.notificationsEnabled === false) continue
+      pushChatNotification(participantId, {
+        activityId,
         title: `New message in ${activity.title}`,
         body: `${user.name}: ${String(text).slice(0, 80)}`,
-        activityId,
-      }),
-    )
+      }).catch((error) => {
+        // A refusal is expected: the bucket already has a notification, or
+        // they turned notifications off, or they blocked the sender. None of
+        // those is a failure of anything.
+        if (error?.code === 'permission-denied') return
+        reportError('notifications.chat', error, { recipientId: participantId })
+      })
+    }
   }
 
   // Awaited through `attempt`, like every other write. This one was fired

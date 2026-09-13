@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from 'firebase/firestore'
 
@@ -19,20 +20,78 @@ import { reportError } from '../utils/reportError'
 
 const MAX_NOTIFICATIONS = 50
 
+/**
+ * How many moderation notices are held on to regardless of what else is in
+ * the inbox.
+ *
+ * The inbox shows the newest fifty of everything. Busy chats produce most of
+ * what lands there, so a notice that somebody's activity was taken down, or
+ * that their account was suspended, could be pushed out of the window by an
+ * evening's conversation — and it is the one notification a person comes
+ * back looking for. A second, small listener keeps the newest of those in
+ * view whatever the rest of the inbox is doing.
+ */
+const SAFETY_NOTIFICATIONS = 20
+
+/**
+ * How often one thread may notify one person about chat.
+ *
+ * Every message used to write a notification to every participant, so a
+ * twenty-person thread with a hundred messages produced two thousand
+ * documents, buried everything else in every inbox, and grew the collection
+ * without bound. Now the notification's id carries a ten-minute bucket: the
+ * first message in a bucket creates it, and every later one — from any
+ * sender — is a write to a document that already exists, which the rules
+ * refuse. Six an hour per thread, at most, and nobody is told twice.
+ */
+export const CHAT_NOTIFY_WINDOW_MS = 10 * 60_000
+
+/** Firestore's ceiling on operations in one batch. */
+const BATCH_LIMIT = 500
+
 const notificationsRef = (uid) => collection(db, 'users', uid, 'notifications')
 
+const rowOf = (d) => {
+  const data = d.data()
+  return { id: d.id, ...data, createdAt: data.createdAt?.toMillis?.() ?? Date.now() }
+}
+
+/**
+ * The inbox: the newest notifications, with the newest moderation notices
+ * kept alongside them however far down they would otherwise have fallen.
+ * Two listeners, one callback, one deduplicated list, newest first.
+ */
 export function watchNotifications(uid, callback, onError) {
-  return onSnapshot(
+  const latest = new Map()
+  const safety = new Map()
+  const emit = () => {
+    const merged = new Map([...safety, ...latest])
+    callback([...merged.values()].sort((a, b) => b.createdAt - a.createdAt))
+  }
+  const fill = (target) => (snap) => {
+    target.clear()
+    snap.docs.forEach((d) => target.set(d.id, rowOf(d)))
+    emit()
+  }
+  const stopLatest = onSnapshot(
     query(notificationsRef(uid), orderBy('createdAt', 'desc'), limit(MAX_NOTIFICATIONS)),
-    (snap) =>
-      callback(
-        snap.docs.map((d) => {
-          const data = d.data()
-          return { id: d.id, ...data, createdAt: data.createdAt?.toMillis?.() ?? Date.now() }
-        }),
-      ),
+    fill(latest),
     onError,
   )
+  const stopSafety = onSnapshot(
+    query(
+      notificationsRef(uid),
+      where('type', '==', 'moderation'),
+      orderBy('createdAt', 'desc'),
+      limit(SAFETY_NOTIFICATIONS),
+    ),
+    fill(safety),
+    onError,
+  )
+  return () => {
+    stopLatest()
+    stopSafety()
+  }
 }
 
 /**
@@ -52,17 +111,48 @@ export function pushNotification(uid, { type, title, body, activityId = null }) 
   })
 }
 
+/**
+ * One chat notification per thread per window, whoever is writing.
+ *
+ * The id is derived from the thread and the current ten-minute bucket, so
+ * this is a `set` that succeeds once per bucket and is refused thereafter.
+ * A refusal here is the design working, not a failure — the caller treats
+ * permission-denied as nothing to say.
+ */
+export function pushChatNotification(uid, { activityId, title, body, now = Date.now() }) {
+  const bucket = Math.floor(now / CHAT_NOTIFY_WINDOW_MS)
+  return setDoc(doc(db, 'users', uid, 'notifications', `chat-${activityId}-${bucket}`), {
+    type: 'chat',
+    title: String(title || '').slice(0, 120),
+    body: String(body || '').slice(0, 300),
+    activityId,
+    read: false,
+    createdAt: serverTimestamp(),
+  })
+}
+
 export function markNotificationRead(uid, notificationId) {
   return updateDoc(doc(db, 'users', uid, 'notifications', notificationId), { read: true })
 }
 
+/**
+ * Marks everything unread as read.
+ *
+ * Reads only what is unread rather than the whole inbox, and writes in
+ * batches of what Firestore allows: one batch used to carry every unread
+ * row, and past five hundred of them it was refused outright, so the button
+ * did nothing for exactly the people who needed it most.
+ */
 export async function markAllNotificationsRead(uid) {
-  const snap = await getDocs(notificationsRef(uid))
-  const unread = snap.docs.filter((d) => d.data().read === false)
-  if (unread.length === 0) return
-  const batch = writeBatch(db)
-  unread.forEach((entry) => batch.update(entry.ref, { read: true }))
-  await batch.commit()
+  const snap = await getDocs(query(notificationsRef(uid), where('read', '==', false)))
+  if (snap.empty) return
+  for (let start = 0; start < snap.docs.length; start += BATCH_LIMIT) {
+    const batch = writeBatch(db)
+    snap.docs
+      .slice(start, start + BATCH_LIMIT)
+      .forEach((entry) => batch.update(entry.ref, { read: true }))
+    await batch.commit()
+  }
 }
 
 // ---------------------------------------------------------------- following

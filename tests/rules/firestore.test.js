@@ -800,6 +800,31 @@ describe('notifications', () => {
     )
   })
 
+  test('a chat bucket is written once, whoever writes second', async () => {
+    // Chat notifications carry a per-thread, per-window id. The first
+    // message in the window creates it; every later one is a write to a
+    // document that exists, which is an update — and only the owner may
+    // update, and only the read flag. That refusal is the bound.
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(doc(db, 'users', CAROL), publicProfile(CAROL, 'Carol'))
+      await setDoc(
+        doc(db, 'activities', 'act1'),
+        activityFixture(ALICE, { participantUids: [ALICE, BOB, CAROL] }),
+      )
+    })
+    const id = 'chat-act1-2839'
+    const chat = note({ type: 'chat', title: 'New message in Football Night' })
+    await assertSucceeds(setDoc(doc(asBob(), 'users', ALICE, 'notifications', id), chat))
+    // Carol writes next, in the same window: refused. So is Bob again.
+    await assertFails(setDoc(doc(asCarol(), 'users', ALICE, 'notifications', id), chat))
+    await assertFails(setDoc(doc(asBob(), 'users', ALICE, 'notifications', id), chat))
+    // The next window is a fresh document for whoever gets there first.
+    await assertSucceeds(
+      setDoc(doc(asCarol(), 'users', ALICE, 'notifications', 'chat-act1-2840'), chat),
+    )
+  })
+
   test('being on the roster does not get past a block', async () => {
     await bobJoins()
     await testEnv.withSecurityRulesDisabled(async (context) => {

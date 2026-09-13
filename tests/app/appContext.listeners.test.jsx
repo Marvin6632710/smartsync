@@ -59,6 +59,9 @@ const followUser = vi.fn(() => Promise.resolve())
 const unfollowUser = vi.fn(() => Promise.resolve())
 const ensureFollowerMirror = vi.fn(() => Promise.resolve(false))
 const notifyFollowers = vi.fn(() => Promise.resolve({ told: 0, declined: 0, failed: 0 }))
+const pushChatNotification = vi.fn(() => Promise.resolve())
+const reportError = vi.fn()
+vi.mock('../../src/utils/reportError', () => ({ reportError }))
 vi.mock('../../src/firebase/notifications', () => ({
   watchNotifications: (uid, cb) => channel('notifications')(uid, cb),
   watchFollowing: (uid, cb) => channel('following')(uid, cb),
@@ -66,6 +69,7 @@ vi.mock('../../src/firebase/notifications', () => ({
   unfollowUser,
   ensureFollowerMirror,
   notifyFollowers,
+  pushChatNotification,
   pushNotification: vi.fn(() => Promise.resolve()),
   markNotificationRead: vi.fn(),
   markAllNotificationsRead: vi.fn(),
@@ -153,6 +157,9 @@ beforeEach(() => {
   unfollowUser.mockClear()
   ensureFollowerMirror.mockClear()
   notifyFollowers.mockClear()
+  pushChatNotification.mockClear()
+  pushChatNotification.mockImplementation(() => Promise.resolve())
+  reportError.mockClear()
   createActivityDoc.mockReset()
   localStorage.clear()
 })
@@ -625,5 +632,65 @@ describe('following somebody', () => {
     await flush()
     expect(ensureFollowerMirror).toHaveBeenCalledTimes(2)
     expect(ensureFollowerMirror.mock.calls[1]).toEqual(['someone-else', 'a'])
+  })
+})
+
+describe('a message in a thread', () => {
+  function Composer() {
+    const { sendMessage } = useApp()
+    return <button onClick={() => sendMessage('t1', 'hello')}>send</button>
+  }
+  const flush = () =>
+    act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+  const thread = (extra = {}) =>
+    activity('t1', { participantUids: ['me', 'p1', 'p2', 'p3'], participants: 4, ...extra })
+
+  test('tells every other participant through the bounded chat channel', async () => {
+    render(
+      <AppProvider>
+        <Composer />
+      </AppProvider>,
+    )
+    act(() => emit.activities([thread()], { fromCache: false }))
+    act(() => emit.peers([]))
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    const recipients = pushChatNotification.mock.calls.map(([uid]) => uid).sort()
+    expect(recipients).toEqual(['p1', 'p2', 'p3'])
+    const [, payload] = pushChatNotification.mock.calls[0]
+    expect(payload).toMatchObject({ activityId: 't1', title: 'New message in t1' })
+  })
+
+  test('skips somebody who turned notifications off', async () => {
+    render(
+      <AppProvider>
+        <Composer />
+      </AppProvider>,
+    )
+    act(() => emit.activities([thread()], { fromCache: false }))
+    act(() => emit.peers([{ uid: 'p2', name: 'P2', notificationsEnabled: false }]))
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(pushChatNotification.mock.calls.map(([uid]) => uid).sort()).toEqual(['p1', 'p3'])
+  })
+
+  test('a refusal is the bucket working, not an error; anything else is recorded', async () => {
+    pushChatNotification
+      .mockImplementationOnce(() => Promise.reject({ code: 'permission-denied' }))
+      .mockImplementationOnce(() => Promise.reject(new Error('unavailable')))
+    render(
+      <AppProvider>
+        <Composer />
+      </AppProvider>,
+    )
+    act(() => emit.activities([thread()], { fromCache: false }))
+    act(() => emit.peers([]))
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(reportError).toHaveBeenCalledTimes(1)
+    expect(reportError.mock.calls[0][0]).toBe('notifications.chat')
   })
 })
