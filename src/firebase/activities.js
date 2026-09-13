@@ -203,14 +203,31 @@ export function leaveActivity(activityId, uid) {
  * would leave anonymity applied to some of a person's activities and not
  * others, which is arguably worse than not applying it at all.
  */
-export async function syncHostIdentity(uid, { name, avatar }) {
-  const mine = await getDocs(query(activitiesRef, where('hostId', '==', uid)))
-  if (mine.empty) return
+export async function syncHostIdentity(uid, identity) {
+  const refs = await hostedActivityRefs(uid)
+  if (refs.length === 0) return
   const batch = writeBatch(db)
-  mine.docs.forEach((entry) =>
-    batch.update(entry.ref, { hostName: name, hostAvatar: avatar, updatedAt: serverTimestamp() }),
-  )
+  stampHostIdentity(batch, refs, identity)
   await batch.commit()
+}
+
+/** Every activity this person hosts, as references, for a batch to stamp. */
+export async function hostedActivityRefs(uid) {
+  const mine = await getDocs(query(activitiesRef, where('hostId', '==', uid)))
+  return mine.docs.map((entry) => entry.ref)
+}
+
+/**
+ * Adds the identity rewrite for each activity to a batch somebody else owns.
+ *
+ * Split out so the profile write can sit in the *same* batch as the
+ * activities it has to agree with: see `writeIdentity` in users.js. The
+ * caller is responsible for staying under the batch limit.
+ */
+export function stampHostIdentity(batch, refs, { name, avatar }) {
+  refs.forEach((ref) =>
+    batch.update(ref, { hostName: name, hostAvatar: avatar, updatedAt: serverTimestamp() }),
+  )
 }
 
 /**

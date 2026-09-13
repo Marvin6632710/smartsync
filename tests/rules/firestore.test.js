@@ -247,6 +247,74 @@ describe('activity ownership', () => {
     await assertFails(updateDoc(doc(asAlice(), 'activities', 'act1'), { capacity: 0 }))
   })
 
+  // The identity copy on an activity follows the profile, whatever state the
+  // activity is in. A removed one is frozen to its host in every other way.
+  const stamp = { hostName: 'Anonymous user', hostAvatar: 'AN' }
+
+  test('the host can restamp their name on a removed activity', async () => {
+    await testEnv.withSecurityRulesDisabled((context) =>
+      setDoc(
+        doc(context.firestore(), 'activities', 'act1'),
+        activityFixture(ALICE, { status: 'removed', moderation: { by: MOD, reason: 'x' } }),
+      ),
+    )
+    await assertSucceeds(updateDoc(doc(asAlice(), 'activities', 'act1'), stamp))
+  })
+
+  test('and on one pinned outside the box before the box existed', async () => {
+    await testEnv.withSecurityRulesDisabled((context) =>
+      setDoc(doc(context.firestore(), 'activities', 'act1'), activityFixture(ALICE, { lat: 51.5 })),
+    )
+    await assertSucceeds(updateDoc(doc(asAlice(), 'activities', 'act1'), stamp))
+  })
+
+  test('but the stamp cannot carry anything else with it', async () => {
+    await testEnv.withSecurityRulesDisabled((context) =>
+      setDoc(
+        doc(context.firestore(), 'activities', 'act1'),
+        activityFixture(ALICE, { status: 'removed', moderation: { by: MOD, reason: 'x' } }),
+      ),
+    )
+    const ref = doc(asAlice(), 'activities', 'act1')
+    await assertFails(updateDoc(ref, { ...stamp, status: 'active' }))
+    await assertFails(updateDoc(ref, { ...stamp, title: 'Renamed' }))
+    await assertFails(updateDoc(ref, { ...stamp, participantUids: [ALICE, BOB] }))
+    await assertFails(updateDoc(ref, { ...stamp, moderation: { by: ALICE, reason: '' } }))
+    await assertFails(updateDoc(ref, { hostName: '', hostAvatar: 'AN' }))
+  })
+
+  test('nobody else can restamp it, moderator included', async () => {
+    await assertFails(updateDoc(doc(asBob(), 'activities', 'act1'), stamp))
+    await assertFails(updateDoc(doc(asMod(), 'activities', 'act1'), stamp))
+  })
+
+  test('the profile and every hosted activity can change in one batch', async () => {
+    // What anonymous mode actually writes: the public profile, the private
+    // one, and the copy of the name on each activity — all or nothing.
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(
+        doc(db, 'activities', 'act2'),
+        activityFixture(ALICE, { status: 'removed', moderation: { by: MOD, reason: 'x' } }),
+      )
+    })
+    const db = asAlice()
+    const batch = writeBatch(db)
+    batch.update(doc(db, 'activities', 'act1'), stamp)
+    batch.update(doc(db, 'activities', 'act2'), stamp)
+    batch.update(doc(db, 'users', ALICE), {
+      name: 'Anonymous user',
+      avatar: 'AN',
+      anonymous: true,
+    })
+    batch.set(
+      doc(db, 'users', ALICE, 'private', 'profile'),
+      { privacy: { anonymousMode: true } },
+      { merge: true },
+    )
+    await assertSucceeds(batch.commit())
+  })
+
   test('creating an activity for someone else is rejected', async () => {
     await assertFails(addDoc(collection(asBob(), 'activities'), activityFixture(ALICE)))
   })

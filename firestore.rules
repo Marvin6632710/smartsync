@@ -500,6 +500,21 @@ service cloud.firestore {
           && rosterIsClean()
           && (joinsSelf() || leavesSelf() || hostRemovesParticipant())
         ) || (
+          // The host's name and avatar are copied onto each activity, and
+          // the copy has to follow the profile — on a removed activity too,
+          // which the host may otherwise not touch. Anonymous mode that
+          // stopped at removed activities would leave the real name on
+          // exactly the listings a moderator is looking at, and because the
+          // profile and the activities are written together, one frozen
+          // activity used to make the switch impossible to flip at all.
+          // Nothing else may move: not the status, not the roster, not the
+          // record of who took it down.
+          resource.data.hostId == request.auth.uid
+          && !isBanned()
+          && touches(['hostName', 'hostAvatar', 'updatedAt'])
+          && isString(request.resource.data.hostName, 60)
+          && request.resource.data.hostAvatar is string
+        ) || (
           // Moderation. A moderator may take an activity down and record why,
           // and may do nothing else to it — not edit its details, not touch
           // its roster, not hand it to somebody. Taking something down is a

@@ -12,7 +12,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 
-import { syncHostIdentity } from './activities'
+import { hostedActivityRefs, stampHostIdentity } from './activities'
 import { db } from './config'
 
 const ANONYMOUS_NAME = 'Anonymous user'
@@ -160,31 +160,64 @@ export function updatePrivateProfile(uid, patch) {
   return setDoc(privateDoc(uid), patch, { merge: true })
 }
 
+/** Firestore's ceiling on operations in one batch. */
+const BATCH_LIMIT = 500
+
+/**
+ * Writes a new public identity everywhere it is copied, as one change.
+ *
+ * Three documents have to agree — the public profile, the private one, and
+ * the copy of the name on every activity the person hosts — and they used
+ * to be written as two separate operations: the profile batch first, the
+ * activities after. A connection that dropped between them left the profile
+ * saying "Anonymous user" while every hosted activity still carried the real
+ * name, readable by anyone; and because the second step had thrown, the
+ * screen reported the change as failed while the switch showed it on.
+ *
+ * Now the activities are read first, and the profile goes into the same
+ * batch as the activities: either all of it lands or none of it does. A
+ * host with more activities than one batch holds is the one case that needs
+ * several, and there the activities go *first* and the profile last — so a
+ * failure part-way leaves the switch showing the old state, which is true,
+ * and a retry simply stamps the same activities again and finishes.
+ */
+async function writeIdentity(uid, identity, { publicPatch, privatePatch }) {
+  const refs = await hostedActivityRefs(uid)
+  // The final batch carries the profile's two writes, so it has that much
+  // less room for activities. Everything before it is activities only.
+  const room = BATCH_LIMIT - 2
+  const overflow = Math.max(0, refs.length - room)
+  for (let start = 0; start < overflow; start += BATCH_LIMIT) {
+    const batch = writeBatch(db)
+    stampHostIdentity(batch, refs.slice(start, Math.min(start + BATCH_LIMIT, overflow)), identity)
+    await batch.commit()
+  }
+  const last = writeBatch(db)
+  stampHostIdentity(last, refs.slice(overflow), identity)
+  last.update(publicDoc(uid), { ...identity, ...publicPatch, updatedAt: serverTimestamp() })
+  last.set(privateDoc(uid), privatePatch, { merge: true })
+  await last.commit()
+}
+
 /** Renaming has to land in both documents at once, or they disagree. */
 export async function updateDisplayName(uid, realName, anonymous) {
   const identity = publicIdentity({ realName, anonymous })
-  const batch = writeBatch(db)
-  batch.update(publicDoc(uid), { ...identity, updatedAt: serverTimestamp() })
-  batch.set(privateDoc(uid), { realName }, { merge: true })
-  await batch.commit()
-  // The activities carry their own copy of the name; without this a rename
+  // The activities carry their own copy of the name; without them a rename
   // is visible on the profile and nowhere else.
-  await syncHostIdentity(uid, identity)
+  await writeIdentity(uid, identity, { publicPatch: {}, privatePatch: { realName } })
 }
 
 /**
  * Toggling anonymous mode rewrites the public identity, which is what makes
- * the setting real: the name genuinely leaves the readable document.
+ * the setting real: the name genuinely leaves the readable document — and
+ * leaves every activity the person hosts in the same write.
  */
 export async function setAnonymousMode(uid, anonymous, realName) {
   const identity = publicIdentity({ realName, anonymous })
-  const batch = writeBatch(db)
-  batch.update(publicDoc(uid), { ...identity, anonymous, updatedAt: serverTimestamp() })
-  batch.set(privateDoc(uid), { privacy: { anonymousMode: anonymous } }, { merge: true })
-  await batch.commit()
-  // Without this the setting is cosmetic: the profile says "Anonymous user"
-  // while every activity the person hosts still carries their real name.
-  await syncHostIdentity(uid, identity)
+  await writeIdentity(uid, identity, {
+    publicPatch: { anonymous },
+    privatePatch: { privacy: { anonymousMode: anonymous } },
+  })
 }
 
 /**
