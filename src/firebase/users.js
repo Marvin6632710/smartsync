@@ -1,4 +1,5 @@
 import {
+  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -186,12 +187,19 @@ export async function setAnonymousMode(uid, anonymous, realName) {
   await syncHostIdentity(uid, identity)
 }
 
-/** Records a category the user engaged with, feeding the history signal. */
+/**
+ * Records a category the user engaged with, feeding the history signal.
+ *
+ * `arrayUnion`, not a rewrite of the list. The old version wrote back
+ * `[...existing, category]` from the client's copy of the profile — and two
+ * joins in quick succession both read the copy from before either landed, so
+ * the second write erased what the first had added. A server-side union
+ * cannot lose an element whatever order the writes arrive in. `existing` is
+ * still consulted, only to skip a write that would change nothing.
+ */
 export function recordCategoryHistory(uid, existing, category) {
   if (!category || (existing || []).includes(category)) return Promise.resolve()
-  return updatePublicProfile(uid, {
-    historyCategories: [...new Set([...(existing || []), category])],
-  })
+  return updatePublicProfile(uid, { historyCategories: arrayUnion(category) })
 }
 
 /** See the note on the field in createUserProfile for why this is public. */

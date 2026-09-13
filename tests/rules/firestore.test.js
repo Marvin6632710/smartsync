@@ -15,6 +15,7 @@ import {
 import { readFileSync } from 'node:fs'
 import {
   addDoc,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -166,6 +167,28 @@ describe('profile privacy', () => {
     await assertFails(
       updateDoc(doc(asAlice(), 'users', ALICE), { notificationsEnabled: 'yes please' }),
     )
+  })
+
+  test('two joins in quick succession both reach the history', async () => {
+    // The history signal used to be written as a whole list from the client's
+    // copy of the profile, so a second join before the first landed erased
+    // it. A server-side union cannot, whatever order the writes arrive in.
+    const db = asAlice()
+    await assertSucceeds(
+      updateDoc(doc(db, 'users', ALICE), { historyCategories: arrayUnion('Coffee') }),
+    )
+    await assertSucceeds(
+      updateDoc(doc(db, 'users', ALICE), { historyCategories: arrayUnion('Gym') }),
+    )
+    // And once more for something already there, which must stay a no-op.
+    await assertSucceeds(
+      updateDoc(doc(db, 'users', ALICE), { historyCategories: arrayUnion('Coffee') }),
+    )
+    let after
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      after = (await getDoc(doc(context.firestore(), 'users', ALICE))).data()
+    })
+    expect(after.historyCategories).toEqual(['Coffee', 'Gym'])
   })
 
   test('over-long bios are rejected', async () => {
