@@ -52,20 +52,46 @@ describe('searchUsers', () => {
     getDocs
       .mockResolvedValueOnce(snap({ uid: 'a', name: 'Marvin' }, { uid: 'b', name: 'Mary' }))
       .mockResolvedValueOnce(snap({ uid: 'a', name: 'Marvin' }, { uid: 'c', name: 'Zed' }))
+      .mockResolvedValueOnce(snap())
     const found = await searchUsers('Mar')
 
     expect(found.map((p) => p.uid).sort()).toEqual(['a', 'b', 'c'])
     const built = getDocs.mock.calls.map(([q]) => q.clauses)
     expect(built[0]).toEqual([
       { where: 'name', op: '>=', value: 'Mar' },
-      { where: 'name', op: '<', value: 'Mar' },
+      { where: 'name', op: '<', value: 'Mar\uf8ff' },
       { limit: SEARCH_LIMIT },
     ])
-    expect(built[1][0]).toEqual({ where: 'username', op: '>=', value: 'Mar' })
+    // "Mar" is already capitalised, so no second spelling; the handle gets one.
+    expect(built.map((c) => [c[0].where, c[0].value])).toEqual([
+      ['name', 'Mar'],
+      ['username', 'Mar'],
+      ['username', '@mar'],
+    ])
+  })
+
+  test('a lower-case fragment also tries the capitalised name', async () => {
+    getDocs.mockResolvedValue(snap())
+    await searchUsers('mar')
+    expect(getDocs.mock.calls.map(([q]) => [q.clauses[0].where, q.clauses[0].value])).toEqual([
+      ['name', 'mar'],
+      ['name', 'Mar'],
+      ['username', 'mar'],
+      ['username', '@mar'],
+    ])
+  })
+
+  test('a handle as typed is searched as typed, once', async () => {
+    getDocs.mockResolvedValue(snap())
+    await searchUsers('@marvin')
+    expect(getDocs.mock.calls.map(([q]) => [q.clauses[0].where, q.clauses[0].value])).toEqual([
+      ['name', '@marvin'],
+      ['username', '@marvin'],
+    ])
   })
 
   test('a row with no uid is dropped rather than crashing the list', async () => {
-    getDocs.mockResolvedValueOnce(snap({ name: 'Ghost' })).mockResolvedValueOnce(snap())
+    getDocs.mockResolvedValue(snap({ name: 'Ghost' }))
     expect(await searchUsers('G')).toEqual([])
   })
 })
@@ -95,7 +121,7 @@ describe('usePeopleSearch', () => {
     // Three hundred milliseconds have passed in total, but never uninterrupted.
     expect(getDocs).not.toHaveBeenCalled()
     await waitFor(() => expect(found()).toBe('z'))
-    expect(getDocs).toHaveBeenCalledTimes(2) // one search: name and username
+    expect(getDocs).toHaveBeenCalledTimes(3) // one search: name, username, @username
     expect(searching()).toBe('false')
   })
 
@@ -103,7 +129,7 @@ describe('usePeopleSearch', () => {
     const pending = []
     getDocs.mockImplementation(() => new Promise((resolve) => pending.push(resolve)))
     const { rerender } = render(<Probe term="Ann" enabled />)
-    await waitFor(() => expect(pending).toHaveLength(2))
+    await waitFor(() => expect(pending).toHaveLength(3))
     // The user keeps typing before the first answer arrives.
     rerender(<Probe term="Anna" enabled />)
     await act(async () => {
@@ -113,9 +139,9 @@ describe('usePeopleSearch', () => {
     expect(found()).toBe('')
     expect(searching()).toBe('true')
     // The second search answers, and that one shows.
-    await waitFor(() => expect(pending).toHaveLength(4))
+    await waitFor(() => expect(pending).toHaveLength(6))
     await act(async () => {
-      pending.slice(2).forEach((resolve) => resolve(snap({ uid: 'anna' })))
+      pending.slice(3).forEach((resolve) => resolve(snap({ uid: 'anna' })))
       await pause(10)
     })
     expect(found()).toBe('anna')

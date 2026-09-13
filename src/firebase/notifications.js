@@ -86,7 +86,12 @@ export function watchNotifications(uid, callback, onError) {
       limit(SAFETY_NOTIFICATIONS),
     ),
     fill(safety),
-    onError,
+    // Recorded, never fatal. This query needs a composite index, and a
+    // deploy that ships the code before the index would otherwise turn every
+    // inbox into "Couldn't load the latest data". The main listener above is
+    // the one that decides whether the inbox works; a denial that is real
+    // reaches it too, and the retry it triggers rebuilds both.
+    (error) => reportError('notifications.safety', error, { uid }),
   )
   return () => {
     stopLatest()

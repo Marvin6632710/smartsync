@@ -188,6 +188,23 @@ describe('watchNotifications', () => {
     expect(rows.map((r) => r.id)).toEqual(['removed', 'chat-8'])
   })
 
+  test('a failure on the safety listener is recorded and the inbox carries on', async () => {
+    const onError = vi.fn()
+    const rows = []
+    watchNotifications('u', (list) => rows.splice(0, rows.length, ...list), onError)
+    const [latest, safety] = listeners
+    safety.onError({ code: 'failed-precondition', message: 'needs an index' })
+    latest.cb(snap([['chat-9', 900, 'chat']]))
+    expect(onError).not.toHaveBeenCalled()
+    expect(rows.map((r) => r.id)).toEqual(['chat-9'])
+    const { reportError } = await import('../../src/utils/reportError')
+    expect(reportError).toHaveBeenCalledWith(
+      'notifications.safety',
+      expect.objectContaining({ code: 'failed-precondition' }),
+      { uid: 'u' },
+    )
+  })
+
   test('stopping stops both', () => {
     const stops = [vi.fn(), vi.fn()]
     onSnapshot.mockImplementationOnce(() => stops[0]).mockImplementationOnce(() => stops[1])

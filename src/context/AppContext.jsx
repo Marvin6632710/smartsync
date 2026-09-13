@@ -43,11 +43,11 @@ import { reportError } from '../utils/reportError'
 
 const AppContext = createContext(null)
 
-// Single source of truth — previously duplicated in the initial state,
-// resetPrototype and FilterPage's own reset.
 /** How far ahead of the rules' thirty-day cut-off a chat preview is closed. */
 const PREVIEW_CLOSE_MARGIN_MS = 60 * 60 * 1000
 
+// Single source of truth — previously duplicated in the initial state,
+// resetPrototype and FilterPage's own reset.
 export const defaultFilters = {
   category: 'All',
   maxDistance: 10,

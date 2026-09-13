@@ -168,24 +168,34 @@ export const SEARCH_LIMIT = 20
  * nothing here widens that.
  *
  * Prefix, and case-sensitive, because that is what a range on a string
- * field can do without an index per casing. Names are stored as typed and
- * usernames as typed, so "Ma" finds Marvin and "@ma" finds @marvin.
+ * field can do without an index per casing. Two spellings are tried where
+ * they differ from what was typed — a capitalised first letter for names,
+ * which are stored as typed and usually capitalised, and an "@" in front for
+ * usernames — so "mar" finds Marvin and @marvin both. Four bounded reads at
+ * most.
  */
 export async function searchUsers(term) {
   const needle = String(term || '').trim()
   if (!needle) return []
-  const prefix = (field) =>
+  const prefix = (field, value) =>
     getDocs(
       query(
         collection(db, 'users'),
-        where(field, '>=', needle),
-        where(field, '<', `${needle}\uf8ff`),
+        where(field, '>=', value),
+        where(field, '<', `${value}\uf8ff`),
         limit(SEARCH_LIMIT),
       ),
     )
-  const [byName, byUsername] = await Promise.all([prefix('name'), prefix('username')])
+  const capitalised = needle.charAt(0).toUpperCase() + needle.slice(1)
+  const handle = needle.startsWith('@') ? needle : `@${needle.toLowerCase()}`
+  const lookups = [
+    prefix('name', needle),
+    ...(capitalised !== needle ? [prefix('name', capitalised)] : []),
+    prefix('username', needle),
+    ...(handle !== needle ? [prefix('username', handle)] : []),
+  ]
   const found = new Map()
-  for (const snap of [byName, byUsername]) {
+  for (const snap of await Promise.all(lookups)) {
     snap.docs.forEach((d) => {
       const data = d.data()
       if (data?.uid) found.set(data.uid, data)
