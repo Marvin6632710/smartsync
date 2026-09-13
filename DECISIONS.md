@@ -603,3 +603,50 @@ that point `users` could be closed to listing, and participation could move
 behind a function too. It is a deliberate trade now rather than an oversight,
 and it should be revisited the moment the app is used by people who did not
 choose to be in a directory with each other.
+
+## ADR-013 — A follow is stored twice, and the host's copy does the work
+
+**Context.** The People screen's "Notify me" said *"you'll be alerted when
+they post an activity"*. A follow was stored as `users/{me}/following/{them}`,
+readable by nobody but me, and nothing ever read it to send anything. The
+promise could not be kept from where the data lived: the only client that
+knows something was posted is the host's, and the host could not see who was
+listening. There is no server here to look across accounts (ADR-006).
+
+**Decision.** Mirror the follow to `users/{them}/followers/{me}` in the same
+batch. The follower writes it, about themselves, with a timestamp and nothing
+else; the host may read the list; nobody else can see a row; nobody may edit
+one. When the host creates an activity, their own client reads its followers
+(bounded at two hundred) and writes each a `follow` notification whose id is
+derived from the activity — so a repeat is a write to a document that exists,
+which the rules refuse, and nobody is told twice. A refusal (notifications
+off, or the follower blocked the host) is a decline, not an error. Follows
+made before the mirror existed get their host-side half written once per
+session by the follower's client.
+
+**What the host learns.** A list of ids. Nothing in the app shows it, and the
+follower's own list stays private as before.
+
+**What would change it.** The same thing as ADR-012: a Cloud Function that
+fans out server-side, at which point the mirror could go and the cap could
+too.
+
+## ADR-014 — A notification has to be earned
+
+**Context.** Any signed-in account could write a notification of any `type`
+into anybody's inbox. The screen files them by type, so a `moderation` one —
+"your account has been closed, email us to appeal" — rendered under Safety
+looking exactly like a decision SmartSync had made, pointing at whatever
+listing the writer liked.
+
+**Decision.** The shape is fixed to the six fields the app writes. A
+notification about an activity (`activity`, `chat`, `follow`) has to come
+from somebody on that activity's roster; a `moderation` notice has to come
+from a moderator. Nothing else exists. Chat notifications also carry a
+per-thread ten-minute bucket in their id, so a thread notifies a person at
+most six times an hour however many messages there are and whoever sends
+them — the first write in a window creates the document and every later one
+is refused. The inbox keeps the newest twenty moderation notices in view
+through a second small listener, whatever the rest of the inbox is doing; it
+needs a composite index (`notifications`: `type` asc, `createdAt` desc),
+which must be deployed before the client that uses it.
