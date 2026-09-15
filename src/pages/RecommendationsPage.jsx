@@ -33,6 +33,13 @@ import {
  * silently narrowing your picks with a filter set on another screen is how
  * somebody ends up believing there is nothing on.
  */
+/**
+ * How strongly each rank is drawn, strongest first: one accent at falling
+ * opacity, so the six signals read as one scale rather than six colours.
+ * Six entries for six signals; a seventh signal would need a seventh tone.
+ */
+const RANK_TONES = [1, 0.8, 0.62, 0.46, 0.33, 0.22]
+
 export default function RecommendationsPage() {
   const { recommendations, loading, weights } = useApp()
   const { user } = useAuth()
@@ -160,27 +167,51 @@ export default function RecommendationsPage() {
           {/* HOW THIS WORKS
               Six signals with real weights, in the order they actually carry.
               An app that ranks what a person sees should be able to say how,
-              and this is the screen where saying it belongs. */}
-          <section className="panel how-panel">
-            <div className="section-heading">
-              <div>
-                <span className="eyebrow">How this works</span>
-                <h3>What the ranking counts</h3>
-              </div>
+              and this is the screen where saying it belongs.
+
+              The weights are shares of one whole, so they are drawn as one:
+              a single strip split six ways, strongest first, in one colour
+              at falling strength — the question "how much does each one
+              matter?" is answered by the strip before a number is read. The
+              list underneath carries the numbers, in the same order and the
+              same tones, and is what a screen reader gets; the strip is a
+              picture of it. */}
+          <section className="panel how-panel" aria-labelledby="how-title">
+            <div className="how-head">
+              <span className="eyebrow">How this works</span>
+              <h3 id="how-title">What the ranking counts</h3>
+              <p className="helper-text">Each match score is split between six signals.</p>
             </div>
-            <ul className="signal-list">
-              {signals.map((signal) => (
-                <li key={signal.id}>
-                  <span className="signal-label">{signal.label}</span>
-                  <span className="signal-bar" aria-hidden="true">
-                    <span style={{ width: `${signal.weight}%` }} />
-                  </span>
-                  <span className="signal-weight">{signal.weight}%</span>
+            <div className="how-strip" aria-hidden="true">
+              {signals.map(
+                (signal, rank) =>
+                  signal.weight > 0 && (
+                    <span
+                      key={signal.id}
+                      style={{ flexGrow: signal.weight, '--tone': RANK_TONES[rank] }}
+                    />
+                  ),
+              )}
+            </div>
+            <ol className="how-list">
+              {signals.map((signal, rank) => (
+                // A signal turned down to nothing is listed — the six are the
+                // six — but drawn as switched off rather than merely last.
+                <li
+                  key={signal.id}
+                  style={{ '--tone': RANK_TONES[rank] }}
+                  data-off={signal.weight === 0 ? 'true' : undefined}
+                >
+                  <span className="how-swatch" aria-hidden="true" />
+                  <span className="how-label">{signal.label}</span>
+                  <span className="how-share">{signal.weight}%</span>
                 </li>
               ))}
-            </ul>
-            <button className="text-button" onClick={() => navigate('/weights')}>
-              <SlidersHorizontal size={15} /> Change what matters
+            </ol>
+            <button type="button" className="how-action" onClick={() => navigate('/weights')}>
+              <SlidersHorizontal size={16} aria-hidden="true" />
+              <span>Change what matters</span>
+              <ChevronRight size={16} aria-hidden="true" />
             </button>
           </section>
 

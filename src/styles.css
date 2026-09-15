@@ -4211,40 +4211,144 @@ body {
   background: #fff;
 }
 
-/* An app that ranks what a person sees should be able to say how. */
-.how-panel .signal-list {
+/* An app that ranks what a person sees should be able to say how.
+
+   The six weights are shares of one whole, so they are drawn as one thing:
+   a strip split six ways in a single hue at falling strength, and a ranked
+   list beneath it in the same order and the same tones. Six little bars
+   next to six labels asked the eye to compare lengths across rows; one
+   strip shows the proportions at a glance, and the rows are left to be
+   read — label on the left, number on the right, nothing between them.
+   Each row and its segment share a `--tone` (an opacity of the accent, set
+   inline by rank), which is the only thing that ties the two together. */
+.how-panel {
+  display: grid;
+  gap: 14px;
+}
+.how-head {
+  display: grid;
+  gap: 3px;
+}
+.how-head h3 {
   margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 9px;
+  font-size: var(--t-h2);
 }
-.how-panel .signal-list li {
-  display: grid;
-  grid-template-columns: 1fr 76px 34px;
-  align-items: center;
-  gap: 10px;
-  font-size: var(--t-sm);
-  color: var(--ink);
+.how-head .helper-text {
+  margin-top: 3px;
+  line-height: 1.45;
+  text-wrap: pretty;
 }
-.signal-bar {
-  height: 6px;
+.how-strip {
+  display: flex;
+  gap: 3px;
+  height: 10px;
   border-radius: var(--r-pill);
   background: var(--bg-sunken);
   overflow: hidden;
 }
-.signal-bar span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
+.how-strip > span {
+  /* Widths come from flex-grow set inline to the share, so the segments
+     always fill the strip exactly, whatever rounding did to the sum. */
+  flex: 0 1 0;
+  min-width: 3px;
+  background: rgba(var(--accent-rgb), var(--tone, 1));
 }
-.signal-weight {
+.how-list {
+  /* Pulled up so the first row sits as close under the strip as the rows
+     sit under each other; the row's own padding provides the rest. */
+  margin: -6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.how-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 8px 0;
+  color: var(--ink);
+}
+.how-list li + li {
+  border-top: 1px solid var(--line);
+}
+.how-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: rgba(var(--accent-rgb), var(--tone, 1));
+  /* A faint ring so the palest tones keep an edge on white. */
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.16);
+}
+.how-label {
+  font-size: var(--t-body);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+/* At zero the signal is off: the row stays, so the six are always the six,
+   but it steps back and its swatch is an outline with nothing in it. */
+.how-list li[data-off] .how-label,
+.how-list li[data-off] .how-share {
+  color: var(--text-3);
+}
+.how-list li[data-off] .how-swatch {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.how-share {
+  min-width: 3.4ch;
   text-align: right;
-  font-size: var(--t-xs);
-  font-weight: var(--w-bold);
-  color: var(--ink-soft);
+  font-size: var(--t-body);
+  font-weight: var(--w-semibold);
   font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+/* The way to the sliders is the panel's last row, not a link left under
+   it: a row that leads somewhere, drawn the way the app's other such rows
+   are, with the hairline the list rows already share. */
+.how-action {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  /* Its hairline sits under the last row at the rows' own rhythm, not a
+     panel gap away; the negative bottom margin keeps the panel's padding
+     from doubling with the button's touch height. */
+  margin: -12px 0 -6px;
+  padding: 12px 0 2px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--t-body);
+  font-weight: var(--w-medium);
+  text-align: left;
+  transition: color 0.15s ease;
+}
+.how-action > svg:last-child {
+  color: var(--text-3);
+  transition: transform 0.15s ease;
+}
+.how-action:hover {
+  color: var(--accent-strong);
+}
+.how-action:hover > svg:last-child {
+  transform: translateX(2px);
+}
+.how-action:focus-visible {
+  outline-offset: 4px;
+  border-radius: var(--r-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  .how-action > svg:last-child {
+    transition: none;
+  }
+  .how-action:hover > svg:last-child {
+    transform: none;
+  }
 }
 
 /* An interest with nothing on, said quietly rather than as an error. */

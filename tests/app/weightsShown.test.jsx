@@ -6,7 +6,7 @@
  * on AI Picks and left the "what the ranking counts" panel contradicting it.
  */
 import React from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
@@ -76,6 +76,75 @@ describe('AI Picks', () => {
     expect(rows).toContain('100%')
     expect(rows).not.toContain('35%')
     expect(rows).not.toContain('20%')
+  })
+})
+
+describe('what the ranking counts', () => {
+  // The section draws the shares as one strip and a ranked list. The
+  // numbers are the ones weightShares gives, strongest first; the strip is
+  // a picture of the same numbers, so its segments grow by the share.
+  const mount = () =>
+    render(
+      <MemoryRouter initialEntries={['/recommendations']}>
+        <Routes>
+          <Route path="/recommendations" element={<RecommendationsPage />} />
+          <Route path="/weights" element={<p>weights page</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  const rows = () =>
+    [...document.querySelectorAll('.how-list li')].map((li) => ({
+      label: li.querySelector('.how-label').textContent,
+      share: li.querySelector('.how-share').textContent,
+      off: li.hasAttribute('data-off'),
+    }))
+  const segments = () =>
+    [...document.querySelectorAll('.how-strip > span')].map((s) => s.style.flexGrow)
+
+  test('lists the six signals with the shipped shares, strongest first', () => {
+    app = {
+      recommendations: [pick],
+      loading: false,
+      weights: recommendationWeights,
+      directory: new Map(),
+    }
+    mount()
+    expect(rows()).toEqual([
+      { label: 'Matches your interests', share: '35%', off: false },
+      { label: 'Close to you', share: '20%', off: false },
+      { label: 'Fits your preferred time', share: '15%', off: false },
+      { label: 'Like things you have joined', share: '15%', off: false },
+      { label: 'Popular with others', share: '10%', off: false },
+      { label: 'Similar people are going', share: '5%', off: false },
+    ])
+    expect(segments()).toEqual(['35', '20', '15', '15', '10', '5'])
+    // The strip is decoration for the list, not a second source of truth.
+    expect(document.querySelector('.how-strip').getAttribute('aria-hidden')).toBe('true')
+    expect(screen.getByRole('region', { name: 'What the ranking counts' })).toBeTruthy()
+  })
+
+  test('a signal at zero is listed as off and takes no room on the strip', () => {
+    app = { recommendations: [pick], loading: false, weights: onlyInterest, directory: new Map() }
+    mount()
+    expect(rows()[0]).toEqual({ label: 'Matches your interests', share: '100%', off: false })
+    expect(
+      rows()
+        .slice(1)
+        .every((row) => row.share === '0%' && row.off),
+    ).toBe(true)
+    expect(segments()).toEqual(['100'])
+  })
+
+  test('"Change what matters" leads to the sliders', () => {
+    app = {
+      recommendations: [pick],
+      loading: false,
+      weights: recommendationWeights,
+      directory: new Map(),
+    }
+    mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Change what matters' }))
+    expect(screen.getByText('weights page')).toBeTruthy()
   })
 })
 
