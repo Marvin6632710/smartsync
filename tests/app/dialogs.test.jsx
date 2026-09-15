@@ -18,6 +18,8 @@ vi.mock('../../src/context/AppContext', () => ({
     submitReport: vi.fn(() => Promise.resolve(true)),
     blockPerson: vi.fn(() => Promise.resolve()),
     isBlocked: () => false,
+    unsent: [],
+    discardUnsent: vi.fn(),
   }),
 }))
 

@@ -2063,6 +2063,17 @@ select:focus-visible {
     opacity: 0;
   }
 }
+/* Outside the shell there is no frame to pin the toast to, and the page
+   itself scrolls, so it floats over the viewport instead. */
+.standalone-page .celebration-toast {
+  position: fixed;
+  top: 24px;
+  left: 16px;
+  right: 16px;
+  max-width: 388px;
+  margin: 0 auto;
+  z-index: 50;
+}
 @keyframes dialogIn {
   from {
     opacity: 0;
@@ -4338,4 +4349,47 @@ body {
   text-wrap: balance;
   letter-spacing: -0.03em;
   line-height: 1.06;
+}
+
+/* =========================================================
+   UNSENT — content the server has not accepted
+   ========================================================= */
+
+.message-bubble.unsent {
+  border: 1px dashed var(--danger);
+  background: var(--danger-soft);
+  color: var(--text);
+}
+.message-bubble.unsent > strong {
+  color: var(--danger);
+}
+.message-bubble.unsent > span {
+  display: block;
+  font-size: var(--t-xs);
+  color: var(--text-2);
+}
+.unsent-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+.unsent-draft {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px dashed var(--danger);
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+  margin-bottom: 14px;
+}
+.unsent-draft > svg {
+  color: var(--danger);
+  flex: none;
+  margin-top: 2px;
+}
+.unsent-copy p {
+  margin: 4px 0 8px;
+  font-size: var(--t-sm);
+  color: var(--text-2);
 }

@@ -24,9 +24,16 @@ import { useApp } from '../context/AppContext'
  * here is in a position to promise.
  */
 export default function ReportDialog({ open, subject, onClose }) {
-  const { submitReport, blockPerson, isBlocked } = useApp()
-  const [reason, setReason] = useState('')
-  const [detail, setDetail] = useState('')
+  const { submitReport, blockPerson, isBlocked, unsent, discardUnsent } = useApp()
+  // A report about this subject that was queued offline and refused later
+  // is filled back in rather than lost; it is dropped once one is sent.
+  const earlier = open
+    ? unsent.find(
+        (row) => row.kind === 'report' && row.key === subject?.id && row.status === 'failed',
+      )
+    : null
+  const [reason, setReason] = useState(earlier?.payload?.reason || '')
+  const [detail, setDetail] = useState(earlier?.payload?.detail || '')
   const [alsoBlock, setAlsoBlock] = useState(true)
   const [busy, setBusy] = useState(false)
   const dialogRef = useRef(null)
@@ -52,8 +59,8 @@ export default function ReportDialog({ open, subject, onClose }) {
   const [openedFor, setOpenedFor] = useState(session)
   if (openedFor !== session) {
     setOpenedFor(session)
-    setReason('')
-    setDetail('')
+    setReason(earlier?.payload?.reason || '')
+    setDetail(earlier?.payload?.detail || '')
     setAlsoBlock(true)
   }
 
@@ -109,6 +116,7 @@ export default function ReportDialog({ open, subject, onClose }) {
       detail,
       context: subject.context,
     })
+    if (sent && earlier) discardUnsent(earlier.id)
     if (sent && isPerson && alsoBlock && !alreadyBlocked) {
       await blockPerson({ uid: subject.id, name: subject.name, avatar: subject.avatar })
     }
@@ -130,6 +138,12 @@ export default function ReportDialog({ open, subject, onClose }) {
           <Flag size={17} /> Report {subject.label}
         </h3>
         <p className="report-subject">{subject.name}</p>
+        {earlier && (
+          <p className="form-error" role="status">
+            Your earlier report could not be sent — {earlier.error?.message || 'it was refused.'} It
+            is filled in below.
+          </p>
+        )}
 
         <fieldset className="report-reasons">
           <legend>What is wrong?</legend>

@@ -1,11 +1,12 @@
 import {
-  addDoc,
   collection,
+  doc,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
 } from 'firebase/firestore'
 
 import { db } from './config'
@@ -53,16 +54,25 @@ export function watchMessages(activityId, callback, onError) {
   )
 }
 
+/**
+ * Sends a message. The promise settles when the server has it; its `.id` is
+ * known at once (minted locally, as `createActivity` does), so a message
+ * queued offline can be found again after a reload to learn whether it
+ * landed or was refused.
+ */
 export function sendMessage(activityId, user, text) {
   const trimmed = String(text || '').trim()
   if (!trimmed) return Promise.resolve()
-  return addDoc(messagesRef(activityId), {
+  const ref = doc(messagesRef(activityId))
+  const pending = setDoc(ref, {
     senderId: user.uid,
     senderName: user.name,
     senderAvatar: user.avatar,
     text: trimmed.slice(0, 2000),
     createdAt: serverTimestamp(),
-  })
+  }).then(() => ref)
+  pending.id = ref.id
+  return pending
 }
 
 /** Newest message only — enough for an inbox preview, one document per thread. */

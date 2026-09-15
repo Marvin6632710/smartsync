@@ -64,7 +64,15 @@ export const db = initializeFirestore(app, {
 
 if (usingEmulators) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
-  connectFirestoreEmulator(db, '127.0.0.1', 8181)
+  // The port can be overridden so the app can be pointed at something that
+  // stands in front of the emulator — a proxy that delays or drops its
+  // answers, which is how the slow-server and no-server states are tested
+  // in a real browser.
+  connectFirestoreEmulator(
+    db,
+    '127.0.0.1',
+    Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT) || 8181,
+  )
 }
 
 export default app

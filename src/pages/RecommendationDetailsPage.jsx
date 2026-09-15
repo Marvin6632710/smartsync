@@ -1,14 +1,21 @@
 import React from 'react'
 import { BrainCircuit, Check } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import BootScreen from '../components/BootScreen'
 import { useApp } from '../context/AppContext'
 import { weightShares } from '../services/recommendationService'
 
 export default function RecommendationDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { recommendations, weights } = useApp()
-  const a = recommendations.find((x) => x.id === id)
+  const { activities, recommendations, weights, loading, syncing } = useApp()
+  // Every activity is scored, not only the ones still being suggested: the
+  // details page offers "More" on things you joined that have since
+  // happened, been cancelled, or whose host you blocked, and those live in
+  // `activities`. Reading only `recommendations` sent each of them here to
+  // a dead end.
+  const a = activities.find((x) => x.id === id) || recommendations.find((x) => x.id === id)
+  if (!a && (loading || syncing)) return <BootScreen label="Loading…" />
   if (!a)
     return (
       <div className="page-content">

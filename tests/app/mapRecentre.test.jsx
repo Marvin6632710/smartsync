@@ -34,8 +34,9 @@ vi.mock('../../src/context/AppContext', () => ({ useApp: () => app }))
 vi.mock('../../src/context/AuthContext', () => ({
   useAuth: () => ({ user: { uid: 'me', location: null } }),
 }))
+let locationError = ''
 vi.mock('../../src/hooks/useDeviceLocation', () => ({
-  useDeviceLocation: () => ({ request: vi.fn(), busy: false }),
+  useDeviceLocation: () => ({ request: vi.fn(), busy: false, error: locationError }),
 }))
 
 const { default: MapPage } = await import('../../src/pages/MapPage')
@@ -58,8 +59,35 @@ const place = (id, lat, lng, extra = {}) => ({
 beforeEach(() => {
   map.setView.mockClear()
   map.fitBounds.mockClear()
+  locationError = ''
 })
 afterEach(cleanup)
+
+describe('the location button', () => {
+  test('a request that failed is said in the toast rather than swallowed', () => {
+    // The map has no form to print an error under; the hook's message used
+    // to go nowhere, which made the button look broken.
+    const pushCelebration = vi.fn()
+    app = { filteredActivities: [], loading: false, pushCelebration }
+    const view = () => (
+      <MemoryRouter>
+        <MapPage />
+      </MemoryRouter>
+    )
+    const { rerender } = render(view())
+    expect(pushCelebration).not.toHaveBeenCalled()
+    locationError = 'Location is blocked for this site.'
+    rerender(view())
+    expect(pushCelebration).toHaveBeenCalledTimes(1)
+    expect(pushCelebration.mock.calls[0][0]).toMatchObject({
+      title: "Couldn't show your location",
+      body: 'Location is blocked for this site.',
+    })
+    // The same error, re-rendered, is not said twice.
+    rerender(view())
+    expect(pushCelebration).toHaveBeenCalledTimes(1)
+  })
+})
 
 describe("Discover's map", () => {
   const view = () => (

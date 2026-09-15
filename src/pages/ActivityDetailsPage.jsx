@@ -9,12 +9,14 @@ import {
   MessageCircle,
   Users,
 } from 'lucide-react'
+import BootScreen from '../components/BootScreen'
 import CategoryIcon from '../components/CategoryIcon'
 import GoingStack from '../components/GoingStack'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ReportDialog from '../components/ReportDialog'
 import { MORPH } from '../hooks/useMorph'
 import { removeActivity as removeAsModerator, restoreActivity } from '../firebase/moderation'
+import { useModerationAction } from '../hooks/useModerationAction'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -33,9 +35,11 @@ export default function ActivityDetailsPage() {
     leaveActivity,
     cancelActivity,
     removeActivity,
-    pushCelebration,
+    loading,
+    syncing,
   } = useApp()
   const { user } = useAuth()
+  const { perform } = useModerationAction()
   // Declared before the not-found early return: hooks must run
   // unconditionally on every render.
   const [cancelOpen, setCancelOpen] = useState(false)
@@ -56,12 +60,20 @@ export default function ActivityDetailsPage() {
     activities.find((item) => item.id === id) ||
     (user.isModerator ? allActivities.find((item) => item.id === id) : undefined)
 
+  // Not loaded is not not found. Every deep link — a notification tap, a
+  // shared URL, a reload on this page — arrives before the first snapshot,
+  // and this used to say the activity did not exist for exactly as long as
+  // the connection was slow.
+  if (!a && (loading || syncing)) return <BootScreen label="Loading activity…" />
+
   if (!a) {
     return (
       <div className="page-content">
         <div className="empty-state">
           <h3>Activity not found</h3>
-          <p>Please go back.</p>
+          {/* Two facts look the same from here: deleted, and further ahead
+              than the window of upcoming activities the app loads. */}
+          <p>It may have been deleted, or it is further ahead than the activities loaded here.</p>
           <button className="primary-button" onClick={() => navigate('/home')}>
             Back
           </button>
@@ -87,39 +99,45 @@ export default function ActivityDetailsPage() {
     Math.min(100, Math.round((a.participants / Math.max(a.capacity, 1)) * 100)),
   )
 
+  // Through the same door as the queue: nothing starts offline, nothing
+  // waits for ever, and nothing is reported as done before it is.
   const moderate = async (next) => {
     const reason = moderationReason.trim()
     if (!reason) return
     setModerating(true)
     try {
-      if (next === 'removed') {
-        await removeAsModerator(id, { moderatorId: user.uid, reason })
-        pushCelebration({
-          icon: 'check',
-          tone: 'success',
-          title: 'Activity removed',
-          body: `${a.title} is gone from discovery. The host and everyone who joined have been told.`,
-        })
-      } else {
-        await restoreActivity(id, { adminId: user.uid, reason })
-        pushCelebration({
-          icon: 'check',
-          tone: 'success',
-          title: 'Put back',
-          body: `${a.title} is visible again, and the host has been told.`,
-        })
-      }
-      setModerationReason('')
-    } catch (moderationError) {
-      pushCelebration({
-        icon: 'alert',
-        tone: 'warning',
-        title: "Couldn't do that",
-        body:
-          moderationError?.code === 'permission-denied'
-            ? 'Only an admin can put a removed activity back.'
-            : 'Try again.',
-      })
+      const done = await perform(
+        () =>
+          next === 'removed'
+            ? removeAsModerator(id, { moderatorId: user.uid, reason })
+            : restoreActivity(id, { adminId: user.uid, reason }),
+        {
+          done: () =>
+            next === 'removed'
+              ? {
+                  icon: 'check',
+                  tone: 'success',
+                  title: 'Activity removed',
+                  body: `${a.title} is gone from discovery. The host and everyone who joined have been told.`,
+                }
+              : {
+                  icon: 'check',
+                  tone: 'success',
+                  title: 'Put back',
+                  body: `${a.title} is visible again, and the host has been told.`,
+                },
+          fail: (moderationError) => ({
+            icon: 'alert',
+            tone: 'warning',
+            title: "Couldn't do that",
+            body:
+              moderationError?.code === 'permission-denied'
+                ? 'Only an admin can put a removed activity back.'
+                : 'Try again — repeating it is safe.',
+          }),
+        },
+      )
+      if (done) setModerationReason('')
     } finally {
       setModerating(false)
     }

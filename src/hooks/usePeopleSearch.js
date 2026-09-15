@@ -21,7 +21,7 @@ const SEARCH_DEBOUNCE_MS = 300
  */
 export function usePeopleSearch(term, enabled = true) {
   const needle = enabled ? String(term || '').trim() : ''
-  const [answer, setAnswer] = useState({ needle: '', rows: [] })
+  const [answer, setAnswer] = useState({ needle: '', rows: [], failed: false })
 
   useEffect(() => {
     if (!needle) return undefined
@@ -29,9 +29,12 @@ export function usePeopleSearch(term, enabled = true) {
     const timer = setTimeout(async () => {
       try {
         const rows = await searchUsers(needle)
-        if (live) setAnswer({ needle, rows })
+        if (live) setAnswer({ needle, rows, failed: false })
       } catch (error) {
-        if (live) setAnswer({ needle, rows: [] })
+        // An answer of "nobody" and an answer that never came are different
+        // things to a moderator looking for somebody; `failed` tells them
+        // apart on screen.
+        if (live) setAnswer({ needle, rows: [], failed: true })
         reportError('users.search', error)
       }
     }, SEARCH_DEBOUNCE_MS)
@@ -42,5 +45,9 @@ export function usePeopleSearch(term, enabled = true) {
   }, [needle])
 
   const current = needle && answer.needle === needle
-  return { found: current ? answer.rows : [], searching: Boolean(needle) && !current }
+  return {
+    found: current ? answer.rows : [],
+    searching: Boolean(needle) && !current,
+    failed: Boolean(current) && answer.failed,
+  }
 }

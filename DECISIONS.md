@@ -650,3 +650,155 @@ is refused. The inbox keeps the newest twenty moderation notices in view
 through a second small listener, whatever the rest of the inbox is doing; it
 needs a composite index (`notifications`: `type` asc, `createdAt` desc),
 which must be deployed before the client that uses it.
+
+## ADR-015 — A write is waited for, not waited on
+
+**Context.** A Firestore write's promise settles only when the server has
+acknowledged it — which, offline, is never. Firestore applies the write
+locally at once and queues it, which is the behaviour the app wants on
+patchy wifi; but every screen that awaited a write behind a busy flag sat
+on "Creating…", "Saving…" or "Setting up…" until the connection came back,
+with nothing saying why. Joining had already solved this by not waiting and
+saying "Joined — will sync". The same connection dying quietly (the browser
+can report "online" for a minute after the wifi has gone) held a button
+hostage for as long as the SDK took to notice.
+
+**Decision.** Every awaited write goes through `awaitWrite`
+(`src/utils/writes.js`): the write is raced against a budget — nothing
+when the app already knows it is offline, ten seconds otherwise — and when
+the budget wins the caller gets `QUEUED`. The write stays in Firestore's
+queue and is sent when it can be; the screen moves on as if it had landed
+(the local cache already shows it); the toast says "— will sync"; and a
+refusal that arrives later is still shown as a toast wherever the person is
+by then, so a queued write that eventually fails is reported, not lost. An
+online write that lands or fails within the budget looks exactly as it did.
+`createActivity` mints its id locally (`doc()` + `setDoc`, not `addDoc`) so
+an offline host can be sent to their new activity's page.
+
+**What a queued write carries is kept.** A queued write that the server
+refuses later rolls its local copy back, and the content — the chat
+message, the activity, the profile edit, the report — used to go with it,
+announced by a toast and gone. The context now keeps every queued write
+that carries what somebody typed (`unsent`, per account, in localStorage):
+`pending` until the server answers, `failed` with the reason once it
+refuses, gone once it lands. A failed row is offered back on the screen it
+came from — a "Not sent" bubble with Retry and Discard in the chat, a
+"couldn't be saved — Restore / Discard" notice on the create, edit,
+profile and report forms — and is never written over anything typed since.
+Messages and reports mint their ids locally (`doc()` + `setDoc`, like
+activities) so a row can be checked after a reload: rows from an earlier
+page load are settled, once the server has answered and the queue has
+drained, by asking the database whether each landed. Two tabs of one
+account merge their registries rather than overwrite each other's.
+
+An edit is judged three ways, not two. A row for an edit carries what the
+form was seeded with as well as what it saved, so after a reload the
+document showing the save is *landed*, the document still showing the
+seed is *refused*, and the document showing neither is *superseded* — an
+edit made elsewhere since, which is offered back as a choice ("is not
+what it shows now"), never as a failed save to be restored over somebody's
+newer version. Comparing fields alone had called a landed-then-re-edited
+save a failure. A second edit of the same document while the first is
+still pending replaces the first: the form was seeded from the document
+as the first edit left it, so the newer row carries everything.
+
+The registry survives storage that is blocked or full. Rows live in memory
+for the life of the page and in the most durable browser store that will
+take them — localStorage, else this tab's sessionStorage, else memory
+alone — chosen again on every write, with a store that refused the write
+cleared of its older copy so a stale one is never read back in preference.
+When memory is the only copy, leaving the page is put to the person first
+through the browser's own "leave this page?" — a browser that blocks this
+storage blocks Firestore's queue too, so the queued writes would go with
+the rows.
+
+**Moderation waits differently.** Moderation writes are transactions and
+need the server. Offline, nothing is started and the person is told
+nothing changed — which is true. Online, an action is given twenty
+seconds; past that the screen is unblocked with "still trying", and the
+real outcome is announced when it arrives. Every action is idempotent, so
+repeating one is always safe advice, and nothing reports a success it has
+not seen.
+
+**Silence is named as silence.** The connection banner has two sentences.
+The device having no connection, or a feed that was answered by the
+server and then was not, is "Offline". Nothing heard from any listener for
+twenty seconds is "No answer from the server yet — showing what was last
+loaded" — because, measured against a server whose every answer was held
+for five seconds, the banner came up at the threshold and went down
+thirteen seconds later when the first answer arrived. That is a slow
+server, not an absent one, and the screen says what is known rather than
+a verdict. Either way the first server word clears it.
+
+**Sign-up makes one profile, whoever gets there first.** Two things
+create a new account's profile — the sign-up, with the typed name, and
+the auth observer, which covers accounts made outside the form — and they
+run at once. The create is a transaction that writes only if the document
+is still missing at commit time, so the second finds the first's and
+writes nothing; the sign-up leaves the name where the observer can read
+it before the account exists, so whichever writes carries the name; and
+both write with the same patience — a refusal or a blink of the connection
+buys a fresh credential and another try, twice, under two seconds in all.
+
+**The identity sweep from the cache.** Renaming or switching anonymous
+mode stamps every hosted activity in the same batch as the profile. Offline
+the list of activities comes from the cache and can be short; the batch
+still goes — the switch must not wait for a server that is not there — and
+the profile records that the sweep is unfinished, in that same batch. Once
+the server has answered, the app reads the host's activities from the
+server and stamps whichever still disagree, clearing the note with the last
+of them; a failure leaves the note for the next connection.
+
+**Also decided alongside.** The feed's first server answer is waited for
+before an activity the cache lacks is called missing (`syncing`). Twenty
+seconds of nothing but cache from *anyone* is treated as offline
+(`SERVER_SILENCE_MS`) so a stream that never connects still produces the
+banner — but the three profile listeners are tiny and answered first on
+any link that works, so a feed that is merely slow on a link the profile
+came down is not called a dead server (`serverSeen` in AuthContext); the
+wait for the feed simply ends. A route chunk the server no longer has —
+every tab left open across a deploy — reloads the page once, since
+React.lazy keeps the rejection and no in-place retry can help; a chunk
+that is still missing after that reaches the boundary with a Reload
+button and no loop. Working a report is claim, act, record — ADR-016.
+
+## ADR-016 — A report is claimed before it is acted on
+
+**Context.** Working a report was act, then record. Two moderators could
+act on the same report at once: the record kept whichever decision landed
+second, and — worse — a suspension could be taken on a complaint a
+colleague had dismissed a second earlier. Closing the report once (the
+first fix) made the record honest and left the action wrong.
+
+**Decision.** A report carries a claim — `{ by, at }`, stamped with the
+server's clock — and working one is two writes in order: claim, then act
+and record in one transaction. The rules refuse a claim while somebody
+else's is fresh (five minutes), refuse a decision without the claim, and
+refuse any decision on a closed report. Every action taken from the queue
+reads the claim in the same transaction that writes its consequence — the
+roles row for a suspension, the activity for a takedown, the warning — so
+a claim that was lost aborts the action before anything changes. Where the
+action can name its report, the rules check the claim on that write too: a
+takedown, and a warning, which must also be about the report's subject. A
+roles row cannot name a report — it is three fields and nothing else, on
+purpose — so the decision is committed *in the same transaction* as the
+action, and the decision needs the claim: a transaction lands whole or not
+at all, which makes a suspension recorded against a report impossible to
+commit without holding its claim, and leaves no moment at which the
+account is suspended and the report still open. A warning lets the claim
+go in the same step. An action that fails releases the claim so a
+colleague can finish; a claim that is simply abandoned expires, and its
+holder's late writes are refused because it is no longer theirs. The queue
+shows "In review by …" for a colleague's fresh claim and waits; a refusal
+is told apart as "being handled", "already handled", "already done" (the
+moderator's own decision landed while its acknowledgement was lost), or
+the ordinary refusal.
+
+**Consequences.** The moderator who acts is the one whose claim is fresh
+at commit time — verified by transaction, and for everything attributed to
+a report, by the rules. Abandoned work costs a colleague at most five
+minutes. A moderator whose claim went stale without anyone taking over may
+still finish. What this does not do: prevent two moderators from *reading*
+the same report, or stop a moderator from acting on somebody through the
+People directory without a report at all — that was always allowed, is
+unchanged, and is judged by the roles and warnings rules alone.

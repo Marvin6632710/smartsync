@@ -3,6 +3,7 @@ import { ArrowRight, Sparkles } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { authErrorMessage } from '../firebase/auth'
+import { MAX_NAME_LENGTH } from '../firebase/users'
 import { useAuth } from '../context/AuthContext'
 
 const MIN_PASSWORD = 6
@@ -61,6 +62,7 @@ export default function SignUpPage() {
           autoComplete="name"
           value={name}
           onChange={(event) => setName(event.target.value)}
+          maxLength={MAX_NAME_LENGTH}
           required
         />
 

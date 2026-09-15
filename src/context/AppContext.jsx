@@ -34,17 +34,60 @@ import {
   unblockUser as unblockUserDoc,
   watchBlocked,
 } from '../firebase/moderation'
-import { recordCategoryHistory, watchPeers } from '../firebase/users'
+import { drainQueue, EDIT_FIELDS, LANDED, outcomeOf, pick, SUPERSEDED } from '../firebase/pending'
+import { completeIdentitySweep, recordCategoryHistory, watchPeers } from '../firebase/users'
 import { rankActivities, recommendationWeights } from '../services/recommendationService'
 import { distanceBetween } from '../utils/geo'
 import { useListenerRetry } from '../hooks/useListenerRetry'
-import { loadStorage, saveStorage } from '../utils/storage'
+import { DURABLE, loadDurable, loadStorage, saveDurable, saveStorage } from '../utils/storage'
 import { reportError } from '../utils/reportError'
+import { awaitWrite, QUEUED } from '../utils/writes'
 
 const AppContext = createContext(null)
 
 /** How far ahead of the rules' thirty-day cut-off a chat preview is closed. */
 const PREVIEW_CLOSE_MARGIN_MS = 60 * 60 * 1000
+
+/** Where each account's unsent content is kept on this device. */
+const UNSENT_KEY = (uid) => `smartsync:unsent:${uid}`
+
+/** How long a drain of the write queue is waited for before it is left for next time. */
+const RECONCILE_WAIT_MS = 30_000
+
+/** This page load. Rows from another are settled by asking the database. */
+const SESSION = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+
+/** A failure, in the shape a screen can show and storage can hold. */
+function describeError(error) {
+  if (!error) return null
+  const code = error?.code || null
+  const message =
+    code === 'permission-denied'
+      ? 'It was refused — you may no longer be allowed to do this.'
+      : code === 'refused' || code === 'superseded'
+        ? error.message
+        : String(error?.message || 'It could not be sent.')
+  return { code, message }
+}
+
+/**
+ * What a row is told when the document it set out to change was changed
+ * by somebody else first — its version is not what the document shows, and
+ * must not be written over theirs without the person choosing to.
+ */
+const SUPERSEDED_MESSAGE = {
+  'activity-edit':
+    'The activity was changed by somebody else after this edit, and shows their version now.',
+  profile:
+    'Your profile was changed from another device after this edit, and shows that version now.',
+}
+
+/**
+ * How long the app waits for its first word from the server before treating
+ * silence as being offline. Longer than the SDK's own first-connection
+ * timeout, so a slow but working link is not called dead.
+ */
+export const SERVER_SILENCE_MS = 20_000
 
 // Single source of truth — previously duplicated in the initial state,
 // resetPrototype and FilterPage's own reset.
@@ -56,7 +99,7 @@ export const defaultFilters = {
 }
 
 export function AppProvider({ children }) {
-  const { user } = useAuth()
+  const { user, serverSeen } = useAuth()
   const uid = user?.uid || null
 
   const [activities, setActivities] = useState([])
@@ -89,6 +132,116 @@ export function AppProvider({ children }) {
   // `rosterPending` below for why that has to be known.
   const [pendingJoins, setPendingJoins] = useState(() => new Set())
 
+  // ---------------------------------------------------------------- unsent
+  //
+  // What the person typed into a write that the server has not accepted.
+  //
+  // A write queued offline is applied locally and sent later; if the server
+  // then refuses it, Firestore rolls the local copy back and the content is
+  // simply gone — the chat message, the activity, the profile edit — with a
+  // toast that says so and nothing to retry with. So every queued write
+  // that carries what somebody typed is noted here, per account and on
+  // disk: `pending` while the server has not answered, `failed` once it
+  // refuses, gone once it lands. A failed row is offered back on the screen
+  // it came from — a retry for a message, a "restore" for a form — and is
+  // never written over anything typed since. Rows from an earlier session
+  // are settled by asking the database once the queue has drained (see
+  // firebase/pending.js), because their promises died with the page.
+  //
+  // On disk means the most durable place the browser allows (see
+  // saveDurable): localStorage, or this tab's sessionStorage when that is
+  // blocked or full, or memory alone when both are. Rows are never lost to
+  // a storage failure while the page is open; what memory alone cannot do
+  // is survive the page, so in that case leaving it is put to the person
+  // first (the `beforeunload` guard below).
+  const [unsentState, setUnsentState] = useState({ uid: null, rows: [] })
+  if (unsentState.uid !== uid) {
+    setUnsentState({ uid, rows: uid ? loadDurable(UNSENT_KEY(uid), []) : [] })
+  }
+  const unsent = unsentState.uid === uid ? unsentState.rows : []
+  // Rows this page load has let go of — landed, or discarded by the person.
+  // Another tab of the same account writes the same key, so saving merges
+  // with what is stored rather than overwriting it: this tab's rows win
+  // where both know a row, rows only the other tab knows are kept, and
+  // rows this tab deliberately removed stay removed.
+  const releasedRef = React.useRef(new Set())
+  useEffect(() => {
+    releasedRef.current = new Set()
+  }, [uid])
+  // Where the last save of the rows ended up (see DURABLE).
+  const [unsentKept, setUnsentKept] = useState(DURABLE.local)
+  useEffect(() => {
+    if (!unsentState.uid) return
+    const key = UNSENT_KEY(unsentState.uid)
+    const mine = new Map(unsentState.rows.map((row) => [row.id, row]))
+    const theirs = loadDurable(key, []).filter(
+      (row) => !mine.has(row.id) && row.session !== SESSION && !releasedRef.current.has(row.id),
+    )
+    setUnsentKept(saveDurable(key, [...unsentState.rows, ...theirs]))
+  }, [unsentState])
+  // Memory is the only copy: a reload would lose the rows — and, since a
+  // browser that blocks this storage blocks Firestore's queue too, the
+  // queued writes with them. Leaving is the person's call, but not one to
+  // make without knowing; the browser shows its own "leave this page?".
+  const guardUnload = unsent.length > 0 && unsentKept === DURABLE.memory
+  useEffect(() => {
+    if (!guardUnload) return undefined
+    const warn = (event) => {
+      event.preventDefault()
+      // Older browsers need a value set; the text itself is never shown.
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [guardUnload])
+  const editUnsent = (owner, change) =>
+    setUnsentState((current) =>
+      current.uid === owner ? { ...current, rows: change(current.rows) } : current,
+    )
+  /**
+   * Notes a queued write. Returns the row's id.
+   *
+   * A second edit of the same document while the first is still pending
+   * replaces it: the form was seeded from the document as the first edit
+   * left it locally, so the newer row carries everything the older one
+   * did — and judging the older one afterwards would find the document
+   * showing neither its before nor its after, and call it superseded by a
+   * stranger when it was superseded by its author.
+   */
+  function keepUnsent(entry, status = 'pending', error = null) {
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+    const row = {
+      id,
+      at: Date.now(),
+      session: SESSION,
+      status,
+      error: describeError(error),
+      ...entry,
+    }
+    const replaces = (other) =>
+      other.status === 'pending' &&
+      other.kind === entry.kind &&
+      other.key === entry.key &&
+      Boolean(EDIT_FIELDS[entry.kind])
+    editUnsent(uid, (rows) => {
+      for (const other of rows) if (replaces(other)) releasedRef.current.add(other.id)
+      return [...rows.filter((other) => !replaces(other)), row]
+    })
+    return id
+  }
+  const settleUnsent = (id) => {
+    releasedRef.current.add(id)
+    editUnsent(uid, (rows) => rows.filter((row) => row.id !== id))
+  }
+  const failUnsent = (id, error) =>
+    editUnsent(uid, (rows) =>
+      rows.map((row) =>
+        row.id === id ? { ...row, status: 'failed', error: describeError(error) } : row,
+      ),
+    )
+  const discardUnsent = settleUnsent
+  const recordFailed = (entry, error) => keepUnsent(entry, 'failed', error)
+
   // A minute-resolution clock. Whether an activity has started is a fact about
   // the current time, not about the data, so it has to be re-evaluated while
   // the screen sits open — otherwise a football match that kicked off ten
@@ -119,7 +272,45 @@ export function AppProvider({ children }) {
   // surface, since Firestore has to let its connection time out first.
   // Measured, not assumed.
   const [serverReachable, setServerReachable] = useState(null)
+  // Whether the activity feed itself has been answered by the server this
+  // session. Distinct from reachability: the profile documents are tiny and
+  // arrive first, the feed is four hundred documents and can take a while
+  // on a slow link — and until it has arrived, an activity the cache lacks
+  // is not known to be missing (see `syncing`).
+  const [feedSynced, setFeedSynced] = useState(false)
+  // The feed was waited for as long as the app is willing to wait; past
+  // this the screens stop saying "loading" for something that may simply
+  // not be there.
+  const [feedWaited, setFeedWaited] = useState(false)
   const offline = browserOffline || serverReachable === false
+  // The latest word from the profile listeners, readable inside a timer.
+  const serverSeenRef = React.useRef(serverSeen)
+  useEffect(() => {
+    serverSeenRef.current = serverSeen
+  }, [serverSeen])
+  // Reachability that was declared by the silence probe rather than heard
+  // from the server. A later proof of a server undoes it; a real
+  // disconnection, which the feed reports itself, is not touched.
+  const probeDeclaredRef = React.useRef(false)
+  // The same fact, for the screen: the banner is up because nothing has
+  // been heard, not because anything said the connection is gone. Measured
+  // against a server that merely answers slowly — every reply held for
+  // five seconds — the banner came up at the threshold and went down
+  // thirteen seconds later, when the first answer arrived; calling that
+  // "offline" would have been untrue, so the banner says what is known.
+  const [serverSilent, setServerSilent] = useState(false)
+  useEffect(() => {
+    if (!serverSeen) return
+    setServerReachable((previous) => {
+      if (previous === null) return true
+      if (previous === false && probeDeclaredRef.current) {
+        probeDeclaredRef.current = false
+        return true
+      }
+      return previous
+    })
+    setServerSilent(false)
+  }, [serverSeen])
   useEffect(() => {
     const goOffline = () => setBrowserOffline(true)
     const goOnline = () => setBrowserOffline(false)
@@ -130,6 +321,86 @@ export function AppProvider({ children }) {
       window.removeEventListener('online', goOnline)
     }
   }, [])
+
+  // Rows from an earlier session: once the server is known to be reachable
+  // and the queue has drained, each is either in the database or was
+  // refused. Gated on a server that has actually answered, not merely on
+  // the browser saying it is online: draining the queue needs the server,
+  // and "online" from the browser says nothing about that. Bounded, so a
+  // drain that never finishes — the link died again — does not hold the
+  // door shut for good; the next time the server is heard from, it is
+  // tried again.
+  const reconcilingRef = React.useRef(false)
+  useEffect(() => {
+    if (!uid || serverReachable !== true || reconcilingRef.current) return undefined
+    const stale = unsent.filter((row) => row.status === 'pending' && row.session !== SESSION)
+    if (stale.length === 0) return undefined
+    reconcilingRef.current = true
+    let live = true
+    ;(async () => {
+      try {
+        const drained = await Promise.race([
+          drainQueue().then(() => true),
+          new Promise((resolve) => setTimeout(() => resolve(false), RECONCILE_WAIT_MS)),
+        ])
+        if (!drained || !live) return
+        for (const row of stale) {
+          if (!live) return
+          let outcome
+          try {
+            outcome = await outcomeOf(row)
+          } catch (error) {
+            reportError('unsent.reconcile', error, { kind: row.kind })
+            continue
+          }
+          if (outcome === LANDED) settleUnsent(row.id)
+          else if (outcome === SUPERSEDED)
+            failUnsent(row.id, { code: 'superseded', message: SUPERSEDED_MESSAGE[row.kind] })
+          else
+            failUnsent(row.id, {
+              code: 'refused',
+              message: 'It was refused when the connection came back.',
+            })
+        }
+      } finally {
+        reconcilingRef.current = false
+      }
+    })()
+    return () => {
+      live = false
+    }
+    // `unsent` is read once per transition on purpose; re-running on every
+    // row change would restart the drain.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, serverReachable])
+
+  // A rename or anonymous-mode switch made offline could only stamp the
+  // hosted activities the cache held. The profile carries a note that the
+  // sweep is unfinished; once the server can be reached, the rest are
+  // brought into line from the server's own list, and the note is cleared
+  // with the last of them. One run at a time; a failure leaves the note for
+  // the next connection.
+  // Run once the server has actually answered — the sweep reads from the
+  // server and rejects offline — and again each time it answers after a
+  // gap, until the note is gone.
+  const sweepingRef = React.useRef(false)
+  useEffect(() => {
+    if (!uid || serverReachable !== true || !user?.identitySweepPending || sweepingRef.current) {
+      return undefined
+    }
+    sweepingRef.current = true
+    let live = true
+    completeIdentitySweep(uid, { name: user.name, avatar: user.avatar })
+      .catch((error) => {
+        if (live) reportError('users.identitySweep', error, { uid })
+      })
+      .finally(() => {
+        sweepingRef.current = false
+      })
+    return () => {
+      live = false
+    }
+  }, [uid, serverReachable, user?.identitySweepPending, user?.name, user?.avatar])
 
   useEffect(() => {
     saveStorage('smartsync:filters', filters)
@@ -159,6 +430,9 @@ export function AppProvider({ children }) {
     setDataError(null)
     setActivitiesLoaded(false)
     setServerReachable(null)
+    setServerSilent(false)
+    setFeedSynced(false)
+    setFeedWaited(false)
     resetAttempts()
   }
 
@@ -182,14 +456,48 @@ export function AppProvider({ children }) {
     const report = guard((error) => {
       if (live) setDataError(error)
     })
+    // "Not heard from the server yet" cannot stay the answer for ever. A
+    // connection that was never made — a network that blocks the stream, a
+    // tab that cannot get the persistence lease — produced cached data with
+    // no banner, because the state above only ever left null on a server
+    // response, and none was coming. Past this long with nothing but cache
+    // from *anyone* — the feed, and the profile listeners that are answered
+    // first on any link that works at all — it is offline for every purpose
+    // the banner serves; the first server snapshot still clears it. A feed
+    // that is merely slow, on a link the profile came down, is left alone:
+    // that was a false banner on a working connection, and the wait for the
+    // feed simply ends instead.
+    const probe = window.setTimeout(() => {
+      if (!live) return
+      setFeedWaited(true)
+      if (serverSeenRef.current) return
+      setServerReachable((previous) => {
+        if (previous !== null) return previous
+        probeDeclaredRef.current = true
+        return false
+      })
+      setServerSilent(true)
+    }, SERVER_SILENCE_MS)
+    // Whether this subscription of the feed has been answered by the server.
+    // A cached snapshot before that is the feed starting up, not a
+    // disconnection — the profile listeners may already have proved the
+    // server is there — and only a cached snapshot *after* a server one is
+    // the connection going away.
+    let feedSeenServer = false
     const stops = [
       watchActivities((next, meta) => {
         if (!live) return
         setActivities(next)
         setActivitiesLoaded(true)
-        setServerReachable((previous) =>
-          meta.fromCache ? (previous === null ? null : false) : true,
-        )
+        if (!meta.fromCache) {
+          feedSeenServer = true
+          setFeedSynced(true)
+          probeDeclaredRef.current = false
+          setServerSilent(false)
+          setServerReachable(true)
+        } else if (feedSeenServer) {
+          setServerReachable(false)
+        }
       }, report),
       // Every one of these goes through `live`, not just the first. Four of
       // the five used to hand their setter straight to the SDK, so the guard
@@ -204,6 +512,7 @@ export function AppProvider({ children }) {
     ]
     return () => {
       live = false
+      window.clearTimeout(probe)
       stops.forEach((stop) => stop())
     }
   }, [uid, user?.banned, listenerAttempt, guard])
@@ -254,20 +563,72 @@ export function AppProvider({ children }) {
    * security rules — that is the point of them — and a rejected write that
    * fails silently looks exactly like a broken button, so failures surface as
    * a toast rather than an unhandled promise rejection in the console.
+   *
+   * It also decides how long to wait. Offline, a write's promise never
+   * settles — Firestore has applied it locally and queued it, which is the
+   * behaviour the app wants — so every screen that awaited one sat on
+   * "Saving…" until the connection returned. Now the wait is bounded (see
+   * awaitWrite): the write is still queued, the screen moves on, the toast
+   * says "will sync", and a refusal that arrives later is still shown.
+   *
+   * `success` is the toast for a write that landed; when the write is only
+   * queued, the same toast is shown with "— will sync" after its title, the
+   * way joining already does. Pass `queued: null` to say nothing in that
+   * case. Returns the write's value, `QUEUED`, or `null` when it failed.
    */
-  async function attempt(action, { failure }) {
+  function failureToast(failure, error) {
+    pushCelebration({
+      icon: 'alert',
+      tone: 'warning',
+      title: failure,
+      body:
+        error?.code === 'permission-denied' ? 'You do not have permission.' : 'Please try again.',
+    })
+  }
+  async function attempt(action, { failure, success, queued, keep }) {
+    const write = action()
+    // What the write carried, for the unsent registry — computed once the
+    // write exists, since the row may need the id it minted.
+    const kept = typeof keep === 'function' ? keep(write) : keep
+    let outcome
     try {
-      return await action()
-    } catch (error) {
-      pushCelebration({
-        icon: 'alert',
-        tone: 'warning',
-        title: failure,
-        body:
-          error?.code === 'permission-denied' ? 'You do not have permission.' : 'Please try again.',
+      outcome = await awaitWrite(write, {
+        offline,
+        onLater: (error) => failureToast(failure, error),
       })
+    } catch (error) {
+      failureToast(failure, error)
+      // An immediate refusal of content the screen has already let go of.
+      if (kept?.onRefusal) recordFailed(kept, error)
       return null
     }
+    if (outcome === QUEUED) {
+      if (kept) {
+        // Attached after the row exists, so a rejection that has already
+        // happened still marks it — a rejected promise runs a handler added
+        // late — and a write that lands removes it.
+        const id = keepUnsent(kept)
+        write.then(
+          () => settleUnsent(id),
+          (error) => failUnsent(id, error),
+        )
+      }
+      if (queued !== null) {
+        pushCelebration(
+          queued ||
+            (success
+              ? { ...success, title: `${success.title} — will sync` }
+              : {
+                  icon: 'check',
+                  title: 'Saved — will sync',
+                  body: 'This will finish when you are back online.',
+                }),
+        )
+      }
+    } else if (success) {
+      pushCelebration(success)
+    }
+    return outcome
   }
 
   // ------------------------------------------------------------ derived data
@@ -584,6 +945,35 @@ export function AppProvider({ children }) {
     )
   }
 
+  /**
+   * Tells the host's followers about a new activity — once the app can.
+   *
+   * `notifyFollowers` reads the follower list first, and a read made offline
+   * is answered from the cache, which for somebody else's subcollection is
+   * almost always empty: an activity created offline told nobody, its
+   * outcome said so to nobody, and nothing ever tried again. Held here until
+   * the connection is back instead. Lost on a reload, which is the honest
+   * limit of a client with no server of its own.
+   */
+  const fanoutRef = React.useRef([])
+  useEffect(() => {
+    fanoutRef.current = []
+  }, [uid])
+  function announceToFollowers(activityId, payload) {
+    if (offline) {
+      fanoutRef.current.push({ activityId, payload })
+      return
+    }
+    notifyFollowers(uid, activityId, { ...payload, skip: blockedIds })
+  }
+  useEffect(() => {
+    if (offline || !uid) return undefined
+    const held = fanoutRef.current.splice(0)
+    for (const { activityId, payload } of held) {
+      notifyFollowers(uid, activityId, { ...payload, skip: blockedIds })
+    }
+    return undefined
+  }, [offline, uid, blockedIds])
   // A join already in flight for this activity, checked synchronously: the
   // state below drives rendering, but a second tap in the same tick would
   // read the state from before the first, and send the host a second
@@ -695,22 +1085,29 @@ export function AppProvider({ children }) {
   async function leaveActivity(id) {
     const activity = allKnownActivities.find((item) => item.id === id)
     if (!activity || !joinedIds.includes(id)) return
-    const ok = await attempt(() => leaveActivityDoc(id, uid), { failure: "Couldn't leave" })
-    if (ok === null) return
-    pushCelebration({
-      icon: 'log-out',
-      title: 'Activity left',
-      body: `You left ${activity.title}.`,
+    await attempt(() => leaveActivityDoc(id, uid), {
+      failure: "Couldn't leave",
+      success: { icon: 'log-out', title: 'Activity left', body: `You left ${activity.title}.` },
     })
   }
 
   async function cancelActivity(id) {
     const activity = allKnownActivities.find((item) => item.id === id)
     if (!activity || activity.hostId !== uid) return
-    const ok = await attempt(() => cancelActivityDoc(id), { failure: "Couldn't cancel" })
+    const ok = await attempt(() => cancelActivityDoc(id), {
+      failure: "Couldn't cancel",
+      success: {
+        icon: 'trash',
+        tone: 'danger',
+        title: 'Activity cancelled',
+        body: `${activity.title} was cancelled.`,
+      },
+    })
     if (ok === null) return
 
-    // Everyone who was going deserves to be told.
+    // Everyone who was going deserves to be told. Queued behind the
+    // cancellation if we are offline — Firestore sends a client's writes in
+    // order, so the roster the rules check is the one the cancel left.
     ;(activity.participantUids || []).forEach((participantId) =>
       notifyUser(participantId, {
         type: 'activity',
@@ -719,13 +1116,6 @@ export function AppProvider({ children }) {
         activityId: id,
       }),
     )
-
-    pushCelebration({
-      icon: 'trash',
-      tone: 'danger',
-      title: 'Activity cancelled',
-      body: `${activity.title} was cancelled.`,
-    })
   }
 
   /**
@@ -737,21 +1127,52 @@ export function AppProvider({ children }) {
   async function removeActivity(id) {
     const activity = allKnownActivities.find((item) => item.id === id)
     if (!activity || activity.hostId !== uid) return
-    const ok = await attempt(() => deleteActivityDoc(id), { failure: "Couldn't delete" })
-    if (ok === null) return
-    pushCelebration({
-      icon: 'trash',
-      tone: 'danger',
-      title: 'Activity deleted',
-      body: `${activity.title} was removed.`,
+    await attempt(() => deleteActivityDoc(id), {
+      failure: "Couldn't delete",
+      success: {
+        icon: 'trash',
+        tone: 'danger',
+        title: 'Activity deleted',
+        body: `${activity.title} was removed.`,
+      },
     })
   }
 
   async function createActivity(data) {
     if (blockedBySuspension('create activities')) return null
-    const id = await attempt(() => createActivityDoc(user, data), {
-      failure: "Couldn't create activity",
-    })
+    // The id is minted locally and is on the promise before the server has
+    // answered (see createActivity in firebase/activities), which is what
+    // lets an offline host reach their new activity's page instead of
+    // waiting on "Creating…" for the connection to return.
+    let pending
+    const outcome = await attempt(
+      () => {
+        pending = createActivityDoc(user, data)
+        return pending
+      },
+      {
+        failure: "Couldn't create activity",
+        success: {
+          icon: 'check',
+          tone: 'success',
+          title: 'Activity created',
+          body: `${data.title} is live now.`,
+        },
+        queued: {
+          icon: 'check',
+          tone: 'success',
+          title: 'Activity created — will sync',
+          body: `${data.title} will be published when you reconnect.`,
+        },
+        keep: (write) => ({
+          kind: 'activity-create',
+          key: uid,
+          payload: { ...data, id: write.id },
+        }),
+      },
+    )
+    if (outcome === null) return null
+    const id = outcome === QUEUED ? pending?.id : outcome
     if (!id) return null
     recordCategoryHistory(uid, user.historyCategories, data.category).catch((error) =>
       reportError('users.recordCategoryHistory', error, { uid }),
@@ -762,16 +1183,9 @@ export function AppProvider({ children }) {
     // be told — and it never throws. Somebody the host has blocked is not
     // told; the rules would refuse the write anyway, but a refusal is not a
     // thing to attempt on purpose.
-    notifyFollowers(uid, id, {
+    announceToFollowers(id, {
       title: `${user.name} posted an activity`,
       body: `${String(data.title || '').trim()} at ${String(data.locationName || '').trim()}`,
-      skip: blockedIds,
-    })
-    pushCelebration({
-      icon: 'check',
-      tone: 'success',
-      title: 'Activity created',
-      body: `${data.title} is live now.`,
     })
     return id
   }
@@ -781,22 +1195,51 @@ export function AppProvider({ children }) {
   // navigated regardless — a refused save flashed a toast on the way out and
   // left the page showing the unchanged activity, which reads as the app
   // losing the edit rather than declining it.
-  async function updateActivity(id, updates) {
+  //
+  // `before` is the activity as the form was seeded — what the edit set out
+  // to change. Kept with the queued write so that, after a reload, a
+  // refusal can be told from a newer edit made elsewhere (see
+  // firebase/pending.js).
+  async function updateActivity(id, updates, { before = null } = {}) {
     const ok = await attempt(() => updateActivityDoc(id, updates), {
       failure: "Couldn't save changes",
+      success: { icon: 'check', tone: 'success', title: 'Saved', body: 'Changes saved.' },
+      keep: {
+        kind: 'activity-edit',
+        key: id,
+        payload: updates,
+        before: before ? pick(before, EDIT_FIELDS['activity-edit']) : null,
+      },
     })
-    if (ok === null) return false
-    pushCelebration({ icon: 'check', tone: 'success', title: 'Saved', body: 'Changes saved.' })
-    return true
+    return ok !== null
   }
 
+  /**
+   * Returns what the write returned, `QUEUED` while offline, or `null` when
+   * it was refused — the chat screen restores the text on `null` so a
+   * message the rules turned away is not simply gone.
+   */
   async function sendMessage(activityId, text) {
+    // Nothing to send is nothing to announce: the data layer resolves an
+    // empty message without writing, and that used to look like a success
+    // here and notify the whole thread about a message that did not exist.
+    if (!String(text || '').trim()) return null
     const activity = allKnownActivities.find((item) => item.id === activityId)
-    if (blockedBySuspension('send messages')) return
+    if (blockedBySuspension('send messages')) return null
     const ok = await attempt(() => sendMessageDoc(activityId, user, text), {
       failure: "Couldn't send",
+      // The bubble is already on screen; a toast per message would be noise.
+      queued: null,
+      // The composer has already let the text go, so a refusal — now or
+      // later — keeps it in the thread's unsent list to retry from.
+      keep: (write) => ({
+        kind: 'message',
+        key: activityId,
+        payload: { text: String(text).trim(), id: write?.id ?? null },
+        onRefusal: true,
+      }),
     })
-    if (ok === null || !activity) return
+    if (ok === null || !activity) return ok
     // Bounded: one notification per person per thread per ten minutes,
     // however many messages there are and whoever sends them. See
     // pushChatNotification for how the bucket makes that hold across
@@ -817,6 +1260,7 @@ export function AppProvider({ children }) {
         reportError('notifications.chat', error, { recipientId: participantId })
       })
     }
+    return ok
   }
 
   // Awaited through `attempt`, like every other write. This one was fired
@@ -835,25 +1279,23 @@ export function AppProvider({ children }) {
     try {
       const alreadyOn = followedUserIds.includes(targetUser.uid)
       if (alreadyOn) {
-        const ok = await attempt(() => unfollowUser(uid, targetUser.uid), {
+        await attempt(() => unfollowUser(uid, targetUser.uid), {
           failure: "Couldn't turn those off",
-        })
-        if (ok === null) return
-        pushCelebration({
-          icon: 'bell-off',
-          title: 'Notifications off',
-          body: `${targetUser.name} activity alerts turned off.`,
+          success: {
+            icon: 'bell-off',
+            title: 'Notifications off',
+            body: `${targetUser.name} activity alerts turned off.`,
+          },
         })
         return
       }
-      const ok = await attempt(() => followUser(uid, targetUser.uid), {
+      await attempt(() => followUser(uid, targetUser.uid), {
         failure: "Couldn't turn those on",
-      })
-      if (ok === null) return
-      pushCelebration({
-        icon: 'bell',
-        title: 'Notifications on',
-        body: `You'll get ${targetUser.name}'s activity alerts.`,
+        success: {
+          icon: 'bell',
+          title: 'Notifications on',
+          body: `You'll get ${targetUser.name}'s activity alerts.`,
+        },
       })
     } finally {
       followBusyRef.current.delete(targetUser.uid)
@@ -866,34 +1308,40 @@ export function AppProvider({ children }) {
 
   async function blockPerson(target) {
     if (!target?.uid || target.uid === uid) return
-    const ok = await attempt(() => blockUserDoc(uid, target), { failure: "Couldn't block" })
-    if (ok === null) return
-    pushCelebration({
-      icon: 'alert',
-      title: `${target.name} blocked`,
-      body: 'You will not see their activities, and they cannot join yours.',
+    await attempt(() => blockUserDoc(uid, target), {
+      failure: "Couldn't block",
+      success: {
+        icon: 'alert',
+        title: `${target.name} blocked`,
+        body: 'You will not see their activities, and they cannot join yours.',
+      },
     })
   }
 
   async function unblockPerson(targetId) {
     const person = blocked.find((b) => b.uid === targetId)
-    const ok = await attempt(() => unblockUserDoc(uid, targetId), { failure: "Couldn't unblock" })
-    if (ok === null) return
-    pushCelebration({ icon: 'check', title: `${person?.name || 'They'} unblocked` })
+    await attempt(() => unblockUserDoc(uid, targetId), {
+      failure: "Couldn't unblock",
+      success: { icon: 'check', title: `${person?.name || 'They'} unblocked` },
+    })
   }
 
   async function submitReport(report) {
     const ok = await attempt(() => fileReport({ ...report, reporterId: uid }), {
       failure: "Couldn't send the report",
+      success: {
+        icon: 'check',
+        tone: 'success',
+        title: 'Report sent',
+        body: 'Thank you. We review every report.',
+      },
+      keep: (write) => ({
+        kind: 'report',
+        key: report.targetId,
+        payload: { ...report, id: write.id },
+      }),
     })
-    if (ok === null) return false
-    pushCelebration({
-      icon: 'check',
-      tone: 'success',
-      title: 'Report sent',
-      body: 'Thank you. We review every report.',
-    })
-    return true
+    return ok !== null
   }
 
   /**
@@ -913,7 +1361,19 @@ export function AppProvider({ children }) {
   const value = {
     // Signed out is not "still loading" — it is a settled state with no data.
     loading: Boolean(uid) && !activitiesLoaded,
+    // The first snapshot usually comes from the cache, which ends `loading`
+    // but says nothing about what the server holds. Until the feed has been
+    // answered by the server once this session — or the app has stopped
+    // waiting for it — an activity the cache does not have is not known to
+    // be missing. A notification's link to something posted since the last
+    // visit is exactly that case.
+    syncing: Boolean(uid) && !feedSynced && !feedWaited && !offline,
     offline,
+    // Why, when it is: the device has no connection, or the server has
+    // said nothing for long enough (see `serverSilent`). The banner words
+    // the two differently, because they are different.
+    browserOffline,
+    serverSilent,
     dataError,
 
     activities: visibleActivities,
@@ -945,6 +1405,14 @@ export function AppProvider({ children }) {
 
     threadPreviews,
     sendMessage,
+
+    // Content the server has not accepted — see the note by `unsentState`.
+    unsent,
+    keepUnsent,
+    settleUnsent,
+    failUnsent,
+    discardUnsent,
+    recordFailed,
 
     notifications,
     markNotificationRead: (id) => markReadDoc(uid, id),

@@ -1,6 +1,7 @@
 import React from 'react'
 import { AlertTriangle } from 'lucide-react'
 
+import { isChunkLoadError } from '../utils/lazyRoute'
 import { reportError } from '../utils/reportError'
 
 /**
@@ -41,18 +42,30 @@ export default class RouteErrorBoundary extends React.Component {
 
   render() {
     if (!this.state.error) return this.props.children
+    // A chunk the server no longer has cannot be retried in place: React.lazy
+    // keeps the rejection, so "Try again" threw the same error without a
+    // network request. Only a reload — which fetches the new index.html and
+    // the chunks it names — can help, so that is what is offered.
+    const stale = isChunkLoadError(this.state.error)
     return (
       <div className="page-content">
         <div className="empty-state">
           <AlertTriangle size={28} />
           <h3>This screen could not load</h3>
           <p>
-            Something went wrong here. The rest of SmartSync is still working — use the tabs below
-            to go somewhere else, or try this screen again.
+            {stale
+              ? 'SmartSync has been updated since this tab was opened, or the connection dropped while loading. Reload to get the latest version — nothing on your account is affected.'
+              : 'Something went wrong here. The rest of SmartSync is still working — use the tabs below to go somewhere else, or try this screen again.'}
           </p>
-          <button className="primary-button" onClick={() => this.setState({ error: null })}>
-            Try again
-          </button>
+          {stale ? (
+            <button className="primary-button" onClick={() => window.location.reload()}>
+              Reload
+            </button>
+          ) : (
+            <button className="primary-button" onClick={() => this.setState({ error: null })}>
+              Try again
+            </button>
+          )}
         </div>
       </div>
     )

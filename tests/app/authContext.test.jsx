@@ -16,14 +16,31 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 let authCallback = null
 let signedIn = null
+let pendingName = null
 const refreshCredential = vi.fn(() => Promise.resolve())
+// The real helper's shape, without its delays: a retriable failure buys a
+// refresh and another go, twice; anything else is thrown at once. The real
+// one, delays included, is pinned in signUp.test.js.
+const RETRIABLE = ['permission-denied', 'unauthenticated', 'unavailable', 'aborted']
+const retryRefused = async (run, { delays = [0, 0] } = {}) => {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await run()
+    } catch (error) {
+      if (!RETRIABLE.includes(error?.code) || attempt >= delays.length) throw error
+      await refreshCredential()
+    }
+  }
+}
 vi.mock('../../src/firebase/auth', () => ({
   observeAuth: (cb) => {
     authCallback = cb
     return () => {}
   },
   currentUid: () => signedIn,
+  pendingSignUpName: (email) => (email === 'u@x' ? pendingName : null),
   refreshCredential,
+  retryRefused,
   signIn: vi.fn(),
   signOutUser: vi.fn(),
   signUp: vi.fn(),
@@ -47,14 +64,17 @@ vi.mock('../../src/firebase/moderation', () => ({
 
 const { AuthProvider, useAuth } = await import('../../src/context/AuthContext')
 
+let renders = 0
 function Probe() {
-  const { status, profileReady, profileError, retryProfile, user } = useAuth()
+  const { status, profileReady, profileError, retryProfile, user, serverSeen } = useAuth()
+  renders += 1
   return (
     <div>
       <span data-testid="status">{status}</span>
       <span data-testid="ready">{String(profileReady)}</span>
       <span data-testid="error">{profileError?.code || ''}</span>
       <span data-testid="name">{user?.name || ''}</span>
+      <span data-testid="seen">{String(serverSeen)}</span>
       <button onClick={retryProfile}>retry</button>
     </div>
   )
@@ -79,6 +99,7 @@ const arrive = () => {
 beforeEach(() => {
   authCallback = null
   signedIn = null
+  pendingName = null
   refreshCredential.mockClear()
   ensureUserProfile.mockReset()
   ensureUserProfile.mockResolvedValue(undefined)
@@ -119,23 +140,49 @@ describe('the first read after signing in is refused', () => {
     expect(screen.getByTestId('error').textContent).toBe('')
   })
 
-  test('a second refusal is real and is surfaced', async () => {
+  test('a refusal that outlasts the retries is real and is surfaced', async () => {
     ensureUserProfile.mockRejectedValue(denied)
     signedIn = 'u1'
     await act(async () => authCallback({ uid: 'u1', displayName: 'Uma', email: 'u@x' }))
     await flush()
-    expect(ensureUserProfile).toHaveBeenCalledTimes(2)
+    expect(ensureUserProfile).toHaveBeenCalledTimes(3)
+    expect(refreshCredential).toHaveBeenCalledTimes(2)
     expect(screen.getByTestId('error').textContent).toBe('permission-denied')
   })
 
-  test('a failure that is not a refusal is surfaced at once', async () => {
-    ensureUserProfile.mockRejectedValue({ code: 'unavailable' })
+  test('a failure that is not worth another try is surfaced at once', async () => {
+    ensureUserProfile.mockRejectedValue({ code: 'invalid-argument' })
     signedIn = 'u1'
     await act(async () => authCallback({ uid: 'u1', displayName: 'Uma', email: 'u@x' }))
     await flush()
     expect(ensureUserProfile).toHaveBeenCalledTimes(1)
     expect(refreshCredential).not.toHaveBeenCalled()
-    expect(screen.getByTestId('error').textContent).toBe('unavailable')
+    expect(screen.getByTestId('error').textContent).toBe('invalid-argument')
+  })
+})
+
+describe('the name a new profile is made with', () => {
+  test('is the one typed into the sign-up in progress, not the still-empty Auth record', async () => {
+    pendingName = 'Typed Name'
+    signedIn = 'u1'
+    await act(async () => authCallback({ uid: 'u1', displayName: null, email: 'u@x' }))
+    await flush()
+    expect(ensureUserProfile).toHaveBeenCalledWith('u1', { name: 'Typed Name', email: 'u@x' })
+  })
+
+  test('is read afresh on every try, so a record named meanwhile is used', async () => {
+    const record = { uid: 'u1', displayName: null, email: 'u@x' }
+    ensureUserProfile.mockImplementationOnce(async () => {
+      // The sign-up sets the display name while the first try is out.
+      record.displayName = 'Named Later'
+      throw denied
+    })
+    signedIn = 'u1'
+    await act(async () => authCallback(record))
+    await flush()
+    expect(ensureUserProfile).toHaveBeenCalledTimes(2)
+    expect(ensureUserProfile.mock.calls[0][1]).toEqual({ name: null, email: 'u@x' })
+    expect(ensureUserProfile.mock.calls[1][1]).toEqual({ name: 'Named Later', email: 'u@x' })
   })
 })
 
@@ -184,5 +231,59 @@ describe('switching accounts', () => {
     // that has ended.
     act(() => watchers.pub[0].onError(denied))
     expect(screen.getByTestId('error').textContent).toBe('')
+  })
+})
+
+describe('proof of a server', () => {
+  // The three profile documents are the first thing asked for, so the first
+  // of them answered by the server is the earliest sign there is one — which
+  // is what tells a slow feed apart from a dead link (see AppContext).
+  const last = (kind) => watchers[kind][watchers[kind].length - 1]
+  const signIn = async () => {
+    signedIn = 'u1'
+    await act(async () => authCallback({ uid: 'u1', displayName: 'Uma', email: 'u@x' }))
+  }
+
+  test('cached answers are not proof; the first server answer from any of the three is', async () => {
+    await signIn()
+    act(() => last('pub').cb({ uid: 'u1', name: 'Uma' }, { fromCache: true }))
+    act(() => last('priv').cb({ realName: 'Uma' }, { fromCache: true }))
+    expect(screen.getByTestId('seen').textContent).toBe('false')
+    act(() =>
+      last('role').cb({ role: 'user', suspended: false, banned: false }, { fromCache: false }),
+    )
+    expect(screen.getByTestId('seen').textContent).toBe('true')
+  })
+
+  test('a listener that says nothing about its origin proves nothing', async () => {
+    await signIn()
+    arrive()
+    expect(screen.getByTestId('seen').textContent).toBe('false')
+  })
+
+  test('a snapshot that changed only its origin does not re-render the app', async () => {
+    await signIn()
+    const profile = { uid: 'u1', name: 'Uma', notificationsEnabled: true }
+    act(() => last('pub').cb(profile, { fromCache: true }))
+    act(() => last('priv').cb({ realName: 'Uma', onboarded: true }, { fromCache: false }))
+    act(() =>
+      last('role').cb({ role: 'user', suspended: false, banned: false }, { fromCache: false }),
+    )
+    const before = renders
+    // The same document again, now from the server: nothing to re-render.
+    act(() => last('pub').cb({ ...profile }, { fromCache: false }))
+    expect(renders).toBe(before)
+    // A changed document still gets through.
+    act(() => last('pub').cb({ ...profile, bio: 'new' }, { fromCache: false }))
+    expect(renders).toBeGreaterThan(before)
+  })
+
+  test('the proof belongs to the session and is dropped on sign-out', async () => {
+    await signIn()
+    act(() => last('pub').cb({ uid: 'u1', name: 'Uma' }, { fromCache: false }))
+    expect(screen.getByTestId('seen').textContent).toBe('true')
+    signedIn = null
+    await act(async () => authCallback(null))
+    expect(screen.getByTestId('seen').textContent).toBe('false')
   })
 })

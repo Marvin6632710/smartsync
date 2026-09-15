@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDocs,
   limit,
@@ -89,7 +90,10 @@ export function fileReport({
   detail,
   context,
 }) {
-  return addDoc(collection(db, 'reports'), {
+  // Minted locally, like a message, so a report queued offline can be
+  // checked after a reload.
+  const ref = doc(collection(db, 'reports'))
+  const pending = setDoc(ref, {
     reporterId,
     targetType,
     // What was reported.
@@ -108,7 +112,9 @@ export function fileReport({
     context: String(context || '').slice(0, 500),
     status: 'open',
     createdAt: serverTimestamp(),
-  })
+  }).then(() => ref)
+  pending.id = ref.id
+  return pending
 }
 
 // ---------------------------------------------------------------- roles ----
@@ -124,6 +130,9 @@ export function fileReport({
 export function watchRole(uid, callback, onError) {
   return onSnapshot(
     doc(db, 'roles', uid),
+    // Metadata too, and the origin reported alongside the row — see the
+    // note on the profile watchers in users.js.
+    { includeMetadataChanges: true },
     (snap) =>
       callback(
         snap.exists()
@@ -133,6 +142,7 @@ export function watchRole(uid, callback, onError) {
               banned: snap.data().banned === true,
             }
           : { role: 'user', suspended: false, banned: false },
+        { fromCache: snap.metadata?.fromCache === true },
       ),
     onError,
   )
@@ -170,9 +180,13 @@ export function watchRole(uid, callback, onError) {
  * report's resolution refused — presses the button again, and the person
  * must not be told twice that the same thing happened to them.
  */
-async function patchRole(uid, change) {
+async function patchRole(uid, change, claim) {
   const ref = doc(db, 'roles', uid)
   return runTransaction(db, async (tx) => {
+    // Read before any write, as a transaction requires — and read in the
+    // same transaction, so the role row is committed only if the claim was
+    // still this moderator's at commit time.
+    if (claim) await assertClaim(tx, claim)
     const snap = await tx.get(ref)
     const existing = snap.data() || {}
     const before = {
@@ -187,12 +201,14 @@ async function patchRole(uid, change) {
       ...change,
     }
     tx.set(ref, next, { merge: true })
+    // The decision lands with the row or not at all — see recordDecision.
+    if (claim?.decision) recordDecision(tx, claim)
     return { before, after: { ...before, ...change } }
   })
 }
 
-export async function setSuspended(uid, suspended) {
-  const { before } = await patchRole(uid, { suspended })
+export async function setSuspended(uid, suspended, claim) {
+  const { before } = await patchRole(uid, { suspended }, claim)
   if (before.suspended === suspended) return
   await tell(
     uid,
@@ -209,6 +225,139 @@ export async function setSuspended(uid, suspended) {
 }
 
 // -------------------------------------------------------------- reports ----
+
+/**
+ * How long a moderator's claim on a report stays theirs.
+ *
+ * Mirrored in firestore.rules, which is where it is enforced. A moderator
+ * who closed the tab mid-action must not lock a report for good; after this
+ * long a colleague may take it over, and anything the original still tries
+ * to write is refused because the claim is no longer theirs.
+ */
+export const CLAIM_TTL_MS = 5 * 60_000
+
+/**
+ * What went wrong with a claim, in words the screen can act on.
+ *
+ * `claim-held`: somebody else holds a fresh claim. `already-handled`: the
+ * report is no longer open. `claim-lost`: the claim this action was taken
+ * under is no longer this moderator's — taken over after it went stale, or
+ * the report was closed — so the action was aborted before it changed
+ * anything.
+ */
+export class ModerationError extends Error {
+  constructor(code, message, details = {}) {
+    super(message)
+    this.name = 'ModerationError'
+    this.code = code
+    // Who closed it, for `already-handled`: a moderator whose own decision
+    // landed while the acknowledgement was lost is told it was theirs, not
+    // that a colleague beat them to it.
+    this.details = details
+  }
+}
+
+const reportDoc = (reportId) => doc(db, 'reports', reportId)
+
+const claimAgeMs = (claim, now = Date.now()) => {
+  const at = claim?.at?.toMillis?.()
+  // A claim whose server time has not resolved yet was written moments ago.
+  return Number.isFinite(at) ? now - at : 0
+}
+const claimFresh = (claim, now = Date.now()) => claimAgeMs(claim, now) < CLAIM_TTL_MS
+
+/**
+ * Takes the report for this moderator, or says why not.
+ *
+ * Working a report is three writes in order — claim, act, record — and this
+ * is the first. Two moderators used to be able to act on the same report at
+ * once: the record kept whichever landed second, and a suspension could be
+ * taken on a complaint a colleague had just dismissed. The claim is a lease
+ * stamped with the server's clock, refused by the rules while somebody
+ * else's is fresh; every action from the queue reads it in the same
+ * transaction that writes the consequence (see `assertClaim`).
+ *
+ * A transaction, so the read and the write are one step: a fresh claim by
+ * somebody else is `claim-held`, a closed report is `already-handled`, and
+ * the rules are the final word on both if the clocks disagree.
+ */
+export async function claimReport(reportId, moderatorId) {
+  const ref = reportDoc(reportId)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists() || snap.data().status !== 'open') {
+      throw new ModerationError('already-handled', 'This report is no longer open.', {
+        reviewedBy: snap.exists() ? snap.data().reviewedBy || null : null,
+      })
+    }
+    const claim = snap.data().claim
+    if (claim && claim.by !== moderatorId && claimFresh(claim)) {
+      throw new ModerationError('claim-held', 'Another moderator is working on this report.')
+    }
+    tx.update(ref, { claim: { by: moderatorId, at: serverTimestamp() } })
+  })
+}
+
+/**
+ * Lets the next person in after an action that did not finish.
+ *
+ * Best-effort: the claim expires on its own, so a release that fails costs
+ * a colleague a few minutes and nothing else. Only ever removes this
+ * moderator's own claim — the rules refuse anything else.
+ */
+export async function releaseReport(reportId) {
+  try {
+    await updateDoc(reportDoc(reportId), { claim: deleteField() })
+  } catch (error) {
+    if (error?.code !== 'permission-denied') reportError('moderation.release', error, { reportId })
+  }
+}
+
+/**
+ * Reads the claim inside an action's transaction, and aborts the action if
+ * it is no longer this moderator's.
+ *
+ * Because the read is part of the transaction, the write it guards commits
+ * only if the report was unchanged since — Firestore retries the body when
+ * the report moves underneath it, and the re-run sees the new claim. That
+ * is what makes "the claim is still valid" true at commit time rather than
+ * merely at the moment of asking.
+ */
+async function assertClaim(tx, { reportId, moderatorId }) {
+  const snap = await tx.get(reportDoc(reportId))
+  const data = snap.exists() ? snap.data() : null
+  if (!data || data.status !== 'open') {
+    throw new ModerationError('claim-lost', 'This report was closed before the action landed.', {
+      reviewedBy: data?.reviewedBy || null,
+    })
+  }
+  if (data.claim?.by !== moderatorId) {
+    throw new ModerationError('claim-lost', 'This report is no longer yours to act on.')
+  }
+}
+
+/**
+ * Writes the decision into the same transaction as the action it records.
+ *
+ * This is what makes the claim a control rather than a convention for
+ * suspensions and warnings. A takedown names its report and the rules
+ * check the claim on the activity write itself; a role row cannot name a
+ * report — it is deliberately three fields and nothing else — so the rules
+ * cannot check the claim there. Committing the decision with the action
+ * closes that: the rules refuse the decision unless the claim is held and
+ * the report is open, a transaction commits everything or nothing, and so
+ * a suspension recorded against a report can only ever land under its
+ * claim. It also closes the gap between acting and recording — there is no
+ * moment at which the account is suspended and the report still open.
+ */
+function recordDecision(tx, { reportId, moderatorId, decision }) {
+  tx.update(reportDoc(reportId), {
+    status: decision.status,
+    outcome: String(decision.outcome || '').slice(0, 300),
+    reviewedBy: moderatorId,
+    reviewedAt: serverTimestamp(),
+  })
+}
 
 // How many open reports the queue loads at once. Exported because the screen
 // has to be able to say when it is showing a capped view: a moderator who
@@ -230,11 +379,24 @@ export function watchOpenReports(callback, onError) {
       callback(
         snap.docs.map((d) => {
           const data = d.data()
-          return { id: d.id, ...data, createdAt: data.createdAt?.toMillis?.() ?? Date.now() }
+          return {
+            id: d.id,
+            ...data,
+            createdAt: data.createdAt?.toMillis?.() ?? Date.now(),
+            // Flattened for the screen, which shows who is working on what.
+            claimedBy: data.claim?.by ?? null,
+            claimedAt: data.claim?.at?.toMillis?.() ?? (data.claim ? Date.now() : null),
+          }
         }),
       ),
     onError,
   )
+}
+
+/** Is somebody else's claim on this row still fresh? (For the screen; the rules decide.) */
+export function claimedByOther(row, moderatorId, now = Date.now()) {
+  if (!row?.claimedBy || row.claimedBy === moderatorId) return false
+  return now - (row.claimedAt ?? now) < CLAIM_TTL_MS
 }
 
 /**
@@ -292,7 +454,7 @@ async function tell(uid, { title, body, activityId }) {
  * it names who decided, and neither the host nor anybody else can undo it
  * from inside the app.
  */
-export async function removeActivity(activityId, { moderatorId, reason }) {
+export async function removeActivity(activityId, { moderatorId, reason, reportId, decision }) {
   const ref = doc(db, 'activities', activityId)
   const note = String(reason || '').slice(0, 300)
 
@@ -314,15 +476,26 @@ export async function removeActivity(activityId, { moderatorId, reason }) {
   // (two reports, or one whose resolution failed after the takedown landed),
   // and pressing Remove on it again used to tell the host and every
   // participant, again, that it had been removed.
+  //
+  // From the queue, the takedown names its report and reads the claim in
+  // the same transaction: a claim that was lost aborts it before anything
+  // changes, and the rules refuse the write unless the claim is held. The
+  // decision, when there is one to record, is committed in the same step —
+  // an activity already down still gets its report closed, and neither
+  // half can land without the other.
   const before = await runTransaction(db, async (tx) => {
+    if (reportId) await assertClaim(tx, { reportId, moderatorId })
     const snap = await tx.get(ref)
-    if (!snap.exists() || snap.data().status === 'removed') return null
-    tx.update(ref, {
-      status: 'removed',
-      moderation: { by: moderatorId, reason: note },
-      updatedAt: serverTimestamp(),
-    })
-    return snap.data()
+    const standing = snap.exists() && snap.data().status !== 'removed'
+    if (standing) {
+      tx.update(ref, {
+        status: 'removed',
+        moderation: { by: moderatorId, reason: note, ...(reportId ? { reportId } : {}) },
+        updatedAt: serverTimestamp(),
+      })
+    }
+    if (reportId && decision) recordDecision(tx, { reportId, moderatorId, decision })
+    return standing ? snap.data() : null
   })
 
   if (!before) return
@@ -442,8 +615,12 @@ async function standDownHosted(uid, { moderatorId, reason }) {
   }
 }
 
-export async function suspendAccount(uid, { moderatorId }) {
-  await setSuspended(uid, true)
+export async function suspendAccount(uid, { moderatorId, reportId, decision }) {
+  // The suspension itself is tied to the claim, and the decision is
+  // recorded in the same transaction; the stand-down that follows is a
+  // consequence of a suspension that has already landed, and runs whatever
+  // happens to the claim afterwards.
+  await setSuspended(uid, true, reportId ? { reportId, moderatorId, decision } : undefined)
   return standDownHosted(uid, {
     moderatorId,
     reason: 'The host\u2019s account was suspended',
@@ -547,13 +724,27 @@ export function watchMyWarnings(uid, callback, onError) {
  * from the moderator who wrote it and from an admin.
  */
 export async function issueWarning(uid, { moderatorId, reason, reportId }) {
-  await addDoc(collection(db, 'warnings'), {
+  const record = {
     subjectId: uid,
     by: moderatorId,
     reason: String(reason || '').slice(0, 500),
     ...(reportId ? { reportId } : {}),
     createdAt: serverTimestamp(),
-  })
+  }
+  if (reportId) {
+    // From the queue: written only if the claim is still this moderator's —
+    // the rules check that on the warning itself, since it names its
+    // report — and the claim is let go in the same step, so the report is
+    // open to the next person the moment the warning exists and never sits
+    // claimed by a warning that failed.
+    await runTransaction(db, async (tx) => {
+      await assertClaim(tx, { reportId, moderatorId })
+      tx.set(doc(collection(db, 'warnings')), record)
+      tx.update(reportDoc(reportId), { claim: deleteField() })
+    })
+  } else {
+    await addDoc(collection(db, 'warnings'), record)
+  }
   await tell(uid, {
     title: 'A warning about your SmartSync account',
     body: `${String(reason || '').slice(0, 220)} Nothing has been taken away. Repeated problems can lead to a suspension.`,

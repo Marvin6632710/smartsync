@@ -523,6 +523,19 @@ service cloud.firestore {
           && touches(['status', 'moderation', 'updatedAt'])
           && request.resource.data.moderation.by == request.auth.uid
           && isString(request.resource.data.moderation.reason, 300)
+          && request.resource.data.moderation.keys().hasOnly(['by', 'reason', 'reportId'])
+          // A takedown made from the queue names its report, and then it
+          // has to hold that report's claim — still open, still theirs — at
+          // the moment it lands. A takedown made from the activity's own
+          // page names none and is judged as before.
+          && (
+            !('reportId' in request.resource.data.moderation)
+            || (
+              exists(/databases/$(database)/documents/reports/$(request.resource.data.moderation.reportId))
+              && get(/databases/$(database)/documents/reports/$(request.resource.data.moderation.reportId)).data.status == 'open'
+              && get(/databases/$(database)/documents/reports/$(request.resource.data.moderation.reportId)).data.claim.by == request.auth.uid
+            )
+          )
           && (
             request.resource.data.status == 'removed'
             // Putting something back is an admin's power, never a plain
@@ -695,7 +708,25 @@ service cloud.firestore {
         // the same ladder as every other action.
         && request.resource.data.subjectId != request.auth.uid
         && (isAdmin() || rankOf(request.resource.data.subjectId) == 'user')
-        && isString(request.resource.data.reason, 500);
+        && isString(request.resource.data.reason, 500)
+        // A warning issued from the queue names its report, and then it has
+        // to hold that report's claim — still open, still theirs — and be
+        // about the person the report is about. A warning issued from a
+        // profile names none and is judged as before. Same shape as a
+        // takedown that names its report (see /activities).
+        && (
+          !('reportId' in request.resource.data)
+          || (
+            isString(request.resource.data.reportId, 200)
+            && exists(/databases/$(database)/documents/reports/$(request.resource.data.reportId))
+            && get(/databases/$(database)/documents/reports/$(request.resource.data.reportId)).data.status == 'open'
+            && get(/databases/$(database)/documents/reports/$(request.resource.data.reportId)).data.claim.by == request.auth.uid
+            && (
+              !('subjectId' in get(/databases/$(database)/documents/reports/$(request.resource.data.reportId)).data)
+              || get(/databases/$(database)/documents/reports/$(request.resource.data.reportId)).data.subjectId == request.resource.data.subjectId
+            )
+          )
+        );
 
       allow update, delete: if false;
     }
@@ -738,16 +769,70 @@ service cloud.firestore {
              ['harassment', 'inappropriate', 'spam', 'fake', 'safety', 'other']
         && request.resource.data.detail is string
         && request.resource.data.detail.size() <= 1000
-        && request.resource.data.status == 'open';
+        && request.resource.data.status == 'open'
+        // A report arrives unclaimed. A reporter who could file it already
+        // held would be choosing its reviewer.
+        && !('claim' in request.resource.data);
+
+      // Working a report is two writes, in order: claim it, then act and
+      // record in one transaction.
+      //
+      // The claim is the part that was missing. Two moderators could act on
+      // the same report at once; the record kept whichever landed second,
+      // and the action — a suspension — was taken on a complaint a colleague
+      // had already dismissed. A claim is a lease: one moderator, stamped
+      // with the server's clock, that nobody else may take while it is fresh.
+      // Every action taken from the queue reads the claim in the same
+      // transaction that writes the consequence, so a claim that was lost —
+      // taken over after it went stale, or the report closed — aborts the
+      // action before anything changes.
+      //
+      // Where the action itself can name its report — a takedown, a
+      // warning — the claim is checked on that write too (see /activities
+      // and /warnings). A role row cannot: it is three fields and nothing
+      // else, on purpose. So the decision is committed in the same
+      // transaction as the action, and the decision needs the claim (below):
+      // a transaction lands whole or not at all, which makes a suspension
+      // recorded against a report impossible to commit without holding its
+      // claim, and leaves no moment at which the account is suspended and
+      // the report still open. A moderator suspending from the People
+      // directory names no report and is judged by /roles alone, as before.
+      //
+      // Stale after five minutes. A moderator who closed the tab mid-action
+      // must not lock a report for good; a colleague may take over then, and
+      // the original's late writes are refused because the claim is no
+      // longer theirs. Their own fresh claim may be renewed.
+      function claimFresh(c) {
+        return c.at is timestamp && c.at > request.time - duration.value(5, 'm');
+      }
+      function claimFree(data) {
+        return !('claim' in data)
+          || data.claim.by == request.auth.uid
+          || !claimFresh(data.claim);
+      }
+      function claimIsMine(data) {
+        return 'claim' in data && data.claim.by == request.auth.uid;
+      }
+      function validClaim(c) {
+        return c.keys().hasOnly(['by', 'at'])
+          && c.by == request.auth.uid
+          // Stamped by the server, so the lease is measured on one clock.
+          && c.at == request.time;
+      }
+
       // The report itself stays immutable to everybody. A moderator may
-      // record what they decided — and nothing else. Letting a reviewer edit
-      // the reason or the description would make the record worthless, and
-      // letting anyone delete it would make it disappearable.
+      // claim it, release their own claim, and record what they decided —
+      // and nothing else. Letting a reviewer edit the reason or the
+      // description would make the record worthless, and letting anyone
+      // delete it would make it disappearable.
       allow update: if isModerator()
-        && touches(['status', 'reviewedBy', 'reviewedAt', 'outcome'])
-        && request.resource.data.status in ['open', 'actioned', 'dismissed']
-        && request.resource.data.reviewedBy == request.auth.uid
-        // Nobody closes a report they are a party to — on either side.
+        // Closed once. Two moderators ruling on the same report within
+        // seconds of each other both succeeded, and the record kept only
+        // whichever landed second — "no action needed" over an account
+        // that had just been suspended. The first decision is the decision;
+        // the second is told so by the app.
+        && resource.data.status == 'open'
+        // Nobody works a report they are a party to — on either side.
         //
         // Being the subject is the obvious half: a moderator could never
         // suspend themselves, that rule is in /roles, but without this they
@@ -760,7 +845,29 @@ service cloud.firestore {
         // and the record would show a decision that looks independent and is
         // not.
         && !aboutMe(resource.data)
-        && resource.data.reporterId != request.auth.uid;
+        && resource.data.reporterId != request.auth.uid
+        && (
+          // Taking the claim, or renewing your own.
+          (
+            touches(['claim'])
+            && 'claim' in request.resource.data
+            && validClaim(request.resource.data.claim)
+            && claimFree(resource.data)
+          )
+          // Releasing your own — an action that failed lets the next person in.
+          || (
+            touches(['claim'])
+            && !('claim' in request.resource.data)
+            && claimIsMine(resource.data)
+          )
+          // Recording the decision, which needs the claim.
+          || (
+            touches(['status', 'reviewedBy', 'reviewedAt', 'outcome'])
+            && claimIsMine(resource.data)
+            && request.resource.data.status in ['actioned', 'dismissed']
+            && request.resource.data.reviewedBy == request.auth.uid
+          )
+        );
 
       allow delete: if false;
     }

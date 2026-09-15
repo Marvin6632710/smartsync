@@ -241,9 +241,23 @@ function FlyToMe({ target }) {
 }
 
 export default function MapPage() {
-  const { filteredActivities, loading } = useApp()
+  const { filteredActivities, loading, pushCelebration } = useApp()
   const { user } = useAuth()
-  const { request, busy } = useDeviceLocation()
+  const { request, busy, error: locationError } = useDeviceLocation()
+  // The map has no form to print an error under, so a refused or failed
+  // location request is said in the toast — it used to say nothing, which
+  // made the button look broken.
+  React.useEffect(() => {
+    if (!locationError) return
+    pushCelebration({
+      icon: 'alert',
+      tone: 'warning',
+      title: "Couldn't show your location",
+      body: locationError,
+    })
+    // The toast is the only consumer; the hook's own state drives it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationError])
   const navigate = useNavigate()
   const [selectedId, setSelectedId] = useState(null)
   const [flyTarget, setFlyTarget] = useState(null)

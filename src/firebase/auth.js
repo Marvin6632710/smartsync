@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth'
 
 import { auth } from './config'
-import { ensureUserProfile, updateDisplayName } from './users'
+import { acceptableName, ensureUserProfile } from './users'
 import { reportError } from '../utils/reportError'
 
 /**
@@ -38,21 +38,111 @@ export function authErrorMessage(error) {
   return AUTH_MESSAGES[error?.code] || 'Something went wrong. Please try again.'
 }
 
+/**
+ * The name typed into a sign-up that is in progress on this page.
+ *
+ * Creating the account wakes the auth observer before the sign-up has had
+ * a chance to write anything, and the observer makes a profile of its own
+ * for any account that lacks one. It used to build that profile from the
+ * Auth record's display name — still null at that instant — and the person
+ * arrived as "New user". Now the sign-up leaves the name here first, and
+ * the observer asks for it (see pendingSignUpName): whichever of the two
+ * creates the profile, it carries the name that was typed.
+ */
+let pendingSignUp = null
+const emailKey = (email) =>
+  String(email || '')
+    .trim()
+    .toLowerCase()
+export function pendingSignUpName(email) {
+  if (!pendingSignUp || pendingSignUp.email !== emailKey(email)) return null
+  return pendingSignUp.name
+}
+
+/**
+ * How long is waited before each further try, after the first. Long enough,
+ * in total, for a freshly minted credential to be the one every stream is
+ * carrying; short enough that a person is not left looking at a spinner.
+ */
+export const RETRY_DELAYS_MS = [400, 1200]
+
+/** Failures worth a fresh credential and another go, rather than a verdict. */
+const RETRIABLE = new Set([
+  // The first write after a sign-up — or a sign-in that followed a sign-out
+  // on the same page — can go out on a stream still carrying the credential
+  // that was just revoked, and is refused. The most common one, and the
+  // reason this exists.
+  'permission-denied',
+  'unauthenticated',
+  // The connection blinked. Firestore's transactions and one-shot reads do
+  // not queue the way writes do; they fail, and a moment later would work.
+  'unavailable',
+  'aborted',
+  'deadline-exceeded',
+])
+
+/**
+ * Runs `run`, and on a retriable failure buys a fresh credential and runs
+ * it again — up to the number of delays above, waiting each delay first.
+ * Anything else, and the last failure of a run that never succeeded, is
+ * thrown to the caller.
+ */
+export async function retryRefused(run, { delays = RETRY_DELAYS_MS } = {}) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await run()
+    } catch (error) {
+      if (!RETRIABLE.has(error?.code) || attempt >= delays.length) throw error
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]))
+      await refreshCredential()
+    }
+  }
+}
+
 export async function signUp({ email, password, name }) {
-  const credential = await createUserWithEmailAndPassword(auth, email.trim(), password)
-  const displayName = String(name || '').trim() || 'New user'
+  // Cut to what the rules accept: a longer one was refused at profile
+  // creation, and the account it belonged to landed on an error screen.
+  const displayName = acceptableName(name)
+  // Left for the observer before the account exists, so there is no instant
+  // at which the account is there and the name is not.
+  pendingSignUp = { email: emailKey(email), name: displayName }
+  let credential
+  try {
+    credential = await createUserWithEmailAndPassword(auth, email.trim(), password)
+  } catch (error) {
+    pendingSignUp = null
+    throw error
+  }
 
-  // Kept in sync with the Firestore profile so the Auth record is not a
-  // nameless row in the console.
-  await updateProfile(credential.user, { displayName })
-
-  // Creating the account immediately wakes the auth observer, which builds a
-  // profile from `displayName` — still null at that instant, so it produced a
-  // user literally called "New user". Rather than depend on which of the two
-  // wins the race, write the real name here explicitly: ensure the documents
-  // exist, then set the name over whatever the observer may have created.
-  await ensureUserProfile(credential.user.uid, { name: displayName, email: credential.user.email })
-  await updateDisplayName(credential.user.uid, displayName, false)
+  // Everything past this line happens to an account that already exists.
+  // Creating it woke the auth observer, which has swapped the route table
+  // and unmounted the sign-up form — so a failure here is thrown at nobody.
+  // The profile is written with patience (retryRefused) rather than once,
+  // because the first write after a sign-up can be refused by a stream
+  // still carrying the previous credential; the observer is writing the
+  // same profile with the same patience, and whichever lands first is the
+  // profile — ensureUserProfile makes the second a no-op rather than an
+  // overwrite. A failure that survives all of that is recorded rather than
+  // lost, and the observer's own attempt, or the next sign-in, will make
+  // the profile from the Auth record's name.
+  const { uid } = credential.user
+  try {
+    // Kept in sync with the Firestore profile so the Auth record is not a
+    // nameless row in the console — and so a profile made later, from the
+    // record, carries the name.
+    await updateProfile(credential.user, { displayName })
+  } catch (error) {
+    reportError('auth.signUp.displayName', error, { uid })
+  }
+  try {
+    await retryRefused(() =>
+      ensureUserProfile(uid, { name: displayName, email: credential.user.email }),
+    )
+  } catch (error) {
+    reportError('auth.signUp.profile', error, { uid })
+  } finally {
+    if (pendingSignUp?.email === emailKey(email)) pendingSignUp = null
+  }
 
   return credential.user
 }

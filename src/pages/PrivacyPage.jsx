@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useDeviceLocation } from '../hooks/useDeviceLocation'
 import { useSaveProfile } from '../hooks/useSaveProfile'
 import { setAnonymousMode, updatePrivateProfile } from '../firebase/users'
+import { coarsen } from '../utils/geo'
 
 export default function PrivacyPage() {
   const { user } = useAuth()
@@ -14,7 +15,17 @@ export default function PrivacyPage() {
   // Only the field that changed: the merge keeps the rest of the map, and
   // spreading it back in copied the notifications preference — which lives
   // on the public profile — into the private one, where nothing reads it.
-  const setPrivacy = (patch) => save(() => updatePrivateProfile(user.uid, { privacy: patch }))
+  //
+  // Turning approximation on also rounds the position already on file: the
+  // switch promised "never your exact position" while the exact one it had
+  // been given a minute earlier stayed stored until the next request.
+  // Turning it off cannot sharpen a rounded value; the next request does.
+  const toggleApproximate = () => {
+    const next = !privacy.approximateLocation
+    const patch = { privacy: { approximateLocation: next } }
+    if (next && user.location) patch.location = coarsen(user.location)
+    return save(() => updatePrivateProfile(user.uid, patch))
+  }
 
   return (
     <div className="page-content">
@@ -61,7 +72,8 @@ export default function PrivacyPage() {
         </button>
         <button
           className="setting-row"
-          onClick={() => setPrivacy({ approximateLocation: !privacy.approximateLocation })}
+          onClick={toggleApproximate}
+          disabled={saving}
           role="switch"
           aria-checked={privacy.approximateLocation}
         >

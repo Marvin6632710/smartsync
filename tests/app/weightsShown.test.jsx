@@ -81,7 +81,7 @@ describe('AI Picks', () => {
 
 describe('the score breakdown', () => {
   test('shows the same shares', () => {
-    app = { recommendations: [pick], weights: onlyInterest }
+    app = { activities: [pick], recommendations: [pick], weights: onlyInterest, loading: false }
     render(
       <MemoryRouter initialEntries={['/recommendations/a1']}>
         <Routes>

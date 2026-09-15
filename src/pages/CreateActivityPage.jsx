@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LocationPicker from '../components/LocationPicker'
+import UnsentDraft from '../components/UnsentDraft'
 import { categories } from '../data/categories'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -31,11 +32,21 @@ export default function CreateActivityPage() {
   const [form, setForm] = useState(initial)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const { createActivity } = useApp()
+  const { createActivity, unsent } = useApp()
   const { user } = useAuth()
   const navigate = useNavigate()
 
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
+
+  // An activity created offline that the server refused once the connection
+  // came back. Its form was long gone by then; this is where it comes back.
+  const draft = unsent.find((row) => row.kind === 'activity-create' && row.status === 'failed')
+  const restore = (payload) => {
+    const fields = { ...payload }
+    delete fields.id
+    setForm({ ...initial, ...fields })
+    setError('')
+  }
 
   const submit = async (event) => {
     event.preventDefault()
@@ -70,7 +81,16 @@ export default function CreateActivityPage() {
       setError('Maximum participants must be at least 2.')
       return
     }
-    if (new Date(`${form.date}T${form.time}`) < new Date()) {
+    // A date field can be cleared, and an empty one sailed through the
+    // check below: an invalid Date compares false to everything, the rules
+    // then refused the write, and the toast blamed permissions. The edit
+    // form already asks for both; so does this one now.
+    const startsAt = new Date(`${form.date}T${form.time}`)
+    if (!form.date || !form.time || Number.isNaN(startsAt.getTime())) {
+      setError('Pick a date and a time.')
+      return
+    }
+    if (startsAt < new Date()) {
       setError('Pick a date and time in the future.')
       return
     }
@@ -104,6 +124,12 @@ export default function CreateActivityPage() {
         <h2>Start an activity</h2>
         <p className="helper-text">Everyone using SmartSync will be able to find and join it.</p>
       </section>
+
+      <UnsentDraft
+        row={draft}
+        what={`"${draft?.payload?.title || 'An activity'}"`}
+        onRestore={restore}
+      />
 
       <form className="form-card" onSubmit={submit}>
         <label>

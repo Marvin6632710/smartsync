@@ -22,7 +22,16 @@ import {
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing'
 import { readFileSync } from 'node:fs'
-import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import {
+  deleteDoc,
+  deleteField,
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  writeBatch,
+} from 'firebase/firestore'
 
 let testEnv
 
@@ -97,6 +106,15 @@ afterAll(async () => testEnv?.cleanup())
 
 /** Writes with the rules switched off, so setup is never the thing under test. */
 const seed = (fn) => testEnv.withSecurityRulesDisabled((ctx) => fn(ctx.firestore()))
+/** What a document holds now, read with the rules off; undefined if absent. */
+const stored = async (...path) => {
+  let data
+  await seed(async (db) => {
+    const snap = await getDoc(doc(db, ...path))
+    data = snap.exists() ? snap.data() : undefined
+  })
+  return data
+}
 
 beforeEach(async () => {
   await testEnv.clearFirestore()
@@ -142,13 +160,21 @@ const suspend = (actor, target, role = 'user') =>
 const appoint = (actor, target, role = 'moderator') =>
   setDoc(doc(as(actor), 'roles', target), { role, suspended: false })
 
-const closeReport = (actor, reportId = 'rep') =>
+// Working a report is claim, then decision — the rules refuse a decision
+// without the claim, so "closing" here is both writes in order.
+const claimReport = (actor, reportId = 'rep') =>
   updateDoc(doc(as(actor), 'reports', reportId), {
+    claim: { by: actor, at: serverTimestamp() },
+  })
+const closeReport = async (actor, reportId = 'rep') => {
+  await claimReport(actor, reportId)
+  await updateDoc(doc(as(actor), 'reports', reportId), {
     status: 'dismissed',
     outcome: 'No action needed',
     reviewedBy: actor,
     reviewedAt: 1,
   })
+}
 
 // ---------------------------------------------------------------------------
 
@@ -413,7 +439,17 @@ describe('collision: the reviewer is involved in the report', () => {
   test('somebody uninvolved can close it', async () => {
     await seed((db) => setDoc(doc(db, 'reports', 'rep'), report({ targetId: MOD, subjectId: MOD })))
     await assertSucceeds(closeReport(ADMIN))
+    // A report is closed once, so the second uninvolved reviewer gets a
+    // fresh one — the earlier version of this test closed the same report
+    // twice, which is exactly what the rules now refuse.
+    await seed((db) => setDoc(doc(db, 'reports', 'rep'), report({ targetId: MOD, subjectId: MOD })))
     await assertSucceeds(closeReport(MOD2))
+  })
+
+  test('once closed, it stays closed — even to somebody uninvolved', async () => {
+    await seed((db) => setDoc(doc(db, 'reports', 'rep'), report({ targetId: MOD, subjectId: MOD })))
+    await assertSucceeds(closeReport(ADMIN))
+    await assertFails(closeReport(MOD2))
   })
 
   test('the reporter cannot close their own report either', async () => {
@@ -877,6 +913,170 @@ describe('warnings — the rung below a suspension', () => {
 
   test('an ordinary user cannot warn anybody', async () => {
     await assertFails(setDoc(doc(as(USER), 'warnings', 'w1'), warning({ by: USER })))
+  })
+
+  describe('a warning that names its report', () => {
+    const seedReport = (over = {}) => seed((db) => setDoc(doc(db, 'reports', 'r1'), report(over)))
+    const claim = (by) => ({ by, at: serverTimestamp() })
+    const claimAs = (by) => updateDoc(doc(as(by), 'reports', 'r1'), { claim: claim(by) })
+    const warnFrom = (by, over = {}) =>
+      setDoc(doc(as(by), 'warnings', 'w1'), warning({ by, reportId: 'r1', ...over }))
+
+    test('lands only while the claim is held', async () => {
+      await seedReport()
+      // Named a report it does not hold: refused, whatever the rank.
+      await assertFails(warnFrom(MOD))
+      await assertSucceeds(claimAs(MOD))
+      await assertSucceeds(warnFrom(MOD))
+    })
+
+    test('is refused under somebody else’s fresh claim', async () => {
+      await seedReport()
+      await assertSucceeds(claimAs(MOD2))
+      await assertFails(warnFrom(MOD))
+      await assertFails(warnFrom(ADMIN, { subjectId: USER }))
+    })
+
+    test('is refused once the report is closed, and when the report does not exist', async () => {
+      await seedReport({ status: 'dismissed', claim: { by: MOD, at: new Date() } })
+      await assertFails(warnFrom(MOD))
+      await assertFails(
+        setDoc(doc(as(MOD), 'warnings', 'w2'), warning({ by: MOD, reportId: 'nope' })),
+      )
+    })
+
+    test('has to be about the person the report is about', async () => {
+      await seedReport()
+      await assertSucceeds(claimAs(MOD))
+      // OTHER is the reporter, not the subject.
+      await assertFails(warnFrom(MOD, { subjectId: OTHER }))
+      await assertSucceeds(warnFrom(MOD, { subjectId: USER }))
+    })
+
+    test('a report filed before subjects were recorded still takes a warning under its claim', async () => {
+      // eslint-disable-next-line no-unused-vars
+      const { subjectId, ...legacy } = report()
+      await seed((db) => setDoc(doc(db, 'reports', 'r1'), legacy))
+      await assertSucceeds(claimAs(MOD))
+      await assertSucceeds(warnFrom(MOD))
+    })
+
+    test('a warning from a profile names no report and is judged as before', async () => {
+      await seedReport()
+      await assertSucceeds(claimAs(MOD2))
+      await assertSucceeds(setDoc(doc(as(MOD), 'warnings', 'w1'), warning()))
+    })
+
+    test('the warning and the release of the claim commit together', async () => {
+      await seedReport()
+      await assertSucceeds(claimAs(MOD))
+      const db = as(MOD)
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'warnings', 'w1'), warning({ by: MOD, reportId: 'r1' }))
+      batch.update(doc(db, 'reports', 'r1'), { claim: deleteField() })
+      await assertSucceeds(batch.commit())
+      const after = await stored('reports', 'r1')
+      expect(after.claim).toBeUndefined()
+      expect(after.status).toBe('open')
+    })
+  })
+})
+
+describe('the decision commits with the action, or neither does', () => {
+  // A role row cannot name a report, so the rules cannot tie a suspension
+  // to a claim on that write. The app commits the decision in the same
+  // transaction instead; these pin the rules' half of that: the decision
+  // needs the claim, and a batch is all or nothing — so a suspension
+  // recorded against a report cannot land without holding its claim.
+  const seedReport = (over = {}) => seed((db) => setDoc(doc(db, 'reports', 'r1'), report(over)))
+  const claimAs = (by) =>
+    updateDoc(doc(as(by), 'reports', 'r1'), { claim: { by, at: serverTimestamp() } })
+  const decision = (by) => ({
+    status: 'actioned',
+    outcome: 'Account suspended',
+    reviewedBy: by,
+    reviewedAt: serverTimestamp(),
+  })
+  const suspendAndRecord = (by) => {
+    const db = as(by)
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'roles', USER), { role: 'user', suspended: true }, { merge: true })
+    batch.update(doc(db, 'reports', 'r1'), decision(by))
+    return batch.commit()
+  }
+  const roleOf = (uid) => stored('roles', uid)
+
+  test('under the moderator’s own claim, both land', async () => {
+    await seedReport()
+    await assertSucceeds(claimAs(MOD))
+    await assertSucceeds(suspendAndRecord(MOD))
+    expect(await roleOf(USER)).toMatchObject({ suspended: true })
+    expect(await stored('reports', 'r1')).toMatchObject({ status: 'actioned', reviewedBy: MOD })
+  })
+
+  test('without a claim, the suspension does not land either', async () => {
+    await seedReport()
+    await assertFails(suspendAndRecord(MOD))
+    expect(await roleOf(USER)).toBeUndefined()
+  })
+
+  test('under a colleague’s fresh claim, nothing lands', async () => {
+    await seedReport()
+    await assertSucceeds(claimAs(MOD2))
+    await assertFails(suspendAndRecord(MOD))
+    expect(await roleOf(USER)).toBeUndefined()
+    expect((await stored('reports', 'r1')).status).toBe('open')
+  })
+
+  test('on a report already closed, nothing lands — the first decision stands', async () => {
+    await seedReport({
+      status: 'dismissed',
+      reviewedBy: MOD2,
+      claim: { by: MOD, at: new Date() },
+    })
+    await assertFails(suspendAndRecord(MOD))
+    expect(await roleOf(USER)).toBeUndefined()
+  })
+
+  test('a suspension that names no report is judged by the role rules alone', async () => {
+    await seedReport()
+    await assertSucceeds(claimAs(MOD2))
+    await assertSucceeds(
+      setDoc(doc(as(MOD), 'roles', USER), { role: 'user', suspended: true }, { merge: true }),
+    )
+  })
+
+  test('a takedown and its decision commit together, and not at all under another’s claim', async () => {
+    await seedReport({ targetType: 'activity', targetId: 'act_user' })
+    await assertSucceeds(claimAs(MOD2))
+    const mod = as(MOD)
+    const refused = writeBatch(mod)
+    refused.update(doc(mod, 'activities', 'act_user'), {
+      status: 'removed',
+      moderation: { by: MOD, reason: 'spam', reportId: 'r1' },
+      updatedAt: 1,
+    })
+    refused.update(doc(mod, 'reports', 'r1'), decision(MOD))
+    await assertFails(refused.commit())
+    expect((await stored('activities', 'act_user')).status).toBe('active')
+
+    // Over after five minutes; the taker's batch lands whole.
+    await seed((db) =>
+      updateDoc(doc(db, 'reports', 'r1'), {
+        claim: { by: MOD2, at: new Date(Date.now() - 10 * 60_000) },
+      }),
+    )
+    await assertSucceeds(claimAs(MOD))
+    const allowed = writeBatch(mod)
+    allowed.update(doc(mod, 'activities', 'act_user'), {
+      status: 'removed',
+      moderation: { by: MOD, reason: 'spam', reportId: 'r1' },
+      updatedAt: 1,
+    })
+    allowed.update(doc(mod, 'reports', 'r1'), decision(MOD))
+    await assertSucceeds(allowed.commit())
+    expect((await stored('activities', 'act_user')).status).toBe('removed')
+    expect((await stored('reports', 'r1')).status).toBe('actioned')
   })
 })
 

@@ -9,6 +9,26 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 const updateDisplayName = vi.fn(() => Promise.resolve())
 vi.mock('../../src/firebase/users', () => ({ updateDisplayName }))
+// The page reads whether the app is offline, and has a toast for a save
+// that lands late; both are the app context's.
+let offline = false
+const pushCelebration = vi.fn()
+const keepUnsent = vi.fn(() => 'k1')
+const settleUnsent = vi.fn()
+const failUnsent = vi.fn()
+const discardUnsent = vi.fn()
+let unsent = []
+vi.mock('../../src/context/AppContext', () => ({
+  useApp: () => ({
+    offline,
+    pushCelebration,
+    unsent,
+    keepUnsent,
+    settleUnsent,
+    failUnsent,
+    discardUnsent,
+  }),
+}))
 vi.mock('../../src/context/AuthContext', () => ({
   useAuth: () => ({
     user: {
@@ -34,7 +54,10 @@ const page = () => (
 )
 
 beforeEach(() => {
-  updateDisplayName.mockClear()
+  offline = false
+  updateDisplayName.mockReset()
+  updateDisplayName.mockImplementation(() => Promise.resolve())
+  pushCelebration.mockClear()
 })
 afterEach(cleanup)
 
@@ -66,4 +89,35 @@ test('a refused save stays on the page and says so', async () => {
   fireEvent.click(screen.getByText('Save profile'))
   expect((await screen.findByRole('alert')).textContent).toMatch(/Could not save/)
   expect(screen.queryByText('profile')).toBeNull()
+})
+
+test('saved offline, the edit is kept with what the form was seeded with', async () => {
+  offline = true
+  updateDisplayName.mockReturnValue(new Promise(() => {}))
+  render(page())
+  fireEvent.change(screen.getByLabelText('Bio'), { target: { value: 'Runs on coffee' } })
+  fireEvent.click(screen.getByText('Save profile'))
+  await waitFor(() => expect(screen.getByText('profile')).toBeTruthy())
+  expect(keepUnsent).toHaveBeenCalledWith({
+    kind: 'profile',
+    key: 'me',
+    payload: {
+      name: 'Alice Anderson',
+      username: '@alice',
+      bio: 'Runs on coffee',
+      preferredTime: 'Evening',
+      interests: ['Football', 'Coffee', 'Study'],
+    },
+    // The judged fields as they were, so a reload can tell a refusal from
+    // an edit made on another device meanwhile.
+    before: {
+      username: '@alice',
+      bio: 'hi',
+      preferredTime: 'Evening',
+      interests: ['Football', 'Coffee', 'Study'],
+    },
+  })
+  expect(pushCelebration).toHaveBeenCalledWith(
+    expect.objectContaining({ title: 'Profile saved — will sync' }),
+  )
 })

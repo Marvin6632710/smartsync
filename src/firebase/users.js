@@ -1,12 +1,14 @@
 import {
   arrayUnion,
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
   limit,
   onSnapshot,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -14,11 +16,28 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 
-import { hostedActivityRefs, stampHostIdentity } from './activities'
+import { hostedActivitiesFromServer, hostedActivityRefs, stampHostIdentity } from './activities'
 import { db } from './config'
 
 const ANONYMOUS_NAME = 'Anonymous user'
 const ANONYMOUS_AVATAR = 'AN'
+
+/**
+ * The longest name the rules accept. Mirrored in firestore.rules
+ * (`isString(data.name, 60)`); a name past it was refused at profile
+ * creation, which left a brand-new account on "Can't load your profile"
+ * with a Try again that could never help.
+ */
+export const MAX_NAME_LENGTH = 60
+
+/** A name the rules will accept, or the fallback when there is none. */
+export function acceptableName(name, fallback = 'New user') {
+  return (
+    String(name || '')
+      .trim()
+      .slice(0, MAX_NAME_LENGTH) || fallback
+  )
+}
 
 export const defaultPrivacy = {
   anonymousMode: false,
@@ -55,14 +74,13 @@ function publicIdentity({ realName, anonymous }) {
 }
 
 /**
- * Creates both halves of a new user's profile in one atomic batch, so a
- * half-registered account can never exist.
+ * Both halves of a new user's profile, as the documents to write. Written
+ * together, always — see ensureUserProfile — so a half-registered account
+ * can never exist.
  */
-async function createUserProfile(uid, { name, email, username }) {
-  const batch = writeBatch(db)
-  const realName = String(name || '').trim() || 'New user'
-
-  batch.set(publicDoc(uid), {
+function newProfile(uid, { name, email, username }) {
+  const realName = acceptableName(name)
+  const publicData = {
     uid,
     ...publicIdentity({ realName, anonymous: false }),
     username: username || `@${(email || 'user').split('@')[0].slice(0, 20)}`,
@@ -80,33 +98,76 @@ async function createUserProfile(uid, { name, email, username }) {
     notificationsEnabled: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  })
-
-  batch.set(privateDoc(uid), {
+  }
+  const privateData = {
     email: email || '',
     realName,
     privacy: defaultPrivacy,
     location: null,
     onboarded: false,
     createdAt: serverTimestamp(),
-  })
-
-  await batch.commit()
+  }
+  return [
+    [publicDoc(uid), publicData],
+    [privateDoc(uid), privateData],
+  ]
 }
 
+/**
+ * Makes sure the profile documents exist. Returns whether this call made
+ * them.
+ *
+ * Two things create a profile at sign-up — the sign-up itself, with the
+ * name that was typed, and the auth observer, which covers accounts made
+ * outside the form — and they run at the same time. This used to be a
+ * read followed by a plain set: whichever wrote second overwrote the
+ * first, and the observer, which knew no name at that instant, could put
+ * "New user" over a profile that had just been created correctly. The
+ * create is now a transaction that writes only if the document is still
+ * missing at commit time, so two callers can both ask and only one can
+ * make it; the other is told it already exists, whatever the order.
+ *
+ * The plain read stays in front of the transaction: an existing profile
+ * is answered from the cache while offline, where a transaction — which
+ * needs the server — would fail and leave a returning person on an error
+ * screen for a profile they already have.
+ */
 export async function ensureUserProfile(uid, details) {
   const existing = await getDoc(publicDoc(uid))
-  if (!existing.exists()) await createUserProfile(uid, details)
+  if (existing.exists()) return false
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(publicDoc(uid))
+    if (snap.exists()) return false
+    for (const [ref, data] of newProfile(uid, details)) tx.set(ref, data)
+    return true
+  })
 }
 
+/**
+ * The three profile listeners report where each snapshot came from, as a
+ * second argument: `{ fromCache }`. These documents are tiny and are the
+ * first thing the app asks for, so the first one answered by the server is
+ * the earliest proof there is a server — which is how a slow first load of
+ * the activity feed is told apart from a connection that was never made
+ * (see `serverSeen` in AuthContext). Metadata changes are delivered so the
+ * cache-to-server transition is seen even when the data did not change.
+ */
+const meta = (snap) => ({ fromCache: snap.metadata?.fromCache === true })
+
 export function watchUserProfile(uid, callback, onError) {
-  return onSnapshot(publicDoc(uid), (snap) => callback(snap.exists() ? snap.data() : null), onError)
+  return onSnapshot(
+    publicDoc(uid),
+    { includeMetadataChanges: true },
+    (snap) => callback(snap.exists() ? snap.data() : null, meta(snap)),
+    onError,
+  )
 }
 
 export function watchPrivateProfile(uid, callback, onError) {
   return onSnapshot(
     privateDoc(uid),
-    (snap) => callback(snap.exists() ? snap.data() : null),
+    { includeMetadataChanges: true },
+    (snap) => callback(snap.exists() ? snap.data() : null, meta(snap)),
     onError,
   )
 }
@@ -248,8 +309,48 @@ async function writeIdentity(uid, identity, { publicPatch, privatePatch }) {
   const last = writeBatch(db)
   stampHostIdentity(last, refs.slice(overflow), identity)
   last.update(publicDoc(uid), { ...identity, ...publicPatch, updatedAt: serverTimestamp() })
-  last.set(privateDoc(uid), privatePatch, { merge: true })
+  // Offline, the list of activities came from the cache and may be short;
+  // the profile records that the sweep is unfinished, in the same batch, so
+  // the note lands exactly when the partial sweep does. A list from the
+  // server is complete, and clears any note a previous offline save left.
+  last.set(
+    privateDoc(uid),
+    { ...privatePatch, identitySweepPending: refs.partial ? true : deleteField() },
+    { merge: true },
+  )
   await last.commit()
+}
+
+/**
+ * Finishes an identity sweep that was started from the cache.
+ *
+ * Reads the host's activities from the server — this runs only once the
+ * connection is back — and stamps the ones whose copy of the name or avatar
+ * disagrees with the profile's, which is by construction the ones the
+ * offline sweep never saw. The pending note is cleared in the same batch as
+ * the last of them, so a failure part-way leaves the note in place and the
+ * next connection tries again. Returns how many were brought into line.
+ */
+export async function completeIdentitySweep(uid, { name, avatar }) {
+  const hosted = await hostedActivitiesFromServer(uid)
+  const stale = hosted
+    .filter((a) => a.hostName !== name || a.hostAvatar !== avatar)
+    .map((a) => a.ref)
+  const room = BATCH_LIMIT - 1
+  const overflow = Math.max(0, stale.length - room)
+  for (let start = 0; start < overflow; start += BATCH_LIMIT) {
+    const batch = writeBatch(db)
+    stampHostIdentity(batch, stale.slice(start, Math.min(start + BATCH_LIMIT, overflow)), {
+      name,
+      avatar,
+    })
+    await batch.commit()
+  }
+  const last = writeBatch(db)
+  stampHostIdentity(last, stale.slice(overflow), { name, avatar })
+  last.set(privateDoc(uid), { identitySweepPending: deleteField() }, { merge: true })
+  await last.commit()
+  return stale.length
 }
 
 /**

@@ -141,6 +141,56 @@ three. Details in README.md; the parts worth knowing here:
   tablet, fills the screen on phones, and handles landscape phones and short
   windows (which previously pushed the bottom nav off screen and made onboarding
   unfinishable). `100dvh` so mobile browser chrome doesn't hide the nav.
+- **Failure-scenario audit, 2026-09-14** — seventeen findings, all fixed
+  (ADR-015 records the design). The chat composer keeps a message the server
+  refuses; a refused thread listener says so and can be retried instead of
+  reading as an empty conversation; the warnings page and the moderation
+  reference lists no longer fail into "nothing here"; every awaited write is
+  bounded so offline saves say "will sync" instead of spinning; a stale route
+  chunk after a deploy reloads once; the activity pages wait for the feed
+  before declaring something missing; the create form asks for a cleared date
+  instead of blaming permissions; a report can be closed once; partial
+  stand-downs, search failures, location errors on the map and sign-out
+  failures are all said; sign-up keeps the name through a refused first write;
+  follower announcements made offline are held until the connection is back;
+  turning approximation on rounds the position already stored. Toasts now
+  render on the onboarding pages too. 84 tests added (82 unit/rendering, 2 rules)
+  (`tests/unit/writes.test.js`, `tests/app/chatPage`, `warningsPage`,
+  `activityPagesLoading`, `createActivityPage`, `moderationFailures`,
+  `signUp`, `lazyRoute`, `saveProfile`, `signOutFailure`, `onboardingToast`,
+  and additions to `appContext.listeners`, `activitiesData`, `mapRecentre`
+  and the rules suites).
+- **Follow-up, 2026-09-14** — the five items the audit's report left open:
+  reports are claimed before they are acted on (ADR-016; claim lease in the
+  rules, actions verify the claim inside their transaction, failed actions
+  release it, stale claims expire); content queued offline and refused later
+  is kept and offered back (unsent registry — chat, create, edit, profile,
+  report — surviving reloads and merged across tabs); moderation actions
+  refuse to start offline and are unblocked after 20 s with the real outcome
+  announced later; an identity sweep started from the cache is finished from
+  the server on reconnect; a slow feed on a live link is no longer called a
+  dead server (`serverSeen`); the stale-chunk reload was verified on the built
+  app, the sign-up retry on the emulator, and the sign-up name is capped at
+  what the rules accept. 15 rules tests and ~70 unit/rendering tests added.
+- **Follow-up 2, 2026-09-14** — the limitations that report left: a decision
+  is now committed in the same transaction as the action it records, so a
+  suspension or warning attributed to a report cannot land without its
+  claim (rules tie warnings that name a report to the claim too; "already
+  done" for one's own decision on a retry); sign-up profile creation is a
+  create-if-missing transaction with a shared bounded retry, and the
+  observer reads the typed name — verified by a new emulator-backed
+  integration suite (`npm run test:integration`, real Auth + Firestore,
+  forced refusals, concurrent writers, sign-out → sign-up ×3); the
+  slow-first-load banner was measured against a delaying proxy (4 s/answer:
+  no banner; 5.5 s: silence banner at 20.4 s, cleared at the first answer;
+  held: stays until released) and is now worded as silence rather than
+  "Offline"; edit rows carry what the form was seeded with, so a landed edit
+  overtaken from another device is *superseded* (offered as a choice), not a
+  false "couldn't be saved"; the unsent registry falls back localStorage →
+  sessionStorage → memory with a leave-page guard when memory is the only
+  copy. Rules and integration suites run on their own emulator ports
+  (`firebase.test.json`), so they no longer collide with a running dev
+  emulator.
 
 ---
 

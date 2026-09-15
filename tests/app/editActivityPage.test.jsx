@@ -14,8 +14,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 let activities = []
 const updateActivity = vi.fn()
+let unsent = []
+const discardUnsent = vi.fn()
 vi.mock('../../src/context/AppContext', () => ({
-  useApp: () => ({ activities, updateActivity }),
+  useApp: () => ({ activities, updateActivity, unsent, discardUnsent, loading: false }),
 }))
 vi.mock('../../src/context/AuthContext', () => ({ useAuth: () => ({ user: { uid: 'host' } }) }))
 // The map is not what is under test, and Leaflet does not run in jsdom.
@@ -145,6 +147,9 @@ describe('editing', () => {
     expect(updateActivity).toHaveBeenCalledWith(
       'a1',
       expect.objectContaining({ title: 'Renamed', date: '2026-10-01', time: '19:00' }),
+      // What the form was seeded with, for the unsent registry to judge a
+      // queued save by after a reload.
+      { before: expect.objectContaining({ id: 'a1', title: 'Saturday Football' }) },
     )
   })
 

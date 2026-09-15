@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react'
+import React, { Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import ClosedAccountScreen from './components/ClosedAccountScreen'
@@ -6,6 +6,7 @@ import BootScreen from './components/BootScreen'
 import ProfileErrorScreen from './components/ProfileErrorScreen'
 import Shell from './components/Shell'
 import { useAuth } from './context/AuthContext'
+import { lazyRoute } from './utils/lazyRoute'
 
 import SplashPage from './pages/SplashPage'
 import SignInPage from './pages/SignInPage'
@@ -37,9 +38,17 @@ import NotFoundPage from './pages/NotFoundPage'
 // The three map-bearing screens are loaded on demand. Leaflet plus its CSS is
 // a large dependency that most sessions never touch, and making everyone pay
 // for it on first paint is the wrong trade on a phone.
-const MapPage = lazy(() => import('./pages/MapPage'))
-const CreateActivityPage = lazy(() => import('./pages/CreateActivityPage'))
-const EditActivityPage = lazy(() => import('./pages/EditActivityPage'))
+//
+// Loaded through `lazyRoute`, because the first visit to one of these after
+// a deploy fails: the tab still holds the old index.html, the chunk it names
+// no longer exists, and React.lazy remembers the rejection for good — so
+// "Try again" on the error screen threw the same error without asking the
+// network. A stale tab reloads itself once, which is the one thing that
+// fixes it; a genuine failure (offline, or the reload did not help) still
+// reaches the boundary, which now offers the reload it needs.
+const MapPage = lazyRoute(() => import('./pages/MapPage'))
+const CreateActivityPage = lazyRoute(() => import('./pages/CreateActivityPage'))
+const EditActivityPage = lazyRoute(() => import('./pages/EditActivityPage'))
 
 /**
  * Routing is gated on identity in three stages rather than protecting each

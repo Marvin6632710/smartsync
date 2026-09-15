@@ -1,11 +1,15 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { categories, MIN_INTERESTS, timeBands } from '../data/categories'
+import UnsentDraft from '../components/UnsentDraft'
+import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { updateDisplayName } from '../firebase/users'
+import { awaitWrite, QUEUED } from '../utils/writes'
 
 export default function EditProfilePage() {
   const { user } = useAuth()
+  const { offline, pushCelebration, unsent, keepUnsent, settleUnsent, failUnsent } = useApp()
   const navigate = useNavigate()
   // Seeded from realName, not the public name: while anonymous mode is on the
   // public document says "Anonymous user", and loading that into the field
@@ -21,6 +25,14 @@ export default function EditProfilePage() {
   const [busy, setBusy] = useState(false)
 
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
+
+  // A profile saved offline that the server refused once the connection
+  // came back — offered back here rather than lost with the toast.
+  const draft = unsent.filter((row) => row.kind === 'profile' && row.status === 'failed').at(-1)
+  const restore = (payload) => {
+    setForm((current) => ({ ...current, ...payload }))
+    setError('')
+  }
 
   const toggle = (interest) =>
     setForm((current) => ({
@@ -48,19 +60,71 @@ export default function EditProfilePage() {
     }
     setError('')
     setBusy(true)
+    const describe = (saveError) =>
+      saveError?.code === 'permission-denied'
+        ? 'Could not save: the change was refused. Check the username and try again.'
+        : 'Could not save. Check your connection and try again.'
     try {
       // One batch: the name lives in both documents and has to move in both
       // at once, and the rest of the profile goes with it rather than in a
       // second write that could land without the first.
-      await updateDisplayName(user.uid, form.name.trim(), user.anonymous, {
+      //
+      // Offline, the batch is applied locally and queued; the profile screen
+      // already shows the new name, so this does not wait on "Saving…" for
+      // a server that is not there. A refusal that arrives later is shown
+      // as a toast wherever the person is by then.
+      const payload = {
+        name: form.name.trim(),
         username: form.username.trim(),
         bio: form.bio.trim(),
         preferredTime: form.preferredTime,
         interests: form.interests,
+      }
+      const write = updateDisplayName(user.uid, payload.name, user.anonymous, {
+        username: payload.username,
+        bio: payload.bio,
+        preferredTime: payload.preferredTime,
+        interests: payload.interests,
       })
+      const outcome = await awaitWrite(write, {
+        offline,
+        onLater: (saveError) =>
+          pushCelebration({
+            icon: 'alert',
+            tone: 'warning',
+            title: "Couldn't save your profile",
+            body: describe(saveError),
+          }),
+      })
+      if (outcome === QUEUED) {
+        // Kept until the server answers: a refusal later brings it back to
+        // this screen, a success removes it. `before` is the profile as this
+        // form was seeded, so that after a reload a refusal can be told from
+        // a change made on another device meanwhile.
+        const kept = keepUnsent({
+          kind: 'profile',
+          key: user.uid,
+          payload,
+          before: {
+            username: user.username,
+            bio: user.bio || '',
+            preferredTime: user.preferredTime || '',
+            interests: user.interests || [],
+          },
+        })
+        write.then(
+          () => settleUnsent(kept),
+          (saveError) => failUnsent(kept, saveError),
+        )
+        pushCelebration({
+          icon: 'check',
+          title: 'Profile saved — will sync',
+          body: 'This will finish when you are back online.',
+        })
+      }
       navigate('/profile')
-    } catch {
-      setError('Could not save. Please try again.')
+    } catch (saveError) {
+      setError(describe(saveError))
     } finally {
       setBusy(false)
     }
@@ -69,6 +133,7 @@ export default function EditProfilePage() {
   return (
     <div className="page-content">
       <h2>Edit profile</h2>
+      <UnsentDraft row={draft} what="Your last profile edit" onRestore={restore} />
       <form className="form-card" onSubmit={submit}>
         <label>
           Name

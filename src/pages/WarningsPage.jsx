@@ -18,6 +18,10 @@ export default function WarningsPage() {
   const { user } = useAuth()
   const [warnings, setWarnings] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  // Bumped by Try again: the listener is dead once it has reported an
+  // error, so trying again means making it again.
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!user?.uid) return undefined
@@ -25,11 +29,24 @@ export default function WarningsPage() {
       user.uid,
       (rows) => {
         setWarnings(rows)
+        setError(null)
         setLoading(false)
       },
-      () => setLoading(false),
+      // A read that failed used to fall through to "Nothing on your record",
+      // which on this page of all pages is the one thing it must not say
+      // unless it is true.
+      (watchError) => {
+        setError(watchError)
+        setLoading(false)
+      },
     )
-  }, [user?.uid])
+  }, [user?.uid, attempt])
+
+  const retry = () => {
+    setError(null)
+    setLoading(true)
+    setAttempt((current) => current + 1)
+  }
 
   return (
     <div className="page-content">
@@ -55,7 +72,18 @@ export default function WarningsPage() {
           </article>
         ))}
 
-        {!loading && warnings.length === 0 && (
+        {!loading && error && (
+          <div className="empty-state" role="alert">
+            <MessageSquareWarning size={28} />
+            <h3>Couldn&apos;t load your record</h3>
+            <p>Check your connection and try again.</p>
+            <button className="primary-button" onClick={retry}>
+              Try again
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && warnings.length === 0 && (
           <div className="empty-state">
             <MessageSquareWarning size={28} />
             <h3>Nothing on your record</h3>

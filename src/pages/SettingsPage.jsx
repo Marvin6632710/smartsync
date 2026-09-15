@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { setNotificationsEnabled } from '../firebase/users'
 import { useSaveProfile } from '../hooks/useSaveProfile'
@@ -19,9 +20,22 @@ import { useSaveProfile } from '../hooks/useSaveProfile'
 export default function SettingsPage() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
+  const { pushCelebration } = useApp()
   const [signOutOpen, setSignOutOpen] = useState(false)
   const { save, saving } = useSaveProfile()
   const privacy = user.privacy
+
+  // A sign-out that fails leaves the person signed in; that used to be an
+  // unhandled rejection and a screen that did not change.
+  const leave = () =>
+    signOut().catch(() =>
+      pushCelebration({
+        icon: 'alert',
+        tone: 'warning',
+        title: "Couldn't sign out",
+        body: 'Please try again.',
+      }),
+    )
 
   return (
     <div className="page-content">
@@ -126,7 +140,7 @@ export default function SettingsPage() {
         tone="danger"
         onConfirm={() => {
           setSignOutOpen(false)
-          signOut()
+          leave()
         }}
         onCancel={() => setSignOutOpen(false)}
       />

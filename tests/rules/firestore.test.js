@@ -18,9 +18,11 @@ import {
   arrayUnion,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
+  serverTimestamp,
   setDoc,
   updateDoc,
   writeBatch,
@@ -1335,25 +1337,190 @@ describe('moderation powers', () => {
     await assertFails(getDoc(doc(asCarol(), 'reports', 'r1')))
   })
 
-  test('a moderator can record a decision', async () => {
-    await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), 'reports', 'r1'), {
-        reporterId: BOB,
-        targetType: 'user',
-        targetId: ALICE,
-        reason: 'harassment',
-        detail: 'x',
-        status: 'open',
-      })
+  const openReport = (overrides = {}) => ({
+    reporterId: BOB,
+    targetType: 'user',
+    targetId: ALICE,
+    subjectId: ALICE,
+    reason: 'harassment',
+    detail: 'x',
+    status: 'open',
+    ...overrides,
+  })
+  const seedReport = (overrides = {}) =>
+    testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'reports', 'r1'), openReport(overrides))
+      await setDoc(doc(context.firestore(), 'roles', ADMIN), { role: 'admin', suspended: false })
     })
-    await assertSucceeds(
-      updateDoc(doc(asMod(), 'reports', 'r1'), {
-        status: 'actioned',
-        reviewedBy: MOD,
-        reviewedAt: 1,
-        outcome: 'Account suspended',
-      }),
-    )
+  const claimAs = (dbFor, by) =>
+    updateDoc(doc(dbFor(), 'reports', 'r1'), { claim: { by, at: serverTimestamp() } })
+  const releaseAs = (dbFor) => updateDoc(doc(dbFor(), 'reports', 'r1'), { claim: deleteField() })
+  const decision = (by, status = 'actioned', outcome = 'Account suspended') => ({
+    status,
+    reviewedBy: by,
+    reviewedAt: 1,
+    outcome,
+  })
+  const decideAs = (dbFor, by, status, outcome) =>
+    updateDoc(doc(dbFor(), 'reports', 'r1'), decision(by, status, outcome))
+  const staleClaim = (by) => ({ by, at: new Date(Date.now() - 10 * 60_000) })
+
+  test('a moderator can record a decision — on a report they have claimed', async () => {
+    await seedReport()
+    await assertSucceeds(claimAs(asMod, MOD))
+    await assertSucceeds(decideAs(asMod, MOD))
+  })
+
+  test('a decision without a claim is refused, even from the right rank', async () => {
+    await seedReport()
+    await assertFails(decideAs(asMod, MOD))
+    await assertFails(decideAs(asAdmin, ADMIN))
+  })
+
+  test('a report is closed once — a second decision is refused, whoever makes it', async () => {
+    // Two moderators ruling within seconds of each other both used to
+    // succeed, and the record kept only whichever landed second. The first
+    // decision stands; the app tells the second moderator so.
+    await seedReport()
+    await assertSucceeds(claimAs(asMod, MOD))
+    await assertSucceeds(decideAs(asMod, MOD))
+    // The same moderator again, and an admin: neither may reopen or overwrite.
+    await assertFails(decideAs(asMod, MOD, 'dismissed', 'No action needed'))
+    await assertFails(claimAs(asAdmin, ADMIN))
+    await assertFails(decideAs(asAdmin, ADMIN, 'dismissed', 'No action needed'))
+    await assertFails(decideAs(asAdmin, ADMIN, 'open', ''))
+  })
+
+  describe('claiming a report', () => {
+    test('two moderators claiming at once: exactly one wins', async () => {
+      await seedReport()
+      const results = await Promise.allSettled([claimAs(asMod, MOD), claimAs(asAdmin, ADMIN)])
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+      expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1)
+    })
+
+    test('another moderator cannot claim, decide, or release while a fresh claim stands', async () => {
+      await seedReport()
+      await assertSucceeds(claimAs(asMod, MOD))
+      await assertFails(claimAs(asAdmin, ADMIN))
+      await assertFails(decideAs(asAdmin, ADMIN))
+      await assertFails(releaseAs(asAdmin))
+      // The holder may renew their own claim, and decide.
+      await assertSucceeds(claimAs(asMod, MOD))
+      await assertSucceeds(decideAs(asMod, MOD))
+    })
+
+    test('a claim that failed to finish is released, and the next person gets in', async () => {
+      await seedReport()
+      await assertSucceeds(claimAs(asMod, MOD))
+      await assertSucceeds(releaseAs(asMod))
+      await assertSucceeds(claimAs(asAdmin, ADMIN))
+      await assertSucceeds(decideAs(asAdmin, ADMIN))
+    })
+
+    test('a stale claim can be taken over, and its holder can no longer decide', async () => {
+      await seedReport({ claim: staleClaim(MOD) })
+      await assertSucceeds(claimAs(asAdmin, ADMIN))
+      await assertFails(decideAs(asMod, MOD))
+      await assertSucceeds(decideAs(asAdmin, ADMIN))
+    })
+
+    test('a claim must be the caller’s own, stamped by the server, and nothing more', async () => {
+      await seedReport()
+      await assertFails(
+        updateDoc(doc(asMod(), 'reports', 'r1'), { claim: { by: ADMIN, at: serverTimestamp() } }),
+      )
+      await assertFails(
+        updateDoc(doc(asMod(), 'reports', 'r1'), { claim: { by: MOD, at: new Date() } }),
+      )
+      await assertFails(
+        updateDoc(doc(asMod(), 'reports', 'r1'), {
+          claim: { by: MOD, at: serverTimestamp(), note: 'mine' },
+        }),
+      )
+    })
+
+    test('nobody claims a report that is already closed', async () => {
+      await seedReport({ status: 'dismissed', reviewedBy: ADMIN, outcome: 'x' })
+      await assertFails(claimAs(asMod, MOD))
+    })
+
+    test('the reporter, the subject and a plain user cannot claim', async () => {
+      await seedReport({ reporterId: MOD })
+      await assertFails(claimAs(asMod, MOD))
+      await seedReport({ targetId: MOD, subjectId: MOD })
+      await assertFails(claimAs(asMod, MOD))
+      await seedReport()
+      await assertFails(claimAs(asBob, BOB))
+      await assertFails(claimAs(asAlice, ALICE))
+    })
+
+    test('a suspended moderator cannot claim', async () => {
+      await seedReport()
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), 'roles', MOD), { role: 'moderator', suspended: true })
+      })
+      await assertFails(claimAs(asMod, MOD))
+    })
+
+    test('a report cannot be filed already claimed', async () => {
+      await assertFails(
+        addDoc(collection(asBob(), 'reports'), {
+          ...openReport(),
+          claim: { by: BOB, at: serverTimestamp() },
+        }),
+      )
+    })
+  })
+
+  describe('a takedown that names its report', () => {
+    const takeDown = (dbFor, by, extra = {}) =>
+      updateDoc(doc(dbFor(), 'activities', 'act1'), {
+        status: 'removed',
+        moderation: { by, reason: 'spam', reportId: 'r1', ...extra },
+        updatedAt: 1,
+      })
+
+    test('lands only while the claim is held and the report is open', async () => {
+      await seedReport({ targetType: 'activity', targetId: 'act1', subjectId: ALICE })
+      await assertFails(takeDown(asMod, MOD))
+      await assertSucceeds(claimAs(asMod, MOD))
+      await assertSucceeds(takeDown(asMod, MOD))
+    })
+
+    test('is refused under somebody else’s claim, and after the report is closed', async () => {
+      await seedReport({ targetType: 'activity', targetId: 'act1', subjectId: ALICE })
+      await assertSucceeds(claimAs(asAdmin, ADMIN))
+      await assertFails(takeDown(asMod, MOD))
+      await assertSucceeds(decideAs(asAdmin, ADMIN))
+      await assertFails(takeDown(asAdmin, ADMIN))
+    })
+
+    test('a takedown that names no report is judged as before', async () => {
+      await assertSucceeds(
+        updateDoc(doc(asMod(), 'activities', 'act1'), {
+          status: 'removed',
+          moderation: { by: MOD, reason: 'spam' },
+          updatedAt: 1,
+        }),
+      )
+    })
+
+    test('a takedown naming a report that does not exist is refused', async () => {
+      await assertFails(
+        updateDoc(doc(asMod(), 'activities', 'act1'), {
+          status: 'removed',
+          moderation: { by: MOD, reason: 'spam', reportId: 'nope' },
+          updatedAt: 1,
+        }),
+      )
+    })
+
+    test('the moderation record carries nothing but who, why and which report', async () => {
+      await seedReport({ targetType: 'activity', targetId: 'act1', subjectId: ALICE })
+      await assertSucceeds(claimAs(asMod, MOD))
+      await assertFails(takeDown(asMod, MOD, { extra: 'field' }))
+    })
   })
 
   test('a moderator cannot rewrite what was reported', async () => {
@@ -1500,13 +1667,18 @@ describe('reviewing a report about yourself', () => {
       })
     })
 
-  const decide = (db, outcome) =>
-    updateDoc(doc(db, 'reports', 'r1'), {
+  // Claim, then decide: the decision needs the claim, and the claim is
+  // refused for the same conflicts of interest, so "cannot decide" holds at
+  // the first write and "can decide" needs both.
+  const decide = async (db, outcome, by = MOD) => {
+    await updateDoc(doc(db, 'reports', 'r1'), { claim: { by, at: serverTimestamp() } })
+    await updateDoc(doc(db, 'reports', 'r1'), {
       status: outcome,
       outcome: 'No action needed',
-      reviewedBy: MOD,
+      reviewedBy: by,
       reviewedAt: 1,
     })
+  }
 
   test('a moderator cannot dismiss a report about themselves', async () => {
     await fileReport({})
@@ -1528,14 +1700,7 @@ describe('reviewing a report about yourself', () => {
 
   test('but somebody else can decide it', async () => {
     await fileReport({})
-    await assertSucceeds(
-      updateDoc(doc(asAdmin(), 'reports', 'r1'), {
-        status: 'dismissed',
-        outcome: 'No action needed',
-        reviewedBy: ADMIN,
-        reviewedAt: 1,
-      }),
-    )
+    await assertSucceeds(decide(asAdmin(), 'dismissed', ADMIN))
   })
 
   test('and a report about somebody else is still theirs to decide', async () => {

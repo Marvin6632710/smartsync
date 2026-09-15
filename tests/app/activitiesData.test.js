@@ -4,31 +4,84 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const updateDoc = vi.fn(() => Promise.resolve())
+const setDoc = vi.fn(() => Promise.resolve())
 const onSnapshot = vi.fn(() => () => {})
+let minted = 0
 vi.mock('firebase/firestore', () => ({
-  addDoc: vi.fn(),
   arrayRemove: vi.fn(),
   arrayUnion: vi.fn(),
   collection: vi.fn(),
   deleteDoc: vi.fn(),
-  doc: (_db, ...path) => ({ path: path.join('/') }),
+  // A path when given one; a freshly minted id when asked for a new document
+  // in a collection, the way `doc(collectionRef)` mints one.
+  doc: (_db, ...path) => (path.length ? { path: path.join('/') } : { id: `minted-${++minted}` }),
   getDocs: vi.fn(),
   limit: vi.fn(),
   onSnapshot,
   orderBy: vi.fn(),
   query: vi.fn(),
   serverTimestamp: () => 'server-time',
+  setDoc,
   Timestamp: { fromDate: (d) => ({ ms: d.getTime() }), fromMillis: (ms) => ({ ms }) },
   updateDoc,
   where: vi.fn(),
 }))
 vi.mock('../../src/firebase/config', () => ({ db: {} }))
 
-const { deriveTimeBand, updateActivity, watchActivities, watchMyActivities } =
+const { createActivity, deriveTimeBand, updateActivity, watchActivities, watchMyActivities } =
   await import('../../src/firebase/activities')
 
 beforeEach(() => {
   updateDoc.mockClear()
+  setDoc.mockReset()
+  setDoc.mockImplementation(() => Promise.resolve())
+})
+
+describe('createActivity', () => {
+  const host = { uid: 'h', name: 'Host', avatar: 'HO' }
+  const draft = {
+    title: 'Run',
+    description: 'x',
+    category: 'Running',
+    locationName: 'Park',
+    lat: 13.7,
+    lng: 100.5,
+    date: '2030-01-01',
+    time: '07:00',
+    capacity: 6,
+  }
+
+  test('the id is known before the server answers, and is what the promise resolves with', async () => {
+    let ack
+    setDoc.mockImplementation(() => new Promise((resolve) => (ack = resolve)))
+    const pending = createActivity(host, draft)
+    // Minted locally: available while the write is still in flight.
+    expect(pending.id).toMatch(/^minted-/)
+    let resolved = null
+    pending.then((id) => (resolved = id))
+    await Promise.resolve()
+    expect(resolved).toBeNull()
+    ack()
+    expect(await pending).toBe(pending.id)
+  })
+
+  test('it is a create of the whole document, host first on the roster', async () => {
+    await createActivity(host, draft)
+    const [, payload] = setDoc.mock.calls[0]
+    expect(payload).toMatchObject({
+      hostId: 'h',
+      participantUids: ['h'],
+      status: 'active',
+      timeBand: 'Morning',
+      capacity: 6,
+    })
+    expect(payload.startsAt).toEqual({ ms: new Date('2030-01-01T07:00').getTime() })
+  })
+
+  test('a refusal rejects the promise the caller holds', async () => {
+    setDoc.mockImplementation(() => Promise.reject({ code: 'permission-denied' }))
+    await expect(createActivity(host, draft)).rejects.toEqual({ code: 'permission-denied' })
+  })
 })
 
 describe('deriveTimeBand', () => {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
+import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 
 /**
@@ -13,6 +14,7 @@ import { useAuth } from '../context/AuthContext'
  */
 export default function SignOutLink({ label = 'Not you? Sign out' }) {
   const { signOut } = useAuth()
+  const { pushCelebration } = useApp()
   const [asking, setAsking] = useState(false)
 
   return (
@@ -29,7 +31,14 @@ export default function SignOutLink({ label = 'Not you? Sign out' }) {
         tone="danger"
         onConfirm={() => {
           setAsking(false)
-          signOut()
+          signOut().catch(() =>
+            pushCelebration({
+              icon: 'alert',
+              tone: 'warning',
+              title: "Couldn't sign out",
+              body: 'Please try again.',
+            }),
+          )
         }}
         onCancel={() => setAsking(false)}
       />

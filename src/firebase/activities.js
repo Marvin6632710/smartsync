@@ -1,16 +1,17 @@
 import {
-  addDoc,
   arrayRemove,
   arrayUnion,
   collection,
   deleteDoc,
   doc,
   getDocs,
+  getDocsFromServer,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
   where,
@@ -144,9 +145,22 @@ export function watchMyActivities(uid, callback, onError) {
   )
 }
 
-export async function createActivity(user, data) {
+/**
+ * Creates an activity and resolves with its id once the server has it.
+ *
+ * The id is also available *before* that, as `.id` on the returned promise.
+ * The id is minted locally, so nothing about it depends on the server — and
+ * a screen that is offline needs it now: the activity is already in the
+ * local cache and on the feed, and "Creating…" until the connection came
+ * back was the only thing standing between the host and their own page.
+ * `addDoc` mints the same way but keeps the reference to itself until the
+ * acknowledgement; a `doc()` followed by `setDoc` is the same create with
+ * the id in hand.
+ */
+export function createActivity(user, data) {
   const time = data.time || '18:00'
-  const created = await addDoc(activitiesRef, {
+  const ref = doc(activitiesRef)
+  const written = setDoc(ref, {
     title: String(data.title || '').trim(),
     description: String(data.description || '').trim(),
     category: data.category,
@@ -168,7 +182,9 @@ export async function createActivity(user, data) {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
-  return created.id
+  const pending = written.then(() => ref.id)
+  pending.id = ref.id
+  return pending
 }
 
 export function updateActivity(activityId, updates) {
@@ -226,10 +242,36 @@ export function leaveActivity(activityId, uid) {
  * of the name change together or not at all.
  */
 
-/** Every activity this person hosts, as references, for a batch to stamp. */
+/**
+ * Every activity this person hosts, as references, for a batch to stamp.
+ *
+ * `partial` says whether the list is the server's or the cache's. Offline,
+ * Firestore answers a query from whatever it holds — which, measured, can
+ * be a subset of the host's activities — without saying so unless asked.
+ * A sweep built on that list stamps only what was cached, so the caller
+ * records that the sweep is unfinished and completes it from the server
+ * later (see `completeIdentitySweep` in users.js).
+ */
 export async function hostedActivityRefs(uid) {
   const mine = await getDocs(query(activitiesRef, where('hostId', '==', uid)))
-  return mine.docs.map((entry) => entry.ref)
+  const refs = mine.docs.map((entry) => entry.ref)
+  refs.partial = mine.metadata?.fromCache === true
+  return refs
+}
+
+/**
+ * The host's activities as the server holds them, with their current copy
+ * of the host's name and avatar — for finishing a sweep the cache could
+ * only start. Rejects offline, which is the point: this is asked only once
+ * the connection is known to be back.
+ */
+export async function hostedActivitiesFromServer(uid) {
+  const mine = await getDocsFromServer(query(activitiesRef, where('hostId', '==', uid)))
+  return mine.docs.map((entry) => ({
+    ref: entry.ref,
+    hostName: entry.data().hostName,
+    hostAvatar: entry.data().hostAvatar,
+  }))
 }
 
 /**

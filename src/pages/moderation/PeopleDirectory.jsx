@@ -21,6 +21,7 @@ export default function PeopleDirectory({
   setRecorded,
   setRecordedReason,
   searching = false,
+  searchFailed = false,
   windowFull = false,
 }) {
   return (
@@ -56,6 +57,11 @@ export default function PeopleDirectory({
       {searching && (
         <p className="helper-text" role="status">
           Searching everyone…
+        </p>
+      )}
+      {searchFailed && (
+        <p className="form-error" role="alert">
+          The server could not be searched just now — only the accounts already loaded are shown.
         </p>
       )}
 

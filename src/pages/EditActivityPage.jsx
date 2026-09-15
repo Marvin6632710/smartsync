@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import BootScreen from '../components/BootScreen'
 import LocationPicker from '../components/LocationPicker'
+import UnsentDraft from '../components/UnsentDraft'
 import { categories } from '../data/categories'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -10,9 +12,13 @@ import { withinThailand } from '../data/region'
 
 export default function EditActivityPage() {
   const { id } = useParams()
-  const { activities } = useApp()
+  const { activities, loading, syncing } = useApp()
   const { user } = useAuth()
   const existing = useMemo(() => activities.find((item) => item.id === id), [activities, id])
+
+  // A reload of this URL lands before the listener has delivered anything;
+  // that is loading, not missing.
+  if (!existing && (loading || syncing)) return <BootScreen label="Loading…" />
 
   if (!existing)
     return (
@@ -69,10 +75,20 @@ export default function EditActivityPage() {
 function EditActivityForm({ existing }) {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { updateActivity } = useApp()
+  const { updateActivity, unsent } = useApp()
   const [form, setForm] = useState(existing)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // An edit saved offline that the server refused later. The screen had
+  // moved on; the typing is offered back here.
+  const draft = unsent
+    .filter((row) => row.kind === 'activity-edit' && row.key === id && row.status === 'failed')
+    .at(-1)
+  const restore = (payload) => {
+    setForm((current) => ({ ...current, ...payload }))
+    setError('')
+  }
 
   const minCapacity = Math.max(2, existing.participants)
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
@@ -112,18 +128,24 @@ function EditActivityForm({ existing }) {
     }
     setError('')
     setBusy(true)
-    const saved = await updateActivity(id, {
-      title: form.title.trim(),
-      description: form.description.trim(),
-      category: form.category,
-      locationName: form.locationName.trim(),
-      lat: Number(form.lat),
-      lng: Number(form.lng),
-      date: form.date,
-      time: form.time,
-      capacity: form.capacity,
-      tags: [form.category, deriveTimeBand(form.time)].filter(Boolean),
-    })
+    const saved = await updateActivity(
+      id,
+      {
+        title: form.title.trim(),
+        description: form.description.trim(),
+        category: form.category,
+        locationName: form.locationName.trim(),
+        lat: Number(form.lat),
+        lng: Number(form.lng),
+        date: form.date,
+        time: form.time,
+        capacity: form.capacity,
+        tags: [form.category, deriveTimeBand(form.time)].filter(Boolean),
+      },
+      // What the form was seeded with, so a save queued offline can later
+      // be told apart from an edit somebody else made meanwhile.
+      { before: existing },
+    )
     setBusy(false)
     // Stay put if it did not save. The toast has already said why, and the
     // typing is still on screen to try again with.
@@ -133,6 +155,7 @@ function EditActivityForm({ existing }) {
   return (
     <div className="page-content">
       <h2>Edit activity</h2>
+      <UnsentDraft row={draft} what="Your last edit" onRestore={restore} />
       <form className="form-card" onSubmit={submit}>
         <label>
           Activity name

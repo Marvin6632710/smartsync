@@ -1,16 +1,19 @@
 import React, { useState } from 'react'
 import { Flag } from 'lucide-react'
 import { useParams } from 'react-router-dom'
+import BootScreen from '../components/BootScreen'
 import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 
 export default function ParticipantsPage() {
   const { id } = useParams()
-  const { activities, peers } = useApp()
+  const { activities, peers, loading, syncing } = useApp()
   const { user } = useAuth()
   const [reporting, setReporting] = useState(null)
   const activity = activities.find((item) => item.id === id)
+
+  if (!activity && (loading || syncing)) return <BootScreen label="Loading…" />
 
   if (!activity)
     return (

@@ -1,6 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-import { observeAuth, refreshCredential, signIn, signOutUser, signUp } from '../firebase/auth'
+import {
+  observeAuth,
+  pendingSignUpName,
+  refreshCredential,
+  retryRefused,
+  signIn,
+  signOutUser,
+  signUp,
+} from '../firebase/auth'
 import { watchRole } from '../firebase/moderation'
 import { useListenerRetry } from '../hooks/useListenerRetry'
 import {
@@ -13,7 +21,7 @@ import {
 const AuthContext = createContext(null)
 
 /**
- * Makes sure the profile documents exist, tolerating one stale credential.
+ * Makes sure the profile documents exist, tolerating a stale credential.
  *
  * The first read after signing up — or after signing out and straight back
  * in on the same page — can go out on a stream that is still carrying the
@@ -21,18 +29,22 @@ const AuthContext = createContext(null)
  * same race the listeners recover from with a fresh token; this one-shot
  * read had no such recovery, so a person who created an account was shown
  * "Can't load your profile" within half a second while their profile was,
- * in fact, being created. One refusal buys one refresh and one more try;
- * a second refusal is real and is surfaced.
+ * in fact, being created. A refusal buys a fresh credential and another
+ * try, a bounded number of times (see retryRefused); a refusal that
+ * outlasts that is real and is surfaced.
+ *
+ * The name comes from the sign-up in progress when there is one — the Auth
+ * record has no display name yet at the instant this runs — and is read
+ * afresh on every try, so a later attempt sees a record the sign-up has
+ * named meanwhile.
  */
-async function ensureProfileWithRetry(firebaseUser) {
-  const details = { name: firebaseUser.displayName, email: firebaseUser.email }
-  try {
-    await ensureUserProfile(firebaseUser.uid, details)
-  } catch (error) {
-    if (error?.code !== 'permission-denied') throw error
-    await refreshCredential()
-    await ensureUserProfile(firebaseUser.uid, details)
-  }
+function ensureProfileWithRetry(firebaseUser) {
+  return retryRefused(() =>
+    ensureUserProfile(firebaseUser.uid, {
+      name: pendingSignUpName(firebaseUser.email) ?? firebaseUser.displayName,
+      email: firebaseUser.email,
+    }),
+  )
 }
 
 /**
@@ -61,6 +73,12 @@ export function AuthProvider({ children }) {
   // own. A missing row means an ordinary user, so nothing is written at
   // sign-up and the listener answers immediately either way.
   const [access, setAccess] = useState({ role: 'user', suspended: false, banned: false })
+  // Has any of the three profile listeners been answered by the server this
+  // session? These documents are tiny and are asked for first, so this is
+  // the earliest proof there is a server at all — which is what tells a
+  // slow first load of the activity feed apart from a connection that was
+  // never made. Reset with the session, like everything else here.
+  const [serverSeen, setServerSeen] = useState(false)
   const { attempt: profileAttempt, guard, resetAttempts } = useListenerRetry(authUser?.uid || null)
 
   useEffect(() => {
@@ -74,6 +92,7 @@ export function AuthProvider({ children }) {
       // page is reloaded. Found by switching accounts in the running app.
       setProfileError(null)
       resetAttempts()
+      setServerSeen(false)
       if (!firebaseUser) {
         setPublicProfile(null)
         setPrivateProfile(null)
@@ -110,30 +129,42 @@ export function AuthProvider({ children }) {
     const report = guard((error) => {
       if (live) setProfileError(error)
     })
+    // Where the snapshot came from. A server answer is proof of a server;
+    // the first one this session is remembered. The listeners now report
+    // metadata changes as well, so the cache-to-server transition arrives
+    // even when the document itself did not change — and a snapshot that
+    // changed nothing but its origin must not re-render the whole app.
+    const seen = (meta) => {
+      if (meta && meta.fromCache === false) setServerSeen(true)
+    }
+    const unchanged = (previous, next) => JSON.stringify(previous) === JSON.stringify(next)
     const stopPublic = watchUserProfile(
       authUser.uid,
-      (profile) => {
+      (profile, meta) => {
         if (!live) return
-        setPublicProfile(profile)
-        setLoaded((current) => ({ ...current, pub: true }))
+        seen(meta)
+        setPublicProfile((previous) => (unchanged(previous, profile) ? previous : profile))
+        setLoaded((current) => (current.pub ? current : { ...current, pub: true }))
       },
       report,
     )
     const stopPrivate = watchPrivateProfile(
       authUser.uid,
-      (profile) => {
+      (profile, meta) => {
         if (!live) return
-        setPrivateProfile(profile)
-        setLoaded((current) => ({ ...current, priv: true }))
+        seen(meta)
+        setPrivateProfile((previous) => (unchanged(previous, profile) ? previous : profile))
+        setLoaded((current) => (current.priv ? current : { ...current, priv: true }))
       },
       report,
     )
     const stopRole = watchRole(
       authUser.uid,
-      (next) => {
+      (next, meta) => {
         if (!live) return
-        setAccess(next)
-        setLoaded((current) => ({ ...current, role: true }))
+        seen(meta)
+        setAccess((previous) => (unchanged(previous, next) ? previous : next))
+        setLoaded((current) => (current.role ? current : { ...current, role: true }))
       },
       report,
     )
@@ -182,6 +213,10 @@ export function AuthProvider({ children }) {
       },
       location: privateProfile?.location || null,
       onboarded: privateProfile?.onboarded ?? false,
+      // A rename or anonymous-mode switch saved offline stamped only the
+      // activities the cache held; the rest are brought into line by the
+      // app once the connection is back (see AppContext).
+      identitySweepPending: privateProfile?.identitySweepPending === true,
       role: access.role,
       suspended: access.suspended,
       // A closed account. Every rank and every action is off, and the app
@@ -212,12 +247,13 @@ export function AuthProvider({ children }) {
       // sends people to the wrong place.
       profileReady: Boolean(user) && loaded.pub && loaded.priv && loaded.role,
       profileError,
+      serverSeen,
       retryProfile,
       signUp,
       signIn,
       signOut: signOutUser,
     }),
-    [status, authUser, user, loaded, profileError, retryProfile],
+    [status, authUser, user, loaded, profileError, serverSeen, retryProfile],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

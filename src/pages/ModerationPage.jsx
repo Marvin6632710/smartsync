@@ -19,10 +19,13 @@ import RemovedActivities from './moderation/RemovedActivities'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import {
+  claimReport,
+  claimedByOther,
   closeAccount,
   issueWarning,
   REPORT_PAGE,
   liftSuspension,
+  releaseReport,
   removeActivity,
   resolveReport,
   restoreActivity,
@@ -35,10 +38,32 @@ import {
 } from '../firebase/moderation'
 import { REPORT_REASONS } from '../firebase/moderation'
 import { PEER_LIMIT } from '../firebase/users'
+import { useModerationAction } from '../hooks/useModerationAction'
 import { usePeopleSearch } from '../hooks/usePeopleSearch'
 import { formatRelativeTime } from '../utils/time'
 
 const reasonLabel = (key) => REPORT_REASONS.find((r) => r.key === key)?.label || key
+
+/**
+ * What a stand-down actually did, when it did not do all of it.
+ *
+ * `suspendAccount` and `closeAccount` report how many hosted activities came
+ * down and how many could not be; the screen used to read only the first
+ * number, so "2 stood down, and everyone who joined has been told" could be
+ * shown while a third was still live.
+ */
+const standDownSummary = (stoodDown, failed) =>
+  `${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} stood down, but ${failed} could not be — open their profile and suspend again to retry.`
+
+const warn = (title, body) => ({ icon: 'alert', tone: 'warning', title, body })
+const ok = (title, body) => ({ icon: 'check', tone: 'success', title, body })
+
+/** The plain-rank refusal, in the words each screen used. */
+const refused = (error, whenDenied) =>
+  warn(
+    "Couldn't do that",
+    error?.code === 'permission-denied' ? whenDenied : 'Try again — repeating it is safe.',
+  )
 
 /**
  * The queue a moderator works from.
@@ -53,6 +78,7 @@ const reasonLabel = (key) => REPORT_REASONS.find((r) => r.key === key)?.label ||
 export default function ModerationPage() {
   const { user } = useAuth()
   const { pushCelebration, directory, activities, allActivities, removedActivities } = useApp()
+  const { perform } = useModerationAction()
   const navigate = useNavigate()
   // undefined on /moderation, otherwise the section being looked at.
   const { section } = useParams()
@@ -90,22 +116,55 @@ export default function ModerationPage() {
   // the counts.
   const onPeople = section === 'people'
   const onModerators = section === 'moderators'
-  const { found: watchFound, searching: watchSearching } = usePeopleSearch(
-    watchSearch,
-    user.isModerator && onPeople,
-  )
+  const {
+    found: watchFound,
+    searching: watchSearching,
+    failed: watchFailed,
+  } = usePeopleSearch(watchSearch, user.isModerator && onPeople)
   const { found: appointFound } = usePeopleSearch(personSearch, user.isAdmin && onModerators)
   const windowFull = directory.size >= PEER_LIMIT
 
+  // Ranks and warnings are what every row here is judged against. A
+  // listener that failed used to reset its list to nothing, so suspended
+  // accounts vanished, every warning count read zero and every rank read
+  // "user" — all silently. Whatever was last known stays on screen, and
+  // the screen says it may be out of date.
+  const [referenceError, setReferenceError] = useState(null)
   useEffect(() => {
     if (!user.isModerator) return undefined
-    return watchRoles(setRoles, () => setRoles([]))
+    return watchRoles(
+      (rows) => {
+        setRoles(rows)
+        setReferenceError(null)
+      },
+      (watchError) => setReferenceError(watchError),
+    )
   }, [user.isModerator])
 
   useEffect(() => {
     if (!user.isModerator) return undefined
-    return watchWarnings(setWarnings, () => setWarnings([]))
+    return watchWarnings(
+      (rows) => {
+        setWarnings(rows)
+        setReferenceError(null)
+      },
+      (watchError) => setReferenceError(watchError),
+    )
   }, [user.isModerator])
+
+  // The queue as last delivered, readable from inside a handler that was
+  // started before the latest snapshot: whether a report is still open when
+  // its resolution is refused is what tells "no permission" from "somebody
+  // else already closed it".
+  const reportsRef = React.useRef(reports)
+  useEffect(() => {
+    reportsRef.current = reports
+  }, [reports])
+  // The report an action is running against. Its buttons wait: a second
+  // confirmation while the first was still in flight used to run the same
+  // action twice and, with the rules now closing a report once, announce a
+  // failure for the repeat.
+  const [actingOn, setActingOn] = useState(null)
 
   useEffect(() => {
     if (!user.isModerator) return undefined
@@ -301,6 +360,96 @@ export default function ModerationPage() {
   // you both parties, and the rules refuse that write too.
   const queue = reports.filter((report) => !aboutMe(report) && report.reporterId !== user.uid)
 
+  /**
+   * What a failure to work a report means, in words.
+   *
+   * A colleague's fresh claim is "being handled"; a closed report, a claim
+   * that was lost, or a refusal on a report that has since left the queue
+   * is "already handled" — their decision stands, and every action here is
+   * idempotent so nothing was done twice. Anything else is the ordinary
+   * refusal.
+   */
+  const reportFailure = (error, report) => {
+    const code = error?.code
+    if (code === 'claim-held') {
+      return warn('Being handled', 'Another moderator is working on this report right now.')
+    }
+    const gone = !reportsRef.current.some((row) => row.id === report.id)
+    if (
+      code === 'already-handled' ||
+      code === 'claim-lost' ||
+      (code === 'permission-denied' && gone)
+    ) {
+      // A decision that landed while its acknowledgement was lost comes
+      // back as "already handled" on the retry — by this moderator. Saying
+      // a colleague got there first would send them looking for a decision
+      // that is their own.
+      if (error?.details?.reviewedBy === user.uid) {
+        return warn('Already done', 'Your decision was recorded the first time.')
+      }
+      return warn(
+        'Already handled',
+        'Another moderator closed this report first. Their decision stands.',
+      )
+    }
+    return warn(
+      "Couldn't complete that",
+      code === 'permission-denied'
+        ? 'You do not have permission.'
+        : 'Try again — repeating it is safe.',
+    )
+  }
+
+  /**
+   * Works a report: claim it, then act and record in one step.
+   *
+   * The claim is taken first, and the action reads it in the same
+   * transaction that writes its consequence *and* the decision, so an
+   * action never lands on a report a colleague has closed or taken over
+   * meanwhile — and there is no moment at which the account is suspended
+   * and the report still open. A failure after the claim releases it so
+   * the next person can finish what this attempt did not — every action is
+   * idempotent, so their repeat changes nothing that already changed —
+   * unless the claim was already somebody else's.
+   */
+  const workReport = async (report, kind) => {
+    await claimReport(report.id, user.uid)
+    try {
+      let stoodDown = 0
+      let failed = 0
+      if (kind === 'remove') {
+        await removeActivity(report.targetId, {
+          moderatorId: user.uid,
+          reason: `${reasonLabel(report.reason)} — reported by a user`,
+          reportId: report.id,
+          decision: { status: 'actioned', outcome: 'Activity removed' },
+        })
+      } else if (kind === 'suspend') {
+        // The person answerable, never the thing reported. For a message
+        // report `targetId` is a message id, and this used to write a roles
+        // document against it — suspending nobody and quietly littering the
+        // roles collection with rows keyed by message.
+        const outcome = await suspendAccount(subjectOf(report), {
+          moderatorId: user.uid,
+          reportId: report.id,
+          decision: { status: 'actioned', outcome: 'Account suspended' },
+        })
+        stoodDown = outcome.stoodDown
+        failed = outcome.failed
+      } else {
+        await resolveReport(report.id, {
+          status: 'dismissed',
+          outcome: 'No action needed',
+          moderatorId: user.uid,
+        })
+      }
+      return { stoodDown, failed }
+    } catch (error) {
+      if (error?.code !== 'claim-lost') releaseReport(report.id)
+      throw error
+    }
+  }
+
   const act = async () => {
     const { report, kind } = acting
     setActing(null)
@@ -309,57 +458,30 @@ export default function ModerationPage() {
     // activity, which may no longer be loaded. Acting on nobody used to
     // reach the database as a role write against `undefined`.
     if (kind === 'suspend' && !subjectOf(report)) {
-      pushCelebration({
-        icon: 'alert',
-        tone: 'warning',
-        title: "Couldn't tell who this is about",
-        body: 'The activity it names is no longer loaded. Dismiss it, or look at the activity first.',
-      })
+      pushCelebration(
+        warn(
+          "Couldn't tell who this is about",
+          'The activity it names is no longer loaded. Dismiss it, or look at the activity first.',
+        ),
+      )
       return
     }
+    setActingOn(report.id)
     try {
-      if (kind === 'remove') {
-        await removeActivity(report.targetId, {
-          moderatorId: user.uid,
-          reason: `${reasonLabel(report.reason)} — reported by a user`,
-        })
-      }
-      let stoodDown = 0
-      if (kind === 'suspend') {
-        // The person answerable, never the thing reported. For a message
-        // report `targetId` is a message id, and this used to write a roles
-        // document against it — suspending nobody and quietly littering the
-        // roles collection with rows keyed by message.
-        const outcome = await suspendAccount(subjectOf(report), { moderatorId: user.uid })
-        stoodDown = outcome.stoodDown
-      }
-      await resolveReport(report.id, {
-        status: kind === 'dismiss' ? 'dismissed' : 'actioned',
-        outcome:
-          kind === 'remove'
-            ? 'Activity removed'
-            : kind === 'suspend'
-              ? 'Account suspended'
-              : 'No action needed',
-        moderatorId: user.uid,
+      await perform(() => workReport(report, kind), {
+        done: ({ stoodDown, failed }) =>
+          failed > 0
+            ? warn('Suspended, but not everything came down', standDownSummary(stoodDown, failed))
+            : ok(
+                kind === 'dismiss' ? 'Report dismissed' : 'Action taken',
+                stoodDown > 0
+                  ? `Recorded against the report. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} they were hosting stood down, and everyone who joined has been told.`
+                  : 'The decision is recorded against the report.',
+              ),
+        fail: (error) => reportFailure(error, report),
       })
-      pushCelebration({
-        icon: 'check',
-        tone: 'success',
-        title: kind === 'dismiss' ? 'Report dismissed' : 'Action taken',
-        body:
-          stoodDown > 0
-            ? `Recorded against the report. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} they were hosting stood down, and everyone who joined has been told.`
-            : 'The decision is recorded against the report.',
-      })
-    } catch (actionError) {
-      pushCelebration({
-        icon: 'alert',
-        tone: 'warning',
-        title: "Couldn't complete that",
-        body:
-          actionError?.code === 'permission-denied' ? 'You do not have permission.' : 'Try again.',
-      })
+    } finally {
+      setActingOn(null)
     }
   }
 
@@ -368,24 +490,21 @@ export default function ModerationPage() {
     if (!reason) return
     setRestoring(activity.id)
     try {
-      await restoreActivity(activity.id, { adminId: user.uid, reason })
-      setRestoreReasons((current) => ({ ...current, [activity.id]: '' }))
-      pushCelebration({
-        icon: 'check',
-        tone: 'success',
-        title: 'Put back',
-        body: `${activity.title} is visible again, and the host has been told.`,
-      })
-    } catch (restoreError) {
-      pushCelebration({
-        icon: 'alert',
-        tone: 'warning',
-        title: "Couldn't restore that",
-        body:
-          restoreError?.code === 'permission-denied'
-            ? 'Only an admin can undo a removal.'
-            : 'Try again.',
-      })
+      const done = await perform(
+        () => restoreActivity(activity.id, { adminId: user.uid, reason }),
+        {
+          done: () =>
+            ok('Put back', `${activity.title} is visible again, and the host has been told.`),
+          fail: (error) =>
+            warn(
+              "Couldn't restore that",
+              error?.code === 'permission-denied'
+                ? 'Only an admin can undo a removal.'
+                : 'Try again — repeating it is safe.',
+            ),
+        },
+      )
+      if (done) setRestoreReasons((current) => ({ ...current, [activity.id]: '' }))
     } finally {
       setRestoring(null)
     }
@@ -394,22 +513,19 @@ export default function ModerationPage() {
   const lift = async (account) => {
     setLifting(account.uid)
     try {
-      await liftSuspension(account.uid)
-      pushCelebration({
-        icon: 'check',
-        tone: 'success',
-        title: 'Suspension lifted',
-        body: `${nameFor(account.uid)} can post again, and has been told. Anything taken down while they were suspended stays down.`,
-      })
-    } catch (liftError) {
-      pushCelebration({
-        icon: 'alert',
-        tone: 'warning',
-        title: "Couldn't lift that",
-        body:
-          liftError?.code === 'permission-denied'
-            ? 'Only an admin can act on a moderator.'
-            : 'Try again.',
+      await perform(() => liftSuspension(account.uid), {
+        done: () =>
+          ok(
+            'Suspension lifted',
+            `${nameFor(account.uid)} can post again, and has been told. Anything taken down while they were suspended stays down.`,
+          ),
+        fail: (error) =>
+          warn(
+            "Couldn't lift that",
+            error?.code === 'permission-denied'
+              ? 'Only an admin can act on a moderator.'
+              : 'Try again — repeating it is safe.',
+          ),
       })
     } finally {
       setLifting(null)
@@ -423,37 +539,34 @@ export default function ModerationPage() {
     const { uid, suspend } = suspendTarget
     setSuspendTarget(null)
     setSuspending(uid)
+    const denied = 'Only an admin can act on a moderator, and nobody can act on an admin.'
     try {
       if (suspend) {
-        const { stoodDown } = await suspendAccount(uid, { moderatorId: user.uid })
-        pushCelebration({
-          icon: 'check',
-          tone: 'success',
-          title: 'Account suspended',
-          body:
-            stoodDown > 0
-              ? `${nameFor(uid)} cannot create, join or message. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} stood down, and everyone who joined has been told.`
-              : `${nameFor(uid)} cannot create, join or message.`,
+        await perform(() => suspendAccount(uid, { moderatorId: user.uid }), {
+          done: ({ stoodDown, failed }) =>
+            failed > 0
+              ? warn(
+                  'Suspended, but not everything came down',
+                  `${nameFor(uid)} cannot create, join or message. ${standDownSummary(stoodDown, failed)}`,
+                )
+              : ok(
+                  'Account suspended',
+                  stoodDown > 0
+                    ? `${nameFor(uid)} cannot create, join or message. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} stood down, and everyone who joined has been told.`
+                    : `${nameFor(uid)} cannot create, join or message.`,
+                ),
+          fail: (error) => refused(error, denied),
         })
       } else {
-        await liftSuspension(uid)
-        pushCelebration({
-          icon: 'check',
-          tone: 'success',
-          title: 'Suspension lifted',
-          body: `${nameFor(uid)} can post again, and has been told. Anything taken down stays down.`,
+        await perform(() => liftSuspension(uid), {
+          done: () =>
+            ok(
+              'Suspension lifted',
+              `${nameFor(uid)} can post again, and has been told. Anything taken down stays down.`,
+            ),
+          fail: (error) => refused(error, denied),
         })
       }
-    } catch (personError) {
-      pushCelebration({
-        icon: 'alert',
-        tone: 'warning',
-        title: "Couldn't do that",
-        body:
-          personError?.code === 'permission-denied'
-            ? 'Only an admin can act on a moderator, and nobody can act on an admin.'
-            : 'Try again.',
-      })
     } finally {
       setSuspending(null)
     }
@@ -467,46 +580,57 @@ export default function ModerationPage() {
     if (!reason) return
     setRecorded(null)
     setRecording(uid)
+    const denied =
+      'Closing and reopening an account is an admin decision, and no rank can act on an admin.'
     try {
+      let done = false
       if (kind === 'warn') {
-        await issueWarning(uid, { moderatorId: user.uid, reason, reportId })
-        pushCelebration({
-          icon: 'check',
-          tone: 'success',
-          title: 'Warning issued',
-          body: `${nameFor(uid)} has been told, and it is on their record. Nothing was taken away.`,
+        // From the queue, the warning is written under the report's claim
+        // and lets the claim go in the same transaction: the report stays
+        // open for whoever decides what else to do about it. A warning that
+        // failed for any other reason releases the claim here instead.
+        const warnUnderClaim = async () => {
+          if (!reportId) return issueWarning(uid, { moderatorId: user.uid, reason })
+          await claimReport(reportId, user.uid)
+          try {
+            await issueWarning(uid, { moderatorId: user.uid, reason, reportId })
+          } catch (error) {
+            if (error?.code !== 'claim-lost') releaseReport(reportId)
+            throw error
+          }
+        }
+        done = await perform(warnUnderClaim, {
+          done: () =>
+            ok(
+              'Warning issued',
+              `${nameFor(uid)} has been told, and it is on their record. Nothing was taken away.`,
+            ),
+          fail: (error) =>
+            reportId
+              ? reportFailure(error, { id: reportId })
+              : refused(error, 'You do not have permission.'),
         })
       } else if (kind === 'close') {
-        const { stoodDown } = await closeAccount(uid, { adminId: user.uid, reason })
-        pushCelebration({
-          icon: 'alert',
-          tone: 'warning',
-          title: 'Account closed',
-          body:
-            stoodDown > 0
-              ? `${nameFor(uid)} can no longer use SmartSync. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} stood down, and everyone who joined has been told.`
-              : `${nameFor(uid)} can no longer use SmartSync.`,
+        done = await perform(() => closeAccount(uid, { adminId: user.uid, reason }), {
+          done: ({ stoodDown, failed }) =>
+            warn(
+              failed > 0 ? 'Closed, but not everything came down' : 'Account closed',
+              failed > 0
+                ? `${nameFor(uid)} can no longer use SmartSync. ${standDownSummary(stoodDown, failed)}`
+                : stoodDown > 0
+                  ? `${nameFor(uid)} can no longer use SmartSync. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} stood down, and everyone who joined has been told.`
+                  : `${nameFor(uid)} can no longer use SmartSync.`,
+            ),
+          fail: (error) => refused(error, denied),
         })
       } else {
-        await reopenAccount(uid, { reason })
-        pushCelebration({
-          icon: 'check',
-          tone: 'success',
-          title: 'Account reopened',
-          body: `${nameFor(uid)} can use SmartSync again, and has been told.`,
+        done = await perform(() => reopenAccount(uid, { reason }), {
+          done: () =>
+            ok('Account reopened', `${nameFor(uid)} can use SmartSync again, and has been told.`),
+          fail: (error) => refused(error, denied),
         })
       }
-      setRecordedReason('')
-    } catch (recordError) {
-      pushCelebration({
-        icon: 'alert',
-        tone: 'warning',
-        title: "Couldn't do that",
-        body:
-          recordError?.code === 'permission-denied'
-            ? 'Closing and reopening an account is an admin decision, and no rank can act on an admin.'
-            : 'Try again.',
-      })
+      if (done) setRecordedReason('')
     } finally {
       setRecording(null)
     }
@@ -517,27 +641,23 @@ export default function ModerationPage() {
     setRoleChange(null)
     setChangingRole(uid)
     try {
-      await setUserRole(uid, role)
-      pushCelebration({
-        icon: 'check',
-        tone: 'success',
-        title: role === 'moderator' ? 'Moderator appointed' : 'Moderator dismissed',
-        body:
-          role === 'moderator'
-            ? `${nameFor(uid)} can work this queue now, and has been told.`
-            : `${nameFor(uid)} can no longer review reports. Their account is otherwise unchanged.`,
+      const done = await perform(() => setUserRole(uid, role), {
+        done: () =>
+          ok(
+            role === 'moderator' ? 'Moderator appointed' : 'Moderator dismissed',
+            role === 'moderator'
+              ? `${nameFor(uid)} can work this queue now, and has been told.`
+              : `${nameFor(uid)} can no longer review reports. Their account is otherwise unchanged.`,
+          ),
+        fail: (error) =>
+          warn(
+            "Couldn't change that",
+            error?.code === 'permission-denied'
+              ? 'Only an admin can appoint or dismiss a moderator.'
+              : 'Try again — repeating it is safe.',
+          ),
       })
-      setPersonSearch('')
-    } catch (roleError) {
-      pushCelebration({
-        icon: 'alert',
-        tone: 'warning',
-        title: "Couldn't change that",
-        body:
-          roleError?.code === 'permission-denied'
-            ? 'Only an admin can appoint or dismiss a moderator.'
-            : 'Try again.',
-      })
+      if (done) setPersonSearch('')
     } finally {
       setChangingRole(null)
     }
@@ -563,6 +683,12 @@ export default function ModerationPage() {
 
   return (
     <div className="page-content">
+      {referenceError && (
+        <p className="form-error" role="alert">
+          Couldn&apos;t load ranks and warnings just now. Suspensions, warning counts and who holds
+          which rank may be out of date until the connection is back.
+        </p>
+      )}
       {onHub && (
         <>
           <section className="headline-block">
@@ -593,6 +719,10 @@ export default function ModerationPage() {
           <div className="stack list-stack">
             {queue.map((report) => {
               const repeats = timesReported(report)
+              // Somebody else's fresh claim: the rules refuse every write
+              // under it, so the buttons wait rather than walk into that.
+              const held = claimedByOther(report, user.uid)
+              const busy = actingOn === report.id || held
               return (
                 <article className="report-card" key={report.id}>
                   <header>
@@ -600,6 +730,11 @@ export default function ModerationPage() {
                       <Flag size={13} /> {report.targetType}
                     </span>
                     {repeats > 1 && <span className="report-repeat">Reported {repeats}×</span>}
+                    {held && (
+                      <span className="report-repeat" role="status">
+                        In review by {nameFor(report.claimedBy)}
+                      </span>
+                    )}
                     <time>{formatRelativeTime(report.createdAt)}</time>
                   </header>
 
@@ -617,17 +752,21 @@ export default function ModerationPage() {
                     {report.targetType === 'activity' && (
                       <button
                         className="danger-button"
+                        disabled={busy}
                         onClick={() => setActing({ report, kind: 'remove' })}
                       >
-                        <Trash2 size={15} /> Remove activity
+                        <Trash2 size={15} />{' '}
+                        {actingOn === report.id ? 'Working…' : 'Remove activity'}
                       </button>
                     )}
                     {report.targetType !== 'activity' && (
                       <button
                         className="danger-button"
+                        disabled={busy}
                         onClick={() => setActing({ report, kind: 'suspend' })}
                       >
-                        <UserRoundX size={15} /> Suspend account
+                        <UserRoundX size={15} />{' '}
+                        {actingOn === report.id ? 'Working…' : 'Suspend account'}
                       </button>
                     )}
                     {/* The rung between doing nothing and taking something away.
@@ -635,6 +774,7 @@ export default function ModerationPage() {
                     told the substance rather than a category name. */}
                     <button
                       className="secondary-button"
+                      disabled={busy}
                       onClick={() => {
                         setRecordedReason(
                           `${reasonLabel(report.reason)}${repeats > 1 ? `, reported by ${repeats} people` : ''}. Please read the community policy.`,
@@ -646,6 +786,7 @@ export default function ModerationPage() {
                     </button>
                     <button
                       className="secondary-button"
+                      disabled={busy}
                       onClick={() => setActing({ report, kind: 'dismiss' })}
                     >
                       <CheckCircle2 size={15} /> Dismiss
@@ -787,6 +928,7 @@ export default function ModerationPage() {
           watchSearch={watchSearch}
           setWatchSearch={setWatchSearch}
           searching={watchSearching}
+          searchFailed={watchFailed}
           windowFull={windowFull}
           suspending={suspending}
           recording={recording}

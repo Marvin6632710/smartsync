@@ -2,39 +2,22 @@ import React, { useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Bell,
-  BellOff,
-  Check,
   Compass,
-  Link2,
-  LogOut,
   Map,
   MessageSquare,
   Plus,
-  RotateCcw,
   ShieldAlert,
   Sparkles,
-  Trash2,
   WifiOff,
   User,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import BackButton from './BackButton'
+import CelebrationToast from './CelebrationToast'
 import RouteErrorBoundary from './RouteErrorBoundary'
 import JoinBurst from './JoinBurst'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-
-const toastIcons = {
-  sparkles: Sparkles,
-  check: Check,
-  bell: Bell,
-  'bell-off': BellOff,
-  'log-out': LogOut,
-  trash: Trash2,
-  rotate: RotateCcw,
-  link: Link2,
-  alert: AlertTriangle,
-}
 
 const tabs = [
   { to: '/home', label: 'Discover', icon: Compass },
@@ -65,25 +48,10 @@ const routeTitles = {
   404: 'Not found',
 }
 
-function CelebrationToast({ celebration }) {
-  const Icon = toastIcons[celebration.icon] || Sparkles
-  return (
-    <div className="celebration-toast" key={celebration.id} role="status" aria-live="polite">
-      <div className={`toast-icon ${celebration.tone || 'default'}`}>
-        <Icon size={18} />
-      </div>
-      <div>
-        <strong>{celebration.title}</strong>
-        <p>{celebration.body}</p>
-      </div>
-    </div>
-  )
-}
-
 export default function Shell() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { notifications, celebration, dataError, offline } = useApp()
+  const { notifications, celebration, dataError, offline, browserOffline, serverSilent } = useApp()
   const { user } = useAuth()
   const unread = notifications.filter((n) => !n.read).length
   const simpleTitle = location.pathname.split('/')[1] || 'home'
@@ -192,10 +160,20 @@ export default function Shell() {
           </div>
         )}
 
+        {/* Two banners in one place: the device has no connection, which
+            the browser says outright, or the server has said nothing for
+            long enough — which on a slow link is the connection being slow,
+            not gone, and is worded as what is known rather than as a
+            verdict. Either way what is on screen is the last thing loaded,
+            and any change made now is queued. */}
         {offline && (
           <div className="offline-banner" role="status">
             <WifiOff size={15} />
-            <span>Offline — changes will sync when you reconnect.</span>
+            <span>
+              {serverSilent && !browserOffline
+                ? 'No answer from the server yet — showing what was last loaded. Changes will sync when it answers.'
+                : 'Offline — changes will sync when you reconnect.'}
+            </span>
           </div>
         )}
 
@@ -213,7 +191,7 @@ export default function Shell() {
           </div>
         )}
 
-        {celebration && <CelebrationToast celebration={celebration} />}
+        <CelebrationToast />
 
         {/* Sits outside the scroller and above everything, so a burst thrown
             from the middle of the screen is never clipped by the card that

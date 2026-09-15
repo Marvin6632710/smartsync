@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import CelebrationToast from '../components/CelebrationToast'
 import SignOutLink from '../components/SignOutLink'
 import { categories, MIN_INTERESTS, timeBands } from '../data/categories'
 import { useAuth } from '../context/AuthContext'
@@ -36,6 +37,9 @@ export default function InterestSelectionPage() {
 
   return (
     <div className="standalone-page onboarding-page">
+      {/* Outside the shell, so the shell's toast cannot reach here — and a
+          refused save used to be a button that simply did not advance. */}
+      <CelebrationToast />
       <div className="onboarding-header luxe-header">
         <span className="eyebrow">Interests</span>
         <h1>What do you like?</h1>

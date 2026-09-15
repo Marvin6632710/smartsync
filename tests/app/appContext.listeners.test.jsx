@@ -51,9 +51,11 @@ vi.mock('../../src/firebase/activities', () => ({
   joinActivity: vi.fn(),
   leaveActivity: vi.fn(),
 }))
+const completeIdentitySweep = vi.fn(() => Promise.resolve(0))
 vi.mock('../../src/firebase/users', () => ({
   watchPeers: (uid, cb) => channel('peers')(uid, cb),
   recordCategoryHistory: vi.fn(() => Promise.resolve()),
+  completeIdentitySweep,
 }))
 const followUser = vi.fn(() => Promise.resolve())
 const unfollowUser = vi.fn(() => Promise.resolve())
@@ -79,6 +81,13 @@ vi.mock('../../src/firebase/moderation', () => ({
   blockUser: vi.fn(),
   unblockUser: vi.fn(),
   fileReport: vi.fn(),
+}))
+const outcomeOf = vi.fn(async () => 'landed')
+const drainQueue = vi.fn(async () => {})
+vi.mock('../../src/firebase/pending', async (importActual) => ({
+  ...(await importActual()),
+  outcomeOf,
+  drainQueue,
 }))
 const threadError = {} // activity id -> the error callback
 vi.mock('../../src/firebase/messages', async () => ({
@@ -107,11 +116,18 @@ vi.mock('../../src/firebase/auth', () => ({
 
 // Identity is supplied directly rather than through Firebase Auth.
 let currentUser = { uid: 'me', interests: [], historyCategories: [] }
+// Whether AuthContext's profile listeners have heard from the server — the
+// proof of life the silence probe consults. Read on each render, so a test
+// flips it and then causes a render.
+let serverSeen = false
 vi.mock('../../src/context/AuthContext', () => ({
-  useAuth: () => ({ user: currentUser }),
+  useAuth: () => ({ user: currentUser, serverSeen }),
 }))
 
-const { AppProvider, useApp } = await import('../../src/context/AppContext')
+const { AppProvider, useApp, SERVER_SILENCE_MS } = await import('../../src/context/AppContext')
+const { forgetDurable } = await import('../../src/utils/storage')
+const { updateActivity: updateActivityDoc } = await import('../../src/firebase/activities')
+const { sendMessage: sendMessageDoc } = await import('../../src/firebase/messages')
 
 // ---- a probe that reports what the context is holding --------------------
 
@@ -147,6 +163,9 @@ const previews = () => JSON.parse(screen.getByTestId('previews').textContent)
 
 beforeEach(() => {
   currentUser = { uid: 'me', interests: [], historyCategories: [] }
+  serverSeen = false
+  completeIdentitySweep.mockReset()
+  completeIdentitySweep.mockResolvedValue(0)
   for (const k of Object.keys(emit)) delete emit[k]
   for (const k of Object.keys(stops)) delete stops[k]
   for (const k of Object.keys(threadStops)) delete threadStops[k]
@@ -161,7 +180,15 @@ beforeEach(() => {
   pushChatNotification.mockImplementation(() => Promise.resolve())
   reportError.mockClear()
   createActivityDoc.mockReset()
+  outcomeOf.mockReset()
+  outcomeOf.mockResolvedValue('landed')
+  drainQueue.mockReset()
+  drainQueue.mockResolvedValue(undefined)
   localStorage.clear()
+  sessionStorage.clear()
+  // The durable store keeps a memory copy for the life of the module —
+  // which, here, is the whole file.
+  forgetDurable()
 })
 afterEach(cleanup)
 
@@ -885,5 +912,1115 @@ describe('the order your commitments are kept in', () => {
       emit.activities([activity('called-off', { status: 'cancelled' })], { fromCache: false }),
     )
     expect(screen.getByTestId('order').textContent).toBe('called-off')
+  })
+})
+
+describe('a write while offline', () => {
+  // Every awaited write used to sit behind "Saving…" until the server
+  // answered — never, offline. These pin the bounded wait: the write is
+  // still queued, the screen moves on, the toast says so, and a refusal
+  // that arrives later is still shown.
+  function Writer() {
+    const { createActivity, updateActivity, sendMessage, celebration, offline } = useApp()
+    const [result, setResult] = React.useState('')
+    return (
+      <div>
+        <button
+          onClick={async () => {
+            const id = await createActivity({
+              title: 'Late run',
+              locationName: 'Park',
+              category: 'Running',
+            })
+            setResult(String(id))
+          }}
+        >
+          create
+        </button>
+        <button
+          onClick={async () => {
+            const ok = await updateActivity('a1', { title: 'x' })
+            setResult(String(ok))
+          }}
+        >
+          edit
+        </button>
+        <button
+          onClick={async () => {
+            const sent = await sendMessage('t1', 'hello')
+            setResult(sent === null ? 'null' : 'sent')
+          }}
+        >
+          send
+        </button>
+        <button onClick={async () => setResult(String(await sendMessage('t1', '   ')))}>
+          send-blank
+        </button>
+        <span data-testid="result">{result}</span>
+        <span data-testid="toast">{celebration?.title || ''}</span>
+        <span data-testid="toast-body">{celebration?.body || ''}</span>
+        <span data-testid="offline">{String(offline)}</span>
+      </div>
+    )
+  }
+  // The offline budget is a zero-length timer, so a macrotask has to pass.
+  const flush = () =>
+    act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      for (let i = 0; i < 6; i += 1) await Promise.resolve()
+    })
+  const goOffline = () => act(() => window.dispatchEvent(new Event('offline')))
+  const goOnline = () => act(() => window.dispatchEvent(new Event('online')))
+  const never = () => new Promise(() => {})
+
+  test('creating offline hands back the locally minted id and says it will sync', async () => {
+    const pending = never()
+    pending.id = 'minted-1'
+    createActivityDoc.mockReturnValue(pending)
+    render(
+      <AppProvider>
+        <Writer />
+      </AppProvider>,
+    )
+    act(() => emit.activities([], { fromCache: true }))
+    goOffline()
+    fireEvent.click(screen.getByText('create'))
+    await flush()
+    expect(screen.getByTestId('result').textContent).toBe('minted-1')
+    expect(screen.getByTestId('toast').textContent).toBe('Activity created — will sync')
+    goOnline()
+  })
+
+  test('the followers are told once the connection is back, not from an offline cache', async () => {
+    const pending = never()
+    pending.id = 'minted-2'
+    createActivityDoc.mockReturnValue(pending)
+    render(
+      <AppProvider>
+        <Writer />
+      </AppProvider>,
+    )
+    act(() => emit.activities([], { fromCache: true }))
+    goOffline()
+    fireEvent.click(screen.getByText('create'))
+    await flush()
+    expect(notifyFollowers).not.toHaveBeenCalled()
+    goOnline()
+    await flush()
+    expect(notifyFollowers).toHaveBeenCalledTimes(1)
+    expect(notifyFollowers.mock.calls[0][1]).toBe('minted-2')
+  })
+
+  test('a queued write that is refused later is still said, wherever the person is', async () => {
+    let reject
+    updateActivityDoc.mockReturnValue(new Promise((_, r) => (reject = r)))
+    render(
+      <AppProvider>
+        <Writer />
+      </AppProvider>,
+    )
+    act(() => emit.activities([], { fromCache: true }))
+    goOffline()
+    fireEvent.click(screen.getByText('edit'))
+    await flush()
+    expect(screen.getByTestId('result').textContent).toBe('true')
+    expect(screen.getByTestId('toast').textContent).toBe('Saved — will sync')
+    await act(async () => {
+      reject({ code: 'permission-denied' })
+      await flush()
+    })
+    expect(screen.getByTestId('toast').textContent).toBe("Couldn't save changes")
+    expect(screen.getByTestId('toast-body').textContent).toBe('You do not have permission.')
+    goOnline()
+  })
+
+  test('online, a write that lands says what it always said', async () => {
+    updateActivityDoc.mockResolvedValue(undefined)
+    render(
+      <AppProvider>
+        <Writer />
+      </AppProvider>,
+    )
+    act(() => emit.activities([], { fromCache: false }))
+    fireEvent.click(screen.getByText('edit'))
+    await flush()
+    expect(screen.getByTestId('result').textContent).toBe('true')
+    expect(screen.getByTestId('toast').textContent).toBe('Saved')
+  })
+
+  test('online, a refused write still fails at once', async () => {
+    updateActivityDoc.mockRejectedValue({ code: 'permission-denied' })
+    render(
+      <AppProvider>
+        <Writer />
+      </AppProvider>,
+    )
+    act(() => emit.activities([], { fromCache: false }))
+    fireEvent.click(screen.getByText('edit'))
+    await flush()
+    expect(screen.getByTestId('result').textContent).toBe('false')
+    expect(screen.getByTestId('toast').textContent).toBe("Couldn't save changes")
+  })
+
+  test('a message: null when refused, so the composer can put the text back', async () => {
+    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
+    render(
+      <AppProvider>
+        <Writer />
+      </AppProvider>,
+    )
+    act(() => emit.activities([activity('t1')], { fromCache: false }))
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(screen.getByTestId('result').textContent).toBe('null')
+    expect(screen.getByTestId('toast').textContent).toBe("Couldn't send")
+    expect(pushChatNotification).not.toHaveBeenCalled()
+  })
+
+  test('a message that lands is truthy, and one sent offline is not announced as saved', async () => {
+    sendMessageDoc.mockResolvedValueOnce({ id: 'm1' })
+    render(
+      <AppProvider>
+        <Writer />
+      </AppProvider>,
+    )
+    act(() => emit.activities([activity('t1')], { fromCache: false }))
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(screen.getByTestId('result').textContent).toBe('sent')
+    expect(screen.getByTestId('toast').textContent).toBe('')
+
+    sendMessageDoc.mockReturnValueOnce(never())
+    goOffline()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(screen.getByTestId('result').textContent).toBe('sent')
+    // The bubble is already on screen; no toast for a queued message.
+    expect(screen.getByTestId('toast').textContent).toBe('')
+    goOnline()
+  })
+
+  test('a blank message is nothing to send and nothing to announce', async () => {
+    sendMessageDoc.mockResolvedValue(undefined)
+    render(
+      <AppProvider>
+        <Writer />
+      </AppProvider>,
+    )
+    act(() =>
+      emit.activities([activity('t1', { participantUids: ['me', 'p1'] })], { fromCache: false }),
+    )
+    fireEvent.click(screen.getByText('send-blank'))
+    await flush()
+    expect(screen.getByTestId('result').textContent).toBe('null')
+    expect(sendMessageDoc).not.toHaveBeenCalled()
+    expect(pushChatNotification).not.toHaveBeenCalled()
+  })
+})
+
+describe('a server that never answers', () => {
+  function Banner() {
+    const { offline, syncing, serverSilent, browserOffline } = useApp()
+    return (
+      <>
+        <span data-testid="offline">{String(offline)}</span>
+        <span data-testid="syncing">{String(syncing)}</span>
+        <span data-testid="silent">{String(serverSilent)}</span>
+        <span data-testid="browser">{String(browserOffline)}</span>
+      </>
+    )
+  }
+
+  test('syncing holds from the cached snapshot until the server answers, or is given up on', () => {
+    vi.useFakeTimers()
+    try {
+      render(
+        <AppProvider>
+          <Banner />
+        </AppProvider>,
+      )
+      expect(screen.getByTestId('syncing').textContent).toBe('true')
+      act(() => emit.activities([], { fromCache: true }))
+      expect(screen.getByTestId('syncing').textContent).toBe('true')
+      act(() => vi.advanceTimersByTime(SERVER_SILENCE_MS))
+      expect(screen.getByTestId('syncing').textContent).toBe('false')
+      expect(screen.getByTestId('offline').textContent).toBe('true')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('a server answer ends syncing; the browser being offline never starts it', () => {
+    render(
+      <AppProvider>
+        <Banner />
+      </AppProvider>,
+    )
+    act(() => emit.activities([], { fromCache: false }))
+    expect(screen.getByTestId('syncing').textContent).toBe('false')
+    cleanup()
+
+    render(
+      <AppProvider>
+        <Banner />
+      </AppProvider>,
+    )
+    act(() => window.dispatchEvent(new Event('offline')))
+    act(() => emit.activities([], { fromCache: true }))
+    expect(screen.getByTestId('syncing').textContent).toBe('false')
+    act(() => window.dispatchEvent(new Event('online')))
+  })
+  test('nothing but cache for long enough is offline, and the first server word clears it', () => {
+    vi.useFakeTimers()
+    try {
+      render(
+        <AppProvider>
+          <Banner />
+        </AppProvider>,
+      )
+      act(() => emit.activities([], { fromCache: true }))
+      expect(screen.getByTestId('offline').textContent).toBe('false')
+      act(() => vi.advanceTimersByTime(SERVER_SILENCE_MS - 1))
+      expect(screen.getByTestId('offline').textContent).toBe('false')
+      act(() => vi.advanceTimersByTime(1))
+      expect(screen.getByTestId('offline').textContent).toBe('true')
+      act(() => emit.activities([], { fromCache: false }))
+      expect(screen.getByTestId('offline').textContent).toBe('false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('a server that answered in time is never called silent', () => {
+    vi.useFakeTimers()
+    try {
+      render(
+        <AppProvider>
+          <Banner />
+        </AppProvider>,
+      )
+      act(() => emit.activities([], { fromCache: false }))
+      act(() => vi.advanceTimersByTime(SERVER_SILENCE_MS + 1))
+      expect(screen.getByTestId('offline').textContent).toBe('false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // The profile listeners answer first on any link that works at all; the
+  // feed is four hundred documents and can take a while. A slow feed on a
+  // link the profile came down is not a dead server, and the banner used to
+  // say it was.
+  const mountBanner = () => {
+    render(
+      <AppProvider>
+        <Banner />
+      </AppProvider>,
+    )
+    act(() => emit.activities([], { fromCache: true }))
+  }
+  // A change to the mocked auth context has to reach a render.
+  const profileAnswered = () => {
+    serverSeen = true
+    act(() => emit.peers([]))
+  }
+  const state = () => ({
+    offline: screen.getByTestId('offline').textContent,
+    syncing: screen.getByTestId('syncing').textContent,
+  })
+
+  test('a slow first load — profile from the server, feed still coming past the threshold — is not offline', () => {
+    vi.useFakeTimers()
+    try {
+      mountBanner()
+      profileAnswered()
+      act(() => vi.advanceTimersByTime(SERVER_SILENCE_MS + 5_000))
+      // Not offline: the server has been heard from. Not syncing either:
+      // the wait for the feed is over, whatever it still has to say.
+      expect(state()).toEqual({ offline: 'false', syncing: 'false' })
+      // The feed arriving late changes nothing visible, and is welcome.
+      act(() => emit.activities([], { fromCache: false }))
+      expect(state()).toEqual({ offline: 'false', syncing: 'false' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('the feed arriving inside the threshold ends the wait early', () => {
+    vi.useFakeTimers()
+    try {
+      mountBanner()
+      expect(state()).toEqual({ offline: 'false', syncing: 'true' })
+      act(() => vi.advanceTimersByTime(3_000))
+      act(() => emit.activities([], { fromCache: false }))
+      expect(state()).toEqual({ offline: 'false', syncing: 'false' })
+      act(() => vi.advanceTimersByTime(SERVER_SILENCE_MS))
+      expect(state()).toEqual({ offline: 'false', syncing: 'false' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('a server nobody has heard from is offline at the threshold, and the profile answering later undoes it', () => {
+    vi.useFakeTimers()
+    try {
+      mountBanner()
+      act(() => vi.advanceTimersByTime(SERVER_SILENCE_MS))
+      expect(state()).toEqual({ offline: 'true', syncing: 'false' })
+      // The first proof of a server — from the profile, not the feed —
+      // clears a banner the probe raised.
+      profileAnswered()
+      expect(state().offline).toBe('false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('the profile answering before the feed does not make the feed\u2019s first cached snapshot a disconnection', () => {
+    // Warm cache: the feed's first snapshot is from the cache and arrives
+    // after the tiny profile documents were already answered by the server.
+    // That is the feed starting up, not the link going away.
+    vi.useFakeTimers()
+    try {
+      render(
+        <AppProvider>
+          <Banner />
+        </AppProvider>,
+      )
+      profileAnswered()
+      act(() => emit.activities([], { fromCache: true }))
+      expect(state()).toEqual({ offline: 'false', syncing: 'true' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('exactly around the threshold: a snapshot one tick before is in time, one tick after is a brief banner', () => {
+    vi.useFakeTimers()
+    try {
+      mountBanner()
+      act(() => vi.advanceTimersByTime(SERVER_SILENCE_MS - 1))
+      act(() => emit.activities([], { fromCache: false }))
+      act(() => vi.advanceTimersByTime(2))
+      expect(state()).toEqual({ offline: 'false', syncing: 'false' })
+      cleanup()
+
+      mountBanner()
+      act(() => vi.advanceTimersByTime(SERVER_SILENCE_MS + 1))
+      expect(state().offline).toBe('true')
+      act(() => emit.activities([], { fromCache: false }))
+      expect(state()).toEqual({ offline: 'false', syncing: 'false' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('connection lost and regained, repeatedly, is reported each time — and only after the feed had synced', () => {
+    vi.useFakeTimers()
+    try {
+      mountBanner()
+      act(() => emit.activities([], { fromCache: false }))
+      for (let cycle = 0; cycle < 3; cycle += 1) {
+        act(() => emit.activities([], { fromCache: true }))
+        expect(state().offline).toBe('true')
+        act(() => emit.activities([], { fromCache: false }))
+        expect(state().offline).toBe('false')
+      }
+      // A disconnection never raises the banner from the probe path again
+      // once the feed has synced: the timer is long gone.
+      act(() => vi.advanceTimersByTime(SERVER_SILENCE_MS * 2))
+      expect(state().offline).toBe('false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // Measured against a server whose every answer was held for five
+  // seconds: the banner came up at the threshold and went down thirteen
+  // seconds later when the first answer arrived. That is a slow server,
+  // not an absent one, and the screen is told which it is.
+  test('silence is named as silence, and a known disconnection as offline', () => {
+    vi.useFakeTimers()
+    try {
+      mountBanner()
+      const silent = () => screen.getByTestId('silent').textContent
+      const browser = () => screen.getByTestId('browser').textContent
+      expect(silent()).toBe('false')
+      act(() => vi.advanceTimersByTime(SERVER_SILENCE_MS))
+      expect(state().offline).toBe('true')
+      expect(silent()).toBe('true')
+      expect(browser()).toBe('false')
+      // The first server word ends the silence.
+      act(() => emit.activities([], { fromCache: false }))
+      expect(state().offline).toBe('false')
+      expect(silent()).toBe('false')
+      // A disconnection the feed reports is not silence — the connection
+      // was there and went.
+      act(() => emit.activities([], { fromCache: true }))
+      expect(state().offline).toBe('true')
+      expect(silent()).toBe('false')
+      act(() => emit.activities([], { fromCache: false }))
+      // The device losing its connection is the browser's own word.
+      act(() => window.dispatchEvent(new Event('offline')))
+      expect(state().offline).toBe('true')
+      expect(browser()).toBe('true')
+      expect(silent()).toBe('false')
+      act(() => window.dispatchEvent(new Event('online')))
+      expect(state().offline).toBe('false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('a profile answer ends the silence too, and a new account starts without any', () => {
+    vi.useFakeTimers()
+    try {
+      mountBanner()
+      act(() => vi.advanceTimersByTime(SERVER_SILENCE_MS))
+      expect(screen.getByTestId('silent').textContent).toBe('true')
+      profileAnswered()
+      expect(screen.getByTestId('silent').textContent).toBe('false')
+      expect(state().offline).toBe('false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('a real disconnection is not undone by the profile having been seen earlier', () => {
+    vi.useFakeTimers()
+    try {
+      mountBanner()
+      profileAnswered()
+      act(() => emit.activities([], { fromCache: false }))
+      act(() => emit.activities([], { fromCache: true }))
+      expect(state().offline).toBe('true')
+      // Nothing about the profile changed; the banner stays until the feed
+      // hears from the server again.
+      act(() => emit.peers([]))
+      expect(state().offline).toBe('true')
+      act(() => emit.activities([], { fromCache: false }))
+      expect(state().offline).toBe('false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('what was typed into a queued write', () => {
+  // A write queued offline that the server refuses later rolled its local
+  // copy back and took the content with it. The context keeps it, per
+  // account and on disk, and hands it back to the screen it came from.
+  function Writer() {
+    const { sendMessage, createActivity, updateActivity, unsent, discardUnsent } = useApp()
+    return (
+      <div>
+        <button onClick={() => sendMessage('t1', 'hello there')}>send</button>
+        <button onClick={() => sendMessage('t1', 'second one')}>send-2</button>
+        <button
+          onClick={() =>
+            createActivity({ title: 'Late run', locationName: 'Park', category: 'Running' })
+          }
+        >
+          create
+        </button>
+        <button
+          onClick={() =>
+            updateActivity(
+              'a1',
+              { title: 'Renamed' },
+              { before: { title: 'Old', description: 'd', extra: 'dropped' } },
+            )
+          }
+        >
+          edit
+        </button>
+        <button onClick={() => updateActivity('a1', { title: 'Renamed again' })}>edit-2</button>
+        <button onClick={() => updateActivity('a2', { title: 'Other' })}>edit-other</button>
+        <button onClick={() => discardUnsent(unsent[0]?.id)}>discard-first</button>
+        <span data-testid="unsent">
+          {JSON.stringify(
+            unsent.map(({ kind, key, status, payload, error, before }) => ({
+              kind,
+              key,
+              status,
+              payload,
+              error,
+              before,
+            })),
+          )}
+        </span>
+      </div>
+    )
+  }
+  const rows = () => JSON.parse(screen.getByTestId('unsent').textContent)
+  const flush = () =>
+    act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      for (let i = 0; i < 6; i += 1) await Promise.resolve()
+    })
+  const goOffline = () => act(() => window.dispatchEvent(new Event('offline')))
+  const goOnline = () => act(() => window.dispatchEvent(new Event('online')))
+  const held = () => {
+    let settle
+    let reject
+    const promise = new Promise((res, rej) => {
+      settle = res
+      reject = rej
+    })
+    promise.id = 'm-minted'
+    return { promise, settle, reject }
+  }
+  const mount = () => {
+    render(
+      <AppProvider>
+        <Writer />
+      </AppProvider>,
+    )
+    act(() => emit.activities([activity('t1'), activity('a1')], { fromCache: true }))
+  }
+
+  test('offline → queued → success: noted while pending, gone once it lands', async () => {
+    const write = held()
+    sendMessageDoc.mockReturnValue(write.promise)
+    mount()
+    goOffline()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(rows()).toEqual([
+      {
+        kind: 'message',
+        key: 't1',
+        status: 'pending',
+        payload: { text: 'hello there', id: 'm-minted' },
+        error: null,
+      },
+    ])
+    await act(async () => {
+      write.settle({ id: 'm-minted' })
+      await flush()
+    })
+    expect(rows()).toEqual([])
+    goOnline()
+  })
+
+  test('offline → queued → refused: kept as failed with the reason, and persisted', async () => {
+    const write = held()
+    sendMessageDoc.mockReturnValue(write.promise)
+    mount()
+    goOffline()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    await act(async () => {
+      write.reject({ code: 'permission-denied' })
+      await flush()
+    })
+    expect(rows()).toMatchObject([
+      { kind: 'message', key: 't1', status: 'failed', error: { code: 'permission-denied' } },
+    ])
+    expect(rows()[0].error.message).toMatch(/refused/)
+    // On disk, so a reload does not lose it.
+    expect(JSON.parse(localStorage.getItem('smartsync:unsent:me'))).toHaveLength(1)
+    goOnline()
+  })
+
+  test('a malformed write refused with another code keeps its own message', async () => {
+    const write = held()
+    sendMessageDoc.mockReturnValue(write.promise)
+    mount()
+    goOffline()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    await act(async () => {
+      write.reject({ code: 'invalid-argument', message: 'Document too large' })
+      await flush()
+    })
+    expect(rows()[0].error).toEqual({ code: 'invalid-argument', message: 'Document too large' })
+    goOnline()
+  })
+
+  test('an immediate refusal of a message is kept too — the composer has already let it go', async () => {
+    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
+    mount()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(rows()).toMatchObject([
+      { kind: 'message', status: 'failed', payload: { text: 'hello there' } },
+    ])
+  })
+
+  test('an immediate refusal of a form write is not kept — the form is still on screen', async () => {
+    updateActivityDoc.mockRejectedValueOnce({ code: 'permission-denied' })
+    mount()
+    fireEvent.click(screen.getByText('edit'))
+    await flush()
+    expect(rows()).toEqual([])
+  })
+
+  test('multiple queued writes are tracked one by one, in order, and settle independently', async () => {
+    const first = held()
+    const second = held()
+    second.promise.id = 'm-2'
+    sendMessageDoc.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    mount()
+    goOffline()
+    fireEvent.click(screen.getByText('send'))
+    fireEvent.click(screen.getByText('send-2'))
+    await flush()
+    expect(rows().map((r) => r.payload.text)).toEqual(['hello there', 'second one'])
+    await act(async () => {
+      second.reject({ code: 'permission-denied' })
+      first.settle({})
+      await flush()
+    })
+    expect(rows()).toMatchObject([{ status: 'failed', payload: { text: 'second one' } }])
+    goOnline()
+  })
+
+  test('a queued activity and a queued edit are kept with what they carried', async () => {
+    const create = held()
+    create.promise.id = 'act-minted'
+    createActivityDoc.mockReturnValue(create.promise)
+    updateActivityDoc.mockReturnValue(new Promise(() => {}))
+    mount()
+    goOffline()
+    fireEvent.click(screen.getByText('create'))
+    fireEvent.click(screen.getByText('edit'))
+    await flush()
+    expect(rows()).toMatchObject([
+      {
+        kind: 'activity-create',
+        key: 'me',
+        status: 'pending',
+        payload: { title: 'Late run', id: 'act-minted' },
+      },
+      {
+        kind: 'activity-edit',
+        key: 'a1',
+        status: 'pending',
+        payload: { title: 'Renamed' },
+        // Only the judged fields of what the form was seeded with.
+        before: { title: 'Old', description: 'd' },
+      },
+    ])
+    expect(rows()[1].before.extra).toBeUndefined()
+    await act(async () => {
+      create.reject({ code: 'permission-denied' })
+      await flush()
+    })
+    expect(rows()[0].status).toBe('failed')
+    expect(rows()[1].status).toBe('pending')
+    goOnline()
+  })
+
+  test('a second edit of the same activity while the first is pending replaces it', async () => {
+    updateActivityDoc.mockReturnValue(new Promise(() => {}))
+    mount()
+    goOffline()
+    fireEvent.click(screen.getByText('edit'))
+    fireEvent.click(screen.getByText('edit-other'))
+    await flush()
+    expect(rows().map((r) => [r.key, r.payload.title])).toEqual([
+      ['a1', 'Renamed'],
+      ['a2', 'Other'],
+    ])
+    fireEvent.click(screen.getByText('edit-2'))
+    await flush()
+    // The newer row carries everything the older did; the other activity's
+    // row is untouched.
+    expect(rows().map((r) => [r.key, r.payload.title])).toEqual([
+      ['a2', 'Other'],
+      ['a1', 'Renamed again'],
+    ])
+    // And the replaced row is not brought back from storage on the next save.
+    const stored = JSON.parse(localStorage.getItem('smartsync:unsent:me'))
+    expect(stored.map((r) => r.payload.title)).toEqual(['Other', 'Renamed again'])
+    goOnline()
+  })
+
+  test('a failed edit is not replaced by a newer save — it is the person’s to restore or discard', async () => {
+    const first = held()
+    updateActivityDoc.mockReturnValueOnce(first.promise)
+    updateActivityDoc.mockReturnValue(new Promise(() => {}))
+    mount()
+    goOffline()
+    fireEvent.click(screen.getByText('edit'))
+    await flush()
+    await act(async () => {
+      first.reject({ code: 'permission-denied' })
+      await flush()
+    })
+    expect(rows()).toMatchObject([{ key: 'a1', status: 'failed' }])
+    fireEvent.click(screen.getByText('edit-2'))
+    await flush()
+    expect(rows()).toMatchObject([
+      { key: 'a1', status: 'failed', payload: { title: 'Renamed' } },
+      { key: 'a1', status: 'pending', payload: { title: 'Renamed again' } },
+    ])
+    goOnline()
+  })
+
+  test('discarding removes the row', async () => {
+    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
+    mount()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(rows()).toHaveLength(1)
+    fireEvent.click(screen.getByText('discard-first'))
+    expect(rows()).toEqual([])
+    expect(JSON.parse(localStorage.getItem('smartsync:unsent:me'))).toEqual([])
+  })
+
+  test('rows are kept per account and never shown to another', async () => {
+    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
+    mount()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(rows()).toHaveLength(1)
+    cleanup()
+    currentUser = { uid: 'someone-else', interests: [], historyCategories: [] }
+    mount()
+    expect(rows()).toEqual([])
+    cleanup()
+    currentUser = { uid: 'me', interests: [], historyCategories: [] }
+    mount()
+    expect(rows()).toHaveLength(1)
+  })
+
+  test('another tab\u2019s rows are kept when this tab saves, and a row this tab released stays gone', async () => {
+    // Two tabs of one account share the key. Each saves its own list; a
+    // plain overwrite lost whatever the other tab had queued.
+    const other = {
+      id: 'other-tab-1',
+      at: Date.now(),
+      session: 'the-other-tab',
+      kind: 'message',
+      key: 't1',
+      status: 'pending',
+      payload: { text: 'from the other tab', id: 'm-o' },
+      error: null,
+    }
+    const stored = () => JSON.parse(localStorage.getItem('smartsync:unsent:me') || '[]')
+    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
+    mount()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(rows()).toHaveLength(1)
+    const mine = stored()[0].id
+    // The other tab writes its row while this tab is open…
+    localStorage.setItem('smartsync:unsent:me', JSON.stringify([...stored(), other]))
+    // …and this tab's next save keeps it, alongside its own change.
+    fireEvent.click(screen.getByText('discard-first'))
+    await flush()
+    expect(rows()).toEqual([])
+    expect(stored().map((r) => r.id)).toEqual(['other-tab-1'])
+    // A row this tab discarded is not brought back by a later save either,
+    // even if the other tab still had a copy.
+    localStorage.setItem(
+      'smartsync:unsent:me',
+      JSON.stringify([
+        ...stored(),
+        { ...other, id: 'other-tab-2' },
+        { ...other, id: mine, session: 'x' },
+      ]),
+    )
+    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    const ids = stored().map((r) => r.id)
+    expect(ids).toContain('other-tab-1')
+    expect(ids).toContain('other-tab-2')
+    expect(ids).not.toContain(mine)
+    expect(ids).toHaveLength(3)
+  })
+
+  describe('when the browser blocks storage', () => {
+    // Accessing localStorage throws in a page that blocks site data. The
+    // rows are kept in memory for the life of the page, nothing crashes,
+    // and leaving the page is put to the person first.
+    const real = {
+      local: Object.getOwnPropertyDescriptor(window, 'localStorage'),
+      session: Object.getOwnPropertyDescriptor(window, 'sessionStorage'),
+    }
+    const block = (name) =>
+      Object.defineProperty(window, name, {
+        configurable: true,
+        get() {
+          throw new DOMException('Storage is disabled', 'SecurityError')
+        },
+      })
+    const restore = () => {
+      Object.defineProperty(window, 'localStorage', real.local)
+      Object.defineProperty(window, 'sessionStorage', real.session)
+    }
+    const unloadGuarded = () => {
+      const event = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(event)
+      return event.defaultPrevented
+    }
+    afterEach(restore)
+
+    test('rows are kept in memory: noted, failed with a reason, retried and discarded — no crash', async () => {
+      block('localStorage')
+      block('sessionStorage')
+      const write = held()
+      sendMessageDoc.mockReturnValue(write.promise)
+      expect(() => mount()).not.toThrow()
+      goOffline()
+      fireEvent.click(screen.getByText('send'))
+      await flush()
+      expect(rows()).toMatchObject([{ status: 'pending', payload: { text: 'hello there' } }])
+      await act(async () => {
+        write.reject({ code: 'permission-denied' })
+        await flush()
+      })
+      expect(rows()).toMatchObject([{ status: 'failed', error: { code: 'permission-denied' } }])
+      fireEvent.click(screen.getByText('discard-first'))
+      await flush()
+      expect(rows()).toEqual([])
+      goOnline()
+    })
+
+    test('leaving the page is guarded only while memory is the only copy of something', async () => {
+      block('localStorage')
+      block('sessionStorage')
+      sendMessageDoc.mockReturnValue(new Promise(() => {}))
+      mount()
+      expect(unloadGuarded()).toBe(false)
+      goOffline()
+      fireEvent.click(screen.getByText('send'))
+      await flush()
+      expect(rows()).toHaveLength(1)
+      expect(unloadGuarded()).toBe(true)
+      fireEvent.click(screen.getByText('discard-first'))
+      await flush()
+      expect(unloadGuarded()).toBe(false)
+      goOnline()
+    })
+
+    test('with storage working, leaving the page is never guarded', async () => {
+      sendMessageDoc.mockReturnValue(new Promise(() => {}))
+      mount()
+      goOffline()
+      fireEvent.click(screen.getByText('send'))
+      await flush()
+      expect(rows()).toHaveLength(1)
+      expect(JSON.parse(localStorage.getItem('smartsync:unsent:me'))).toHaveLength(1)
+      expect(unloadGuarded()).toBe(false)
+      goOnline()
+    })
+
+    test('with only localStorage blocked, this tab’s sessionStorage keeps the rows across a reload', async () => {
+      block('localStorage')
+      sendMessageDoc.mockReturnValue(new Promise(() => {}))
+      mount()
+      goOffline()
+      fireEvent.click(screen.getByText('send'))
+      await flush()
+      expect(JSON.parse(sessionStorage.getItem('smartsync:unsent:me'))).toMatchObject([
+        { payload: { text: 'hello there' } },
+      ])
+      expect(unloadGuarded()).toBe(false)
+      goOnline()
+    })
+  })
+
+  describe('after a reload while a write was still queued', () => {
+    const fromEarlier = (over = {}) => ({
+      id: 'old-1',
+      at: Date.now() - 60_000,
+      session: 'a-previous-page-load',
+      kind: 'message',
+      key: 't1',
+      status: 'pending',
+      payload: { text: 'from before', id: 'm-old' },
+      error: null,
+      ...over,
+    })
+
+    test('a write that landed is dropped once the queue has drained', async () => {
+      localStorage.setItem('smartsync:unsent:me', JSON.stringify([fromEarlier()]))
+      outcomeOf.mockResolvedValue('landed')
+      mount()
+      act(() => emit.activities([], { fromCache: false }))
+      await flush()
+      expect(drainQueue).toHaveBeenCalledTimes(1)
+      expect(outcomeOf).toHaveBeenCalledWith(expect.objectContaining({ id: 'old-1' }))
+      expect(rows()).toEqual([])
+    })
+
+    test('a write that was refused meanwhile becomes failed, with a reason', async () => {
+      localStorage.setItem('smartsync:unsent:me', JSON.stringify([fromEarlier()]))
+      outcomeOf.mockResolvedValue('refused')
+      mount()
+      act(() => emit.activities([], { fromCache: false }))
+      await flush()
+      expect(rows()).toMatchObject([{ status: 'failed', error: { code: 'refused' } }])
+    })
+
+    test('an edit overtaken by somebody else’s is superseded, in words that say so', async () => {
+      localStorage.setItem(
+        'smartsync:unsent:me',
+        JSON.stringify([
+          fromEarlier({ kind: 'activity-edit', key: 'a1', payload: { title: 'Mine' } }),
+          fromEarlier({ id: 'old-2', kind: 'profile', key: 'me', payload: { bio: 'Mine' } }),
+        ]),
+      )
+      outcomeOf.mockResolvedValue('superseded')
+      mount()
+      act(() => emit.activities([], { fromCache: false }))
+      await flush()
+      expect(rows()).toMatchObject([
+        {
+          kind: 'activity-edit',
+          status: 'failed',
+          error: { code: 'superseded', message: expect.stringMatching(/changed by somebody else/) },
+        },
+        {
+          kind: 'profile',
+          status: 'failed',
+          error: { code: 'superseded', message: expect.stringMatching(/another device/) },
+        },
+      ])
+    })
+
+    test('nothing is asked until the server has answered — the browser saying "online" is not that', async () => {
+      localStorage.setItem('smartsync:unsent:me', JSON.stringify([fromEarlier()]))
+      // Offline before the page even loads.
+      Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
+      try {
+        mount()
+        act(() => emit.activities([], { fromCache: true }))
+        await flush()
+        expect(drainQueue).not.toHaveBeenCalled()
+        expect(rows()[0].status).toBe('pending')
+        Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true })
+        goOnline()
+        await flush()
+        // Online in the browser's eyes, but the server has not said a word:
+        // draining the queue needs the server, so the question waits.
+        expect(drainQueue).not.toHaveBeenCalled()
+        act(() => emit.activities([], { fromCache: false }))
+        await flush()
+        expect(drainQueue).toHaveBeenCalledTimes(1)
+      } finally {
+        Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true })
+      }
+    })
+
+    test('a drain that never finishes is given up on, and tried again the next time the server answers', async () => {
+      vi.useFakeTimers()
+      try {
+        localStorage.setItem('smartsync:unsent:me', JSON.stringify([fromEarlier()]))
+        drainQueue.mockReturnValueOnce(new Promise(() => {}))
+        outcomeOf.mockResolvedValue('landed')
+        mount()
+        act(() => emit.activities([], { fromCache: false }))
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(30_000)
+        })
+        expect(rows()[0].status).toBe('pending')
+        // The link goes and comes back; the drain is asked for again.
+        act(() => emit.activities([], { fromCache: true }))
+        act(() => emit.activities([], { fromCache: false }))
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        expect(drainQueue).toHaveBeenCalledTimes(2)
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        expect(rows()).toEqual([])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    test('rows queued in this page load are left to their own promises', async () => {
+      const write = held()
+      sendMessageDoc.mockReturnValue(write.promise)
+      mount()
+      goOffline()
+      fireEvent.click(screen.getByText('send'))
+      await flush()
+      goOnline()
+      await flush()
+      expect(drainQueue).not.toHaveBeenCalled()
+      expect(rows()[0].status).toBe('pending')
+    })
+
+    test('a check that fails leaves the row pending for next time', async () => {
+      localStorage.setItem('smartsync:unsent:me', JSON.stringify([fromEarlier()]))
+      outcomeOf.mockRejectedValue(new Error('unavailable'))
+      mount()
+      act(() => emit.activities([], { fromCache: false }))
+      await flush()
+      expect(rows()[0].status).toBe('pending')
+      expect(reportError).toHaveBeenCalledWith('unsent.reconcile', expect.anything(), {
+        kind: 'message',
+      })
+    })
+  })
+})
+
+describe('an identity sweep that started from the cache', () => {
+  // A rename or anonymous-mode switch saved offline stamped only the hosted
+  // activities the cache held and noted that on the profile. Once the server
+  // has answered, the rest are brought into line from the server's list.
+  function Probe() {
+    useApp()
+    return null
+  }
+  const mountWith = (user) => {
+    currentUser = { uid: 'me', interests: [], historyCategories: [], ...user }
+    render(
+      <AppProvider>
+        <Probe />
+      </AppProvider>,
+    )
+  }
+  const flush = () =>
+    act(async () => {
+      for (let i = 0; i < 4; i += 1) await Promise.resolve()
+    })
+
+  test('waits for the server, then finishes the sweep once', async () => {
+    mountWith({ identitySweepPending: true, name: 'Anonymous user', avatar: 'AN' })
+    act(() => emit.activities([], { fromCache: true }))
+    await flush()
+    expect(completeIdentitySweep).not.toHaveBeenCalled()
+    act(() => emit.activities([], { fromCache: false }))
+    await flush()
+    expect(completeIdentitySweep).toHaveBeenCalledTimes(1)
+    expect(completeIdentitySweep).toHaveBeenCalledWith('me', {
+      name: 'Anonymous user',
+      avatar: 'AN',
+    })
+    // Another server snapshot while it runs, or after, does not start a second.
+    act(() => emit.activities([], { fromCache: false }))
+    await flush()
+    expect(completeIdentitySweep).toHaveBeenCalledTimes(1)
+  })
+
+  test('nothing to finish, nothing is asked', async () => {
+    mountWith({ identitySweepPending: false, name: 'Alice', avatar: 'AL' })
+    act(() => emit.activities([], { fromCache: false }))
+    await flush()
+    expect(completeIdentitySweep).not.toHaveBeenCalled()
+  })
+
+  test('a sweep that fails is recorded and tried again when the server answers after a gap', async () => {
+    completeIdentitySweep.mockRejectedValueOnce(new Error('unavailable'))
+    mountWith({ identitySweepPending: true, name: 'Alice', avatar: 'AL' })
+    act(() => emit.activities([], { fromCache: false }))
+    await flush()
+    expect(completeIdentitySweep).toHaveBeenCalledTimes(1)
+    expect(reportError).toHaveBeenCalledWith('users.identitySweep', expect.anything(), {
+      uid: 'me',
+    })
+    // The link drops and comes back.
+    act(() => emit.activities([], { fromCache: true }))
+    act(() => emit.activities([], { fromCache: false }))
+    await flush()
+    expect(completeIdentitySweep).toHaveBeenCalledTimes(2)
   })
 })

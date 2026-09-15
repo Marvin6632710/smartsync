@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { useApp } from '../context/AppContext'
+import { awaitWrite, QUEUED } from '../utils/writes'
 
 /**
  * Wraps a profile write so a failure is visible.
@@ -14,17 +15,19 @@ import { useApp } from '../context/AppContext'
  *
  * Returns `saving` too, so a control can be disabled while a write is in
  * flight instead of being double-tapped.
+ *
+ * Offline, the write is applied locally and queued, and this resolves
+ * without waiting for a server that is not there — the switch is already
+ * showing the new state, and "Saving…" until the connection came back
+ * helped nobody. A refusal that arrives later is still shown.
  */
 export function useSaveProfile() {
-  const { pushCelebration } = useApp()
+  const { pushCelebration, offline } = useApp()
   const [saving, setSaving] = useState(false)
 
   const save = async (action, { failure = "Couldn't save that" } = {}) => {
     setSaving(true)
-    try {
-      await action()
-      return true
-    } catch (error) {
+    const fail = (error) =>
       pushCelebration({
         icon: 'alert',
         tone: 'warning',
@@ -34,6 +37,18 @@ export function useSaveProfile() {
             ? 'You do not have permission.'
             : 'Check your connection and try again.',
       })
+    try {
+      const outcome = await awaitWrite(action(), { offline, onLater: fail })
+      if (outcome === QUEUED) {
+        pushCelebration({
+          icon: 'check',
+          title: 'Saved — will sync',
+          body: 'This will finish when you are back online.',
+        })
+      }
+      return true
+    } catch (error) {
+      fail(error)
       return false
     } finally {
       setSaving(false)

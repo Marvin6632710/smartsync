@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Archive, Flag, Lock, Send } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import BootScreen from '../components/BootScreen'
 import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -11,11 +12,23 @@ import { formatMessageTime } from '../utils/time'
 export default function ChatPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { activities, joinedIds, sendMessage, blockedIds } = useApp()
+  const {
+    activities,
+    joinedIds,
+    sendMessage,
+    blockedIds,
+    loading: feedLoading,
+    syncing,
+    unsent,
+    discardUnsent,
+  } = useApp()
   const { user } = useAuth()
   const [text, setText] = useState('')
   const [reporting, setReporting] = useState(null)
   const bottomRef = useRef(null)
+  // Rows whose retry is already on its way. Two taps on Retry in the same
+  // tick would both read the row as still there and send it twice.
+  const resendingRef = useRef(new Set())
 
   const activity = activities.find((item) => item.id === id)
   const joined = joinedIds.includes(id)
@@ -28,11 +41,26 @@ export default function ChatPage() {
   // Nor while the join that put you on the roster is still in flight — the
   // rule reads the roster on the server, which has not seen it yet. The
   // flag clears when the write is accepted, and the listener opens then.
-  const { messages, loading } = useThread(id, joined && !closed && !activity?.rosterPending)
+  const { messages, loading, error, retry } = useThread(
+    id,
+    joined && !closed && !activity?.rosterPending,
+  )
+
+  // Messages of this thread the server has refused — now, or after they
+  // were queued offline and sent later. Kept by the context (see `unsent`
+  // there) and offered here to retry or discard; never written back over
+  // whatever has been typed since.
+  const failedHere = unsent.filter(
+    (row) => row.kind === 'message' && row.key === id && row.status === 'failed',
+  )
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
-  }, [messages.length])
+  }, [messages.length, failedHere.length])
+
+  // Before the first snapshot there is no activity to find yet; that is not
+  // the same as one that no longer exists, and it used to read as one.
+  if (!activity && (feedLoading || syncing)) return <BootScreen label="Loading…" />
 
   if (!activity)
     return (
@@ -81,9 +109,20 @@ export default function ChatPage() {
     if (!pending) return
     // Cleared immediately rather than after the write resolves, so the input
     // stays responsive on a slow connection. The message still appears at
-    // once — Firestore renders local writes optimistically.
+    // once — Firestore renders local writes optimistically. A refusal — the
+    // thread closed on the server, a roster changed underneath us — rolls
+    // that bubble back, and the text used to go with it; it is kept in
+    // `failedHere` now, with the reason and a retry.
     setText('')
     sendMessage(id, pending)
+  }
+
+  const resend = (row) => {
+    if (resendingRef.current.has(row.id)) return
+    resendingRef.current.add(row.id)
+    discardUnsent(row.id)
+    // A refusal now puts it straight back into the list, with the reason.
+    sendMessage(id, row.payload.text).finally(() => resendingRef.current.delete(row.id))
   }
 
   return (
@@ -104,7 +143,22 @@ export default function ChatPage() {
             <p>Loading messages…</p>
           </div>
         )}
-        {!loading && messages.length === 0 && (
+        {/* A thread that could not be read is not an empty thread. Saying
+            "no messages yet" over a refusal invited people to type into a
+            conversation they could not reach. */}
+        {!loading && error && (
+          <div className="empty-state small" role="alert">
+            <p>
+              {error.code === 'permission-denied'
+                ? "You can't read this chat right now. If you just joined, give it a moment."
+                : "Couldn't load messages."}
+            </p>
+            <button className="text-button" onClick={retry}>
+              Try again
+            </button>
+          </div>
+        )}
+        {!loading && !error && messages.length === 0 && (
           <div className="empty-state small">
             <p>No messages yet. Start the conversation.</p>
           </div>
@@ -149,6 +203,21 @@ export default function ChatPage() {
               </div>
             )
           })}
+        {failedHere.map((row) => (
+          <div className="message-bubble mine unsent" key={row.id} role="alert">
+            <strong>Not sent</strong>
+            <p>{row.payload.text}</p>
+            <span>{row.error?.message || 'It could not be sent.'}</span>
+            <div className="unsent-actions">
+              <button className="text-button" onClick={() => resend(row)}>
+                Retry
+              </button>
+              <button className="text-button" onClick={() => discardUnsent(row.id)}>
+                Discard
+              </button>
+            </div>
+          </div>
+        ))}
         <div ref={bottomRef} />
       </div>
 
