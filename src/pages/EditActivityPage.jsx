@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import BootScreen from '../components/BootScreen'
 import LocationPicker from '../components/LocationPicker'
 import UnsentDraft from '../components/UnsentDraft'
@@ -7,10 +8,12 @@ import { categories } from '../data/categories'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { deriveTimeBand } from '../firebase/activities'
+import { categoryLabel, takedownReasonText, timeBandLabel } from '../i18n'
 import { formatClock } from '../utils/time'
 import { withinThailand } from '../data/region'
 
 export default function EditActivityPage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const { activities, loading, syncing } = useApp()
   const { user } = useAuth()
@@ -18,13 +21,13 @@ export default function EditActivityPage() {
 
   // A reload of this URL lands before the listener has delivered anything;
   // that is loading, not missing.
-  if (!existing && (loading || syncing)) return <BootScreen label="Loading…" />
+  if (!existing && (loading || syncing)) return <BootScreen />
 
   if (!existing)
     return (
       <div className="page-content">
         <div className="empty-state">
-          <h3>Activity not found</h3>
+          <h3>{t('activity.notFound')}</h3>
         </div>
       </div>
     )
@@ -35,8 +38,8 @@ export default function EditActivityPage() {
     return (
       <div className="page-content">
         <div className="empty-state">
-          <h3>Only the host can edit this</h3>
-          <p>Ask {existing.hostName} to make changes.</p>
+          <h3>{t('edit.onlyHost')}</h3>
+          <p>{t('edit.askHost', { name: existing.hostName })}</p>
         </div>
       </div>
     )
@@ -48,11 +51,13 @@ export default function EditActivityPage() {
     return (
       <div className="page-content">
         <div className="empty-state">
-          <h3>This activity was removed</h3>
+          <h3>{t('edit.removedTitle')}</h3>
           <p>
             {existing.moderation?.reason
-              ? `SmartSync removed it: ${existing.moderation.reason}. It cannot be edited or put back from here.`
-              : 'SmartSync removed it. It cannot be edited or put back from here.'}
+              ? t('edit.removedWithReason', {
+                  reason: takedownReasonText(existing.moderation.reason),
+                })
+              : t('edit.removedNoReason')}
           </p>
         </div>
       </div>
@@ -73,11 +78,13 @@ export default function EditActivityPage() {
  * as before.
  */
 function EditActivityForm({ existing }) {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const { updateActivity, unsent } = useApp()
   const [form, setForm] = useState(existing)
-  const [error, setError] = useState('')
+  // A key and its values, so a change of language re-words the error.
+  const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
   // An edit saved offline that the server refused later. The screen had
@@ -87,7 +94,7 @@ function EditActivityForm({ existing }) {
     .at(-1)
   const restore = (payload) => {
     setForm((current) => ({ ...current, ...payload }))
-    setError('')
+    setError(null)
   }
 
   const minCapacity = Math.max(2, existing.participants)
@@ -96,37 +103,37 @@ function EditActivityForm({ existing }) {
   const submit = async (event) => {
     event.preventDefault()
     if (!form.title?.trim() || !form.description?.trim()) {
-      setError('Activity name and description are required.')
+      setError({ key: 'edit.errors.nameAndDescription' })
       return
     }
     if (!form.locationName?.trim() || form.lat == null || form.lng == null) {
-      setError('The activity needs a named place and a pin on the map.')
+      setError({ key: 'edit.errors.placeAndPin' })
       return
     }
     // Editing is also the path by which an older activity outside the box
     // would be saved again, so it has to pass the same test as a new one.
     if (!withinThailand(form.lat, form.lng)) {
-      setError('SmartSync only runs in Thailand — pick a spot inside the country.')
+      setError({ key: 'location.outsideThailand' })
       return
     }
     if (Number(form.capacity) < minCapacity) {
-      setError(`Capacity can't be below the ${existing.participants} people already joined.`)
+      setError({ key: 'edit.errors.capacity', count: existing.participants })
       return
     }
     // Both halves of the instant, always: the data layer refuses one without
     // the other, and the rules refuse an empty time, so say so here.
     if (!form.date || !form.time) {
-      setError('Pick a date and a time.')
+      setError({ key: 'create.errors.dateTime' })
       return
     }
     // Only when the time is being moved: a host fixing the description of
     // something that has already happened must not be told to reschedule it.
     const moved = form.date !== existing.date || form.time !== existing.time
     if (moved && new Date(`${form.date}T${form.time}`) < new Date()) {
-      setError('Pick a date and time in the future.')
+      setError({ key: 'create.errors.future' })
       return
     }
-    setError('')
+    setError(null)
     setBusy(true)
     const saved = await updateActivity(
       id,
@@ -154,11 +161,11 @@ function EditActivityForm({ existing }) {
 
   return (
     <div className="page-content">
-      <h2>Edit activity</h2>
-      <UnsentDraft row={draft} what="Your last edit" onRestore={restore} />
+      <h2>{t('edit.title')}</h2>
+      <UnsentDraft row={draft} what={t('edit.draftWhat')} onRestore={restore} />
       <form className="form-card" onSubmit={submit}>
         <label>
-          Activity name
+          {t('create.activityName')}
           <input
             value={form.title || ''}
             onChange={(e) => set('title', e.target.value)}
@@ -166,18 +173,20 @@ function EditActivityForm({ existing }) {
           />
         </label>
         <label>
-          Category
+          {t('create.category')}
           <select
             value={form.category || 'Football'}
             onChange={(e) => set('category', e.target.value)}
           >
             {categories.map((option) => (
-              <option key={option}>{option}</option>
+              <option key={option} value={option}>
+                {categoryLabel(option)}
+              </option>
             ))}
           </select>
         </label>
         <label>
-          Description
+          {t('create.description')}
           <textarea
             rows="4"
             value={form.description || ''}
@@ -187,7 +196,7 @@ function EditActivityForm({ existing }) {
         </label>
         <div className="form-row">
           <label>
-            Date
+            {t('create.date')}
             <input
               type="date"
               value={form.date || ''}
@@ -195,7 +204,7 @@ function EditActivityForm({ existing }) {
             />
           </label>
           <label>
-            Time
+            {t('create.time')}
             <input
               type="time"
               value={form.time || ''}
@@ -204,7 +213,10 @@ function EditActivityForm({ existing }) {
           </label>
         </div>
         <p className="helper-text">
-          {formatClock(form.time)} counts as {deriveTimeBand(form.time).toLowerCase()}.
+          {t('create.countsAs', {
+            time: formatClock(form.time),
+            band: timeBandLabel(deriveTimeBand(form.time)).toLowerCase(),
+          })}
         </p>
 
         <LocationPicker
@@ -213,7 +225,7 @@ function EditActivityForm({ existing }) {
         />
 
         <label>
-          Capacity
+          {t('create.capacity')}
           <input
             type="number"
             min={minCapacity}
@@ -222,17 +234,15 @@ function EditActivityForm({ existing }) {
             onChange={(e) => set('capacity', e.target.value)}
           />
         </label>
-        <p className="helper-text">
-          {`Can't go below the ${existing.participants} people already joined.`}
-        </p>
+        <p className="helper-text">{t('edit.minCapacity', { count: existing.participants })}</p>
 
         {error && (
           <p className="form-error" role="alert">
-            {error}
+            {t(error.key, error)}
           </p>
         )}
         <button className="primary-button wide" disabled={busy}>
-          {busy ? 'Saving…' : 'Save changes'}
+          {busy ? t('common.saving') : t('edit.submit')}
         </button>
       </form>
     </div>

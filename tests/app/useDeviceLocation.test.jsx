@@ -20,14 +20,17 @@ let user = {
 vi.mock('../../src/context/AuthContext', () => ({ useAuth: () => ({ user }) }))
 
 const { useDeviceLocation } = await import('../../src/hooks/useDeviceLocation')
+const { default: i18n } = await import('../../src/i18n')
 
+// The hook hands back a translation key; the screens word it. The probe
+// words it the same way, so the assertions read as the person would.
 function Probe() {
   const { request, clear, error, busy } = useDeviceLocation()
   return (
     <div>
       <button onClick={request}>request</button>
       <button onClick={clear}>clear</button>
-      <span data-testid="error">{error}</span>
+      <span data-testid="error">{error ? i18n.t(error) : ''}</span>
       <span data-testid="busy">{String(busy)}</span>
     </div>
   )

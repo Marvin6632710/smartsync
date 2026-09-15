@@ -1,6 +1,7 @@
 import React, { useMemo, useRef } from 'react'
 import { ArrowRight, Filter, Map, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useCountUp } from '../hooks/useCountUp'
 import { useMorph } from '../hooks/useMorph'
 import ActivityCard from '../components/ActivityCard'
@@ -10,6 +11,7 @@ import ActivitiesLoading from '../components/ActivitiesLoading'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { formatActivityDate, formatClock, greetingFor, partOfDay, questionFor } from '../utils/time'
+import { categoryLabel, reasonLines } from '../i18n'
 import { pickForInterests } from '../services/interestPicks'
 
 /**
@@ -32,6 +34,7 @@ function HeroScore({ value }) {
 }
 
 export default function HomePage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const morph = useMorph()
   const heroRef = useRef(null)
@@ -76,7 +79,9 @@ export default function HomePage() {
       <header className="discover-head" data-part={part}>
         <div>
           <span className="eyebrow">
-            {user.anonymous ? 'Anonymous mode' : `${greetingFor(part)}, ${firstName}`}
+            {user.anonymous
+              ? t('home.anonymousMode')
+              : t('home.greetingWithName', { greeting: greetingFor(part), name: firstName })}
           </span>
           {/* h2, not h1: the topbar already carries this page's h1, and
               every other screen in the shell follows the same shape. */}
@@ -86,13 +91,13 @@ export default function HomePage() {
 
       <div className="discover-tools">
         <button onClick={() => navigate('/search')}>
-          <Search size={16} /> Search
+          <Search size={16} /> {t('common.search')}
         </button>
         <button onClick={() => navigate('/filters')}>
-          <Filter size={16} /> Filter
+          <Filter size={16} /> {t('common.filter')}
         </button>
         <button onClick={() => navigate('/map')}>
-          <Map size={16} /> Map
+          <Map size={16} /> {t('common.map')}
         </button>
       </div>
 
@@ -106,7 +111,7 @@ export default function HomePage() {
           <div className="hero-pick-top">
             <span className="category-chip">
               <CategoryIcon category={heroPick.category} size={12} />
-              {heroPick.category}
+              {categoryLabel(heroPick.category)}
             </span>
             <HeroScore value={heroPick.matchScore} />
           </div>
@@ -115,9 +120,9 @@ export default function HomePage() {
             {formatActivityDate(heroPick.date)} · {formatClock(heroPick.time)} ·{' '}
             {heroPick.locationName}
           </p>
-          <p className="hero-why">{heroPick.reasons?.slice(0, 2).join(' • ')}</p>
+          <p className="hero-why">{reasonLines(heroPick).slice(0, 2).join(' • ')}</p>
           <span className="hero-cta">
-            Take a look <ArrowRight size={16} />
+            {t('home.takeALook')} <ArrowRight size={16} />
           </span>
         </button>
       )}
@@ -126,11 +131,11 @@ export default function HomePage() {
         <section className="section-block">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">From your interests</span>
-              <h2>AI Picks</h2>
+              <span className="eyebrow">{t('home.fromInterests')}</span>
+              <h2>{t('home.aiPicks')}</h2>
             </div>
             <button className="text-button" onClick={() => navigate('/recommendations')}>
-              See all <ArrowRight size={15} />
+              {t('common.seeAll')} <ArrowRight size={15} />
             </button>
           </div>
           <div className="stack">
@@ -144,8 +149,8 @@ export default function HomePage() {
       <section className="section-block">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Soonest first</span>
-            <h2>Happening soon</h2>
+            <span className="eyebrow">{t('home.soonestFirst')}</span>
+            <h2>{t('home.happeningSoon')}</h2>
           </div>
           <span className="count-chip">{soonest.length}</span>
         </div>

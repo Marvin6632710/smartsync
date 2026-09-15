@@ -1,25 +1,30 @@
 import React, { useState } from 'react'
 import { Flag } from 'lucide-react'
 import { useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+
+import { storedContext } from '../i18n/reportContext'
 import BootScreen from '../components/BootScreen'
 import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
+import { categoryLabel } from '../i18n'
 
 export default function ParticipantsPage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const { activities, peers, loading, syncing } = useApp()
   const { user } = useAuth()
   const [reporting, setReporting] = useState(null)
   const activity = activities.find((item) => item.id === id)
 
-  if (!activity && (loading || syncing)) return <BootScreen label="Loading…" />
+  if (!activity && (loading || syncing)) return <BootScreen />
 
   if (!activity)
     return (
       <div className="page-content">
         <div className="empty-state">
-          <h3>Activity not found</h3>
+          <h3>{t('activity.notFound')}</h3>
         </div>
       </div>
     )
@@ -30,15 +35,18 @@ export default function ParticipantsPage() {
   const directory = [user, ...peers]
   const participants = (activity.participantUids || []).map((uid) => {
     const person = directory.find((entry) => entry?.uid === uid)
-    return person || { uid, name: 'SmartSync user', avatar: '?', interests: [] }
+    return person || { uid, name: t('common.unknownUser'), avatar: '?', interests: [] }
   })
 
   return (
     <div className="page-content">
       <span className="eyebrow">{activity.title}</span>
-      <h2>Participants</h2>
+      <h2>{t('participants.title')}</h2>
       <p className="helper-text">
-        {activity.participants} of {activity.capacity} spots taken.
+        {t('participants.spotsTaken', {
+          count: activity.participants,
+          capacity: activity.capacity,
+        })}
       </p>
       <div className="stack">
         {participants.map((person) => (
@@ -48,11 +56,14 @@ export default function ParticipantsPage() {
               <h3>
                 {person.name}
                 {person.uid === activity.hostId && (
-                  <span className="tiny-chip host-chip">Host</span>
+                  <span className="tiny-chip host-chip">{t('common.host')}</span>
                 )}
-                {person.uid === user.uid && <span className="tiny-chip">You</span>}
+                {person.uid === user.uid && <span className="tiny-chip">{t('common.you')}</span>}
               </h3>
-              <p>{(person.interests || []).slice(0, 3).join(' · ') || 'Activity participant'}</p>
+              <p>
+                {(person.interests || []).slice(0, 3).map(categoryLabel).join(' · ') ||
+                  t('participants.participant')}
+              </p>
             </div>
             {/* Reporting belongs here, next to the people you are about to
                 meet in person, rather than buried in a settings screen. */}
@@ -65,11 +76,11 @@ export default function ParticipantsPage() {
                     id: person.uid,
                     name: person.name,
                     avatar: person.avatar,
-                    label: 'this person',
-                    context: `Participant in "${activity.title}"`,
+                    label: 'participants.reportLabel',
+                    context: storedContext('participant', { title: activity.title }),
                   })
                 }
-                aria-label={`Report ${person.name}`}
+                aria-label={t('participants.reportPerson', { name: person.name })}
               >
                 <Flag size={16} />
               </button>

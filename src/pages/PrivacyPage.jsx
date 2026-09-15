@@ -1,5 +1,6 @@
 import React from 'react'
 import { EyeOff, LocateFixed, MapPinned, ShieldCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { useDeviceLocation } from '../hooks/useDeviceLocation'
 import { useSaveProfile } from '../hooks/useSaveProfile'
@@ -7,6 +8,7 @@ import { setAnonymousMode, updatePrivateProfile } from '../firebase/users'
 import { coarsen } from '../utils/geo'
 
 export default function PrivacyPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { request, clear, busy, error } = useDeviceLocation()
   const { save, saving } = useSaveProfile()
@@ -30,19 +32,16 @@ export default function PrivacyPage() {
   return (
     <div className="page-content">
       <section>
-        <span className="eyebrow">User-controlled privacy</span>
-        <h2>Privacy controls</h2>
-        <p className="helper-text">
-          These settings change what other people can actually read about you, not just what this
-          app chooses to display.
-        </p>
+        <span className="eyebrow">{t('privacy.eyebrow')}</span>
+        <h2>{t('privacy.title')}</h2>
+        <p className="helper-text">{t('privacy.lead')}</p>
       </section>
       <div className="settings-card">
         <button
           className="setting-row"
           onClick={() =>
             save(() => setAnonymousMode(user.uid, !user.anonymous, user.realName), {
-              failure: "Couldn't change anonymous mode",
+              failure: t('privacy.anonymousFailed'),
             })
           }
           role="switch"
@@ -51,8 +50,8 @@ export default function PrivacyPage() {
         >
           <EyeOff size={18} />
           <span>
-            <strong>Anonymous mode</strong>
-            <small>Your real name is removed from the profile others can read</small>
+            <strong>{t('privacy.anonymous')}</strong>
+            <small>{t('privacy.anonymousHint')}</small>
           </span>
           <span className={`switch ${user.anonymous ? 'on' : ''}`} aria-hidden="true" />
         </button>
@@ -65,8 +64,8 @@ export default function PrivacyPage() {
         >
           <LocateFixed size={18} />
           <span>
-            <strong>Location</strong>
-            <small>{busy ? 'Asking your device…' : 'Used to sort activities by distance'}</small>
+            <strong>{t('privacy.location')}</strong>
+            <small>{busy ? t('privacy.askingDevice') : t('privacy.locationHint')}</small>
           </span>
           <span className={`switch ${privacy.locationPermission ? 'on' : ''}`} aria-hidden="true" />
         </button>
@@ -79,8 +78,8 @@ export default function PrivacyPage() {
         >
           <MapPinned size={18} />
           <span>
-            <strong>Approximate location</strong>
-            <small>Round your position to about a kilometre before storing it</small>
+            <strong>{t('privacy.approximate')}</strong>
+            <small>{t('privacy.approximateHint')}</small>
           </span>
           <span
             className={`switch ${privacy.approximateLocation ? 'on' : ''}`}
@@ -91,24 +90,19 @@ export default function PrivacyPage() {
 
       {error && (
         <p className="form-error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
 
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">How this works</span>
-            <h3>Enforced, not just hidden</h3>
+            <span className="eyebrow">{t('privacy.howEyebrow')}</span>
+            <h3>{t('privacy.howTitle')}</h3>
           </div>
           <ShieldCheck size={20} />
         </div>
-        <p>
-          Your email, your real name while anonymous mode is on, and your stored position live in a
-          part of your profile the database will not serve to anyone but you. Activity chats are
-          readable only by people who joined that activity, and close 30 days after it — after that
-          nobody can open the thread, including us.
-        </p>
+        <p>{t('privacy.howBody')}</p>
       </section>
     </div>
   )

@@ -4497,3 +4497,184 @@ body {
   font-size: var(--t-sm);
   color: var(--text-2);
 }
+
+/* =========================================================
+   LANGUAGE
+   The one control that must be findable by somebody who cannot read
+   anything around it: a pill in the corner of every entry screen, and a
+   row at the top of Settings, each showing the language's own name.
+   ========================================================= */
+
+.language-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  min-height: 44px;
+  max-width: 100%;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+.language-menu:hover {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+/* The select is the focusable thing; the pill wears its focus ring so the
+   ring hugs the visible control rather than the invisible native box. */
+.language-menu:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.language-menu > svg {
+  flex: none;
+}
+.language-menu select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: var(--w-medium);
+  /* Room on the right for the chevron; the global 16px keeps iOS from
+     zooming when the picker opens. */
+  padding: 0 20px 0 0;
+  min-width: 0;
+  max-width: 100%;
+  cursor: pointer;
+  outline: none;
+  /* The native chevron is gone; a wider select would only add empty space
+     after the name, so let the name set the width. */
+  width: auto;
+  text-overflow: ellipsis;
+}
+.language-menu select:focus-visible {
+  outline: none;
+}
+/* One chevron of our own, drawn so it matches every platform. */
+.language-menu::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+.language-menu.compact {
+  min-height: 40px;
+  padding: 0 10px;
+  box-shadow: var(--shadow-sm);
+}
+.language-menu.compact select {
+  min-height: 40px;
+  font-size: var(--t-sm);
+}
+
+/* Entry screens: the first thing on the page, in the top corner. It stays
+   in the flow rather than floating over the corner: these pages centre a
+   tall column, and on a short window a floating pill lands on the brand
+   mark. In flow it costs the column a few pixels and can never overlap. */
+.entry-language {
+  align-self: flex-end;
+  margin: -12px -8px -4px 0;
+}
+
+/* Settings: a row like the others, but with the control on the right in
+   place of the chevron — and it is not a button, so no press feedback.
+   The row already carries the icon, so the pill drops its own. */
+.language-row {
+  cursor: default;
+}
+.language-row:hover {
+  background: transparent;
+}
+.language-row:active {
+  transform: none;
+}
+.language-row .language-menu {
+  justify-self: end;
+}
+.language-row .language-menu > svg {
+  display: none;
+}
+.settings-card {
+  container-type: inline-size;
+}
+@container (max-width: 300px) {
+  /* The label and the pill do not both fit beside the icon on the
+     narrowest phones; the pill drops under the label instead of
+     squeezing it. Measured against the card, not the window, because the
+     desktop frame is a phone's width inside a wide window. */
+  .language-row {
+    grid-template-columns: auto 1fr;
+  }
+  .language-row .language-menu {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+/* =========================================================
+   THAI AND BURMESE
+   Both scripts stack vowel and tone marks above and below the line, and
+   neither is in the display face, so the browser's own Thai and Myanmar
+   fonts draw them. Those glyphs need taller lines than Latin, and any
+   letter-spacing tears a mark away from the letter it belongs to; the
+   display tracking is switched off wholesale rather than rule by rule.
+   Thai also writes without spaces between words, so a word that would
+   not fit is allowed to break rather than push the layout sideways.
+   ========================================================= */
+
+:root[lang='th'] *,
+:root[lang='my'] * {
+  letter-spacing: 0;
+}
+:root[lang='th'] body,
+:root[lang='my'] body {
+  overflow-wrap: anywhere;
+}
+:root[lang='th'] h1,
+:root[lang='th'] h2,
+:root[lang='th'] h3,
+:root[lang='th'] h4,
+:root[lang='my'] h1,
+:root[lang='my'] h2,
+:root[lang='my'] h3,
+:root[lang='my'] h4 {
+  line-height: 1.45;
+}
+:root[lang='th'] p,
+:root[lang='th'] small,
+:root[lang='th'] label,
+:root[lang='th'] li,
+:root[lang='my'] p,
+:root[lang='my'] small,
+:root[lang='my'] label,
+:root[lang='my'] li {
+  line-height: 1.65;
+}
+:root[lang='th'] .top-pick h3,
+:root[lang='my'] .top-pick h3 {
+  line-height: 1.3;
+}
+:root[lang='th'] button,
+:root[lang='th'] .nav-item,
+:root[lang='my'] button,
+:root[lang='my'] .nav-item {
+  line-height: 1.4;
+}
+/* Myanmar fonts sit their glyphs low and tall; the 12px navigation label
+   clipped its lower marks, so the bar gives the label its full line. */
+:root[lang='my'] .nav-item {
+  gap: 2px;
+}

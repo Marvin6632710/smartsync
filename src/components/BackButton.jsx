@@ -1,6 +1,7 @@
 import React from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 /**
  * The way out of a subpage.
@@ -17,13 +18,14 @@ import { useNavigate } from 'react-router-dom'
  */
 export default function BackButton({ fallback = '/home' }) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   return (
     <button
       className="topbar-back"
       onClick={() => (window.history.length > 1 ? navigate(-1) : navigate(fallback))}
     >
       <ChevronLeft size={20} aria-hidden="true" />
-      Back
+      {t('common.back')}
     </button>
   )
 }

@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import ClosedAccountScreen from './components/ClosedAccountScreen'
 import BootScreen from './components/BootScreen'
@@ -56,10 +57,11 @@ const EditActivityPage = lazyRoute(() => import('./pages/EditActivityPage'))
  * the app where a signed-out visitor can reach a screen that assumes a user.
  */
 export default function App() {
+  const { t } = useTranslation()
   const { status, user, profileReady, profileError, retryProfile, signOut } = useAuth()
 
   // Stage 1 — session still resolving from disk.
-  if (status === 'loading') return <BootScreen label="Starting SmartSync…" />
+  if (status === 'loading') return <BootScreen label={t('app.starting')} />
 
   // Stage 2 — signed out. Only the public routes exist at all.
   if (status === 'signed-out') {
@@ -80,7 +82,7 @@ export default function App() {
     return <ProfileErrorScreen error={profileError} onRetry={retryProfile} onSignOut={signOut} />
 
   // Signed in, but the profile documents have not arrived yet.
-  if (!profileReady) return <BootScreen label="Loading your profile…" />
+  if (!profileReady) return <BootScreen label={t('app.loadingProfile')} />
 
   // Stage 3 — signed in but not set up. The recommendation engine has nothing
   // to work with until interests exist, so setup is not skippable.
@@ -111,7 +113,7 @@ export default function App() {
         <Route
           path="/map"
           element={
-            <Suspense fallback={<BootScreen label="Loading map…" />}>
+            <Suspense fallback={<BootScreen label={t('app.loadingMap')} />}>
               <MapPage />
             </Suspense>
           }
@@ -120,7 +122,7 @@ export default function App() {
         <Route
           path="/activity/:id/edit"
           element={
-            <Suspense fallback={<BootScreen label="Loading…" />}>
+            <Suspense fallback={<BootScreen />}>
               <EditActivityPage />
             </Suspense>
           }
@@ -130,7 +132,7 @@ export default function App() {
         <Route
           path="/create"
           element={
-            <Suspense fallback={<BootScreen label="Loading…" />}>
+            <Suspense fallback={<BootScreen />}>
               <CreateActivityPage />
             </Suspense>
           }

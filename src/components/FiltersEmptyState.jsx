@@ -1,5 +1,6 @@
 import React from 'react'
 import { SlidersHorizontal } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useApp } from '../context/AppContext'
 
 /**
@@ -7,18 +8,17 @@ import { useApp } from '../context/AppContext'
  * one-tap way out — without it the app looks broken rather than filtered,
  * and the filter page is several taps away.
  */
-export default function FiltersEmptyState({
-  body = 'Try widening the distance, or clear the filters to see everything nearby.',
-}) {
+export default function FiltersEmptyState({ body }) {
+  const { t } = useTranslation()
   const { resetFilters } = useApp()
 
   return (
     <div className="empty-state">
       <SlidersHorizontal size={26} />
-      <h3>No activities match your filters</h3>
-      <p>{body}</p>
+      <h3>{t('filtersEmpty.title')}</h3>
+      <p>{body || t('filtersEmpty.body')}</p>
       <button className="secondary-button" onClick={resetFilters}>
-        Clear filters
+        {t('filtersEmpty.clear')}
       </button>
     </div>
   )

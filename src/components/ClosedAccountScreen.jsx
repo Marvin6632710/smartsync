@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { ShieldOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { watchNotifications } from '../firebase/notifications'
+import { localizeNotification } from '../i18n/notificationText'
 
 /**
  * What a closed account sees, in place of the app.
@@ -17,8 +19,11 @@ import { watchNotifications } from '../firebase/notifications'
  * there is no version of this screen that could show more than it does.
  */
 export default function ClosedAccountScreen() {
+  const { t } = useTranslation()
   const { user, signOut } = useAuth()
-  const [reason, setReason] = useState(null)
+  // The notification itself is kept, and worded at render, so a change of
+  // language re-words it too.
+  const [closure, setClosure] = useState(null)
 
   useEffect(() => {
     if (!user?.uid) return undefined
@@ -26,27 +31,22 @@ export default function ClosedAccountScreen() {
       user.uid,
       (rows) => {
         const latest = rows.find((n) => n.type === 'moderation' && /closed/i.test(n.title || ''))
-        setReason(latest?.body || null)
+        setClosure(latest || null)
       },
-      () => setReason(null),
+      () => setClosure(null),
     )
   }, [user?.uid])
+  const reason = closure ? localizeNotification(closure).body : null
 
   return (
     <div className="page-content boot-screen">
       <div className="empty-state">
         <ShieldOff size={30} />
-        <h3>This account has been closed</h3>
-        <p>
-          {reason ||
-            'SmartSync closed this account for breaking the community policy. It can no longer host, join, or message anybody.'}
-        </p>
-        <p className="helper-text">
-          SmartSync exists to get people into the same room safely. An account is only closed when
-          keeping it open would work against that.
-        </p>
+        <h3>{t('closed.title')}</h3>
+        <p>{reason || t('closed.body')}</p>
+        <p className="helper-text">{t('closed.why')}</p>
         <button className="primary-button" onClick={signOut}>
-          Sign out
+          {t('common.signOut')}
         </button>
       </div>
     </div>

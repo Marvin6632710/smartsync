@@ -1,5 +1,6 @@
 import React from 'react'
 
+import i18n from '../i18n'
 import { reportError } from '../utils/reportError'
 
 /**
@@ -58,29 +59,27 @@ export default class ErrorBoundary extends React.Component {
       return <React.Fragment key={this.state.attempt}>{this.props.children}</React.Fragment>
     }
 
+    const t = i18n.t.bind(i18n)
     return (
       <div className="standalone-page error-page">
         <div className="empty-state">
-          <h2>Something went wrong</h2>
-          <p>
-            SmartSync hit an unexpected error on this screen. Your account, activities and messages
-            are stored on the server and are not affected.
-          </p>
+          <h2>{t('errors.somethingWrong')}</h2>
+          <p>{t('errors.somethingWrongBody')}</p>
 
           <div className="button-row wrap">
             <button className="primary-button" onClick={this.handleRetry}>
-              Try again
+              {t('common.tryAgain')}
             </button>
             <button className="secondary-button" onClick={this.handleReload}>
-              Reload
+              {t('common.reload')}
             </button>
             <button className="secondary-button" onClick={this.handleResetData}>
-              Reset local settings
+              {t('errors.resetLocal')}
             </button>
           </div>
 
           <details className="error-details">
-            <summary>Technical details</summary>
+            <summary>{t('errors.technicalDetails')}</summary>
             <pre>{String(this.state.error?.message || this.state.error)}</pre>
           </details>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Shown when a signed-in user's profile cannot be loaded or created.
@@ -10,6 +11,7 @@ import { AlertTriangle } from 'lucide-react'
  * A dead end with no exit is a worse failure than the original error.
  */
 export default function ProfileErrorScreen({ error, onRetry, onSignOut }) {
+  const { t } = useTranslation()
   const [busy, setBusy] = useState(false)
 
   const retry = async () => {
@@ -27,20 +29,17 @@ export default function ProfileErrorScreen({ error, onRetry, onSignOut }) {
         <AlertTriangle size={30} />
       </div>
       <div className="entry-copy">
-        <h1>Can&apos;t load your profile</h1>
-        <p>
-          You are signed in, but your profile could not be loaded. This is usually a connection
-          problem.
-        </p>
+        <h1>{t('errors.profileTitle')}</h1>
+        <p>{t('errors.profileBody')}</p>
       </div>
       {/* The raw code is shown deliberately: it is the one thing that makes a
           support conversation about this possible. */}
-      {error?.code && <p className="form-notice">Error: {error.code}</p>}
+      {error?.code && <p className="form-notice">{t('errors.errorCode', { code: error.code })}</p>}
       <button className="primary-button wide" onClick={retry} disabled={busy}>
-        {busy ? 'Trying again…' : 'Try again'}
+        {busy ? t('common.tryingAgain') : t('common.tryAgain')}
       </button>
       <button className="text-button" onClick={onSignOut}>
-        Sign out
+        {t('common.signOut')}
       </button>
     </div>
   )

@@ -15,27 +15,28 @@ import { reportError } from '../utils/reportError'
  * Firebase error codes are precise but unreadable ("auth/invalid-credential").
  * Surfacing them raw is a common way real apps leak internals and confuse
  * users, so every code the sign-in and sign-up flows can produce is mapped to
- * a sentence a person can act on.
+ * a sentence a person can act on — as a translation key, worded by the screen
+ * in the language in force.
  *
  * Note that wrong-password and unknown-email deliberately share one message:
  * distinguishing them would let anyone test which email addresses have
  * accounts here (user enumeration).
  */
-const AUTH_MESSAGES = {
-  'auth/email-already-in-use': 'An account already exists with this email. Try signing in.',
-  'auth/invalid-email': 'That email address does not look right.',
-  'auth/weak-password': 'Password must be at least 6 characters.',
-  'auth/invalid-credential': 'Email or password is incorrect.',
-  'auth/wrong-password': 'Email or password is incorrect.',
-  'auth/user-not-found': 'Email or password is incorrect.',
-  'auth/too-many-requests': 'Too many attempts. Wait a moment and try again.',
-  'auth/network-request-failed': 'Cannot reach the server. Check your connection.',
-  'auth/user-disabled': 'This account has been disabled.',
-  'auth/requires-recent-login': 'Please sign in again to make this change.',
+const AUTH_ERROR_KEYS = {
+  'auth/email-already-in-use': 'auth.errors.emailInUse',
+  'auth/invalid-email': 'auth.errors.invalidEmail',
+  'auth/weak-password': 'auth.errors.weakPassword',
+  'auth/invalid-credential': 'auth.errors.wrongCredentials',
+  'auth/wrong-password': 'auth.errors.wrongCredentials',
+  'auth/user-not-found': 'auth.errors.wrongCredentials',
+  'auth/too-many-requests': 'auth.errors.tooManyRequests',
+  'auth/network-request-failed': 'auth.errors.network',
+  'auth/user-disabled': 'auth.errors.disabled',
+  'auth/requires-recent-login': 'auth.errors.recentLogin',
 }
 
-export function authErrorMessage(error) {
-  return AUTH_MESSAGES[error?.code] || 'Something went wrong. Please try again.'
+export function authErrorKey(error) {
+  return AUTH_ERROR_KEYS[error?.code] || 'auth.errors.generic'
 }
 
 /**

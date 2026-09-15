@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Placeholder shown while the first activities snapshot is still in flight.
@@ -9,9 +10,10 @@ import React from 'react'
  * Saying nothing is better than saying something untrue.
  */
 export default function ActivitiesLoading({ rows = 3 }) {
+  const { t } = useTranslation()
   return (
     <div className="stack" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading activities…</span>
+      <span className="sr-only">{t('common.loading')}</span>
       {Array.from({ length: rows }, (_, i) => (
         // Shaped like the card that is coming: a block where the coloured
         // header will be, then the lines beneath it. A placeholder that does

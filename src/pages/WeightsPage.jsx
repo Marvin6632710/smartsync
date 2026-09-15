@@ -1,7 +1,9 @@
 import React from 'react'
 import { RotateCcw, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useApp } from '../context/AppContext'
-import { recommendationWeights, signalLabels } from '../services/recommendationService'
+import { categoryLabel, signalLabel } from '../i18n'
+import { recommendationWeights } from '../services/recommendationService'
 
 const SIGNALS = Object.keys(recommendationWeights)
 const MAX = 50
@@ -16,6 +18,7 @@ const MAX = 50
  * signal contributes, so what you can try here is exactly what was measured.
  */
 export default function WeightsPage() {
+  const { t } = useTranslation()
   const { weights, setWeights, resetWeights, recommendations } = useApp()
 
   const total = SIGNALS.reduce((sum, key) => sum + (weights[key] ?? 0), 0)
@@ -26,12 +29,9 @@ export default function WeightsPage() {
   return (
     <div className="page-content">
       <section className="headline-block">
-        <span className="eyebrow">How matching works</span>
-        <h2>Signal weights</h2>
-        <p className="helper-text">
-          Every activity is scored out of 100 against these six signals. Move a slider and the
-          ranking below reorders immediately.
-        </p>
+        <span className="eyebrow">{t('weights.eyebrow')}</span>
+        <h2>{t('weights.title')}</h2>
+        <p className="helper-text">{t('weights.lead')}</p>
       </section>
 
       <div className="form-card">
@@ -41,11 +41,11 @@ export default function WeightsPage() {
           return (
             <label key={key} className="weight-row">
               <span className="weight-head">
-                <strong>{signalLabels[key]}</strong>
+                <strong>{signalLabel(key)}</strong>
                 {/* The share matters more than the raw number: scores are
                     normalised by the total, so 20 out of 60 and 40 out of 120
                     rank identically. */}
-                <span className="tiny-chip">{share}%</span>
+                <span className="tiny-chip">{t('common.percent', { value: share })}</span>
               </span>
               <input
                 type="range"
@@ -53,7 +53,7 @@ export default function WeightsPage() {
                 max={MAX}
                 value={value}
                 onChange={(event) => set(key, event.target.value)}
-                aria-label={signalLabels[key]}
+                aria-label={signalLabel(key)}
               />
             </label>
           )
@@ -61,20 +61,20 @@ export default function WeightsPage() {
 
         {total === 0 && (
           <p className="form-error" role="alert">
-            Every signal is at zero, so nothing can be ranked. Raise at least one.
+            {t('weights.allZero')}
           </p>
         )}
 
         <button className="secondary-button wide" onClick={resetWeights} disabled={isDefault}>
-          <RotateCcw size={16} /> Reset to defaults
+          <RotateCcw size={16} /> {t('weights.reset')}
         </button>
       </div>
 
       <section className="section-block">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Live preview</span>
-            <h2>Your top matches</h2>
+            <span className="eyebrow">{t('weights.previewEyebrow')}</span>
+            <h2>{t('weights.previewTitle')}</h2>
           </div>
           <Sparkles size={18} />
         </div>
@@ -84,23 +84,22 @@ export default function WeightsPage() {
               <span className="rank">{index + 1}</span>
               <div>
                 <strong>{activity.title}</strong>
-                <p>{activity.category}</p>
+                <p>{categoryLabel(activity.category)}</p>
               </div>
-              <span className="match-pill">{activity.matchScore}%</span>
+              <span className="match-pill">
+                {t('common.percent', { value: activity.matchScore })}
+              </span>
             </div>
           ))}
           {recommendations.length === 0 && (
             <div className="empty-state small">
-              <p>No upcoming activities to rank yet.</p>
+              <p>{t('weights.previewEmpty')}</p>
             </div>
           )}
         </div>
       </section>
 
-      <p className="helper-text">
-        These weights are stored on this device only and change what you see, not what anyone else
-        sees. EVALUATION.md in the repository measures what each signal is worth.
-      </p>
+      <p className="helper-text">{t('weights.note')}</p>
     </div>
   )
 }

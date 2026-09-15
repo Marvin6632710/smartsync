@@ -1,4 +1,5 @@
 import { useApp } from '../context/AppContext'
+import i18n from '../i18n'
 
 /** How long a moderation action is waited for before the screen is unblocked. */
 export const MODERATION_WAIT_MS = 20_000
@@ -6,19 +7,20 @@ export const MODERATION_WAIT_MS = 20_000
 /** Returned by `perform` in place of the action's outcome when the budget ran out. */
 export const STILL_TRYING = Symbol('still-trying')
 
-const OFFLINE_TOAST = {
+// Built when shown, so each reads in the language in force at that moment.
+const offlineToast = () => ({
   icon: 'alert',
   tone: 'warning',
-  title: "You're offline",
-  body: 'Moderation needs a connection. Nothing was changed — try again when you are back online.',
-}
+  title: i18n.t('moderationAction.offlineTitle'),
+  body: i18n.t('moderationAction.offlineBody'),
+})
 
-const STILL_TRYING_TOAST = {
+const stillTryingToast = () => ({
   icon: 'alert',
   tone: 'warning',
-  title: 'Still trying',
-  body: 'This needs a connection. It will finish if the connection comes back; you can also try again later — repeating it is safe.',
-}
+  title: i18n.t('moderationAction.stillTryingTitle'),
+  body: i18n.t('moderationAction.stillTryingBody'),
+})
 
 /**
  * Runs a moderation action the way one has to be run.
@@ -40,7 +42,7 @@ export function useModerationAction() {
 
   const perform = async (start, { done, fail }) => {
     if (offline) {
-      pushCelebration(OFFLINE_TOAST)
+      pushCelebration(offlineToast())
       return false
     }
     const job = start()
@@ -51,7 +53,7 @@ export function useModerationAction() {
     try {
       const outcome = await Promise.race([job, budget])
       if (outcome === STILL_TRYING) {
-        pushCelebration(STILL_TRYING_TOAST)
+        pushCelebration(stillTryingToast())
         job.then(
           (late) => pushCelebration(done(late)),
           (error) => pushCelebration(fail(error)),

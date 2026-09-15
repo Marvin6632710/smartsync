@@ -1,5 +1,8 @@
 import React from 'react'
 import { Eye, MessageSquareWarning, ShieldOff, UserRoundCheck, UserRoundX } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+
+import { categoryLabel } from '../../i18n'
 
 /**
  * Everyone on SmartSync, with what each person has actually done attached.
@@ -24,44 +27,43 @@ export default function PeopleDirectory({
   searchFailed = false,
   windowFull = false,
 }) {
+  const { t } = useTranslation()
   return (
     <>
       <section className="headline-block">
-        <span className="eyebrow">Oversight</span>
-        <h2>Everyone on SmartSync</h2>
+        <span className="eyebrow">{t('moderation.people.eyebrow')}</span>
+        <h2>{t('moderation.people.title')}</h2>
         <p className="helper-text">
-          {people.length} {people.length === 1 ? 'account' : 'accounts'}
-          {windowFull ? ' loaded' : ''}. Anyone suspended, or with something taken down, is listed
-          first. You are seeing public profiles — emails, real names behind anonymous mode and
-          stored locations are not readable by anybody but their owner.
+          {t('moderation.people.accounts', { count: people.length })}
+          {windowFull ? t('moderation.people.loaded') : ''}
+          {t('moderation.people.lead')}
         </p>
         {/* Past the window the list is partial, and silently partial is the
             worst kind. Say so, and say what still works. */}
         {windowFull && (
           <p className="form-error" role="status">
-            The first {people.length} accounts are loaded. Anyone else can still be found by
-            searching — the search also asks the server.
+            {t('moderation.people.windowNote', { count: people.length })}
           </p>
         )}
       </section>
 
       <label className="report-detail watch-search">
-        Search everyone
+        {t('moderation.people.searchLabel')}
         <input
           value={watchSearch}
           maxLength={60}
-          placeholder="Name or @username"
+          placeholder={t('moderation.people.searchPlaceholder')}
           onChange={(event) => setWatchSearch(event.target.value)}
         />
       </label>
       {searching && (
         <p className="helper-text" role="status">
-          Searching everyone…
+          {t('moderation.people.searching')}
         </p>
       )}
       {searchFailed && (
         <p className="form-error" role="alert">
-          The server could not be searched just now — only the accounts already loaded are shown.
+          {t('moderation.people.searchFailed')}
         </p>
       )}
 
@@ -74,35 +76,45 @@ export default function PeopleDirectory({
             <article className="report-card" key={person.uid}>
               <header>
                 <span className="report-kind">
-                  <Eye size={13} /> {person.rank}
+                  <Eye size={13} />{' '}
+                  {t(`moderation.role.${person.rank}`, { defaultValue: person.rank })}
                 </span>
-                {person.closed && <span className="report-repeat">closed</span>}
+                {person.closed && (
+                  <span className="report-repeat">{t('moderation.people.closed')}</span>
+                )}
                 {person.suspended && !person.closed && (
-                  <span className="report-repeat">suspended</span>
+                  <span className="report-repeat">{t('moderation.people.suspended')}</span>
                 )}
                 {person.warnings > 0 && (
                   <span className="report-repeat">
-                    {person.warnings} warning{person.warnings === 1 ? '' : 's'}
+                    {t('moderation.people.warnings', { count: person.warnings })}
                   </span>
                 )}
                 {person.removedCount > 0 && (
-                  <span className="report-repeat">{person.removedCount} taken down</span>
+                  <span className="report-repeat">
+                    {t('moderation.people.takenDown', { count: person.removedCount })}
+                  </span>
                 )}
               </header>
 
               <h3>
                 {person.name}
-                {isMe ? ' (you)' : ''}
+                {isMe ? t('moderation.people.youSuffix') : ''}
               </h3>
               <p className="report-context">
                 {person.username ? `${person.username} · ` : ''}
                 {person.inWindow
-                  ? `hosts ${person.hosts}, joined ${person.joinedCount}`
-                  : 'found by search — activity counts not loaded'}
-                {person.anonymous ? ' · anonymous mode on' : ''}
+                  ? t('moderation.people.counts', {
+                      hosts: person.hosts,
+                      joined: person.joinedCount,
+                    })
+                  : t('moderation.people.foundBySearch')}
+                {person.anonymous ? t('moderation.people.anonymousOn') : ''}
               </p>
               {(person.interests || []).length > 0 && (
-                <p className="report-meta">{(person.interests || []).join(' · ')}</p>
+                <p className="report-meta">
+                  {(person.interests || []).map(categoryLabel).join(' · ')}
+                </p>
               )}
 
               <div className="report-actions">
@@ -116,7 +128,7 @@ export default function PeopleDirectory({
                     }}
                   >
                     <MessageSquareWarning size={15} />{' '}
-                    {recording === person.uid ? 'Working…' : 'Warn'}
+                    {recording === person.uid ? t('common.working') : t('moderation.people.warn')}
                   </button>
                 )}
                 {!cannotTouch && !person.suspended && !person.closed && (
@@ -126,7 +138,9 @@ export default function PeopleDirectory({
                     onClick={() => setSuspendTarget({ uid: person.uid, suspend: true })}
                   >
                     <UserRoundX size={15} />{' '}
-                    {suspending === person.uid ? 'Suspending…' : 'Suspend account'}
+                    {suspending === person.uid
+                      ? t('moderation.people.suspending')
+                      : t('moderation.people.suspendAccount')}
                   </button>
                 )}
                 {!cannotTouch && person.suspended && !person.closed && (
@@ -136,7 +150,9 @@ export default function PeopleDirectory({
                     onClick={() => setSuspendTarget({ uid: person.uid, suspend: false })}
                   >
                     <UserRoundCheck size={15} />{' '}
-                    {suspending === person.uid ? 'Lifting…' : 'Lift suspension'}
+                    {suspending === person.uid
+                      ? t('moderation.people.lifting')
+                      : t('moderation.people.liftSuspension')}
                   </button>
                 )}
                 {/* The end of the ladder, and an admin's alone. */}
@@ -149,7 +165,7 @@ export default function PeopleDirectory({
                       setRecorded({ uid: person.uid, kind: 'close' })
                     }}
                   >
-                    <ShieldOff size={15} /> Close account
+                    <ShieldOff size={15} /> {t('moderation.people.closeAccount')}
                   </button>
                 )}
                 {!cannotTouch && user.isAdmin && person.closed && (
@@ -161,14 +177,14 @@ export default function PeopleDirectory({
                       setRecorded({ uid: person.uid, kind: 'reopen' })
                     }}
                   >
-                    <UserRoundCheck size={15} /> Reopen account
+                    <UserRoundCheck size={15} /> {t('moderation.people.reopenAccount')}
                   </button>
                 )}
                 {cannotTouch && !isMe && (
                   <span className="report-meta">
                     {person.rank === 'admin'
-                      ? 'An admin. No rank can act on this account from inside the app.'
-                      : 'A moderator. Only an admin can act on this account.'}
+                      ? t('moderation.people.isAdmin')
+                      : t('moderation.people.isModerator')}
                   </span>
                 )}
               </div>
@@ -179,14 +195,14 @@ export default function PeopleDirectory({
         {watched.length === 0 && (
           <div className="empty-state">
             <Eye size={28} />
-            <h3>Nobody matches that</h3>
-            <p>Try part of a name, or clear the search to see everyone.</p>
+            <h3>{t('moderation.people.nobody')}</h3>
+            <p>{t('moderation.people.nobodyBody')}</p>
           </div>
         )}
 
         {watched.length > 40 && (
           <p className="helper-text">
-            Showing the first 40 of {watched.length}. Search to narrow it down.
+            {t('moderation.people.showingFirst', { shown: 40, count: watched.length })}
           </p>
         )}
       </div>

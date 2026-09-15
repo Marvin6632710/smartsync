@@ -1,19 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Bell, BellOff, CalendarDays, MessageCircle, ShieldAlert, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useApp } from '../context/AppContext'
+import { localizeNotification } from '../i18n/notificationText'
 import { reportError } from '../utils/reportError'
 import { formatRelativeTime } from '../utils/time'
 
 // Each chip maps to notification types the app genuinely writes, so no filter
 // can select a category that will always be empty.
 const FILTERS = [
-  { key: 'all', label: 'All', icon: Bell, types: null },
-  { key: 'activities', label: 'Activities', icon: CalendarDays, types: ['activity'] },
-  { key: 'chat', label: 'Messages', icon: MessageCircle, types: ['chat'] },
+  { key: 'all', label: 'notifications.all', icon: Bell, types: null },
+  { key: 'activities', label: 'notifications.activities', icon: CalendarDays, types: ['activity'] },
+  { key: 'chat', label: 'notifications.chat', icon: MessageCircle, types: ['chat'] },
   {
     key: 'other',
-    label: 'Updates',
+    label: 'notifications.updates',
     icon: Sparkles,
     types: ['follow', 'recommendation', 'general'],
   },
@@ -21,10 +23,11 @@ const FILTERS = [
   // "Updates". Being told your activity was taken down, or your account
   // suspended, is not an update — and it is the one notification somebody
   // will come back looking for.
-  { key: 'safety', label: 'Safety', icon: ShieldAlert, types: ['moderation'] },
+  { key: 'safety', label: 'notifications.safety', icon: ShieldAlert, types: ['moderation'] },
 ]
 
 export default function NotificationsPage() {
+  const { t } = useTranslation()
   const { notifications, markNotificationRead, markAllNotificationsRead } = useApp()
   const navigate = useNavigate()
   const [filter, setFilter] = useState('all')
@@ -61,10 +64,10 @@ export default function NotificationsPage() {
   return (
     <div className="page-content">
       <div className="title-row">
-        <h2>Notifications</h2>
+        <h2>{t('notifications.title')}</h2>
         {hasUnread && (
           <button className="text-button" style={{ marginLeft: 'auto' }} onClick={markAll}>
-            Mark all read
+            {t('notifications.markAllRead')}
           </button>
         )}
       </div>
@@ -79,36 +82,40 @@ export default function NotificationsPage() {
               onClick={() => setFilter(option.key)}
               aria-pressed={filter === option.key}
             >
-              <Icon size={16} /> {option.label}
+              <Icon size={16} /> {t(option.label)}
             </button>
           )
         })}
       </div>
 
       <div className="stack list-stack">
-        {visible.map((n) => (
-          <button
-            className={`notification-card nomad-note ${n.read ? 'read' : ''}`}
-            key={n.id}
-            onClick={() => open(n)}
-          >
-            <div className="avatar small">{(n.title || '?').slice(0, 1)}</div>
-            <div>
-              <strong>{n.title}</strong>
-              <p>{n.body}</p>
-              <small>{formatRelativeTime(n.createdAt, now)}</small>
-            </div>
-            {!n.read && <span className="live-dot" />}
-          </button>
-        ))}
+        {visible.map((n) => {
+          // Stored in English by whoever wrote it; worded here for the reader.
+          const text = localizeNotification(n)
+          return (
+            <button
+              className={`notification-card nomad-note ${n.read ? 'read' : ''}`}
+              key={n.id}
+              onClick={() => open(n)}
+            >
+              <div className="avatar small">{(text.title || '?').slice(0, 1)}</div>
+              <div>
+                <strong>{text.title}</strong>
+                <p>{text.body}</p>
+                <small>{formatRelativeTime(n.createdAt, now)}</small>
+              </div>
+              {!n.read && <span className="live-dot" />}
+            </button>
+          )
+        })}
         {visible.length === 0 && (
           <div className="empty-state">
             <BellOff size={30} />
-            <h3>{filter === 'all' ? 'Nothing yet' : 'Nothing here'}</h3>
+            <h3>
+              {filter === 'all' ? t('notifications.nothingYet') : t('notifications.nothingHere')}
+            </h3>
             <p>
-              {filter === 'all'
-                ? 'Joins, messages and activity updates will show up here.'
-                : 'Try another filter.'}
+              {filter === 'all' ? t('notifications.nothingYetBody') : t('notifications.tryFilter')}
             </p>
           </div>
         )}

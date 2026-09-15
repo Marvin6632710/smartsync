@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { ShieldOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useApp } from '../context/AppContext'
 import { formatRelativeTime } from '../utils/time'
@@ -12,18 +13,16 @@ import { formatRelativeTime } from '../utils/time'
  * point is that you no longer see them anywhere.
  */
 export default function BlockedPage() {
+  const { t } = useTranslation()
   const { blocked, unblockPerson } = useApp()
   const [confirming, setConfirming] = useState(null)
 
   return (
     <div className="page-content">
       <section className="headline-block">
-        <span className="eyebrow">Safety</span>
-        <h2>Blocked people</h2>
-        <p className="helper-text">
-          You do not see their activities and they cannot join yours. They are not told that you
-          blocked them.
-        </p>
+        <span className="eyebrow">{t('blocked.eyebrow')}</span>
+        <h2>{t('blocked.title')}</h2>
+        <p className="helper-text">{t('blocked.lead')}</p>
       </section>
 
       <div className="stack">
@@ -38,12 +37,14 @@ export default function BlockedPage() {
                   for a moment while the write is still local. */}
               <p>
                 {person.createdAt?.toMillis
-                  ? `Blocked ${formatRelativeTime(person.createdAt.toMillis())}`
-                  : 'Blocked'}
+                  ? t('blocked.blockedAt', {
+                      when: formatRelativeTime(person.createdAt.toMillis()),
+                    })
+                  : t('blocked.blocked')}
               </p>
             </div>
             <button className="text-button" onClick={() => setConfirming(person)}>
-              Unblock
+              {t('blocked.unblock')}
             </button>
           </div>
         ))}
@@ -51,21 +52,18 @@ export default function BlockedPage() {
         {blocked.length === 0 && (
           <div className="empty-state">
             <ShieldOff size={28} />
-            <h3>Nobody is blocked</h3>
-            <p>
-              You can block someone from a participant list, the people screen, or when reporting
-              them.
-            </p>
+            <h3>{t('blocked.nobody')}</h3>
+            <p>{t('blocked.nobodyBody')}</p>
           </div>
         )}
       </div>
 
       <ConfirmDialog
         open={Boolean(confirming)}
-        title={`Unblock ${confirming?.name}?`}
-        body="You will start seeing their activities again, and they will be able to join yours."
-        confirmLabel="Unblock"
-        cancelLabel="Keep blocked"
+        title={t('blocked.dialogTitle', { name: confirming?.name })}
+        body={t('blocked.dialogBody')}
+        confirmLabel={t('blocked.unblock')}
+        cancelLabel={t('blocked.keepBlocked')}
         onConfirm={() => {
           unblockPerson(confirming.uid)
           setConfirming(null)

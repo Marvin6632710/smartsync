@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { BellRing, LocateFixed, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import CelebrationToast from '../components/CelebrationToast'
 import SignOutLink from '../components/SignOutLink'
 import { useAuth } from '../context/AuthContext'
@@ -10,6 +11,7 @@ import { setNotificationsEnabled, updatePrivateProfile } from '../firebase/users
 import { coarsen } from '../utils/geo'
 
 export default function PermissionPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const { request, clear, busy, error } = useDeviceLocation()
@@ -49,7 +51,7 @@ export default function PermissionPage() {
   const finish = async () => {
     setFinishing(true)
     const ok = await save(() => updatePrivateProfile(user.uid, { onboarded: true }), {
-      failure: "Couldn't finish setting up",
+      failure: t('onboarding.permissions.finishFailed'),
     })
     setFinishing(false)
     // Only leave the screen if the write actually landed — otherwise the
@@ -61,9 +63,9 @@ export default function PermissionPage() {
     <div className="standalone-page onboarding-page">
       <CelebrationToast />
       <div className="onboarding-header luxe-header">
-        <span className="eyebrow">Permissions</span>
-        <h1>You stay in control.</h1>
-        <p>Choose what the app can use.</p>
+        <span className="eyebrow">{t('onboarding.permissions.eyebrow')}</span>
+        <h1>{t('onboarding.permissions.title')}</h1>
+        <p>{t('onboarding.permissions.lead')}</p>
       </div>
       <div className="settings-card">
         <button
@@ -75,8 +77,12 @@ export default function PermissionPage() {
         >
           <LocateFixed size={18} />
           <span>
-            <strong>Location</strong>
-            <small>{busy ? 'Asking your device…' : 'Rank activities by how near they are'}</small>
+            <strong>{t('onboarding.permissions.location')}</strong>
+            <small>
+              {busy
+                ? t('onboarding.permissions.askingDevice')
+                : t('onboarding.permissions.locationHint')}
+            </small>
           </span>
           <span className={`switch ${privacy.locationPermission ? 'on' : ''}`} aria-hidden="true" />
         </button>
@@ -89,8 +95,8 @@ export default function PermissionPage() {
         >
           <ShieldCheck size={18} />
           <span>
-            <strong>Approximate location</strong>
-            <small>Store your area, never your exact position</small>
+            <strong>{t('onboarding.permissions.approximate')}</strong>
+            <small>{t('onboarding.permissions.approximateHint')}</small>
           </span>
           <span
             className={`switch ${privacy.approximateLocation ? 'on' : ''}`}
@@ -105,8 +111,8 @@ export default function PermissionPage() {
         >
           <BellRing size={18} />
           <span>
-            <strong>Notifications</strong>
-            <small>Get told when someone joins or messages</small>
+            <strong>{t('onboarding.permissions.notifications')}</strong>
+            <small>{t('onboarding.permissions.notificationsHint')}</small>
           </span>
           <span className={`switch ${privacy.notifications ? 'on' : ''}`} aria-hidden="true" />
         </button>
@@ -114,15 +120,17 @@ export default function PermissionPage() {
 
       {error && (
         <p className="form-error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
-      <p className="helper-text">
-        You can skip location — activities still work, they just will not be sorted by distance.
-      </p>
+      <p className="helper-text">{t('onboarding.permissions.skipNote')}</p>
 
       <button className="primary-button wide" onClick={finish} disabled={finishing}>
-        {finishing ? 'Setting up…' : user.onboarded ? 'Done' : 'Enter SmartSync'}
+        {finishing
+          ? t('onboarding.permissions.settingUp')
+          : user.onboarded
+            ? t('common.done')
+            : t('onboarding.permissions.enter')}
       </button>
 
       {!user.onboarded && <SignOutLink />}

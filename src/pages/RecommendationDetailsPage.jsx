@@ -1,11 +1,14 @@
 import React from 'react'
 import { BrainCircuit, Check } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import BootScreen from '../components/BootScreen'
 import { useApp } from '../context/AppContext'
+import { reasonLines, signalLabel } from '../i18n'
 import { weightShares } from '../services/recommendationService'
 
 export default function RecommendationDetailsPage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const { activities, recommendations, weights, loading, syncing } = useApp()
@@ -15,12 +18,12 @@ export default function RecommendationDetailsPage() {
   // `activities`. Reading only `recommendations` sent each of them here to
   // a dead end.
   const a = activities.find((x) => x.id === id) || recommendations.find((x) => x.id === id)
-  if (!a && (loading || syncing)) return <BootScreen label="Loading…" />
+  if (!a && (loading || syncing)) return <BootScreen />
   if (!a)
     return (
       <div className="page-content">
         <div className="empty-state">
-          <h3>Recommendation not found</h3>
+          <h3>{t('pickDetails.notFound')}</h3>
         </div>
       </div>
     )
@@ -28,16 +31,16 @@ export default function RecommendationDetailsPage() {
     <div className="page-content">
       <section className="score-card">
         <BrainCircuit size={32} />
-        <span className="eyebrow">Score</span>
-        <strong>{a.matchScore}%</strong>
+        <span className="eyebrow">{t('pickDetails.score')}</span>
+        <strong>{t('common.percent', { value: a.matchScore })}</strong>
         <h2>{a.title}</h2>
-        <p>How well this matches your profile.</p>
+        <p>{t('pickDetails.lead')}</p>
       </section>
 
       <section className="panel">
-        <h3>Reasons</h3>
+        <h3>{t('pickDetails.reasons')}</h3>
         <ul className="reason-list">
-          {(a.reasons || []).map((r) => (
+          {reasonLines(a).map((r) => (
             <li key={r}>
               <Check size={15} />
               {r}
@@ -47,20 +50,20 @@ export default function RecommendationDetailsPage() {
       </section>
 
       <section className="panel">
-        <h3>Signals</h3>
+        <h3>{t('pickDetails.signals')}</h3>
         <div className="weight-grid">
           {/* The weights this score was computed with, as shares of the
               total — the same numbers the sliders screen shows. */}
           {Object.entries(weightShares(weights)).map(([k, v]) => (
             <div key={k}>
-              <span>{k}</span>
-              <strong>{v}%</strong>
+              <span>{signalLabel(k)}</span>
+              <strong>{t('common.percent', { value: v })}</strong>
             </div>
           ))}
         </div>
-        <p className="helper-text">Every activity is scored against these six signals.</p>
+        <p className="helper-text">{t('pickDetails.note')}</p>
         <button className="secondary-button wide" onClick={() => navigate('/weights')}>
-          Adjust these weights
+          {t('pickDetails.adjust')}
         </button>
       </section>
     </div>

@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import LocationPicker from '../components/LocationPicker'
 import UnsentDraft from '../components/UnsentDraft'
 import { categories } from '../data/categories'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { deriveTimeBand } from '../firebase/activities'
+import { categoryLabel, timeBandLabel } from '../i18n'
 import { formatClock } from '../utils/time'
 import { withinThailand } from '../data/region'
 
@@ -29,7 +31,9 @@ const initial = {
 }
 
 export default function CreateActivityPage() {
+  const { t } = useTranslation()
   const [form, setForm] = useState(initial)
+  // Kept as a translation key, so a change of language re-words it.
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const { createActivity, unsent } = useApp()
@@ -51,34 +55,32 @@ export default function CreateActivityPage() {
   const submit = async (event) => {
     event.preventDefault()
     if (!form.title.trim() || !form.description.trim()) {
-      setError('Please complete the activity name and description.')
+      setError('create.errors.nameAndDescription')
       return
     }
     if (!form.category) {
-      setError(
-        'Pick a category. It is what matching runs on, so a wrong one hides your activity from the people it suits.',
-      )
+      setError('create.errors.category')
       return
     }
     if (!form.locationName.trim()) {
-      setError('Please name the place you are meeting.')
+      setError('create.errors.placeName')
       return
     }
     // A coordinate is required, and there is no sensible default: guessing one
     // would put a real activity somewhere nobody agreed to meet.
     if (form.lat == null || form.lng == null) {
-      setError('Tap the map to place the activity, or use your current location.')
+      setError('create.errors.pin')
       return
     }
     // The picker will not let you place a pin outside the country, but the
     // form state can also arrive from a draft, so the check is repeated where
     // the save happens rather than trusted to the component that set it.
     if (!withinThailand(form.lat, form.lng)) {
-      setError('SmartSync only runs in Thailand — pick a spot inside the country.')
+      setError('location.outsideThailand')
       return
     }
     if (Number(form.capacity) < 2) {
-      setError('Maximum participants must be at least 2.')
+      setError('create.errors.capacity')
       return
     }
     // A date field can be cleared, and an empty one sailed through the
@@ -87,11 +89,11 @@ export default function CreateActivityPage() {
     // form already asks for both; so does this one now.
     const startsAt = new Date(`${form.date}T${form.time}`)
     if (!form.date || !form.time || Number.isNaN(startsAt.getTime())) {
-      setError('Pick a date and a time.')
+      setError('create.errors.dateTime')
       return
     }
     if (startsAt < new Date()) {
-      setError('Pick a date and time in the future.')
+      setError('create.errors.future')
       return
     }
     setError('')
@@ -108,11 +110,8 @@ export default function CreateActivityPage() {
     return (
       <div className="page-content">
         <div className="empty-state">
-          <h3>Your account is suspended</h3>
-          <p>
-            You cannot create activities while your account is suspended. You can still read
-            SmartSync and follow the activities you already joined.
-          </p>
+          <h3>{t('create.suspendedTitle')}</h3>
+          <p>{t('create.suspendedBody')}</p>
         </div>
       </div>
     )
@@ -120,50 +119,55 @@ export default function CreateActivityPage() {
   return (
     <div className="page-content">
       <section>
-        <span className="eyebrow">Create together</span>
-        <h2>Start an activity</h2>
-        <p className="helper-text">Everyone using SmartSync will be able to find and join it.</p>
+        <span className="eyebrow">{t('create.eyebrow')}</span>
+        <h2>{t('create.title')}</h2>
+        <p className="helper-text">{t('create.lead')}</p>
       </section>
 
       <UnsentDraft
         row={draft}
-        what={`"${draft?.payload?.title || 'An activity'}"`}
+        what={t('create.draftWhat', {
+          title: draft?.payload?.title || t('create.draftFallback'),
+        })}
         onRestore={restore}
       />
 
       <form className="form-card" onSubmit={submit}>
         <label>
-          Activity name
+          {t('create.activityName')}
           <input
             value={form.title}
             onChange={(e) => set('title', e.target.value)}
-            placeholder="e.g. Saturday Football"
+            placeholder={t('create.namePlaceholder')}
             maxLength={100}
           />
         </label>
         <label>
-          Category
+          {t('create.category')}
+          {/* Stored values stay English; only the labels are translated. */}
           <select value={form.category} onChange={(e) => set('category', e.target.value)}>
-            <option value="">Choose a category…</option>
+            <option value="">{t('create.chooseCategory')}</option>
             {categories.map((option) => (
-              <option key={option}>{option}</option>
+              <option key={option} value={option}>
+                {categoryLabel(option)}
+              </option>
             ))}
           </select>
         </label>
         <label>
-          Description
+          {t('create.description')}
           <textarea
             rows="4"
             value={form.description}
             onChange={(e) => set('description', e.target.value)}
-            placeholder="Tell participants what to expect"
+            placeholder={t('create.descriptionPlaceholder')}
             maxLength={1000}
           />
         </label>
 
         <div className="form-row">
           <label>
-            Date
+            {t('create.date')}
             <input
               type="date"
               min={today()}
@@ -172,14 +176,17 @@ export default function CreateActivityPage() {
             />
           </label>
           <label>
-            Time
+            {t('create.time')}
             <input type="time" value={form.time} onChange={(e) => set('time', e.target.value)} />
           </label>
         </div>
         {/* Time band used to be a separate dropdown that could contradict the
             time. It is derived now, so it is shown rather than asked. */}
         <p className="helper-text">
-          {formatClock(form.time)} counts as {deriveTimeBand(form.time).toLowerCase()}.
+          {t('create.countsAs', {
+            time: formatClock(form.time),
+            band: timeBandLabel(deriveTimeBand(form.time)).toLowerCase(),
+          })}
         </p>
 
         <LocationPicker
@@ -188,7 +195,7 @@ export default function CreateActivityPage() {
         />
 
         <label>
-          Maximum participants
+          {t('create.maxParticipants')}
           <input
             type="number"
             min="2"
@@ -200,11 +207,11 @@ export default function CreateActivityPage() {
 
         {error && (
           <p className="form-error" role="alert">
-            {error}
+            {t(error)}
           </p>
         )}
         <button className="primary-button wide" type="submit" disabled={busy}>
-          {busy ? 'Creating…' : 'Create activity'}
+          {busy ? t('create.busy') : t('create.submit')}
         </button>
       </form>
     </div>

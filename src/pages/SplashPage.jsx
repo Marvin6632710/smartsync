@@ -1,6 +1,8 @@
 import React from 'react'
 import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import LanguageMenu from '../components/LanguageMenu'
 
 /**
  * The first screen anybody sees, and the only chance to say what this is.
@@ -15,46 +17,38 @@ import { useNavigate } from 'react-router-dom'
  * safety, then the two ways in. Short on purpose — this is a signpost, not a
  * brochure, and everything on it is a thing the app genuinely does.
  */
-const STEPS = [
-  {
-    title: 'Pick what you like',
-    body: 'Football, coffee, study, gaming — whatever you would actually turn up for.',
-  },
-  {
-    title: 'See what is on near you',
-    body: 'Real activities with real times and places, as a list or on a map.',
-  },
-  {
-    title: 'Join, and go',
-    body: 'One tap to join, then chat with everyone going before you turn up.',
-  },
-]
+// Numbered steps; the words for each live with the translations.
+const STEPS = [1, 2, 3]
 
 export default function SplashPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   return (
     <div className="standalone-page splash-page premium-entry">
+      <div className="entry-language">
+        <LanguageMenu />
+      </div>
       <div className="brand-orb">
         <Sparkles size={38} />
       </div>
 
       <div className="entry-copy">
-        <span className="eyebrow">SmartSync</span>
-        <h1>Meet people by doing things.</h1>
-        <p>Activities happening near you in Bangkok — and who is going to them.</p>
+        <span className="eyebrow">{t('common.appName')}</span>
+        <h1>{t('splash.headline')}</h1>
+        <p>{t('splash.lead')}</p>
       </div>
 
       {/* Numbered because it genuinely is a sequence: you cannot see what is
           on until you have said what you like. */}
       <ol className="splash-steps">
-        {STEPS.map((step, index) => (
-          <li key={step.title}>
+        {STEPS.map((step) => (
+          <li key={step}>
             <span className="splash-step-number" aria-hidden="true">
-              {index + 1}
+              {step}
             </span>
             <span className="splash-step-copy">
-              <strong>{step.title}</strong>
-              <small>{step.body}</small>
+              <strong>{t(`splash.step${step}Title`)}</strong>
+              <small>{t(`splash.step${step}Body`)}</small>
             </span>
           </li>
         ))}
@@ -65,18 +59,15 @@ export default function SplashPage() {
           location really does round to about a kilometre before storing. */}
       <p className="splash-trust">
         <ShieldCheck size={15} aria-hidden="true" />
-        <span>
-          Free to use. Block or report anyone, and a moderator reviews every report. You can share
-          your location rounded to the nearest kilometre — or not at all.
-        </span>
+        <span>{t('splash.trust')}</span>
       </p>
 
       <div className="splash-actions">
         <button className="primary-button wide" onClick={() => navigate('/signup')}>
-          Create account <ArrowRight size={17} />
+          {t('splash.createAccount')} <ArrowRight size={17} />
         </button>
         <button className="text-button" onClick={() => navigate('/signin')}>
-          I already have an account
+          {t('splash.haveAccount')}
         </button>
       </div>
     </div>

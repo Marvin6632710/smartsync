@@ -40,9 +40,18 @@ import { REPORT_REASONS } from '../firebase/moderation'
 import { PEER_LIMIT } from '../firebase/users'
 import { useModerationAction } from '../hooks/useModerationAction'
 import { usePeopleSearch } from '../hooks/usePeopleSearch'
-import { formatRelativeTime } from '../utils/time'
+import { useTranslation } from 'react-i18next'
 
-const reasonLabel = (key) => REPORT_REASONS.find((r) => r.key === key)?.label || key
+import { localizeReportContext } from '../i18n/reportContext'
+import { formatRelativeTime } from '../utils/time'
+import i18n, { reportReasonLabel } from '../i18n'
+
+// The screen's words are looked up through the instance rather than the
+// hook where they are built outside a render: the helpers below are called
+// from event handlers, which run in the language in force at that moment.
+const t = (key, options) => i18n.t(key, options)
+const reasonLabel = (key) =>
+  REPORT_REASONS.some((r) => r.key === key) ? reportReasonLabel(key) : key
 
 /**
  * What a stand-down actually did, when it did not do all of it.
@@ -53,7 +62,11 @@ const reasonLabel = (key) => REPORT_REASONS.find((r) => r.key === key)?.label ||
  * shown while a third was still live.
  */
 const standDownSummary = (stoodDown, failed) =>
-  `${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} stood down, but ${failed} could not be — open their profile and suspend again to retry.`
+  t('moderation.toasts.standDownSummary', {
+    stoodDown,
+    failed,
+    noun: t('moderation.toasts.activity', { count: stoodDown }),
+  })
 
 const warn = (title, body) => ({ icon: 'alert', tone: 'warning', title, body })
 const ok = (title, body) => ({ icon: 'check', tone: 'success', title, body })
@@ -61,8 +74,8 @@ const ok = (title, body) => ({ icon: 'check', tone: 'success', title, body })
 /** The plain-rank refusal, in the words each screen used. */
 const refused = (error, whenDenied) =>
   warn(
-    "Couldn't do that",
-    error?.code === 'permission-denied' ? whenDenied : 'Try again — repeating it is safe.',
+    t('moderation.toasts.couldNotDo'),
+    error?.code === 'permission-denied' ? whenDenied : t('common.repeatingIsSafe'),
   )
 
 /**
@@ -76,6 +89,9 @@ const refused = (error, whenDenied) =>
  * full, since a decision made on a category label is not a decision.
  */
 export default function ModerationPage() {
+  // Subscribes the screen to the language, so a switch re-renders it; the
+  // words themselves come through the module-level `t` above.
+  useTranslation()
   const { user } = useAuth()
   const { pushCelebration, directory, activities, allActivities, removedActivities } = useApp()
   const { perform } = useModerationAction()
@@ -294,8 +310,8 @@ export default function ModerationPage() {
       <div className="page-content">
         <div className="empty-state">
           <ShieldAlert size={28} />
-          <h3>Not available</h3>
-          <p>This screen is for moderators.</p>
+          <h3>{t('moderation.notAvailable')}</h3>
+          <p>{t('moderation.forModerators')}</p>
         </div>
       </div>
     )
@@ -310,8 +326,8 @@ export default function ModerationPage() {
       <div className="page-content">
         <div className="empty-state">
           <ShieldAlert size={28} />
-          <h3>No such section</h3>
-          <p>Go back to Moderation to pick one.</p>
+          <h3>{t('moderation.noSuchSection')}</h3>
+          <p>{t('moderation.noSuchSectionBody')}</p>
         </div>
       </div>
     )
@@ -320,8 +336,8 @@ export default function ModerationPage() {
       <div className="page-content">
         <div className="empty-state">
           <ShieldAlert size={28} />
-          <h3>Admins only</h3>
-          <p>This section is for admins. The report queue is open to you.</p>
+          <h3>{t('moderation.adminsOnly')}</h3>
+          <p>{t('moderation.adminsOnlyBody')}</p>
         </div>
       </div>
     )
@@ -332,7 +348,8 @@ export default function ModerationPage() {
   // reads the full directory rather than the filtered peer list: blocking
   // somebody must not blank out the queue entry about them, or blocking the
   // reviewers would be a way to become unreviewable.
-  const nameFor = (uid) => (uid === user.uid ? 'you' : directory.get(uid)?.name || 'SmartSync user')
+  const nameFor = (uid) =>
+    uid === user.uid ? t('moderation.you') : directory.get(uid)?.name || t('common.unknownUser')
 
   // Repeats matter more than any single report: three people flagging the
   // same thing is a different signal from one person flagging it once. Counted
@@ -372,7 +389,7 @@ export default function ModerationPage() {
   const reportFailure = (error, report) => {
     const code = error?.code
     if (code === 'claim-held') {
-      return warn('Being handled', 'Another moderator is working on this report right now.')
+      return warn(t('moderation.toasts.beingHandled'), t('moderation.toasts.beingHandledBody'))
     }
     const gone = !reportsRef.current.some((row) => row.id === report.id)
     if (
@@ -385,18 +402,13 @@ export default function ModerationPage() {
       // a colleague got there first would send them looking for a decision
       // that is their own.
       if (error?.details?.reviewedBy === user.uid) {
-        return warn('Already done', 'Your decision was recorded the first time.')
+        return warn(t('moderation.toasts.alreadyDone'), t('moderation.toasts.alreadyDoneBody'))
       }
-      return warn(
-        'Already handled',
-        'Another moderator closed this report first. Their decision stands.',
-      )
+      return warn(t('moderation.toasts.alreadyHandled'), t('moderation.toasts.alreadyHandledBody'))
     }
     return warn(
-      "Couldn't complete that",
-      code === 'permission-denied'
-        ? 'You do not have permission.'
-        : 'Try again — repeating it is safe.',
+      t('moderation.toasts.couldNotComplete'),
+      code === 'permission-denied' ? t('common.noPermission') : t('common.repeatingIsSafe'),
     )
   }
 
@@ -420,7 +432,7 @@ export default function ModerationPage() {
       if (kind === 'remove') {
         await removeActivity(report.targetId, {
           moderatorId: user.uid,
-          reason: `${reasonLabel(report.reason)} — reported by a user`,
+          reason: t('moderation.takedownReason', { reason: reasonLabel(report.reason) }),
           reportId: report.id,
           decision: { status: 'actioned', outcome: 'Activity removed' },
         })
@@ -459,10 +471,7 @@ export default function ModerationPage() {
     // reach the database as a role write against `undefined`.
     if (kind === 'suspend' && !subjectOf(report)) {
       pushCelebration(
-        warn(
-          "Couldn't tell who this is about",
-          'The activity it names is no longer loaded. Dismiss it, or look at the activity first.',
-        ),
+        warn(t('moderation.toasts.whoIsThisAbout'), t('moderation.toasts.whoIsThisAboutBody')),
       )
       return
     }
@@ -471,12 +480,17 @@ export default function ModerationPage() {
       await perform(() => workReport(report, kind), {
         done: ({ stoodDown, failed }) =>
           failed > 0
-            ? warn('Suspended, but not everything came down', standDownSummary(stoodDown, failed))
+            ? warn(t('moderation.toasts.partlyStoodDown'), standDownSummary(stoodDown, failed))
             : ok(
-                kind === 'dismiss' ? 'Report dismissed' : 'Action taken',
+                kind === 'dismiss'
+                  ? t('moderation.toasts.reportDismissed')
+                  : t('moderation.toasts.actionTaken'),
                 stoodDown > 0
-                  ? `Recorded against the report. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} they were hosting stood down, and everyone who joined has been told.`
-                  : 'The decision is recorded against the report.',
+                  ? t('moderation.toasts.recordedWithStandDown', {
+                      count: stoodDown,
+                      noun: t('moderation.toasts.activity', { count: stoodDown }),
+                    })
+                  : t('moderation.toasts.recorded'),
               ),
         fail: (error) => reportFailure(error, report),
       })
@@ -494,13 +508,16 @@ export default function ModerationPage() {
         () => restoreActivity(activity.id, { adminId: user.uid, reason }),
         {
           done: () =>
-            ok('Put back', `${activity.title} is visible again, and the host has been told.`),
+            ok(
+              t('moderation.toasts.putBack'),
+              t('moderation.toasts.putBackBody', { title: activity.title }),
+            ),
           fail: (error) =>
             warn(
-              "Couldn't restore that",
+              t('moderation.toasts.restoreFailed'),
               error?.code === 'permission-denied'
-                ? 'Only an admin can undo a removal.'
-                : 'Try again — repeating it is safe.',
+                ? t('moderation.toasts.adminOnlyRestore')
+                : t('common.repeatingIsSafe'),
             ),
         },
       )
@@ -516,15 +533,15 @@ export default function ModerationPage() {
       await perform(() => liftSuspension(account.uid), {
         done: () =>
           ok(
-            'Suspension lifted',
-            `${nameFor(account.uid)} can post again, and has been told. Anything taken down while they were suspended stays down.`,
+            t('moderation.toasts.suspensionLifted'),
+            t('moderation.toasts.liftedBody', { name: nameFor(account.uid) }),
           ),
         fail: (error) =>
           warn(
-            "Couldn't lift that",
+            t('moderation.toasts.liftFailed'),
             error?.code === 'permission-denied'
-              ? 'Only an admin can act on a moderator.'
-              : 'Try again — repeating it is safe.',
+              ? t('moderation.toasts.adminOnlyModerator')
+              : t('common.repeatingIsSafe'),
           ),
       })
     } finally {
@@ -539,21 +556,25 @@ export default function ModerationPage() {
     const { uid, suspend } = suspendTarget
     setSuspendTarget(null)
     setSuspending(uid)
-    const denied = 'Only an admin can act on a moderator, and nobody can act on an admin.'
+    const denied = t('moderation.toasts.adminOnlyModeratorAdmin')
     try {
       if (suspend) {
         await perform(() => suspendAccount(uid, { moderatorId: user.uid }), {
           done: ({ stoodDown, failed }) =>
             failed > 0
               ? warn(
-                  'Suspended, but not everything came down',
-                  `${nameFor(uid)} cannot create, join or message. ${standDownSummary(stoodDown, failed)}`,
+                  t('moderation.toasts.partlyStoodDown'),
+                  `${t('moderation.toasts.cannotAct', { name: nameFor(uid) })} ${standDownSummary(stoodDown, failed)}`,
                 )
               : ok(
-                  'Account suspended',
+                  t('moderation.toasts.accountSuspended'),
                   stoodDown > 0
-                    ? `${nameFor(uid)} cannot create, join or message. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} stood down, and everyone who joined has been told.`
-                    : `${nameFor(uid)} cannot create, join or message.`,
+                    ? t('moderation.toasts.cannotActStoodDown', {
+                        name: nameFor(uid),
+                        count: stoodDown,
+                        noun: t('moderation.toasts.activity', { count: stoodDown }),
+                      })
+                    : t('moderation.toasts.cannotAct', { name: nameFor(uid) }),
                 ),
           fail: (error) => refused(error, denied),
         })
@@ -561,8 +582,8 @@ export default function ModerationPage() {
         await perform(() => liftSuspension(uid), {
           done: () =>
             ok(
-              'Suspension lifted',
-              `${nameFor(uid)} can post again, and has been told. Anything taken down stays down.`,
+              t('moderation.toasts.suspensionLifted'),
+              t('moderation.toasts.liftedBodyShort', { name: nameFor(uid) }),
             ),
           fail: (error) => refused(error, denied),
         })
@@ -580,8 +601,7 @@ export default function ModerationPage() {
     if (!reason) return
     setRecorded(null)
     setRecording(uid)
-    const denied =
-      'Closing and reopening an account is an admin decision, and no rank can act on an admin.'
+    const denied = t('moderation.toasts.adminDecision')
     try {
       let done = false
       if (kind === 'warn') {
@@ -602,31 +622,40 @@ export default function ModerationPage() {
         done = await perform(warnUnderClaim, {
           done: () =>
             ok(
-              'Warning issued',
-              `${nameFor(uid)} has been told, and it is on their record. Nothing was taken away.`,
+              t('moderation.toasts.warningIssued'),
+              t('moderation.toasts.warningIssuedBody', { name: nameFor(uid) }),
             ),
           fail: (error) =>
             reportId
               ? reportFailure(error, { id: reportId })
-              : refused(error, 'You do not have permission.'),
+              : refused(error, t('common.noPermission')),
         })
       } else if (kind === 'close') {
         done = await perform(() => closeAccount(uid, { adminId: user.uid, reason }), {
           done: ({ stoodDown, failed }) =>
             warn(
-              failed > 0 ? 'Closed, but not everything came down' : 'Account closed',
               failed > 0
-                ? `${nameFor(uid)} can no longer use SmartSync. ${standDownSummary(stoodDown, failed)}`
+                ? t('moderation.toasts.partlyClosed')
+                : t('moderation.toasts.accountClosed'),
+              failed > 0
+                ? `${t('moderation.toasts.closedBody', { name: nameFor(uid) })} ${standDownSummary(stoodDown, failed)}`
                 : stoodDown > 0
-                  ? `${nameFor(uid)} can no longer use SmartSync. ${stoodDown} ${stoodDown === 1 ? 'activity' : 'activities'} stood down, and everyone who joined has been told.`
-                  : `${nameFor(uid)} can no longer use SmartSync.`,
+                  ? t('moderation.toasts.closedBodyStoodDown', {
+                      name: nameFor(uid),
+                      count: stoodDown,
+                      noun: t('moderation.toasts.activity', { count: stoodDown }),
+                    })
+                  : t('moderation.toasts.closedBody', { name: nameFor(uid) }),
             ),
           fail: (error) => refused(error, denied),
         })
       } else {
         done = await perform(() => reopenAccount(uid, { reason }), {
           done: () =>
-            ok('Account reopened', `${nameFor(uid)} can use SmartSync again, and has been told.`),
+            ok(
+              t('moderation.toasts.accountReopened'),
+              t('moderation.toasts.reopenedBody', { name: nameFor(uid) }),
+            ),
           fail: (error) => refused(error, denied),
         })
       }
@@ -644,17 +673,19 @@ export default function ModerationPage() {
       const done = await perform(() => setUserRole(uid, role), {
         done: () =>
           ok(
-            role === 'moderator' ? 'Moderator appointed' : 'Moderator dismissed',
             role === 'moderator'
-              ? `${nameFor(uid)} can work this queue now, and has been told.`
-              : `${nameFor(uid)} can no longer review reports. Their account is otherwise unchanged.`,
+              ? t('moderation.toasts.appointed')
+              : t('moderation.toasts.dismissed'),
+            role === 'moderator'
+              ? t('moderation.toasts.appointedBody', { name: nameFor(uid) })
+              : t('moderation.toasts.dismissedBody', { name: nameFor(uid) }),
           ),
         fail: (error) =>
           warn(
-            "Couldn't change that",
+            t('moderation.toasts.roleFailed'),
             error?.code === 'permission-denied'
-              ? 'Only an admin can appoint or dismiss a moderator.'
-              : 'Try again — repeating it is safe.',
+              ? t('moderation.toasts.adminOnlyAppoint')
+              : t('common.repeatingIsSafe'),
           ),
       })
       if (done) setPersonSearch('')
@@ -685,34 +716,30 @@ export default function ModerationPage() {
     <div className="page-content">
       {referenceError && (
         <p className="form-error" role="alert">
-          Couldn&apos;t load ranks and warnings just now. Suspensions, warning counts and who holds
-          which rank may be out of date until the connection is back.
+          {t('moderation.referenceError')}
         </p>
       )}
       {onHub && (
         <>
           <section className="headline-block">
-            <span className="eyebrow">Moderation</span>
-            <h2>Open reports</h2>
-            <p className="helper-text">
-              Every action records who took it and why. Nothing here can be deleted.
-            </p>
+            <span className="eyebrow">{t('moderation.eyebrow')}</span>
+            <h2>{t('moderation.openReports')}</h2>
+            <p className="helper-text">{t('moderation.lead')}</p>
             {/* At the cap the view is partial, and silently partial is the worst
             kind: the reports that fall off the end are the oldest, which are
             the ones that have waited longest. Say so, and say that the repeat
             counts below are counting only what is loaded. */}
             {reports.length >= REPORT_PAGE && (
               <p className="form-error" role="status">
-                Showing the newest {REPORT_PAGE} open reports. Older ones are not listed, and the
-                “reported N×” counts below only count what is shown. Work the queue down to see
-                them.
+                {t('moderation.capped', { count: REPORT_PAGE })}
               </p>
             )}
           </section>
 
           {error && (
             <p className="form-error" role="alert">
-              Could not load reports. {error.code === 'permission-denied' ? 'Check your role.' : ''}
+              {t('moderation.loadFailed')}{' '}
+              {error.code === 'permission-denied' ? t('moderation.checkRole') : ''}
             </p>
           )}
 
@@ -727,25 +754,35 @@ export default function ModerationPage() {
                 <article className="report-card" key={report.id}>
                   <header>
                     <span className="report-kind">
-                      <Flag size={13} /> {report.targetType}
+                      <Flag size={13} />{' '}
+                      {t(`moderation.targetType.${report.targetType}`, {
+                        defaultValue: report.targetType,
+                      })}
                     </span>
-                    {repeats > 1 && <span className="report-repeat">Reported {repeats}×</span>}
+                    {repeats > 1 && (
+                      <span className="report-repeat">
+                        {t('moderation.reportedTimes', { count: repeats })}
+                      </span>
+                    )}
                     {held && (
                       <span className="report-repeat" role="status">
-                        In review by {nameFor(report.claimedBy)}
+                        {t('moderation.inReviewBy', { name: nameFor(report.claimedBy) })}
                       </span>
                     )}
                     <time>{formatRelativeTime(report.createdAt)}</time>
                   </header>
 
                   <h3>{reasonLabel(report.reason)}</h3>
-                  {report.context && <p className="report-context">{report.context}</p>}
+                  {report.context && (
+                    <p className="report-context">{localizeReportContext(report.context)}</p>
+                  )}
                   {report.detail && <p className="report-detail-text">“{report.detail}”</p>}
                   <p className="report-meta">
-                    Reported by {nameFor(report.reporterId)}
-                    {report.targetType !== 'user' && ` · about ${nameFor(subjectOf(report))}`}
+                    {t('moderation.reportedBy', { name: nameFor(report.reporterId) })}
+                    {report.targetType !== 'user' &&
+                      t('moderation.about', { name: nameFor(subjectOf(report)) })}
                     {warningCount(subjectOf(report)) > 0 &&
-                      ` · already warned ${warningCount(subjectOf(report))}×`}
+                      t('moderation.alreadyWarned', { count: warningCount(subjectOf(report)) })}
                   </p>
 
                   <div className="report-actions">
@@ -756,7 +793,9 @@ export default function ModerationPage() {
                         onClick={() => setActing({ report, kind: 'remove' })}
                       >
                         <Trash2 size={15} />{' '}
-                        {actingOn === report.id ? 'Working…' : 'Remove activity'}
+                        {actingOn === report.id
+                          ? t('common.working')
+                          : t('moderation.removeActivity')}
                       </button>
                     )}
                     {report.targetType !== 'activity' && (
@@ -766,7 +805,9 @@ export default function ModerationPage() {
                         onClick={() => setActing({ report, kind: 'suspend' })}
                       >
                         <UserRoundX size={15} />{' '}
-                        {actingOn === report.id ? 'Working…' : 'Suspend account'}
+                        {actingOn === report.id
+                          ? t('common.working')
+                          : t('moderation.suspendAccount')}
                       </button>
                     )}
                     {/* The rung between doing nothing and taking something away.
@@ -777,26 +818,32 @@ export default function ModerationPage() {
                       disabled={busy}
                       onClick={() => {
                         setRecordedReason(
-                          `${reasonLabel(report.reason)}${repeats > 1 ? `, reported by ${repeats} people` : ''}. Please read the community policy.`,
+                          t('moderation.warnPrefill', {
+                            reason: reasonLabel(report.reason),
+                            repeats:
+                              repeats > 1
+                                ? t('moderation.warnPrefillRepeats', { count: repeats })
+                                : '',
+                          }),
                         )
                         setRecorded({ uid: subjectOf(report), kind: 'warn', reportId: report.id })
                       }}
                     >
-                      <MessageSquareWarning size={15} /> Warn
+                      <MessageSquareWarning size={15} /> {t('moderation.warn')}
                     </button>
                     <button
                       className="secondary-button"
                       disabled={busy}
                       onClick={() => setActing({ report, kind: 'dismiss' })}
                     >
-                      <CheckCircle2 size={15} /> Dismiss
+                      <CheckCircle2 size={15} /> {t('moderation.dismiss')}
                     </button>
                     {report.targetType === 'activity' && (
                       <button
                         className="text-button"
                         onClick={() => navigate(`/activity/${report.targetId}`)}
                       >
-                        Look at it
+                        {t('common.lookAtIt')}
                       </button>
                     )}
                   </div>
@@ -807,8 +854,8 @@ export default function ModerationPage() {
             {!loading && queue.length === 0 && !error && (
               <div className="empty-state">
                 <CheckCircle2 size={28} />
-                <h3>Nothing waiting</h3>
-                <p>Reports appear here as soon as someone files one.</p>
+                <h3>{t('moderation.nothingWaiting')}</h3>
+                <p>{t('moderation.nothingWaitingBody')}</p>
               </div>
             )}
           </div>
@@ -820,12 +867,9 @@ export default function ModerationPage() {
           {suspended.length > 0 && (
             <>
               <section className="headline-block">
-                <span className="eyebrow">Suspended</span>
-                <h2>Accounts on hold</h2>
-                <p className="helper-text">
-                  They can still read SmartSync. They cannot create, join or message, and nothing
-                  they host accepts new people.
-                </p>
+                <span className="eyebrow">{t('moderation.suspendedEyebrow')}</span>
+                <h2>{t('moderation.onHold')}</h2>
+                <p className="helper-text">{t('moderation.onHoldLead')}</p>
               </section>
 
               <div className="stack list-stack">
@@ -835,14 +879,13 @@ export default function ModerationPage() {
                     <article className="report-card" key={account.uid}>
                       <header>
                         <span className="report-kind">
-                          <UserRoundX size={13} /> {account.role}
+                          <UserRoundX size={13} />{' '}
+                          {t(`moderation.role.${account.role}`, { defaultValue: account.role })}
                         </span>
                       </header>
                       <h3>{nameFor(account.uid)}</h3>
                       {outranksMe && (
-                        <p className="report-context">
-                          A moderator. Only an admin can lift this suspension.
-                        </p>
+                        <p className="report-context">{t('moderation.moderatorOnlyAdmin')}</p>
                       )}
                       <div className="report-actions">
                         <button
@@ -851,7 +894,9 @@ export default function ModerationPage() {
                           onClick={() => lift(account)}
                         >
                           <UserRoundCheck size={15} />{' '}
-                          {lifting === account.uid ? 'Lifting…' : 'Lift suspension'}
+                          {lifting === account.uid
+                            ? t('moderation.lifting')
+                            : t('moderation.liftSuspension')}
                         </button>
                       </div>
                     </article>
@@ -861,13 +906,13 @@ export default function ModerationPage() {
             </>
           )}
 
-          <nav className="mod-sections" aria-label="Moderation sections">
+          <nav className="mod-sections" aria-label={t('moderation.sections')}>
             {user.isAdmin && (
               <button className="mod-section-row" onClick={() => navigate('/moderation/removed')}>
                 <Trash2 size={17} />
                 <span>
-                  <strong>Removed activities</strong>
-                  <small>Everything moderators have taken down</small>
+                  <strong>{t('moderation.removed')}</strong>
+                  <small>{t('moderation.removedHint')}</small>
                 </span>
                 <span className="mod-section-count">{removedActivities.length}</span>
                 <ChevronRight size={17} aria-hidden="true" />
@@ -876,8 +921,8 @@ export default function ModerationPage() {
             <button className="mod-section-row" onClick={() => navigate('/moderation/people')}>
               <Eye size={17} />
               <span>
-                <strong>Everyone on SmartSync</strong>
-                <small>Look without waiting to be told</small>
+                <strong>{t('moderation.everyone')}</strong>
+                <small>{t('moderation.everyoneHint')}</small>
               </span>
               <span className="mod-section-count">{watched.length}</span>
               <ChevronRight size={17} aria-hidden="true" />
@@ -889,8 +934,8 @@ export default function ModerationPage() {
               >
                 <ShieldCheck size={17} />
                 <span>
-                  <strong>Moderators</strong>
-                  <small>Who holds the rank, and appointing</small>
+                  <strong>{t('moderation.moderators')}</strong>
+                  <small>{t('moderation.moderatorsHint')}</small>
                 </span>
                 <span className="mod-section-count">{moderators.length}</span>
                 <ChevronRight size={17} aria-hidden="true" />
@@ -960,22 +1005,26 @@ export default function ModerationPage() {
         open={Boolean(acting)}
         title={
           acting?.kind === 'remove'
-            ? 'Remove this activity?'
+            ? t('moderation.dialogs.removeTitle')
             : acting?.kind === 'suspend'
-              ? 'Suspend this account?'
-              : 'Dismiss this report?'
+              ? t('moderation.dialogs.suspendTitle')
+              : t('moderation.dialogs.dismissTitle')
         }
         body={
           acting?.kind === 'remove'
-            ? 'It disappears for everyone, including the people who joined, and they are all told. The host cannot undo this — only an admin can.'
+            ? t('moderation.dialogs.removeBody')
             : acting?.kind === 'suspend'
-              ? `${nameFor(subjectOf(acting.report))} can still sign in and read, but cannot create activities, join anything, or send messages. Anything they are hosting is taken down and everyone who joined is told — lifting the suspension later does not bring those back.`
-              : 'The report stays on record, marked as needing no action.'
+              ? t('moderation.dialogs.suspendBody', { name: nameFor(subjectOf(acting.report)) })
+              : t('moderation.dialogs.dismissBody')
         }
         confirmLabel={
-          acting?.kind === 'remove' ? 'Remove' : acting?.kind === 'suspend' ? 'Suspend' : 'Dismiss'
+          acting?.kind === 'remove'
+            ? t('moderation.dialogs.remove')
+            : acting?.kind === 'suspend'
+              ? t('moderation.dialogs.suspend')
+              : t('moderation.dialogs.dismiss')
         }
-        cancelLabel="Cancel"
+        cancelLabel={t('common.cancel')}
         tone={acting?.kind === 'dismiss' ? 'default' : 'danger'}
         onConfirm={act}
         onCancel={() => setActing(null)}
@@ -984,19 +1033,23 @@ export default function ModerationPage() {
       <ConfirmDialog
         open={Boolean(roleChange)}
         title={
-          roleChange?.role === 'moderator' ? 'Appoint as moderator?' : 'Dismiss this moderator?'
+          roleChange?.role === 'moderator'
+            ? t('moderation.dialogs.appointTitle')
+            : t('moderation.dialogs.dismissModeratorTitle')
         }
         body={
           roleChange?.role === 'moderator'
-            ? `${nameFor(roleChange.uid)} will be able to read every report, take activities down and suspend ordinary users. They cannot appoint anybody, undo a takedown, or act on a report about themselves.${
-                suspendedIds.has(roleChange.uid)
-                  ? ' Their account is suspended, so they will hold the rank and use none of it until that is lifted.'
-                  : ''
+            ? `${t('moderation.dialogs.appointBody', { name: nameFor(roleChange.uid) })}${
+                suspendedIds.has(roleChange.uid) ? t('moderation.dialogs.appointBodySuspended') : ''
               }`
-            : `${nameFor(roleChange?.uid)} loses access to this queue. Nothing else about their account changes — a suspension, if they have one, stays exactly as it is.`
+            : t('moderation.dialogs.dismissModeratorBody', { name: nameFor(roleChange?.uid) })
         }
-        confirmLabel={roleChange?.role === 'moderator' ? 'Appoint' : 'Dismiss'}
-        cancelLabel="Cancel"
+        confirmLabel={
+          roleChange?.role === 'moderator'
+            ? t('moderation.dialogs.appoint')
+            : t('moderation.dialogs.dismiss')
+        }
+        cancelLabel={t('common.cancel')}
         tone={roleChange?.role === 'moderator' ? 'default' : 'danger'}
         onConfirm={changeRole}
         onCancel={() => setRoleChange(null)}
@@ -1004,14 +1057,20 @@ export default function ModerationPage() {
 
       <ConfirmDialog
         open={Boolean(suspendTarget)}
-        title={suspendTarget?.suspend ? 'Suspend this account?' : 'Lift this suspension?'}
+        title={
+          suspendTarget?.suspend
+            ? t('moderation.dialogs.suspendTitle')
+            : t('moderation.dialogs.liftTitle')
+        }
         body={
           suspendTarget?.suspend
-            ? `${nameFor(suspendTarget.uid)} can still sign in and read, but cannot create activities, join anything, or send messages. Anything they are hosting is taken down and everyone who joined is told — lifting the suspension later does not bring those back.`
-            : `${nameFor(suspendTarget?.uid)} can create, join and message again, and will be told. Anything taken down while they were suspended stays down.`
+            ? t('moderation.dialogs.suspendBody', { name: nameFor(suspendTarget.uid) })
+            : t('moderation.dialogs.liftBody', { name: nameFor(suspendTarget?.uid) })
         }
-        confirmLabel={suspendTarget?.suspend ? 'Suspend' : 'Lift suspension'}
-        cancelLabel="Cancel"
+        confirmLabel={
+          suspendTarget?.suspend ? t('moderation.dialogs.suspend') : t('moderation.dialogs.lift')
+        }
+        cancelLabel={t('common.cancel')}
         tone={suspendTarget?.suspend ? 'danger' : 'default'}
         onConfirm={actOnPerson}
         onCancel={() => setSuspendTarget(null)}
@@ -1021,40 +1080,40 @@ export default function ModerationPage() {
         open={Boolean(recorded)}
         title={
           recorded?.kind === 'warn'
-            ? 'Warn this account?'
+            ? t('moderation.dialogs.warnTitle')
             : recorded?.kind === 'close'
-              ? 'Close this account for good?'
-              : 'Reopen this account?'
+              ? t('moderation.dialogs.closeTitle')
+              : t('moderation.dialogs.reopenTitle')
         }
         body={
           recorded?.kind === 'warn'
-            ? `${nameFor(recorded.uid)} is told what the problem is and it goes on their record. Nothing is taken away — this is the step before anything is.`
+            ? t('moderation.dialogs.warnBody', { name: nameFor(recorded.uid) })
             : recorded?.kind === 'close'
-              ? `${nameFor(recorded?.uid)} will not be able to use SmartSync again. Everything they are hosting is taken down and everyone who joined is told. Only an admin can reverse this.`
-              : `${nameFor(recorded?.uid)} can use SmartSync again. Anything taken down while the account was closed stays down.`
+              ? t('moderation.dialogs.closeBody', { name: nameFor(recorded?.uid) })
+              : t('moderation.dialogs.reopenBody', { name: nameFor(recorded?.uid) })
         }
         promptLabel={
           recorded?.kind === 'warn'
-            ? 'What are you warning them about?'
+            ? t('moderation.dialogs.warnPrompt')
             : recorded?.kind === 'close'
-              ? 'Why is this account being closed?'
-              : 'Why are you reopening it?'
+              ? t('moderation.dialogs.closePrompt')
+              : t('moderation.dialogs.reopenPrompt')
         }
         promptPlaceholder={
           recorded?.kind === 'warn'
-            ? 'Several people reported the same behaviour'
-            : 'Repeated safety reports after a warning'
+            ? t('moderation.dialogs.warnPlaceholder')
+            : t('moderation.dialogs.closePlaceholder')
         }
         promptValue={recordedReason}
         onPromptChange={setRecordedReason}
         confirmLabel={
           recorded?.kind === 'warn'
-            ? 'Send warning'
+            ? t('moderation.dialogs.sendWarning')
             : recorded?.kind === 'close'
-              ? 'Close account'
-              : 'Reopen'
+              ? t('moderation.dialogs.closeAccount')
+              : t('moderation.dialogs.reopen')
         }
-        cancelLabel="Cancel"
+        cancelLabel={t('common.cancel')}
         tone={recorded?.kind === 'reopen' ? 'default' : 'danger'}
         onConfirm={applyRecorded}
         onCancel={() => setRecorded(null)}

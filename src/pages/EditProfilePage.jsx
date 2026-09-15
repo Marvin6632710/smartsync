@@ -1,13 +1,16 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { categories, MIN_INTERESTS, timeBands } from '../data/categories'
 import UnsentDraft from '../components/UnsentDraft'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { updateDisplayName } from '../firebase/users'
+import { categoryLabel, timeBandLabel } from '../i18n'
 import { awaitWrite, QUEUED } from '../utils/writes'
 
 export default function EditProfilePage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { offline, pushCelebration, unsent, keepUnsent, settleUnsent, failUnsent } = useApp()
   const navigate = useNavigate()
@@ -45,25 +48,23 @@ export default function EditProfilePage() {
   const submit = async (event) => {
     event.preventDefault()
     if (form.name.trim().length < 2) {
-      setError('Please enter your name.')
+      setError('editProfile.nameRequired')
       return
     }
     if (form.interests.length < MIN_INTERESTS) {
-      setError(`Pick at least ${MIN_INTERESTS} interests.`)
+      setError('editProfile.interestsRequired')
       return
     }
     // The rules refuse an empty username; saying so here beats a generic
     // "could not save" after a round trip.
     if (!form.username.trim()) {
-      setError('Please enter a username.')
+      setError('editProfile.usernameRequired')
       return
     }
     setError('')
     setBusy(true)
     const describe = (saveError) =>
-      saveError?.code === 'permission-denied'
-        ? 'Could not save: the change was refused. Check the username and try again.'
-        : 'Could not save. Check your connection and try again.'
+      saveError?.code === 'permission-denied' ? 'editProfile.refused' : 'editProfile.failed'
     try {
       // One batch: the name lives in both documents and has to move in both
       // at once, and the rest of the profile goes with it rather than in a
@@ -92,8 +93,8 @@ export default function EditProfilePage() {
           pushCelebration({
             icon: 'alert',
             tone: 'warning',
-            title: "Couldn't save your profile",
-            body: describe(saveError),
+            title: t('editProfile.toastTitle'),
+            body: t(describe(saveError)),
           }),
       })
       if (outcome === QUEUED) {
@@ -118,8 +119,8 @@ export default function EditProfilePage() {
         )
         pushCelebration({
           icon: 'check',
-          title: 'Profile saved — will sync',
-          body: 'This will finish when you are back online.',
+          title: t('editProfile.queuedTitle'),
+          body: t('editProfile.queuedBody'),
         })
       }
       navigate('/profile')
@@ -132,20 +133,16 @@ export default function EditProfilePage() {
 
   return (
     <div className="page-content">
-      <h2>Edit profile</h2>
-      <UnsentDraft row={draft} what="Your last profile edit" onRestore={restore} />
+      <h2>{t('editProfile.title')}</h2>
+      <UnsentDraft row={draft} what={t('editProfile.draftWhat')} onRestore={restore} />
       <form className="form-card" onSubmit={submit}>
         <label>
-          Name
+          {t('editProfile.name')}
           <input value={form.name} onChange={(e) => set('name', e.target.value)} maxLength={60} />
         </label>
-        {user.anonymous && (
-          <small className="field-hint">
-            Anonymous mode is on, so others still see “Anonymous user”.
-          </small>
-        )}
+        {user.anonymous && <small className="field-hint">{t('editProfile.anonymousNote')}</small>}
         <label>
-          Username
+          {t('editProfile.username')}
           <input
             value={form.username}
             onChange={(e) => set('username', e.target.value)}
@@ -153,7 +150,7 @@ export default function EditProfilePage() {
           />
         </label>
         <label>
-          Bio
+          {t('editProfile.bio')}
           <textarea
             rows="3"
             value={form.bio}
@@ -162,19 +159,25 @@ export default function EditProfilePage() {
           />
         </label>
         <label>
-          Preferred time
+          {t('editProfile.preferredTime')}
           <select value={form.preferredTime} onChange={(e) => set('preferredTime', e.target.value)}>
-            <option value="">No preference</option>
+            <option value="">{t('editProfile.noPreference')}</option>
             {timeBands.map((band) => (
-              <option key={band}>{band}</option>
+              <option key={band} value={band}>
+                {timeBandLabel(band)}
+              </option>
             ))}
           </select>
         </label>
         <div>
-          <span className="label-like">Interests</span>
+          <span className="label-like">{t('editProfile.interests')}</span>
           <div className="selection-summary">
-            <span className="tiny-chip">{form.interests.length} selected</span>
-            <span className="helper-text">Minimum {MIN_INTERESTS}</span>
+            <span className="tiny-chip">
+              {t('onboarding.interests.selected', { count: form.interests.length })}
+            </span>
+            <span className="helper-text">
+              {t('editProfile.minimum', { count: MIN_INTERESTS })}
+            </span>
           </div>
           <div className="interest-grid small-grid">
             {categories.map((interest) => (
@@ -185,21 +188,21 @@ export default function EditProfilePage() {
                 onClick={() => toggle(interest)}
                 aria-pressed={form.interests.includes(interest)}
               >
-                {interest}
+                {categoryLabel(interest)}
               </button>
             ))}
           </div>
         </div>
         {error && (
           <p className="form-error" role="alert">
-            {error}
+            {t(error, { count: MIN_INTERESTS })}
           </p>
         )}
         <button
           className="primary-button wide"
           disabled={busy || form.interests.length < MIN_INTERESTS}
         >
-          {busy ? 'Saving…' : 'Save profile'}
+          {busy ? t('common.saving') : t('editProfile.submit')}
         </button>
       </form>
     </div>

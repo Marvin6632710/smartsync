@@ -12,6 +12,8 @@
  * three-quarters empty, nobody believes the one that is genuinely nearly full.
  */
 
+import i18n from '../i18n'
+
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
 
@@ -29,11 +31,12 @@ export function timeUntilLabel(startsAt, now = Date.now()) {
   // Already running or finished. "Ended" and the live state are decided
   // elsewhere from the real status; this function only looks forward.
   if (ms <= -MINUTE) return null
-  if (ms < 15 * MINUTE) return { label: 'Starting now', tone: 'now' }
-  if (ms < HOUR) return { label: `In ${Math.round(ms / MINUTE)} min`, tone: 'now' }
+  if (ms < 15 * MINUTE) return { label: i18n.t('urgency.startingNow'), tone: 'now' }
+  if (ms < HOUR)
+    return { label: i18n.t('urgency.inMinutes', { count: Math.round(ms / MINUTE) }), tone: 'now' }
   if (ms < 6 * HOUR) {
     const hours = Math.round(ms / HOUR)
-    return { label: `In ${hours} ${hours === 1 ? 'hour' : 'hours'}`, tone: 'soon' }
+    return { label: i18n.t('urgency.inHours', { count: hours }), tone: 'soon' }
   }
   return null
 }
@@ -52,13 +55,13 @@ export function capacityNote(participants, capacity) {
   if (taken < 0) return null
 
   const left = total - taken
-  if (left <= 0) return { label: 'Full', tone: 'full', left: 0 }
+  if (left <= 0) return { label: i18n.t('urgency.full'), tone: 'full', left: 0 }
   // A tiny activity is not "nearly full" at three of four — it is simply
   // small. Below six places the proportion says nothing, so only the literal
   // count does.
-  if (left <= 2)
-    return { label: `${left} ${left === 1 ? 'spot' : 'spots'} left`, tone: 'last', left }
-  if (total >= 6 && taken / total >= 0.8) return { label: 'Filling up', tone: 'filling', left }
+  if (left <= 2) return { label: i18n.t('urgency.spotsLeft', { count: left }), tone: 'last', left }
+  if (total >= 6 && taken / total >= 0.8)
+    return { label: i18n.t('urgency.fillingUp'), tone: 'filling', left }
   return null
 }
 

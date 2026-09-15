@@ -18,13 +18,17 @@ import { MORPH } from '../hooks/useMorph'
 import { removeActivity as removeAsModerator, restoreActivity } from '../firebase/moderation'
 import { useModerationAction } from '../hooks/useModerationAction'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+
+import { storedContext } from '../i18n/reportContext'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-import { formatDistance } from '../utils/geo'
+import { categoryLabel, distanceLabel, reasonLines, takedownReasonText } from '../i18n'
 import { formatActivityDate, formatClock } from '../utils/time'
 import { activityBadge } from '../utils/urgency'
 
 export default function ActivityDetailsPage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const {
@@ -64,18 +68,18 @@ export default function ActivityDetailsPage() {
   // shared URL, a reload on this page — arrives before the first snapshot,
   // and this used to say the activity did not exist for exactly as long as
   // the connection was slow.
-  if (!a && (loading || syncing)) return <BootScreen label="Loading activity…" />
+  if (!a && (loading || syncing)) return <BootScreen label={t('app.loadingActivity')} />
 
   if (!a) {
     return (
       <div className="page-content">
         <div className="empty-state">
-          <h3>Activity not found</h3>
+          <h3>{t('activity.notFound')}</h3>
           {/* Two facts look the same from here: deleted, and further ahead
               than the window of upcoming activities the app loads. */}
-          <p>It may have been deleted, or it is further ahead than the activities loaded here.</p>
+          <p>{t('activity.notFoundBody')}</p>
           <button className="primary-button" onClick={() => navigate('/home')}>
-            Back
+            {t('common.back')}
           </button>
         </div>
       </div>
@@ -93,7 +97,8 @@ export default function ActivityDetailsPage() {
   // A takedown that will not say what it was for reads as arbitrary, and the
   // host has no way to do better next time. The stored reason is one of a
   // fixed set and never names whoever reported it.
-  const removalReason = a.moderation?.reason || 'it broke our safety policy'
+  const removalReason =
+    takedownReasonText(a.moderation?.reason) || t('activity.defaultRemovalReason')
   const fill = Math.max(
     0,
     Math.min(100, Math.round((a.participants / Math.max(a.capacity, 1)) * 100)),
@@ -117,23 +122,23 @@ export default function ActivityDetailsPage() {
               ? {
                   icon: 'check',
                   tone: 'success',
-                  title: 'Activity removed',
-                  body: `${a.title} is gone from discovery. The host and everyone who joined have been told.`,
+                  title: t('activity.moderator.removedTitle'),
+                  body: t('activity.moderator.removedBody', { title: a.title }),
                 }
               : {
                   icon: 'check',
                   tone: 'success',
-                  title: 'Put back',
-                  body: `${a.title} is visible again, and the host has been told.`,
+                  title: t('activity.moderator.restoredTitle'),
+                  body: t('activity.moderator.restoredBody', { title: a.title }),
                 },
           fail: (moderationError) => ({
             icon: 'alert',
             tone: 'warning',
-            title: "Couldn't do that",
+            title: t('activity.moderator.failedTitle'),
             body:
               moderationError?.code === 'permission-denied'
-                ? 'Only an admin can put a removed activity back.'
-                : 'Try again — repeating it is safe.',
+                ? t('activity.moderator.adminOnlyRestore')
+                : t('common.repeatingIsSafe'),
           }),
         },
       )
@@ -162,9 +167,9 @@ export default function ActivityDetailsPage() {
         <div className="card-topline">
           <span className="category-chip">
             <CategoryIcon category={a.category} size={12} />
-            {a.category}
+            {categoryLabel(a.category)}
           </span>
-          <span className="match-pill">{a.matchScore}% match</span>
+          <span className="match-pill">{t('common.match', { value: a.matchScore })}</span>
         </div>
         <h2>{a.title}</h2>
         {/* The same badge the card carried, so opening it does not quietly
@@ -172,28 +177,26 @@ export default function ActivityDetailsPage() {
         {badge && (
           <span className={`urgency-pill tone-${badge.tone} detail-badge`}>{badge.label}</span>
         )}
-        {isCancelled && (
-          <p className="cancelled-banner">This activity was cancelled by the host.</p>
-        )}
+        {isCancelled && <p className="cancelled-banner">{t('activity.cancelledByHost')}</p>}
         {/* Removal is not cancellation and should not read like it: the people
             who joined are entitled to know it was taken down rather than
             called off, so they do not turn up expecting it. */}
         {isRemoved && (
           <p className="cancelled-banner removed-banner">
             {isHost
-              ? `SmartSync removed this activity: ${removalReason}. It is no longer visible to anyone and cannot be put back from here.`
-              : `SmartSync removed this activity: ${removalReason}. It is not going ahead.`}
+              ? t('activity.removedForHost', { reason: removalReason })
+              : t('activity.removedForOthers', { reason: removalReason })}
           </p>
         )}
         {!isCancelled && isPast && (
-          <p className="cancelled-banner past-banner">This activity has already taken place.</p>
+          <p className="cancelled-banner past-banner">{t('activity.alreadyTakenPlace')}</p>
         )}
         <p>{a.description}</p>
         <div className="detail-facts">
           <span>
             <MapPin size={14} />
             {a.locationName}
-            {a.distanceKm != null && ` · ${formatDistance(a.distanceKm)}`}
+            {a.distanceKm != null && ` · ${distanceLabel(a.distanceKm)}`}
           </span>
           <span>
             <CalendarDays size={14} />
@@ -205,7 +208,7 @@ export default function ActivityDetailsPage() {
           </span>
           <span>
             <Users size={14} />
-            {a.participants}/{a.capacity} joined
+            {t('activity.joinedCount', { count: a.participants, capacity: a.capacity })}
           </span>
         </div>
         <div className="capacity-meter large-meter">
@@ -216,15 +219,15 @@ export default function ActivityDetailsPage() {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Why this?</span>
-            <h2>Match reasons</h2>
+            <span className="eyebrow">{t('activity.whyThis')}</span>
+            <h2>{t('activity.matchReasons')}</h2>
           </div>
           <button className="text-button" onClick={() => navigate(`/recommendations/${id}`)}>
-            More
+            {t('common.more')}
           </button>
         </div>
         <ul className="reason-list">
-          {(a.reasons || []).map((r) => (
+          {reasonLines(a).map((r) => (
             <li key={r}>
               <Check size={15} />
               {r}
@@ -236,7 +239,7 @@ export default function ActivityDetailsPage() {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Host</span>
+            <span className="eyebrow">{t('activity.hostEyebrow')}</span>
             <h3>{a.hostName}</h3>
           </div>
         </div>
@@ -249,7 +252,7 @@ export default function ActivityDetailsPage() {
           </span>
           <span className="host-copy">
             <strong>{a.hostName}</strong>
-            <small>Hosting this activity</small>
+            <small>{t('activity.hostingThis')}</small>
           </span>
         </div>
 
@@ -259,7 +262,7 @@ export default function ActivityDetailsPage() {
             className="secondary-button"
             onClick={() => navigate(`/activity/${id}/participants`)}
           >
-            <Users size={17} /> View all
+            <Users size={17} /> {t('activity.viewAll')}
           </button>
         </div>
       </section>
@@ -268,7 +271,7 @@ export default function ActivityDetailsPage() {
           write, so offering it would only walk the host into a dead end. */}
       {isHost && !isRemoved && (
         <button className="secondary-button wide" onClick={() => navigate(`/activity/${id}/edit`)}>
-          <Edit3 size={17} /> Edit activity
+          <Edit3 size={17} /> {t('activity.editActivity')}
         </button>
       )}
 
@@ -282,7 +285,7 @@ export default function ActivityDetailsPage() {
             className="secondary-button wide"
             onClick={() => navigate(`/activity/${id}/chat`)}
           >
-            <MessageCircle size={18} /> Open chat
+            <MessageCircle size={18} /> {t('activity.openChat')}
           </button>
         ) : isHost ? (
           <div className="action-stack">
@@ -290,10 +293,10 @@ export default function ActivityDetailsPage() {
               className="primary-button wide"
               onClick={() => navigate(`/activity/${id}/chat`)}
             >
-              <MessageCircle size={18} /> Open chat
+              <MessageCircle size={18} /> {t('activity.openChat')}
             </button>
             <button className="danger-button wide" onClick={() => setCancelOpen(true)}>
-              {isEmpty ? 'Delete activity' : 'Cancel activity'}
+              {isEmpty ? t('activity.deleteActivity') : t('activity.cancelActivity')}
             </button>
           </div>
         ) : joined ? (
@@ -302,10 +305,10 @@ export default function ActivityDetailsPage() {
               className="primary-button wide"
               onClick={() => navigate(`/activity/${id}/chat`)}
             >
-              <MessageCircle size={18} /> Open chat
+              <MessageCircle size={18} /> {t('activity.openChat')}
             </button>
             <button className="danger-button wide" onClick={() => leaveActivity(id)}>
-              Leave activity
+              {t('activity.leaveActivity')}
             </button>
           </div>
         ) : (
@@ -314,7 +317,7 @@ export default function ActivityDetailsPage() {
             disabled={a.participants >= a.capacity}
             onClick={() => joinActivity(id)}
           >
-            {a.participants >= a.capacity ? 'Full' : 'Join activity'}
+            {a.participants >= a.capacity ? t('activity.full') : t('activity.joinActivity')}
           </button>
         )}
       </div>
@@ -327,21 +330,23 @@ export default function ActivityDetailsPage() {
         <section className="panel moderator-panel">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">Moderator</span>
-              <h3>{isRemoved ? 'Put this back?' : 'Take this down?'}</h3>
+              <span className="eyebrow">{t('activity.moderator.eyebrow')}</span>
+              <h3>
+                {isRemoved ? t('activity.moderator.putBack') : t('activity.moderator.takeDown')}
+              </h3>
             </div>
           </div>
           <p className="helper-text">
-            {isRemoved
-              ? 'It was taken down by a moderator. Restoring it is recorded against the activity, and the host is told.'
-              : 'It disappears for everyone, including the people who joined, and they are all told. The host cannot undo it — only an admin can.'}
+            {isRemoved ? t('activity.moderator.putBackHint') : t('activity.moderator.takeDownHint')}
           </p>
           <label className="report-detail">
-            {isRemoved ? 'Why are you putting this back?' : 'Why is this coming down?'}
+            {isRemoved ? t('activity.moderator.whyPutBack') : t('activity.moderator.whyTakeDown')}
             <input
               maxLength={300}
               placeholder={
-                isRemoved ? 'Reviewed again — the report was mistaken' : 'A safety concern'
+                isRemoved
+                  ? t('activity.moderator.putBackPlaceholder')
+                  : t('activity.moderator.takeDownPlaceholder')
               }
               value={moderationReason}
               onChange={(event) => setModerationReason(event.target.value)}
@@ -352,7 +357,11 @@ export default function ActivityDetailsPage() {
             disabled={!moderationReason.trim() || moderating}
             onClick={() => moderate(isRemoved ? 'active' : 'removed')}
           >
-            {moderating ? 'Working…' : isRemoved ? 'Put it back' : 'Remove activity'}
+            {moderating
+              ? t('common.working')
+              : isRemoved
+                ? t('activity.moderator.putItBack')
+                : t('activity.moderator.removeActivity')}
           </button>
         </section>
       )}
@@ -369,12 +378,16 @@ export default function ActivityDetailsPage() {
               // The host is the person answerable for an activity.
               subjectId: a.hostId,
               name: a.title,
-              label: 'this activity',
-              context: `${a.title} at ${a.locationName}, hosted by ${a.hostName}`,
+              label: 'activity.reportLabel',
+              context: storedContext('activity', {
+                title: a.title,
+                place: a.locationName,
+                host: a.hostName,
+              }),
             })
           }
         >
-          <Flag size={15} /> Report this activity
+          <Flag size={15} /> {t('activity.reportThis')}
         </button>
       )}
 
@@ -386,14 +399,14 @@ export default function ActivityDetailsPage() {
 
       <ConfirmDialog
         open={cancelOpen}
-        title={isEmpty ? 'Delete this activity?' : 'Cancel this activity?'}
+        title={isEmpty ? t('activity.deleteDialogTitle') : t('activity.cancelDialogTitle')}
         body={
           isEmpty
-            ? `Nobody else has joined ${a.title}, so it will simply be removed.`
-            : `Everyone who joined ${a.title} will be told it is off. The chat stays available to them.`
+            ? t('activity.deleteDialogBody', { title: a.title })
+            : t('activity.cancelDialogBody', { title: a.title })
         }
-        confirmLabel={isEmpty ? 'Delete' : 'Cancel activity'}
-        cancelLabel="Keep it"
+        confirmLabel={isEmpty ? t('common.delete') : t('activity.cancelActivity')}
+        cancelLabel={t('common.keepIt')}
         tone="danger"
         onConfirm={confirmCancel}
         onCancel={() => setCancelOpen(false)}

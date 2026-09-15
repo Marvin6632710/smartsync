@@ -7,17 +7,21 @@ import {
   MessageSquareWarning,
   ShieldAlert,
   ShieldCheck,
+  Languages,
   ShieldOff,
   SlidersHorizontal,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import ConfirmDialog from '../components/ConfirmDialog'
+import LanguageMenu from '../components/LanguageMenu'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { setNotificationsEnabled } from '../firebase/users'
 import { useSaveProfile } from '../hooks/useSaveProfile'
 
 export default function SettingsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { pushCelebration } = useApp()
@@ -32,37 +36,47 @@ export default function SettingsPage() {
       pushCelebration({
         icon: 'alert',
         tone: 'warning',
-        title: "Couldn't sign out",
-        body: 'Please try again.',
+        title: t('auth.signOutDialog.failed'),
+        body: t('common.pleaseTryAgain'),
       }),
     )
 
   return (
     <div className="page-content">
-      <h2>Settings</h2>
+      <h2>{t('settings.title')}</h2>
 
       <div className="settings-card">
+        {/* The language first: it is the one row somebody who cannot read
+            the rest is looking for. */}
+        <div className="setting-row language-row">
+          <Languages size={18} />
+          <span>
+            <strong>{t('settings.language')}</strong>
+            <small>{t('language.hint')}</small>
+          </span>
+          <LanguageMenu />
+        </div>
         <button className="setting-row" onClick={() => navigate('/privacy')}>
           <ShieldCheck size={18} />
           <span>
-            <strong>Privacy</strong>
-            <small>Anonymous mode and location controls</small>
+            <strong>{t('settings.privacy')}</strong>
+            <small>{t('settings.privacyHint')}</small>
           </span>
           <ChevronRight size={17} />
         </button>
         <button className="setting-row" onClick={() => navigate('/filters')}>
           <SlidersHorizontal size={18} />
           <span>
-            <strong>Discovery preferences</strong>
-            <small>Category, distance and availability</small>
+            <strong>{t('settings.discovery')}</strong>
+            <small>{t('settings.discoveryHint')}</small>
           </span>
           <ChevronRight size={17} />
         </button>
         <button className="setting-row" onClick={() => navigate('/blocked')}>
           <ShieldOff size={18} />
           <span>
-            <strong>Blocked people</strong>
-            <small>Who you have blocked, and how to undo it</small>
+            <strong>{t('settings.blocked')}</strong>
+            <small>{t('settings.blockedHint')}</small>
           </span>
           <ChevronRight size={17} />
         </button>
@@ -71,24 +85,24 @@ export default function SettingsPage() {
         <button className="setting-row" onClick={() => navigate('/warnings')}>
           <MessageSquareWarning size={18} />
           <span>
-            <strong>Warnings</strong>
-            <small>Anything SmartSync has raised with you</small>
+            <strong>{t('settings.warnings')}</strong>
+            <small>{t('settings.warningsHint')}</small>
           </span>
           <ChevronRight size={17} />
         </button>
         <button className="setting-row" onClick={() => navigate('/weights')}>
           <SlidersHorizontal size={18} />
           <span>
-            <strong>Matching weights</strong>
-            <small>See and adjust how activities are scored</small>
+            <strong>{t('settings.weights')}</strong>
+            <small>{t('settings.weightsHint')}</small>
           </span>
           <ChevronRight size={17} />
         </button>
         <button className="setting-row" onClick={() => navigate('/messages')}>
           <MessageCircle size={18} />
           <span>
-            <strong>Activity messages</strong>
-            <small>Chats for activities you joined</small>
+            <strong>{t('settings.messages')}</strong>
+            <small>{t('settings.messagesHint')}</small>
           </span>
           <ChevronRight size={17} />
         </button>
@@ -101,8 +115,8 @@ export default function SettingsPage() {
         >
           <Bell size={18} />
           <span>
-            <strong>Notifications</strong>
-            <small>Joins, messages and activity updates</small>
+            <strong>{t('settings.notifications')}</strong>
+            <small>{t('settings.notificationsHint')}</small>
           </span>
           <span className={`switch ${privacy.notifications ? 'on' : ''}`} aria-hidden="true" />
         </button>
@@ -113,9 +127,11 @@ export default function SettingsPage() {
           <button className="setting-row" onClick={() => navigate('/moderation')}>
             <ShieldAlert size={18} />
             <span>
-              <strong>Moderation</strong>
+              <strong>{t('settings.moderation')}</strong>
               <small>
-                Open reports {user.isAdmin ? '· you are an admin' : '· you are a moderator'}
+                {user.isAdmin
+                  ? t('settings.moderationHintAdmin')
+                  : t('settings.moderationHintModerator')}
               </small>
             </span>
             <ChevronRight size={17} />
@@ -124,19 +140,19 @@ export default function SettingsPage() {
       )}
 
       <div className="panel">
-        <h3>Account</h3>
-        <p className="helper-text">Signed in as {user.email}.</p>
+        <h3>{t('settings.account')}</h3>
+        <p className="helper-text">{t('settings.signedInAs', { email: user.email })}</p>
         <button className="danger-button wide" onClick={() => setSignOutOpen(true)}>
-          <LogOut size={17} /> Sign out
+          <LogOut size={17} /> {t('settings.signOut')}
         </button>
       </div>
 
       <ConfirmDialog
         open={signOutOpen}
-        title="Sign out?"
-        body="You will need your email and password to sign back in. Nothing is deleted."
-        confirmLabel="Sign out"
-        cancelLabel="Stay signed in"
+        title={t('auth.signOutDialog.title')}
+        body={t('auth.signOutDialog.settingsBody')}
+        confirmLabel={t('auth.signOutDialog.confirm')}
+        cancelLabel={t('auth.signOutDialog.staySignedIn')}
         tone="danger"
         onConfirm={() => {
           setSignOutOpen(false)

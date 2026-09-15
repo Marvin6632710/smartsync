@@ -1,9 +1,12 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { categories } from '../data/categories'
+import { useTranslation } from 'react-i18next'
+import { categories, timeBands } from '../data/categories'
 import { defaultFilters, useApp } from '../context/AppContext'
+import { categoryLabel, timeBandLabel } from '../i18n'
 
 export default function FilterPage() {
+  const { t } = useTranslation()
   const { filters, setFilters } = useApp()
   const [draft, setDraft] = useState(filters)
   const navigate = useNavigate()
@@ -14,19 +17,24 @@ export default function FilterPage() {
   }
   return (
     <div className="page-content">
-      <h2>Discovery filters</h2>
+      <h2>{t('filters.title')}</h2>
       <div className="form-card">
+        {/* The stored values stay English ('All', 'Football', 'Any',
+            'Morning'); only the option labels are translated. */}
         <label>
-          Category
+          {t('filters.category')}
           <select value={draft.category} onChange={(e) => set('category', e.target.value)}>
-            <option>All</option>
+            <option value="All">{t('filters.all')}</option>
             {categories.map((i) => (
-              <option key={i}>{i}</option>
+              <option key={i} value={i}>
+                {categoryLabel(i)}
+              </option>
             ))}
           </select>
         </label>
         <label>
-          Maximum distance: <strong>{draft.maxDistance} km</strong>
+          {t('filters.maxDistance')}{' '}
+          <strong>{t('filters.km', { value: draft.maxDistance })}</strong>
           <input
             type="range"
             min="1"
@@ -36,12 +44,14 @@ export default function FilterPage() {
           />
         </label>
         <label>
-          Time
+          {t('filters.time')}
           <select value={draft.timeBand} onChange={(e) => set('timeBand', e.target.value)}>
-            <option>Any</option>
-            <option>Morning</option>
-            <option>Afternoon</option>
-            <option>Evening</option>
+            <option value="Any">{t('filters.any')}</option>
+            {timeBands.map((band) => (
+              <option key={band} value={band}>
+                {timeBandLabel(band)}
+              </option>
+            ))}
           </select>
         </label>
         <button
@@ -51,14 +61,14 @@ export default function FilterPage() {
           aria-checked={draft.availableOnly}
         >
           <span>
-            <strong>Available spots only</strong>
-            <small>Hide activities that are already full</small>
+            <strong>{t('filters.availableOnly')}</strong>
+            <small>{t('filters.availableOnlyHint')}</small>
           </span>
           <span className={`switch ${draft.availableOnly ? 'on' : ''}`} aria-hidden="true" />
         </button>
         <div className="button-row">
           <button className="secondary-button" onClick={reset}>
-            Reset
+            {t('filters.reset')}
           </button>
           <button
             className="primary-button"
@@ -67,7 +77,7 @@ export default function FilterPage() {
               navigate('/home')
             }}
           >
-            Apply filters
+            {t('filters.apply')}
           </button>
         </div>
       </div>

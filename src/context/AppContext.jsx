@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { useAuth } from './AuthContext'
 import {
@@ -40,6 +41,7 @@ import { rankActivities, recommendationWeights } from '../services/recommendatio
 import { distanceBetween } from '../utils/geo'
 import { useListenerRetry } from '../hooks/useListenerRetry'
 import { DURABLE, loadDurable, loadStorage, saveDurable, saveStorage } from '../utils/storage'
+import { storedText } from '../i18n/notificationText'
 import { reportError } from '../utils/reportError'
 import { awaitWrite, QUEUED } from '../utils/writes'
 
@@ -99,6 +101,9 @@ export const defaultFilters = {
 }
 
 export function AppProvider({ children }) {
+  // The words every toast is made of, in the language in force. Toasts are
+  // built in event handlers, so they read `t` at the moment they are shown.
+  const { t } = useTranslation()
   const { user, serverSeen } = useAuth()
   const uid = user?.uid || null
 
@@ -582,7 +587,7 @@ export function AppProvider({ children }) {
       tone: 'warning',
       title: failure,
       body:
-        error?.code === 'permission-denied' ? 'You do not have permission.' : 'Please try again.',
+        error?.code === 'permission-denied' ? t('common.noPermission') : t('common.pleaseTryAgain'),
     })
   }
   async function attempt(action, { failure, success, queued, keep }) {
@@ -617,11 +622,11 @@ export function AppProvider({ children }) {
         pushCelebration(
           queued ||
             (success
-              ? { ...success, title: `${success.title} — will sync` }
+              ? { ...success, title: t('common.willSync', { title: success.title }) }
               : {
                   icon: 'check',
-                  title: 'Saved — will sync',
-                  body: 'This will finish when you are back online.',
+                  title: t('toasts.savedWillSync'),
+                  body: t('toasts.finishWhenOnline'),
                 }),
         )
       }
@@ -927,8 +932,8 @@ export function AppProvider({ children }) {
     pushCelebration({
       icon: 'alert',
       tone: 'warning',
-      title: 'Your account is suspended',
-      body: `You cannot ${what} while your account is suspended. You can still read SmartSync.`,
+      title: t('toasts.suspendedTitle'),
+      body: t('toasts.suspendedBody', { what: t(what) }),
     })
     return true
   }
@@ -984,13 +989,13 @@ export function AppProvider({ children }) {
     const activity = visibleActivities.find((item) => item.id === id)
     if (!activity || joinedIds.includes(id)) return
     if (joinBusyRef.current.has(id)) return
-    if (blockedBySuspension('join activities')) return
+    if (blockedBySuspension('toasts.whatJoin')) return
     if (activity.isPast) {
       pushCelebration({
         icon: 'alert',
         tone: 'warning',
-        title: 'This already happened',
-        body: `${activity.title} has already started.`,
+        title: t('toasts.alreadyHappenedTitle'),
+        body: t('toasts.alreadyHappenedBody', { title: activity.title }),
       })
       return
     }
@@ -1022,19 +1027,20 @@ export function AppProvider({ children }) {
     recordCategoryHistory(uid, user.historyCategories, activity.category).catch((error) =>
       reportError('users.recordCategoryHistory', error, { uid }),
     )
+    // Written in English, the language notifications are stored in; the
+    // reader's screen words it for them (see i18n/notificationText).
     notifyUser(activity.hostId, {
       type: 'activity',
-      title: 'Someone joined',
-      body: `${user.name} joined ${activity.title}.`,
+      ...storedText('someoneJoined', { name: user.name, title: activity.title }),
       activityId: id,
     })
     pushCelebration({
       icon: 'check',
       tone: 'success',
-      title: offline ? 'Joined — will sync' : 'You are in',
+      title: offline ? t('toasts.joinedWillSync') : t('toasts.youAreIn'),
       body: offline
-        ? `${activity.title} will be confirmed when you reconnect.`
-        : `${activity.title} added to your list.`,
+        ? t('toasts.joinedQueuedBody', { title: activity.title })
+        : t('toasts.joinedBody', { title: activity.title }),
       // Carried so the celebration can be thrown in the activity's own colour.
       // A join to a football match and a join to a coffee should not look
       // identical, and the colour is already the thing that tells them apart
@@ -1058,24 +1064,24 @@ export function AppProvider({ children }) {
         pushCelebration({
           icon: 'alert',
           tone: 'warning',
-          title: full ? 'Someone got the last place' : 'Cannot join this activity',
+          title: full ? t('toasts.lastPlaceTitle') : t('toasts.cannotJoinTitle'),
           // The last case is deliberately vague. The remaining reason a join
           // is refused is that the host has blocked you, and telling someone
           // that is exactly the harm the block list is private to avoid.
           body: full
-            ? `${activity.title} filled up just now.`
+            ? t('toasts.filledUp', { title: activity.title })
             : gone
-              ? `${activity.title} was removed by SmartSync.`
+              ? t('toasts.removedBySmartSync', { title: activity.title })
               : off
-                ? `${activity.title} was cancelled by the host.`
-                : `${activity.title} is not open to you right now.`,
+                ? t('toasts.cancelledByHost', { title: activity.title })
+                : t('toasts.notOpenToYou', { title: activity.title }),
         })
       } else {
         pushCelebration({
           icon: 'alert',
           tone: 'warning',
-          title: "Couldn't join",
-          body: 'Please try again.',
+          title: t('toasts.joinFailed'),
+          body: t('common.pleaseTryAgain'),
         })
       }
       return
@@ -1086,8 +1092,12 @@ export function AppProvider({ children }) {
     const activity = allKnownActivities.find((item) => item.id === id)
     if (!activity || !joinedIds.includes(id)) return
     await attempt(() => leaveActivityDoc(id, uid), {
-      failure: "Couldn't leave",
-      success: { icon: 'log-out', title: 'Activity left', body: `You left ${activity.title}.` },
+      failure: t('toasts.leaveFailed'),
+      success: {
+        icon: 'log-out',
+        title: t('toasts.leftTitle'),
+        body: t('toasts.leftBody', { title: activity.title }),
+      },
     })
   }
 
@@ -1095,12 +1105,12 @@ export function AppProvider({ children }) {
     const activity = allKnownActivities.find((item) => item.id === id)
     if (!activity || activity.hostId !== uid) return
     const ok = await attempt(() => cancelActivityDoc(id), {
-      failure: "Couldn't cancel",
+      failure: t('toasts.cancelFailed'),
       success: {
         icon: 'trash',
         tone: 'danger',
-        title: 'Activity cancelled',
-        body: `${activity.title} was cancelled.`,
+        title: t('toasts.cancelledTitle'),
+        body: t('toasts.cancelledBody', { title: activity.title }),
       },
     })
     if (ok === null) return
@@ -1111,8 +1121,7 @@ export function AppProvider({ children }) {
     ;(activity.participantUids || []).forEach((participantId) =>
       notifyUser(participantId, {
         type: 'activity',
-        title: 'Activity cancelled',
-        body: `${activity.title} was cancelled by the host.`,
+        ...storedText('activityCancelled', { title: activity.title }),
         activityId: id,
       }),
     )
@@ -1128,18 +1137,18 @@ export function AppProvider({ children }) {
     const activity = allKnownActivities.find((item) => item.id === id)
     if (!activity || activity.hostId !== uid) return
     await attempt(() => deleteActivityDoc(id), {
-      failure: "Couldn't delete",
+      failure: t('toasts.deleteFailed'),
       success: {
         icon: 'trash',
         tone: 'danger',
-        title: 'Activity deleted',
-        body: `${activity.title} was removed.`,
+        title: t('toasts.deletedTitle'),
+        body: t('toasts.deletedBody', { title: activity.title }),
       },
     })
   }
 
   async function createActivity(data) {
-    if (blockedBySuspension('create activities')) return null
+    if (blockedBySuspension('toasts.whatCreate')) return null
     // The id is minted locally and is on the promise before the server has
     // answered (see createActivity in firebase/activities), which is what
     // lets an offline host reach their new activity's page instead of
@@ -1151,18 +1160,18 @@ export function AppProvider({ children }) {
         return pending
       },
       {
-        failure: "Couldn't create activity",
+        failure: t('toasts.createFailed'),
         success: {
           icon: 'check',
           tone: 'success',
-          title: 'Activity created',
-          body: `${data.title} is live now.`,
+          title: t('toasts.createdTitle'),
+          body: t('toasts.createdBody', { title: data.title }),
         },
         queued: {
           icon: 'check',
           tone: 'success',
-          title: 'Activity created — will sync',
-          body: `${data.title} will be published when you reconnect.`,
+          title: t('toasts.createdQueuedTitle'),
+          body: t('toasts.createdQueuedBody', { title: data.title }),
         },
         keep: (write) => ({
           kind: 'activity-create',
@@ -1183,10 +1192,14 @@ export function AppProvider({ children }) {
     // be told — and it never throws. Somebody the host has blocked is not
     // told; the rules would refuse the write anyway, but a refusal is not a
     // thing to attempt on purpose.
-    announceToFollowers(id, {
-      title: `${user.name} posted an activity`,
-      body: `${String(data.title || '').trim()} at ${String(data.locationName || '').trim()}`,
-    })
+    announceToFollowers(
+      id,
+      storedText('activityPosted', {
+        name: user.name,
+        title: String(data.title || '').trim(),
+        place: String(data.locationName || '').trim(),
+      }),
+    )
     return id
   }
 
@@ -1202,8 +1215,13 @@ export function AppProvider({ children }) {
   // firebase/pending.js).
   async function updateActivity(id, updates, { before = null } = {}) {
     const ok = await attempt(() => updateActivityDoc(id, updates), {
-      failure: "Couldn't save changes",
-      success: { icon: 'check', tone: 'success', title: 'Saved', body: 'Changes saved.' },
+      failure: t('toasts.editFailed'),
+      success: {
+        icon: 'check',
+        tone: 'success',
+        title: t('toasts.savedTitle'),
+        body: t('toasts.savedBody'),
+      },
       keep: {
         kind: 'activity-edit',
         key: id,
@@ -1225,9 +1243,9 @@ export function AppProvider({ children }) {
     // here and notify the whole thread about a message that did not exist.
     if (!String(text || '').trim()) return null
     const activity = allKnownActivities.find((item) => item.id === activityId)
-    if (blockedBySuspension('send messages')) return null
+    if (blockedBySuspension('toasts.whatMessage')) return null
     const ok = await attempt(() => sendMessageDoc(activityId, user, text), {
-      failure: "Couldn't send",
+      failure: t('toasts.sendFailed'),
       // The bubble is already on screen; a toast per message would be noise.
       queued: null,
       // The composer has already let the text go, so a refusal — now or
@@ -1250,8 +1268,11 @@ export function AppProvider({ children }) {
       if (recipient?.notificationsEnabled === false) continue
       pushChatNotification(participantId, {
         activityId,
-        title: `New message in ${activity.title}`,
-        body: `${user.name}: ${String(text).slice(0, 80)}`,
+        ...storedText('newMessage', {
+          title: activity.title,
+          name: user.name,
+          text: String(text).slice(0, 80),
+        }),
       }).catch((error) => {
         // A refusal is expected: the bucket already has a notification, or
         // they turned notifications off, or they blocked the sender. None of
@@ -1280,21 +1301,21 @@ export function AppProvider({ children }) {
       const alreadyOn = followedUserIds.includes(targetUser.uid)
       if (alreadyOn) {
         await attempt(() => unfollowUser(uid, targetUser.uid), {
-          failure: "Couldn't turn those off",
+          failure: t('toasts.notificationsOffFailed'),
           success: {
             icon: 'bell-off',
-            title: 'Notifications off',
-            body: `${targetUser.name} activity alerts turned off.`,
+            title: t('toasts.notificationsOffTitle'),
+            body: t('toasts.notificationsOffBody', { name: targetUser.name }),
           },
         })
         return
       }
       await attempt(() => followUser(uid, targetUser.uid), {
-        failure: "Couldn't turn those on",
+        failure: t('toasts.notificationsOnFailed'),
         success: {
           icon: 'bell',
-          title: 'Notifications on',
-          body: `You'll get ${targetUser.name}'s activity alerts.`,
+          title: t('toasts.notificationsOnTitle'),
+          body: t('toasts.notificationsOnBody', { name: targetUser.name }),
         },
       })
     } finally {
@@ -1309,11 +1330,11 @@ export function AppProvider({ children }) {
   async function blockPerson(target) {
     if (!target?.uid || target.uid === uid) return
     await attempt(() => blockUserDoc(uid, target), {
-      failure: "Couldn't block",
+      failure: t('toasts.blockFailed'),
       success: {
         icon: 'alert',
-        title: `${target.name} blocked`,
-        body: 'You will not see their activities, and they cannot join yours.',
+        title: t('toasts.blockedTitle', { name: target.name }),
+        body: t('toasts.blockedBody'),
       },
     })
   }
@@ -1321,19 +1342,22 @@ export function AppProvider({ children }) {
   async function unblockPerson(targetId) {
     const person = blocked.find((b) => b.uid === targetId)
     await attempt(() => unblockUserDoc(uid, targetId), {
-      failure: "Couldn't unblock",
-      success: { icon: 'check', title: `${person?.name || 'They'} unblocked` },
+      failure: t('toasts.unblockFailed'),
+      success: {
+        icon: 'check',
+        title: t('toasts.unblockedTitle', { name: person?.name || t('toasts.they') }),
+      },
     })
   }
 
   async function submitReport(report) {
     const ok = await attempt(() => fileReport({ ...report, reporterId: uid }), {
-      failure: "Couldn't send the report",
+      failure: t('toasts.reportFailed'),
       success: {
         icon: 'check',
         tone: 'success',
-        title: 'Report sent',
-        body: 'Thank you. We review every report.',
+        title: t('toasts.reportSentTitle'),
+        body: t('toasts.reportSentBody'),
       },
       keep: (write) => ({
         kind: 'report',

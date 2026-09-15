@@ -1,19 +1,16 @@
 import React, { useMemo } from 'react'
 import { ChevronRight, Compass, SlidersHorizontal, Sparkles, UsersRound } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import ActivityCard from '../components/ActivityCard'
 import ActivitiesLoading from '../components/ActivitiesLoading'
 import CategoryIcon from '../components/CategoryIcon'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-import { signalLabels, weightShares } from '../services/recommendationService'
-import {
-  groupByInterest,
-  interestsWithNothing,
-  listInWords,
-  pickForInterests,
-} from '../services/interestPicks'
+import { categoryLabel, listInWords, reasonLines, signalLabel } from '../i18n'
+import { weightShares } from '../services/recommendationService'
+import { groupByInterest, interestsWithNothing, pickForInterests } from '../services/interestPicks'
 
 /**
  * AI Picks.
@@ -41,6 +38,7 @@ import {
 const RANK_TONES = [1, 0.8, 0.62, 0.46, 0.33, 0.22]
 
 export default function RecommendationsPage() {
+  const { t } = useTranslation()
   const { recommendations, loading, weights } = useApp()
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -63,17 +61,19 @@ export default function RecommendationsPage() {
   const signals = useMemo(
     () =>
       Object.entries(weightShares(weights))
-        .map(([id, weight]) => ({ id, weight, label: signalLabels[id] || id }))
+        .map(([id, weight]) => ({ id, weight, label: signalLabel(id) }))
         .sort((a, b) => b.weight - a.weight),
-    [weights],
+    // The labels follow the language, which `t` changes with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [weights, t],
   )
 
   if (loading) {
     return (
       <div className="page-content">
         <section className="headline-block">
-          <span className="eyebrow">AI Picks</span>
-          <h2>Made for you</h2>
+          <span className="eyebrow">{t('picks.eyebrow')}</span>
+          <h2>{t('picks.title')}</h2>
         </section>
         <ActivitiesLoading />
       </div>
@@ -86,18 +86,15 @@ export default function RecommendationsPage() {
     return (
       <div className="page-content">
         <section className="headline-block">
-          <span className="eyebrow">AI Picks</span>
-          <h2>Made for you</h2>
+          <span className="eyebrow">{t('picks.eyebrow')}</span>
+          <h2>{t('picks.title')}</h2>
         </section>
         <div className="empty-state">
           <Sparkles size={28} />
-          <h3>Tell it what you like first</h3>
-          <p>
-            This page only ever shows the categories you choose. Pick a few and it fills up straight
-            away.
-          </p>
+          <h3>{t('picks.noInterestsTitle')}</h3>
+          <p>{t('picks.noInterestsBody')}</p>
           <button className="primary-button" onClick={() => navigate('/interests')}>
-            Choose your interests
+            {t('picks.chooseInterests')}
           </button>
         </div>
       </div>
@@ -107,28 +104,24 @@ export default function RecommendationsPage() {
   return (
     <div className="page-content">
       <section className="headline-block">
-        <span className="eyebrow">AI Picks</span>
-        <h2>Made for you</h2>
+        <span className="eyebrow">{t('picks.eyebrow')}</span>
+        <h2>{t('picks.title')}</h2>
         <p className="helper-text">
-          Only {listInWords(interests)} — the interests you chose. Ranked by how well each one fits,
-          not by when it happens.
+          {t('picks.lead', { interests: listInWords(interests.map(categoryLabel)) })}
         </p>
       </section>
 
       {picks.length === 0 ? (
         <div className="empty-state">
           <Sparkles size={28} />
-          <h3>Nothing in your interests yet</h3>
-          <p>
-            Nobody is hosting {listInWords(interests)} at the moment. Discover has everything that
-            is on, or you can add an interest.
-          </p>
+          <h3>{t('picks.nothingTitle')}</h3>
+          <p>{t('picks.nothingBody', { interests: listInWords(interests.map(categoryLabel)) })}</p>
           <div className="action-stack">
             <button className="primary-button" onClick={() => navigate('/home')}>
-              <Compass size={17} /> See what is on
+              <Compass size={17} /> {t('picks.seeWhatsOn')}
             </button>
             <button className="secondary-button" onClick={() => navigate('/interests')}>
-              Add an interest
+              {t('picks.addInterest')}
             </button>
           </div>
         </div>
@@ -146,21 +139,23 @@ export default function RecommendationsPage() {
             <div className="top-pick-head">
               <span className="category-chip">
                 <CategoryIcon category={top.category} size={12} />
-                {top.category}
+                {categoryLabel(top.category)}
               </span>
               <span className="top-pick-score">
                 <Sparkles size={14} aria-hidden="true" />
-                {top.matchScore}%
+                {t('common.percent', { value: top.matchScore })}
               </span>
             </div>
             <h3 id="top-pick-title">{top.title}</h3>
             <ul className="top-pick-reasons">
-              {(top.reasons || []).slice(0, 3).map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
+              {reasonLines(top)
+                .slice(0, 3)
+                .map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
             </ul>
             <button className="primary-button wide" onClick={() => navigate(`/activity/${top.id}`)}>
-              Take a look
+              {t('picks.takeALook')}
             </button>
           </section>
 
@@ -178,9 +173,9 @@ export default function RecommendationsPage() {
               picture of it. */}
           <section className="panel how-panel" aria-labelledby="how-title">
             <div className="how-head">
-              <span className="eyebrow">How this works</span>
-              <h3 id="how-title">What the ranking counts</h3>
-              <p className="helper-text">Each match score is split between six signals.</p>
+              <span className="eyebrow">{t('picks.howEyebrow')}</span>
+              <h3 id="how-title">{t('picks.howTitle')}</h3>
+              <p className="helper-text">{t('picks.howLead')}</p>
             </div>
             <div className="how-strip" aria-hidden="true">
               {signals.map(
@@ -204,13 +199,13 @@ export default function RecommendationsPage() {
                 >
                   <span className="how-swatch" aria-hidden="true" />
                   <span className="how-label">{signal.label}</span>
-                  <span className="how-share">{signal.weight}%</span>
+                  <span className="how-share">{t('common.percent', { value: signal.weight })}</span>
                 </li>
               ))}
             </ol>
             <button type="button" className="how-action" onClick={() => navigate('/weights')}>
               <SlidersHorizontal size={16} aria-hidden="true" />
-              <span>Change what matters</span>
+              <span>{t('picks.changeWhatMatters')}</span>
               <ChevronRight size={16} aria-hidden="true" />
             </button>
           </section>
@@ -220,8 +215,8 @@ export default function RecommendationsPage() {
             <section className="section-block" key={group.key}>
               <div className="section-heading">
                 <div>
-                  <span className="eyebrow">Because you like</span>
-                  <h2>{group.label}</h2>
+                  <span className="eyebrow">{t('picks.becauseYouLike')}</span>
+                  <h2>{categoryLabel(group.label)}</h2>
                 </div>
                 <span className="count-chip">{group.items.length}</span>
               </div>
@@ -237,8 +232,7 @@ export default function RecommendationsPage() {
               it reads as though the app forgot about it. */}
           {missing.length > 0 && (
             <p className="helper-text quiet-note">
-              Nothing in {listInWords(missing)} right now. It will appear here as soon as somebody
-              hosts one.
+              {t('picks.nothingIn', { interests: listInWords(missing.map(categoryLabel)) })}
             </p>
           )}
         </>
@@ -249,8 +243,8 @@ export default function RecommendationsPage() {
           <UsersRound size={23} />
         </div>
         <div className="people-match-copy">
-          <strong>People for you</strong>
-          <span>Find similar people and follow their activities</span>
+          <strong>{t('picks.peopleForYou')}</strong>
+          <span>{t('picks.peopleForYouHint')}</span>
         </div>
         <ChevronRight size={18} />
       </button>

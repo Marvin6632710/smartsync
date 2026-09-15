@@ -1,11 +1,14 @@
 import React from 'react'
 import { Edit3, Settings, Share2, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import ActivityCard from '../components/ActivityCard'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
+import { categoryLabel } from '../i18n'
 
 export default function ProfilePage() {
+  const { t } = useTranslation()
   const { joinedActivities: joined, recommendations, pushCelebration } = useApp()
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -14,10 +17,14 @@ export default function ProfilePage() {
   const best = recommendations[0]
 
   const shareProfile = async () => {
-    const shareText = `${user.name} (${user.username}) is on SmartSync. ${user.bio}`.trim()
+    const shareText = t('profile.shareText', {
+      name: user.name,
+      username: user.username,
+      bio: user.bio || '',
+    }).trim()
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'SmartSync profile', text: shareText })
+        await navigator.share({ title: t('profile.shareTitle'), text: shareText })
         return
       }
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
@@ -25,16 +32,16 @@ export default function ProfilePage() {
       pushCelebration({
         icon: 'link',
         tone: 'success',
-        title: 'Profile copied',
-        body: 'Profile summary copied to clipboard.',
+        title: t('profile.copiedTitle'),
+        body: t('profile.copiedBody'),
       })
     } catch (err) {
       if (err?.name === 'AbortError') return // user closed the native share sheet
       pushCelebration({
         icon: 'alert',
         tone: 'warning',
-        title: "Couldn't share",
-        body: 'Sharing is not available in this browser.',
+        title: t('profile.shareFailedTitle'),
+        body: t('profile.shareFailedBody'),
       })
     }
   }
@@ -46,18 +53,22 @@ export default function ProfilePage() {
           <button
             className="icon-button slim"
             onClick={() => navigate('/settings')}
-            aria-label="Settings"
+            aria-label={t('profile.settings')}
           >
             <Settings size={18} />
           </button>
           <div className="mini-actions">
-            <button className="icon-button slim" onClick={shareProfile} aria-label="Share profile">
+            <button
+              className="icon-button slim"
+              onClick={shareProfile}
+              aria-label={t('profile.share')}
+            >
               <Share2 size={18} />
             </button>
             <button
               className="icon-button slim"
               onClick={() => navigate('/privacy')}
-              aria-label="Privacy controls"
+              aria-label={t('profile.privacy')}
             >
               <ShieldCheck size={18} />
             </button>
@@ -77,29 +88,29 @@ export default function ProfilePage() {
       <section className="section-block">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Overview</span>
-            <h2>Your activity life</h2>
+            <span className="eyebrow">{t('profile.overview')}</span>
+            <h2>{t('profile.activityLife')}</h2>
           </div>
           <button className="text-button" onClick={() => navigate('/profile/edit')}>
-            <Edit3 size={16} /> Edit
+            <Edit3 size={16} /> {t('common.edit')}
           </button>
         </div>
         <div className="profile-stats-grid compact-stats">
           <div className="stat-card">
-            <span>Joined</span>
+            <span>{t('profile.joined')}</span>
             <strong>{joined.length}</strong>
-            <small>activities</small>
+            <small>{t('profile.activities')}</small>
           </div>
           <div className="stat-card">
-            <span>Top match</span>
-            <strong>{best?.matchScore || '--'}%</strong>
-            <small>{best?.category || 'Activity'}</small>
+            <span>{t('profile.topMatch')}</span>
+            <strong>{t('common.percent', { value: best?.matchScore || '--' })}</strong>
+            <small>{best?.category ? categoryLabel(best.category) : t('profile.activity')}</small>
           </div>
         </div>
         <div className="chip-row">
           {(user.interests || []).map((i) => (
             <span className="tiny-chip" key={i}>
-              {i}
+              {categoryLabel(i)}
             </span>
           ))}
         </div>
@@ -108,11 +119,11 @@ export default function ProfilePage() {
       <section className="section-block">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Joined</span>
-            <h2>Recent activities</h2>
+            <span className="eyebrow">{t('profile.joined')}</span>
+            <h2>{t('profile.recent')}</h2>
           </div>
           <button className="text-button" onClick={() => navigate('/joined')}>
-            See all
+            {t('common.seeAll')}
           </button>
         </div>
         <div className="stack">

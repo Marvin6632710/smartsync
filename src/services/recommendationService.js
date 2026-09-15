@@ -160,7 +160,13 @@ export function calculateRecommendationScore(user, activity, weights) {
   return Math.min(100, Math.round((weighted / achievable) * 100))
 }
 
-export function getRecommendationReasons(user, activity) {
+/**
+ * Why an activity was recommended, as facts: a code per reason, with the
+ * value the wording needs. The English sentences (`getRecommendationReasons`)
+ * are rendered from these, and so are the sentences in every other language
+ * the interface speaks — one set of conditions, however many wordings.
+ */
+export function getRecommendationReasonKeys(user, activity) {
   const reasons = []
   const interests = (user?.interests || []).map(key)
   const category = key(activity?.category)
@@ -168,36 +174,48 @@ export function getRecommendationReasons(user, activity) {
   const timeBand = key(activity?.timeBand)
 
   if (category && interests.includes(category))
-    reasons.push(`Matches your ${activity.category} interest`)
+    reasons.push({ key: 'interest', category: activity.category })
 
   // ?? not ||: a 0 km activity is the nearest possible, but || treated it as
   // missing and skipped the reason entirely.
   const distanceKm = activity?.distanceKm
-  if (Number.isFinite(distanceKm) && distanceKm <= 3)
-    reasons.push(`Only ${formatDistance(distanceKm)} away`)
+  if (Number.isFinite(distanceKm) && distanceKm <= 3) reasons.push({ key: 'distance', distanceKm })
 
   // Both sides must actually have a time. Comparing the empty-string
   // fallbacks made "no time either side" look like a match, which both
   // claimed a reason that wasn't true and then threw reading .toLowerCase()
   // of the missing timeBand.
-  if (preferredTime && preferredTime === timeBand)
-    reasons.push(`Fits your preferred ${timeBand} time`)
+  if (preferredTime && preferredTime === timeBand) reasons.push({ key: 'time', band: timeBand })
 
   if (category && (user?.historyCategories || []).map(key).includes(category))
-    reasons.push('Similar to activities you joined before')
-  if (activity?.similarUsersJoined) reasons.push('Similar users are joining')
+    reasons.push({ key: 'history' })
+  if (activity?.similarUsersJoined) reasons.push({ key: 'behavior' })
   if (
     Math.max(0, Number(activity?.participants) || 0) /
       Math.max(Number(activity?.capacity) || 1, 1) >=
     0.6
   )
-    reasons.push('Popular with the community')
+    reasons.push({ key: 'popularity' })
   // Five, not four: there are exactly five signals, and capping at four
   // silently hid the collaborative one on the strongest matches — the very
   // activities where it is most worth showing.
-  return reasons.slice(0, 5).length
-    ? reasons.slice(0, 5)
-    : ['Matches your current discovery preferences']
+  return reasons.slice(0, 5).length ? reasons.slice(0, 5) : [{ key: 'default' }]
+}
+
+const REASON_WORDING = {
+  interest: ({ category }) => `Matches your ${category} interest`,
+  distance: ({ distanceKm }) => `Only ${formatDistance(distanceKm)} away`,
+  time: ({ band }) => `Fits your preferred ${band} time`,
+  history: () => 'Similar to activities you joined before',
+  behavior: () => 'Similar users are joining',
+  popularity: () => 'Popular with the community',
+  default: () => 'Matches your current discovery preferences',
+}
+
+export function getRecommendationReasons(user, activity) {
+  return getRecommendationReasonKeys(user, activity).map((reason) =>
+    REASON_WORDING[reason.key](reason),
+  )
 }
 
 // A peer counts as "similar" at or above this compatibility. Named so the
@@ -262,6 +280,9 @@ export function rankActivities(user, activities, peers = [], weights) {
         ...enriched,
         matchScore: calculateRecommendationScore(user, enriched, weights),
         reasons: getRecommendationReasons(user, enriched),
+        // The same reasons as facts, for the screen to word in the language
+        // in force. `reasons` stays as the English sentences it always was.
+        reasonKeys: getRecommendationReasonKeys(user, enriched),
       }
     })
     .sort((a, b) => b.matchScore - a.matchScore)

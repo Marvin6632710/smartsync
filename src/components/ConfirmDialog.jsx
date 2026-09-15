@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * In-app replacement for window.confirm.
@@ -15,8 +16,8 @@ export default function ConfirmDialog({
   open,
   title,
   body,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   tone = 'default',
   onConfirm,
   onCancel,
@@ -31,6 +32,7 @@ export default function ConfirmDialog({
   promptPlaceholder,
   onPromptChange,
 }) {
+  const { t } = useTranslation()
   const confirmRef = useRef(null)
   const promptRef = useRef(null)
   const dialogRef = useRef(null)
@@ -122,7 +124,7 @@ export default function ConfirmDialog({
 
         <div className="button-row">
           <button className="secondary-button" onClick={onCancel}>
-            {cancelLabel}
+            {cancelLabel || t('common.cancel')}
           </button>
           <button
             className={tone === 'danger' ? 'danger-button' : 'primary-button'}
@@ -130,7 +132,7 @@ export default function ConfirmDialog({
             ref={confirmRef}
             disabled={Boolean(promptLabel) && !promptValue.trim()}
           >
-            {confirmLabel}
+            {confirmLabel || t('common.confirm')}
           </button>
         </div>
       </div>

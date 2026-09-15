@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { MessageSquareWarning } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { watchMyWarnings } from '../firebase/moderation'
 import { formatRelativeTime } from '../utils/time'
@@ -15,6 +16,7 @@ import { formatRelativeTime } from '../utils/time'
  * exactly the retaliation the ranks exist to prevent.
  */
 export default function WarningsPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [warnings, setWarnings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -51,12 +53,9 @@ export default function WarningsPage() {
   return (
     <div className="page-content">
       <section className="headline-block">
-        <span className="eyebrow">Your account</span>
-        <h2>Warnings</h2>
-        <p className="helper-text">
-          SmartSync exists to get people into the same room safely. A warning means something you
-          did worked against that, and that it was noticed — nothing has been taken away.
-        </p>
+        <span className="eyebrow">{t('warnings.eyebrow')}</span>
+        <h2>{t('warnings.title')}</h2>
+        <p className="helper-text">{t('warnings.lead')}</p>
       </section>
 
       <div className="stack list-stack">
@@ -64,7 +63,7 @@ export default function WarningsPage() {
           <article className="report-card" key={warning.id}>
             <header>
               <span className="report-kind">
-                <MessageSquareWarning size={13} /> warning
+                <MessageSquareWarning size={13} /> {t('warnings.kind')}
               </span>
               <time>{formatRelativeTime(warning.createdAt?.toMillis?.())}</time>
             </header>
@@ -75,10 +74,10 @@ export default function WarningsPage() {
         {!loading && error && (
           <div className="empty-state" role="alert">
             <MessageSquareWarning size={28} />
-            <h3>Couldn&apos;t load your record</h3>
-            <p>Check your connection and try again.</p>
+            <h3>{t('warnings.loadFailed')}</h3>
+            <p>{t('warnings.loadFailedBody')}</p>
             <button className="primary-button" onClick={retry}>
-              Try again
+              {t('common.tryAgain')}
             </button>
           </div>
         )}
@@ -86,8 +85,8 @@ export default function WarningsPage() {
         {!loading && !error && warnings.length === 0 && (
           <div className="empty-state">
             <MessageSquareWarning size={28} />
-            <h3>Nothing on your record</h3>
-            <p>You have not been warned about anything.</p>
+            <h3>{t('warnings.nothing')}</h3>
+            <p>{t('warnings.nothingBody')}</p>
           </div>
         )}
       </div>

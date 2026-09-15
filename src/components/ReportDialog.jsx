@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Flag, ShieldOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { REPORT_REASONS } from '../firebase/moderation'
+import { reportReasonLabel } from '../i18n'
+import { unsentErrorText } from '../i18n/unsent'
 import { useApp } from '../context/AppContext'
 
 /**
@@ -24,6 +27,7 @@ import { useApp } from '../context/AppContext'
  * here is in a position to promise.
  */
 export default function ReportDialog({ open, subject, onClose }) {
+  const { t } = useTranslation()
   const { submitReport, blockPerson, isBlocked, unsent, discardUnsent } = useApp()
   // A report about this subject that was queued offline and refused later
   // is filled back in rather than lost; it is dropped once one is sent.
@@ -135,18 +139,19 @@ export default function ReportDialog({ open, subject, onClose }) {
         onClick={(event) => event.stopPropagation()}
       >
         <h3 id="report-title">
-          <Flag size={17} /> Report {subject.label}
+          <Flag size={17} /> {t('report.title', { label: t(subject.label) })}
         </h3>
         <p className="report-subject">{subject.name}</p>
         {earlier && (
           <p className="form-error" role="status">
-            Your earlier report could not be sent — {earlier.error?.message || 'it was refused.'} It
-            is filled in below.
+            {t('report.earlierFailed', {
+              reason: unsentErrorText(earlier.error, earlier.kind) || t('report.earlierRefused'),
+            })}
           </p>
         )}
 
         <fieldset className="report-reasons">
-          <legend>What is wrong?</legend>
+          <legend>{t('report.whatIsWrong')}</legend>
           {REPORT_REASONS.map((option, index) => (
             <button
               key={option.key}
@@ -156,19 +161,19 @@ export default function ReportDialog({ open, subject, onClose }) {
               onClick={() => setReason(option.key)}
               aria-pressed={reason === option.key}
             >
-              {option.label}
+              {reportReasonLabel(option.key)}
             </button>
           ))}
         </fieldset>
 
         <label className="report-detail">
-          Anything else we should know? <span className="optional">Optional</span>
+          {t('report.anythingElse')} <span className="optional">{t('common.optional')}</span>
           <textarea
             rows="3"
             value={detail}
             onChange={(event) => setDetail(event.target.value)}
             maxLength={1000}
-            placeholder="What happened, and when"
+            placeholder={t('report.detailPlaceholder')}
           />
         </label>
 
@@ -182,8 +187,8 @@ export default function ReportDialog({ open, subject, onClose }) {
           >
             <ShieldOff size={17} />
             <span>
-              <strong>Block them as well</strong>
-              <small>You stop seeing their activities, and they cannot join yours</small>
+              <strong>{t('report.alsoBlock')}</strong>
+              <small>{t('report.alsoBlockHint')}</small>
             </span>
             <span className={`switch ${alsoBlock ? 'on' : ''}`} aria-hidden="true" />
           </button>
@@ -191,16 +196,13 @@ export default function ReportDialog({ open, subject, onClose }) {
 
         <div className="button-row">
           <button className="secondary-button" onClick={onClose} disabled={busy}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button className="danger-button" onClick={send} disabled={!reason || busy}>
-            {busy ? 'Sending…' : 'Send report'}
+            {busy ? t('report.sending') : t('report.send')}
           </button>
         </div>
-        <p className="report-note">
-          Reports are reviewed by the SmartSync team. If you are in immediate danger, contact local
-          emergency services rather than waiting for us.
-        </p>
+        <p className="report-note">{t('report.note')}</p>
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { MessageCircle, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import CategoryIcon from '../components/CategoryIcon'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -11,12 +12,13 @@ import { formatMessageTime } from '../utils/time'
 // original design but nothing tracks per-thread read state, so it would have
 // been a control that could never be honest.
 const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'hosting', label: 'Hosting' },
-  { key: 'joined', label: 'Joined' },
+  { key: 'all', label: 'messages.all' },
+  { key: 'hosting', label: 'messages.hosting' },
+  { key: 'joined', label: 'messages.joined' },
 ]
 
 export default function MessagesPage() {
+  const { t } = useTranslation()
   const { activities, joinedIds, threadPreviews } = useApp()
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -58,16 +60,16 @@ export default function MessagesPage() {
   return (
     <div className="page-content">
       <section className="headline-block">
-        <h2>Messages</h2>
+        <h2>{t('messages.title')}</h2>
       </section>
 
       <div className="search-box">
         <Search size={18} />
         <input
-          placeholder="Search chats"
+          placeholder={t('messages.searchPlaceholder')}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          aria-label="Search chats"
+          aria-label={t('messages.searchLabel')}
         />
       </div>
       <div className="chip-row category-row">
@@ -78,7 +80,7 @@ export default function MessagesPage() {
             onClick={() => setFilter(option.key)}
             aria-pressed={filter === option.key}
           >
-            {option.label}
+            {t(option.label)}
           </button>
         ))}
       </div>
@@ -98,7 +100,7 @@ export default function MessagesPage() {
               </div>
               <div>
                 <strong>{activity.title}</strong>
-                <p>{last ? `${last.senderName}: ${last.text}` : 'No messages yet'}</p>
+                <p>{last ? `${last.senderName}: ${last.text}` : t('messages.noMessagesYet')}</p>
               </div>
               <span>{formatMessageTime(last?.createdAt)}</span>
             </button>
@@ -107,10 +109,10 @@ export default function MessagesPage() {
         {threads.length === 0 && (
           <div className="empty-state">
             <MessageCircle size={30} />
-            <h3>{search || filter !== 'all' ? 'Nothing matches' : 'No chats yet'}</h3>
-            <p>
-              {search || filter !== 'all' ? 'Try a different filter.' : 'Join an activity first.'}
-            </p>
+            <h3>
+              {search || filter !== 'all' ? t('messages.nothingMatches') : t('messages.noChats')}
+            </h3>
+            <p>{search || filter !== 'all' ? t('messages.tryFilter') : t('messages.joinFirst')}</p>
           </div>
         )}
       </div>

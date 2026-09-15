@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { useApp } from '../context/AppContext'
 import { awaitWrite, QUEUED } from '../utils/writes'
@@ -22,10 +23,11 @@ import { awaitWrite, QUEUED } from '../utils/writes'
  * helped nobody. A refusal that arrives later is still shown.
  */
 export function useSaveProfile() {
+  const { t } = useTranslation()
   const { pushCelebration, offline } = useApp()
   const [saving, setSaving] = useState(false)
 
-  const save = async (action, { failure = "Couldn't save that" } = {}) => {
+  const save = async (action, { failure = t('toasts.saveFailed') } = {}) => {
     setSaving(true)
     const fail = (error) =>
       pushCelebration({
@@ -34,16 +36,16 @@ export function useSaveProfile() {
         title: failure,
         body:
           error?.code === 'permission-denied'
-            ? 'You do not have permission.'
-            : 'Check your connection and try again.',
+            ? t('common.noPermission')
+            : t('common.checkConnection'),
       })
     try {
       const outcome = await awaitWrite(action(), { offline, onLater: fail })
       if (outcome === QUEUED) {
         pushCelebration({
           icon: 'check',
-          title: 'Saved — will sync',
-          body: 'This will finish when you are back online.',
+          title: t('toasts.savedWillSync'),
+          body: t('toasts.finishWhenOnline'),
         })
       }
       return true

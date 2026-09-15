@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import ConfirmDialog from './ConfirmDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -12,7 +13,8 @@ import { useAuth } from '../context/AuthContext'
  * neither setup screen offered a sign-out. Somebody who created an account by
  * mistake, or on a friend's phone, could only escape by clearing site data.
  */
-export default function SignOutLink({ label = 'Not you? Sign out' }) {
+export default function SignOutLink({ label }) {
+  const { t } = useTranslation()
   const { signOut } = useAuth()
   const { pushCelebration } = useApp()
   const [asking, setAsking] = useState(false)
@@ -20,14 +22,14 @@ export default function SignOutLink({ label = 'Not you? Sign out' }) {
   return (
     <>
       <button className="text-button wide-centre" onClick={() => setAsking(true)}>
-        {label}
+        {label || t('auth.signOutDialog.notYou')}
       </button>
       <ConfirmDialog
         open={asking}
-        title="Sign out?"
-        body="Your account stays, and setup starts where you left off next time you sign in."
-        confirmLabel="Sign out"
-        cancelLabel="Stay"
+        title={t('auth.signOutDialog.title')}
+        body={t('auth.signOutDialog.setupBody')}
+        confirmLabel={t('auth.signOutDialog.confirm')}
+        cancelLabel={t('auth.signOutDialog.stay')}
         tone="danger"
         onConfirm={() => {
           setAsking(false)
@@ -35,8 +37,8 @@ export default function SignOutLink({ label = 'Not you? Sign out' }) {
             pushCelebration({
               icon: 'alert',
               tone: 'warning',
-              title: "Couldn't sign out",
-              body: 'Please try again.',
+              title: t('auth.signOutDialog.failed'),
+              body: t('common.pleaseTryAgain'),
             }),
           )
         }}

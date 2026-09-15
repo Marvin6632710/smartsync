@@ -1,14 +1,17 @@
 import React, { useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import CelebrationToast from '../components/CelebrationToast'
 import SignOutLink from '../components/SignOutLink'
 import { categories, MIN_INTERESTS, timeBands } from '../data/categories'
 import { useAuth } from '../context/AuthContext'
 import { updatePublicProfile } from '../firebase/users'
 import { useSaveProfile } from '../hooks/useSaveProfile'
+import { categoryLabel, timeBandLabel } from '../i18n'
 
 export default function InterestSelectionPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [selected, setSelected] = useState(user.interests || [])
@@ -27,7 +30,7 @@ export default function InterestSelectionPage() {
     setBusy(true)
     const ok = await save(
       () => updatePublicProfile(user.uid, { interests: selected, preferredTime }),
-      { failure: "Couldn't save your interests" },
+      { failure: t('onboarding.interests.saveFailed') },
     )
     setBusy(false)
     // Only move on if it saved. Advancing regardless would drop the answers
@@ -41,14 +44,16 @@ export default function InterestSelectionPage() {
           refused save used to be a button that simply did not advance. */}
       <CelebrationToast />
       <div className="onboarding-header luxe-header">
-        <span className="eyebrow">Interests</span>
-        <h1>What do you like?</h1>
-        <p>Pick at least {MIN_INTERESTS}. This is what matching runs on.</p>
+        <span className="eyebrow">{t('onboarding.interests.eyebrow')}</span>
+        <h1>{t('onboarding.interests.title')}</h1>
+        <p>{t('onboarding.interests.lead', { count: MIN_INTERESTS })}</p>
       </div>
 
       <div className="selection-summary">
-        <span className="tiny-chip">{selected.length} selected</span>
-        <span className="helper-text">Used for matching</span>
+        <span className="tiny-chip">
+          {t('onboarding.interests.selected', { count: selected.length })}
+        </span>
+        <span className="helper-text">{t('onboarding.interests.usedForMatching')}</span>
       </div>
       <div className="interest-grid">
         {categories.map((interest) => (
@@ -58,7 +63,7 @@ export default function InterestSelectionPage() {
             onClick={() => toggle(interest)}
             aria-pressed={selected.includes(interest)}
           >
-            {interest}
+            {categoryLabel(interest)}
           </button>
         ))}
       </div>
@@ -66,7 +71,7 @@ export default function InterestSelectionPage() {
       {/* Preferred time is 15% of every match score, so it is asked for during
           setup rather than left empty until someone finds the profile editor. */}
       <div className="selection-summary">
-        <span className="label-like">When are you usually free?</span>
+        <span className="label-like">{t('onboarding.interests.whenFree')}</span>
       </div>
       <div className="chip-row">
         {timeBands.map((band) => (
@@ -76,7 +81,7 @@ export default function InterestSelectionPage() {
             onClick={() => setPreferredTime(preferredTime === band ? '' : band)}
             aria-pressed={preferredTime === band}
           >
-            {band}
+            {timeBandLabel(band)}
           </button>
         ))}
       </div>
@@ -86,7 +91,7 @@ export default function InterestSelectionPage() {
         disabled={selected.length < MIN_INTERESTS || busy}
         onClick={submit}
       >
-        {busy ? 'Saving…' : 'Continue'} <ArrowRight size={17} />
+        {busy ? t('common.saving') : t('common.continue')} <ArrowRight size={17} />
       </button>
 
       <SignOutLink />

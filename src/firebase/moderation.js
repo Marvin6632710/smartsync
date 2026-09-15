@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore'
 
 import { db } from './config'
+import { storedText } from '../i18n/notificationText'
 import { reportError } from '../utils/reportError'
 
 /**
@@ -210,18 +211,10 @@ async function patchRole(uid, change, claim) {
 export async function setSuspended(uid, suspended, claim) {
   const { before } = await patchRole(uid, { suspended }, claim)
   if (before.suspended === suspended) return
-  await tell(
-    uid,
-    suspended
-      ? {
-          title: 'Your account is suspended',
-          body: 'You can still read SmartSync, but cannot create, join or message.',
-        }
-      : {
-          title: 'Your account is active again',
-          body: 'The suspension on your account is lifted.',
-        },
-  )
+  // Every notice below is stored in English, the language notifications are
+  // written in, and worded for its reader on their own screen — see
+  // i18n/notificationText, which is where these templates live.
+  await tell(uid, storedText(suspended ? 'suspended' : 'activeAgain'))
 }
 
 // -------------------------------------------------------------- reports ----
@@ -501,8 +494,7 @@ export async function removeActivity(activityId, { moderatorId, reason, reportId
   if (!before) return
   const title = before.title || 'An activity'
   await tell(before.hostId, {
-    title: 'Your activity was removed',
-    body: `SmartSync removed "${title}": ${note}.`,
+    ...storedText('activityRemoved', { title, reason: note }),
     activityId,
   })
   // Everyone who had joined planned their evening around this. They find out
@@ -514,8 +506,7 @@ export async function removeActivity(activityId, { moderatorId, reason, reportId
       .filter((memberId) => memberId !== before.hostId && memberId !== moderatorId)
       .map((memberId) =>
         tell(memberId, {
-          title: 'An activity you joined was removed',
-          body: `"${title}" is not going ahead. SmartSync removed it.`,
+          ...storedText('joinedRemoved', { title }),
           activityId,
         }),
       ),
@@ -567,18 +558,7 @@ export function liftSuspension(uid) {
 export async function setUserRole(uid, role) {
   const { before } = await patchRole(uid, { role })
   if (before.role === role) return
-  await tell(
-    uid,
-    role === 'moderator'
-      ? {
-          title: 'You are now a moderator',
-          body: 'You can review reports from Settings → Moderation. Every action you take is recorded against the report.',
-        }
-      : {
-          title: 'You are no longer a moderator',
-          body: 'Your SmartSync account is otherwise unchanged.',
-        },
-  )
+  await tell(uid, storedText(role === 'moderator' ? 'nowModerator' : 'noLongerModerator'))
 }
 
 /**
@@ -652,13 +632,10 @@ export async function closeAccount(uid, { adminId, reason }) {
       reason: 'The host\u2019s account was closed',
     })
   }
-  await tell(uid, {
-    title: 'Your SmartSync account has been closed',
-    // Not "you can no longer sign in" — they can, and they just did, or they
-    // would not be reading this. Saying something the person can see is false
-    // undermines the sentence next to it, which is the one that matters.
-    body: `${note} You can still sign in, but the account can no longer host, join, or message anybody. If you believe this is wrong, reply to the email address in our policy.`,
-  })
+  // Not "you can no longer sign in" — they can, and they just did, or they
+  // would not be reading this. Saying something the person can see is false
+  // undermines the sentence next to it, which is the one that matters.
+  await tell(uid, storedText('closed', { reason: note }))
   return standDownHosted(uid, {
     moderatorId: adminId,
     reason: 'The host\u2019s account was closed',
@@ -669,10 +646,7 @@ export async function closeAccount(uid, { adminId, reason }) {
 export async function reopenAccount(uid, { reason }) {
   const { before } = await patchRole(uid, { banned: false })
   if (!before.banned) return
-  await tell(uid, {
-    title: 'Your account is open again',
-    body: `${String(reason || '').slice(0, 300)} Anything taken down while it was closed stays down.`,
-  })
+  await tell(uid, storedText('reopened', { reason: String(reason || '').slice(0, 300) }))
 }
 
 // -------------------------------------------------------------- warnings ---
@@ -745,10 +719,7 @@ export async function issueWarning(uid, { moderatorId, reason, reportId }) {
   } else {
     await addDoc(collection(db, 'warnings'), record)
   }
-  await tell(uid, {
-    title: 'A warning about your SmartSync account',
-    body: `${String(reason || '').slice(0, 220)} Nothing has been taken away. Repeated problems can lead to a suspension.`,
-  })
+  await tell(uid, storedText('warning', { reason: String(reason || '').slice(0, 220) }))
 }
 
 /**
@@ -773,8 +744,7 @@ export async function restoreActivity(activityId, { adminId, reason }) {
   })
   if (before?.hostId) {
     await tell(before.hostId, {
-      title: 'Your activity is back',
-      body: `"${before.title || 'Your activity'}" was reviewed again and restored.`,
+      ...storedText('activityBack', { title: before.title || 'Your activity' }),
       activityId,
     })
   }

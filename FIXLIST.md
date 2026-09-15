@@ -191,6 +191,23 @@ three. Details in README.md; the parts worth knowing here:
   copy. Rules and integration suites run on their own emulator ports
   (`firebase.test.json`), so they no longer collide with a running dev
   emulator.
+- **Four languages, 2026-09-16** — the interface speaks English, ไทย,
+  မြန်မာ and 简体中文 (i18next, bundled resources, no translation service),
+  chosen from a selector on the entry screens and the first row of
+  Settings and kept on the device across refresh, navigation and sign-out.
+  Every stored value stays English — categories, time bands, report
+  reasons, signal ids, the profile's default names — and is translated
+  only when shown; notifications and report context, which the rules fix
+  to plain text, are still written in English and recognised back from the
+  same template table on the way to the screen, so old records read in the
+  new languages too. Dates, clocks, distances, percentages and lists follow
+  the language with Latin digits throughout; day and month names come from
+  the translation because desktop Chrome has no Burmese calendar data.
+  Recommendation reasons are worded from the scorer's facts, not its
+  sentences, so ranking is untouched (evaluation harness unchanged). The
+  auth forms validate in the app's language instead of the browser's.
+  Design record: ADR-017. 34 tests added, including key parity across the
+  four files and a stored-text round trip in each language.
 
 ---
 

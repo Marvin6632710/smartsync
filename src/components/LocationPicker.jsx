@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { LocateFixed, MapPin } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -10,8 +11,6 @@ import { getCurrentPosition } from '../utils/geo'
 // Bangkok. Only ever a starting view — the pin is not set until the host
 // actually places it, so an unedited map cannot be submitted as a real place.
 const DEFAULT_CENTER = { lat: 13.7563, lng: 100.5018 }
-
-const OUTSIDE_MESSAGE = 'SmartSync only runs in Thailand — pick a spot inside the country.'
 
 /**
  * Leaflet's default marker is a PNG resolved relative to the CSS file, which
@@ -61,7 +60,9 @@ function Recenter({ point }) {
  * from it and their own position.
  */
 export default function LocationPicker({ value, onChange }) {
+  const { t } = useTranslation()
   const [busy, setBusy] = useState(false)
+  // The error is kept as a key, so a change of language re-words it.
   const [error, setError] = useState('')
   // Memoised on the coordinates: the form re-renders this on every keystroke
   // in every other field, and a fresh object each time re-ran the recentre
@@ -90,12 +91,12 @@ export default function LocationPicker({ value, onChange }) {
       // Somebody abroad testing the app gets a straight answer instead of a
       // pin the save silently refuses.
       if (!withinThailand(position.lat, position.lng)) {
-        setError(`You appear to be outside Thailand. ${OUTSIDE_MESSAGE}`)
+        setError('location.youAreOutside')
         return
       }
       onChange({ ...value, ...position })
     } catch {
-      setError('Could not get your location. Tap the map instead.')
+      setError('location.unavailableTapMap')
     } finally {
       setBusy(false)
     }
@@ -104,11 +105,11 @@ export default function LocationPicker({ value, onChange }) {
   return (
     <div className="location-picker">
       <label>
-        Place name
+        {t('location.placeName')}
         <input
           value={value?.locationName || ''}
           onChange={(event) => onChange({ ...value, locationName: event.target.value })}
-          placeholder="e.g. Lumpini Park"
+          placeholder={t('location.placePlaceholder')}
           maxLength={120}
         />
       </label>
@@ -134,7 +135,7 @@ export default function LocationPicker({ value, onChange }) {
               setError('')
               onChange({ ...value, ...next })
             }}
-            onReject={() => setError(OUTSIDE_MESSAGE)}
+            onReject={() => setError('location.outsideThailand')}
           />
           {point && <Marker position={[point.lat, point.lng]} icon={pinIcon} />}
           <Recenter point={point} />
@@ -145,19 +146,20 @@ export default function LocationPicker({ value, onChange }) {
         <span className="helper-text">
           {point ? (
             <>
-              <MapPin size={13} /> Pin placed at {point.lat.toFixed(4)}, {point.lng.toFixed(4)}
+              <MapPin size={13} />{' '}
+              {t('location.pinPlaced', { lat: point.lat.toFixed(4), lng: point.lng.toFixed(4) })}
             </>
           ) : (
-            'Tap the map to place the activity.'
+            t('location.tapToPlace')
           )}
         </span>
         <button type="button" className="secondary-button" onClick={useMyLocation} disabled={busy}>
-          <LocateFixed size={16} /> {busy ? 'Locating…' : 'Use my location'}
+          <LocateFixed size={16} /> {busy ? t('location.locating') : t('location.useMyLocation')}
         </button>
       </div>
       {error && (
         <p className="form-error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
     </div>

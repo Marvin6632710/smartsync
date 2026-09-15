@@ -1,14 +1,17 @@
 import React, { useState } from 'react'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
-import { authErrorMessage } from '../firebase/auth'
+import LanguageMenu from '../components/LanguageMenu'
+import { authErrorKey } from '../firebase/auth'
 import { MAX_NAME_LENGTH } from '../firebase/users'
 import { useAuth } from '../context/AuthContext'
 
 const MIN_PASSWORD = 6
 
 export default function SignUpPage() {
+  const { t } = useTranslation()
   const { signUp } = useAuth()
   const navigate = useNavigate()
   const [name, setName] = useState('')
@@ -22,11 +25,15 @@ export default function SignUpPage() {
     // Checked here as well as by Firebase so the message arrives before a
     // round trip, and reads like a hint rather than a rejection.
     if (name.trim().length < 2) {
-      setError('Please enter your name.')
+      setError('auth.signUp.nameRequired')
+      return
+    }
+    if (!email.trim()) {
+      setError('auth.errors.enterEmail')
       return
     }
     if (password.length < MIN_PASSWORD) {
-      setError(`Password must be at least ${MIN_PASSWORD} characters.`)
+      setError('auth.signUp.passwordShort')
       return
     }
     setError('')
@@ -37,7 +44,7 @@ export default function SignUpPage() {
       // engine has nothing to work with until then.
       navigate('/interests', { replace: true })
     } catch (submitError) {
-      setError(authErrorMessage(submitError))
+      setError(authErrorKey(submitError))
     } finally {
       setBusy(false)
     }
@@ -45,17 +52,20 @@ export default function SignUpPage() {
 
   return (
     <div className="standalone-page auth-page">
+      <div className="entry-language">
+        <LanguageMenu />
+      </div>
       <div className="brand-orb">
         <Sparkles size={34} />
       </div>
       <div className="entry-copy">
-        <span className="eyebrow">SmartSync</span>
-        <h1>Create your account</h1>
-        <p>Activities near you, and the people going to them. Takes about a minute.</p>
+        <span className="eyebrow">{t('common.appName')}</span>
+        <h1>{t('auth.signUp.title')}</h1>
+        <p>{t('auth.signUp.lead')}</p>
       </div>
 
-      <form className="form-card auth-card" onSubmit={submit}>
-        <label htmlFor="signup-name">Name</label>
+      <form className="form-card auth-card" onSubmit={submit} noValidate>
+        <label htmlFor="signup-name">{t('auth.name')}</label>
         <input
           id="signup-name"
           type="text"
@@ -66,7 +76,7 @@ export default function SignUpPage() {
           required
         />
 
-        <label htmlFor="signup-email">Email</label>
+        <label htmlFor="signup-email">{t('auth.email')}</label>
         <input
           id="signup-email"
           type="email"
@@ -76,7 +86,7 @@ export default function SignUpPage() {
           required
         />
 
-        <label htmlFor="signup-password">Password</label>
+        <label htmlFor="signup-password">{t('auth.password')}</label>
         <input
           id="signup-password"
           type="password"
@@ -85,27 +95,29 @@ export default function SignUpPage() {
           onChange={(event) => setPassword(event.target.value)}
           required
         />
-        <small className="field-hint">At least {MIN_PASSWORD} characters.</small>
+        <small className="field-hint">
+          {t('auth.signUp.passwordHint', { count: MIN_PASSWORD })}
+        </small>
 
         {error && (
           <p className="form-error" role="alert">
-            {error}
+            {t(error, { count: MIN_PASSWORD })}
           </p>
         )}
 
         <button className="primary-button wide" type="submit" disabled={busy}>
-          {busy ? 'Creating account…' : 'Create account'} <ArrowRight size={17} />
+          {busy ? t('auth.signUp.busy') : t('auth.signUp.submit')} <ArrowRight size={17} />
         </button>
       </form>
 
       <p className="auth-switch">
-        Already have an account? <Link to="/signin">Sign in</Link>
+        {t('auth.signUp.haveAccount')} <Link to="/signin">{t('auth.signUp.signInLink')}</Link>
       </p>
 
       {/* Reachable directly from a link, so the one screen that explains
           what this is has to be reachable back from here. */}
       <button className="text-button" type="button" onClick={() => navigate('/')}>
-        What is SmartSync?
+        {t('auth.whatIs')}
       </button>
     </div>
   )

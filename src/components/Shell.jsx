@@ -12,6 +12,7 @@ import {
   User,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import BackButton from './BackButton'
 import CelebrationToast from './CelebrationToast'
 import RouteErrorBoundary from './RouteErrorBoundary'
@@ -19,36 +20,38 @@ import JoinBurst from './JoinBurst'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 
+// Labels are translation keys; the words are looked up at render.
 const tabs = [
-  { to: '/home', label: 'Discover', icon: Compass },
-  { to: '/map', label: 'Map', icon: Map },
-  { to: '/recommendations', label: 'AI Picks', icon: Sparkles },
-  { to: '/messages', label: 'Messages', icon: MessageSquare },
-  { to: '/profile', label: 'Profile', icon: User },
+  { to: '/home', label: 'nav.discover', icon: Compass },
+  { to: '/map', label: 'nav.map', icon: Map },
+  { to: '/recommendations', label: 'nav.aiPicks', icon: Sparkles },
+  { to: '/messages', label: 'nav.messages', icon: MessageSquare },
+  { to: '/profile', label: 'nav.profile', icon: User },
 ]
 
-const routeTitles = {
-  home: 'Discover',
-  search: 'Search',
-  map: 'Map',
-  activity: 'Activity',
-  create: 'Create activity',
-  filters: 'Filters',
-  recommendations: 'AI Picks',
-  matching: 'People match',
-  messages: 'Messages',
-  notifications: 'Notifications',
-  profile: 'Profile',
-  settings: 'Settings',
-  privacy: 'Privacy',
-  weights: 'Matching weights',
-  blocked: 'Blocked people',
-  moderation: 'Moderation',
-  joined: 'Joined',
-  404: 'Not found',
-}
+const ROUTE_TITLES = new Set([
+  'home',
+  'search',
+  'map',
+  'activity',
+  'create',
+  'filters',
+  'recommendations',
+  'matching',
+  'messages',
+  'notifications',
+  'profile',
+  'settings',
+  'privacy',
+  'weights',
+  'blocked',
+  'moderation',
+  'joined',
+  '404',
+])
 
 export default function Shell() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const { notifications, celebration, dataError, offline, browserOffline, serverSilent } = useApp()
@@ -112,7 +115,7 @@ export default function Shell() {
       resize.disconnect()
     }
   }, [location.pathname])
-  const title = routeTitles[simpleTitle] || 'Discover'
+  const title = t(`titles.${ROUTE_TITLES.has(simpleTitle) ? simpleTitle : 'home'}`)
 
   return (
     <div className="app-shell">
@@ -122,7 +125,7 @@ export default function Shell() {
             <button
               className="avatar top-avatar"
               onClick={() => navigate('/profile')}
-              aria-label="Open profile"
+              aria-label={t('shell.openProfile')}
             >
               {user.avatar}
             </button>
@@ -130,14 +133,14 @@ export default function Shell() {
             <BackButton />
           )}
           <div className="topbar-copy">
-            <span className="eyebrow">SmartSync</span>
+            <span className="eyebrow">{t('common.appName')}</span>
             <h1>{title}</h1>
           </div>
           <div className="topbar-meta">
             <button
               className="icon-button notification-button"
               onClick={() => navigate('/notifications')}
-              aria-label="Notifications"
+              aria-label={t('shell.notifications')}
             >
               <Bell size={20} />
               {unread > 0 && <span className="badge">{unread}</span>}
@@ -154,9 +157,7 @@ export default function Shell() {
         {user.suspended && (
           <div className="suspended-banner" role="alert">
             <ShieldAlert size={15} />
-            <span>
-              Your account is suspended. You can still read, but cannot create, join or message.
-            </span>
+            <span>{t('shell.suspended')}</span>
           </div>
         )}
 
@@ -170,9 +171,7 @@ export default function Shell() {
           <div className="offline-banner" role="status">
             <WifiOff size={15} />
             <span>
-              {serverSilent && !browserOffline
-                ? 'No answer from the server yet — showing what was last loaded. Changes will sync when it answers.'
-                : 'Offline — changes will sync when you reconnect.'}
+              {serverSilent && !browserOffline ? t('shell.serverSilent') : t('shell.offline')}
             </span>
           </div>
         )}
@@ -184,9 +183,9 @@ export default function Shell() {
         {dataError && (
           <div className="data-error-banner" role="alert">
             <AlertTriangle size={15} />
-            <span>Couldn&apos;t load the latest data. Check your connection.</span>
+            <span>{t('shell.dataError')}</span>
             <button className="text-button" onClick={() => window.location.reload()}>
-              Retry
+              {t('common.retry')}
             </button>
           </div>
         )}
@@ -218,7 +217,7 @@ export default function Shell() {
             className="fab-create"
             data-tucked={createTucked ? 'yes' : 'no'}
             onClick={() => navigate('/create')}
-            aria-label="Create activity"
+            aria-label={t('shell.createActivity')}
             // The rules refuse it anyway; disabling here means the answer is
             // immediate and explained rather than a rejection after the fact.
             disabled={user.suspended}
@@ -227,7 +226,7 @@ export default function Shell() {
           </button>
         )}
 
-        <nav className="bottom-nav" aria-label="Primary navigation">
+        <nav className="bottom-nav" aria-label={t('nav.primary')}>
           {tabs.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -237,7 +236,7 @@ export default function Shell() {
               <span className="nav-icon-wrap">
                 <Icon size={21} />
               </span>
-              <span>{label}</span>
+              <span>{t(label)}</span>
             </NavLink>
           ))}
         </nav>

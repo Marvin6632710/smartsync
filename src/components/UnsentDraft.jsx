@@ -1,7 +1,9 @@
 import React from 'react'
 import { AlertTriangle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { useApp } from '../context/AppContext'
+import { unsentErrorText } from '../i18n/unsent'
 
 /**
  * Content a screen let go of that the server then refused.
@@ -13,6 +15,7 @@ import { useApp } from '../context/AppContext'
  * writes over what is in the form already: restoring is the person's tap.
  */
 export default function UnsentDraft({ row, what, onRestore }) {
+  const { t } = useTranslation()
   const { discardUnsent } = useApp()
   if (!row) return null
   // Superseded: the document was changed elsewhere after this was saved, so
@@ -25,13 +28,13 @@ export default function UnsentDraft({ row, what, onRestore }) {
       <AlertTriangle size={16} />
       <div className="unsent-copy">
         <strong>
-          {what} {superseded ? 'is not what it shows now' : "couldn't be saved"}
+          {superseded
+            ? t('unsent.notWhatItShows', { what })
+            : t('unsent.couldNotBeSaved', { what })}
         </strong>
         <p>
-          {row.error?.message || 'It was refused.'}{' '}
-          {superseded
-            ? 'Restore it to put your version in the form, or discard it.'
-            : 'Restore it to try again, or discard it.'}
+          {unsentErrorText(row.error, row.kind) || t('unsent.refused')}{' '}
+          {superseded ? t('unsent.restoreSuperseded') : t('unsent.restoreRetry')}
         </p>
         <div className="button-row">
           <button
@@ -42,10 +45,10 @@ export default function UnsentDraft({ row, what, onRestore }) {
               discardUnsent(row.id)
             }}
           >
-            Restore
+            {t('common.restore')}
           </button>
           <button type="button" className="text-button" onClick={() => discardUnsent(row.id)}>
-            Discard
+            {t('common.discard')}
           </button>
         </div>
       </div>

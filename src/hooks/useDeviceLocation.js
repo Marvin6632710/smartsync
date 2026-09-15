@@ -4,9 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { updatePrivateProfile } from '../firebase/users'
 import { coarsen, getCurrentPosition } from '../utils/geo'
 
-const DENIED_MESSAGE =
-  'Location is blocked for this site. Enable it in your browser settings, then try again.'
-const SAVE_MESSAGE = 'Could not save your location. Check your connection and try again.'
+const DENIED_MESSAGE = 'location.denied'
+const SAVE_MESSAGE = 'location.saveFailed'
 
 /**
  * Requests the device's real position and stores it on the user's private
@@ -29,7 +28,7 @@ export function useDeviceLocation() {
     try {
       precise = await getCurrentPosition()
     } catch (locationError) {
-      setError(locationError?.code === 1 ? DENIED_MESSAGE : 'Could not get your location.')
+      setError(locationError?.code === 1 ? DENIED_MESSAGE : 'location.unavailable')
       setBusy(false)
       return false
     }

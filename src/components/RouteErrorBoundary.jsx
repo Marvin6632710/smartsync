@@ -1,6 +1,7 @@
 import React from 'react'
 import { AlertTriangle } from 'lucide-react'
 
+import i18n from '../i18n'
 import { isChunkLoadError } from '../utils/lazyRoute'
 import { reportError } from '../utils/reportError'
 
@@ -47,23 +48,20 @@ export default class RouteErrorBoundary extends React.Component {
     // network request. Only a reload — which fetches the new index.html and
     // the chunks it names — can help, so that is what is offered.
     const stale = isChunkLoadError(this.state.error)
+    const t = i18n.t.bind(i18n)
     return (
       <div className="page-content">
         <div className="empty-state">
           <AlertTriangle size={28} />
-          <h3>This screen could not load</h3>
-          <p>
-            {stale
-              ? 'SmartSync has been updated since this tab was opened, or the connection dropped while loading. Reload to get the latest version — nothing on your account is affected.'
-              : 'Something went wrong here. The rest of SmartSync is still working — use the tabs below to go somewhere else, or try this screen again.'}
-          </p>
+          <h3>{t('errors.screenFailed')}</h3>
+          <p>{stale ? t('errors.staleBody') : t('errors.routeBody')}</p>
           {stale ? (
             <button className="primary-button" onClick={() => window.location.reload()}>
-              Reload
+              {t('common.reload')}
             </button>
           ) : (
             <button className="primary-button" onClick={() => this.setState({ error: null })}>
-              Try again
+              {t('common.tryAgain')}
             </button>
           )}
         </div>

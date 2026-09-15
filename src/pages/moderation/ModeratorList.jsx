@@ -1,5 +1,6 @@
 import React from 'react'
 import { ShieldCheck, UserRoundCheck, UserRoundX } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Who holds the moderator rank, and appointing somebody to it.
@@ -19,15 +20,13 @@ export default function ModeratorList({
   onChangeRole,
   nameFor,
 }) {
+  const { t } = useTranslation()
   return (
     <>
       <section className="headline-block">
-        <span className="eyebrow">Admin</span>
-        <h2>Moderators</h2>
-        <p className="helper-text">
-          Who can work this queue. From the moment they are appointed they can take activities down
-          and suspend ordinary users, and they are told so.
-        </p>
+        <span className="eyebrow">{t('moderation.moderatorsPage.eyebrow')}</span>
+        <h2>{t('moderation.moderatorsPage.title')}</h2>
+        <p className="helper-text">{t('moderation.moderatorsPage.lead')}</p>
       </section>
 
       <div className="stack list-stack">
@@ -35,16 +34,15 @@ export default function ModeratorList({
           <article className="report-card" key={account.uid}>
             <header>
               <span className="report-kind">
-                <ShieldCheck size={13} /> moderator
+                <ShieldCheck size={13} /> {t('moderation.moderatorsPage.kind')}
               </span>
-              {account.suspended && <span className="report-repeat">suspended</span>}
+              {account.suspended && (
+                <span className="report-repeat">{t('moderation.moderatorsPage.suspended')}</span>
+              )}
             </header>
             <h3>{nameFor(account.uid)}</h3>
             {account.suspended && (
-              <p className="report-context">
-                Suspended, so they hold the rank and use none of it. Lift it above to give the
-                powers back.
-              </p>
+              <p className="report-context">{t('moderation.moderatorsPage.suspendedNote')}</p>
             )}
             <div className="report-actions">
               <button
@@ -53,7 +51,9 @@ export default function ModeratorList({
                 onClick={() => onChangeRole({ uid: account.uid, role: 'user' })}
               >
                 <UserRoundX size={15} />{' '}
-                {changingRole === account.uid ? 'Dismissing…' : 'Dismiss as moderator'}
+                {changingRole === account.uid
+                  ? t('moderation.moderatorsPage.dismissing')
+                  : t('moderation.moderatorsPage.dismiss')}
               </button>
             </div>
           </article>
@@ -62,31 +62,28 @@ export default function ModeratorList({
         {moderators.length === 0 && (
           <div className="empty-state">
             <ShieldCheck size={28} />
-            <h3>No moderators yet</h3>
-            <p>Every report is yours alone until you appoint somebody.</p>
+            <h3>{t('moderation.moderatorsPage.none')}</h3>
+            <p>{t('moderation.moderatorsPage.noneBody')}</p>
           </div>
         )}
 
         <article className="report-card">
-          <h3>Appoint someone</h3>
+          <h3>{t('moderation.moderatorsPage.appointTitle')}</h3>
           <label className="report-detail">
-            Search people by name
+            {t('moderation.moderatorsPage.searchLabel')}
             <input
               value={personSearch}
               maxLength={60}
-              placeholder="Start typing a name"
+              placeholder={t('moderation.moderatorsPage.searchPlaceholder')}
               onChange={(event) => setPersonSearch(event.target.value)}
             />
           </label>
 
           {!personSearch.trim() ? (
-            <p className="report-meta">
-              Type a name to find somebody. Current moderators and admins are not listed here.
-            </p>
+            <p className="report-meta">{t('moderation.moderatorsPage.typeToFind')}</p>
           ) : appointable.length === 0 ? (
             <p className="report-meta">
-              Nobody else matches “{personSearch.trim()}”. Anyone already holding a rank is left out
-              of this list.
+              {t('moderation.moderatorsPage.noneMatch', { query: personSearch.trim() })}
             </p>
           ) : (
             appointable.map((person) => (
@@ -96,7 +93,9 @@ export default function ModeratorList({
                   {person.username ? ` · ${person.username}` : ''}
                   {/* A rank somebody cannot currently use is worth saying
                       out loud before it is handed to them, not after. */}
-                  {suspendedIds.has(person.uid) && <em className="appoint-note"> · suspended</em>}
+                  {suspendedIds.has(person.uid) && (
+                    <em className="appoint-note">{t('moderation.moderatorsPage.suspendedTag')}</em>
+                  )}
                 </span>
                 <button
                   className="secondary-button"
@@ -104,7 +103,9 @@ export default function ModeratorList({
                   onClick={() => onChangeRole({ uid: person.uid, role: 'moderator' })}
                 >
                   <UserRoundCheck size={15} />{' '}
-                  {changingRole === person.uid ? 'Appointing…' : 'Appoint'}
+                  {changingRole === person.uid
+                    ? t('moderation.moderatorsPage.appointing')
+                    : t('moderation.moderatorsPage.appoint')}
                 </button>
               </div>
             ))
@@ -114,10 +115,11 @@ export default function ModeratorList({
 
       <p className="helper-text">
         {admins.length === 1
-          ? `Admin: ${nameFor(admins[0].uid)}.`
-          : `Admins: ${admins.map((a) => nameFor(a.uid)).join(', ')}.`}{' '}
-        That rank is granted in the Firebase console and nowhere else — there is no button for it
-        here, on purpose.
+          ? t('moderation.moderatorsPage.adminOne', { name: nameFor(admins[0].uid) })
+          : t('moderation.moderatorsPage.adminMany', {
+              names: admins.map((a) => nameFor(a.uid)).join(', '),
+            })}{' '}
+        {t('moderation.moderatorsPage.adminNote')}
       </p>
     </>
   )

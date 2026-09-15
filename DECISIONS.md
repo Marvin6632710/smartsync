@@ -802,3 +802,50 @@ still finish. What this does not do: prevent two moderators from *reading*
 the same report, or stop a moderator from acting on somebody through the
 People directory without a report at all — that was always allowed, is
 unchanged, and is judged by the roles and warnings rules alone.
+
+## ADR-017 — The interface speaks four languages; the database speaks one
+
+**Context.** The app was written in English, with its words inside the
+components and a handful of them inside the database: categories and time
+bands on activities, report reasons, the text of every notification, the
+context line on a report. The people it is for read Thai, Burmese and
+Chinese as often as English, and a language switch that changed only the
+labels would still leave them a Thai screen with English notifications —
+or, worse, a database whose categories differ by who created the record.
+
+**Decision.** Bundled i18next resources, one JSON file per language, no
+translation service: the strings are reviewed text, present at first
+paint, and work offline. The chosen language lives on the device
+(`smartsync:language`), like the other preferences, and the first paint
+is already in it; the browser's language is the first-run default and
+English is the fallback for anything missing. The database keeps English
+everywhere it already had it — every category, band, reason, signal id
+and default name is stored as before and translated only at the moment it
+is shown, so filters, rules and the evaluation harness see what they
+always saw. Text the rules fix to plain strings (a notification's title and
+body, a report's context) is still *written* in English, from a template
+table shared with the reader; the reader recognises the template in the
+stored text, lifts the names and titles out of it, and words the sentence
+afresh. A text it does not recognise — an older wording, a hand-written
+one — is shown as stored. Recommendation reasons are attached as facts
+(`reasonKeys`) beside the sentences the scorer always produced, and the
+screen words the facts; the scorer's output and weights are unchanged.
+Dates, clocks, distances, percentages and lists follow the language with
+Latin digits throughout; day and month names and the list joiner come from
+the translation rather than `Intl`, because a browser may lack calendar
+data for a language (desktop Chrome has none for Burmese and answers in
+English without saying so) and a date must read the same on every device.
+Native `required` validation is switched off on the auth forms in favour
+of the app's own messages, for the same reason. Names, titles,
+descriptions, messages and a moderator's own words are never translated.
+
+**Consequences.** Adding a language is a file plus one row in `LANGUAGES`;
+a key-parity test refuses a file that lacks a key or a placeholder.
+Everything English in the database is a display concern, not a migration.
+What this does not do: translate what people wrote; carry the language
+choice between devices (it is a device preference, not a profile field —
+a profile field would be a schema and rules change for a setting the
+device already remembers); or word a warning's seeded reason in the
+recipient's language — the moderator edits and sends that text, so it is
+their words, in their language, like any reason they type.
+

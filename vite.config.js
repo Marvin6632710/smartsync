@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    // The interface's strings live in i18next; the tests render the English
+    // ones, so the instance is initialised before any component is.
+    setupFiles: ['./tests/setup.js'],
+  },
   build: {
     rollupOptions: {
       output: {

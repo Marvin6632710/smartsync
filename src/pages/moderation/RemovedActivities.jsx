@@ -1,6 +1,7 @@
 import React from 'react'
 import { RotateCcw, Trash2 } from 'lucide-react'
 
+import { useTranslation } from 'react-i18next'
 import { formatRelativeTime } from '../../utils/time'
 
 /**
@@ -20,15 +21,13 @@ export default function RemovedActivities({
   onOpen,
   nameFor,
 }) {
+  const { t } = useTranslation()
   return (
     <>
       <section className="headline-block">
-        <span className="eyebrow">Admin</span>
-        <h2>Removed activities</h2>
-        <p className="helper-text">
-          Everything moderators have taken down. Putting one back is recorded against it, and the
-          host is told.
-        </p>
+        <span className="eyebrow">{t('moderation.removedPage.eyebrow')}</span>
+        <h2>{t('moderation.removedPage.title')}</h2>
+        <p className="helper-text">{t('moderation.removedPage.lead')}</p>
       </section>
 
       <div className="stack list-stack">
@@ -36,32 +35,38 @@ export default function RemovedActivities({
           <article className="report-card" key={activity.id}>
             <header>
               <span className="report-kind">
-                <Trash2 size={13} /> removed
+                <Trash2 size={13} /> {t('moderation.removedPage.kind')}
               </span>
               <time>{formatRelativeTime(activity.updatedAt)}</time>
             </header>
             <h3>{activity.title}</h3>
             <p className="report-context">
-              Hosted by {activity.hostName} · {activity.locationName}
+              {t('moderation.removedPage.hostedBy', {
+                name: activity.hostName,
+                place: activity.locationName,
+              })}
             </p>
             <p className="report-detail-text">
-              “{activity.moderation?.reason || 'No reason recorded'}”
+              “{activity.moderation?.reason || t('moderation.removedPage.noReason')}”
             </p>
-            <p className="report-meta">Taken down by {nameFor(activity.moderation?.by)}</p>
+            <p className="report-meta">
+              {t('moderation.removedPage.takenDownBy', { name: nameFor(activity.moderation?.by) })}
+            </p>
 
             <label className="report-detail">
               {/* One element, so the question and its note stay on one
                   line — the label is a grid, and a bare text node beside
                   a span becomes two rows. */}
               <span className="field-label">
-                Why are you putting this back? <span className="optional">Required</span>
+                {t('moderation.removedPage.whyPutBack')}{' '}
+                <span className="optional">{t('moderation.removedPage.required')}</span>
               </span>
               <input
                 maxLength={300}
                 /* Measured at exactly the field width before, so it
                    clipped on the rounding and would clip badly on a
                    320px phone. This leaves real headroom. */
-                placeholder="The report was mistaken"
+                placeholder={t('moderation.removedPage.placeholder')}
                 value={restoreReasons[activity.id] || ''}
                 onChange={(event) =>
                   setRestoreReasons((current) => ({
@@ -78,15 +83,19 @@ export default function RemovedActivities({
                 // Without this the control is simply grey, which reads as
                 // broken rather than as waiting for the reason above it.
                 title={
-                  (restoreReasons[activity.id] || '').trim() ? undefined : 'Write a reason first'
+                  (restoreReasons[activity.id] || '').trim()
+                    ? undefined
+                    : t('moderation.removedPage.writeReasonFirst')
                 }
                 onClick={() => onRestore(activity)}
               >
                 <RotateCcw size={15} />{' '}
-                {restoring === activity.id ? 'Putting it back…' : 'Put it back'}
+                {restoring === activity.id
+                  ? t('moderation.removedPage.puttingBack')
+                  : t('moderation.removedPage.putItBack')}
               </button>
               <button className="text-button" onClick={() => onOpen(activity.id)}>
-                Look at it
+                {t('common.lookAtIt')}
               </button>
             </div>
           </article>
@@ -94,8 +103,8 @@ export default function RemovedActivities({
         {removedActivities.length === 0 && (
           <div className="empty-state">
             <Trash2 size={28} />
-            <h3>Nothing has been taken down</h3>
-            <p>Activities removed by a moderator will be listed here.</p>
+            <h3>{t('moderation.removedPage.nothing')}</h3>
+            <p>{t('moderation.removedPage.nothingBody')}</p>
           </div>
         )}
       </div>

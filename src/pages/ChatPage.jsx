@@ -1,15 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Archive, Flag, Lock, Send } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+
+import { storedContext } from '../i18n/reportContext'
 import BootScreen from '../components/BootScreen'
 import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { CHAT_RETENTION_DAYS, isChatClosed } from '../firebase/messages'
 import { useThread } from '../hooks/useThread'
+import { unsentErrorText } from '../i18n/unsent'
 import { formatMessageTime } from '../utils/time'
 
 export default function ChatPage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const {
@@ -60,14 +65,14 @@ export default function ChatPage() {
 
   // Before the first snapshot there is no activity to find yet; that is not
   // the same as one that no longer exists, and it used to read as one.
-  if (!activity && (feedLoading || syncing)) return <BootScreen label="Loading…" />
+  if (!activity && (feedLoading || syncing)) return <BootScreen />
 
   if (!activity)
     return (
       <div className="page-content">
         <div className="empty-state">
-          <h3>Chat unavailable</h3>
-          <p>This activity no longer exists.</p>
+          <h3>{t('chat.unavailable')}</h3>
+          <p>{t('chat.noLongerExists')}</p>
         </div>
       </div>
     )
@@ -77,10 +82,10 @@ export default function ChatPage() {
       <div className="page-content">
         <div className="empty-state">
           <Lock size={28} />
-          <h3>Join first to unlock chat</h3>
-          <p>Activity chat is only readable by people who joined.</p>
+          <h3>{t('chat.joinFirst')}</h3>
+          <p>{t('chat.joinFirstBody')}</p>
           <button className="primary-button" onClick={() => navigate(`/activity/${id}`)}>
-            Open activity
+            {t('chat.openActivity')}
           </button>
         </div>
       </div>
@@ -91,13 +96,10 @@ export default function ChatPage() {
       <div className="page-content">
         <div className="empty-state">
           <Archive size={28} />
-          <h3>This chat has closed</h3>
-          <p>
-            Activity chats stay open for {CHAT_RETENTION_DAYS} days after the activity, then close
-            for everyone who was there.
-          </p>
+          <h3>{t('chat.closedTitle')}</h3>
+          <p>{t('chat.closedBody', { count: CHAT_RETENTION_DAYS })}</p>
           <button className="primary-button" onClick={() => navigate(`/activity/${id}`)}>
-            Open activity
+            {t('chat.openActivity')}
           </button>
         </div>
       </div>
@@ -129,18 +131,18 @@ export default function ChatPage() {
     <div className="page-content chat-page">
       <div className="chat-header">
         <div>
-          <span className="eyebrow">Activity chat</span>
+          <span className="eyebrow">{t('chat.eyebrow')}</span>
           <h2>{activity.title}</h2>
         </div>
         <button className="text-button" onClick={() => navigate(`/activity/${id}/participants`)}>
-          Participants
+          {t('chat.participants')}
         </button>
       </div>
 
       <div className="message-list">
         {loading && (
           <div className="empty-state small">
-            <p>Loading messages…</p>
+            <p>{t('chat.loading')}</p>
           </div>
         )}
         {/* A thread that could not be read is not an empty thread. Saying
@@ -149,18 +151,16 @@ export default function ChatPage() {
         {!loading && error && (
           <div className="empty-state small" role="alert">
             <p>
-              {error.code === 'permission-denied'
-                ? "You can't read this chat right now. If you just joined, give it a moment."
-                : "Couldn't load messages."}
+              {error.code === 'permission-denied' ? t('chat.cannotRead') : t('chat.loadFailed')}
             </p>
             <button className="text-button" onClick={retry}>
-              Try again
+              {t('common.tryAgain')}
             </button>
           </div>
         )}
         {!loading && !error && messages.length === 0 && (
           <div className="empty-state small">
-            <p>No messages yet. Start the conversation.</p>
+            <p>{t('chat.empty')}</p>
           </div>
         )}
         {messages
@@ -189,13 +189,17 @@ export default function ChatPage() {
                         activityId: id,
                         name: message.senderName,
                         avatar: message.senderAvatar,
-                        label: 'this message',
+                        label: 'chat.reportLabel',
                         // Sent with the report, because the thread closes after
                         // thirty days and a reviewer may arrive after it has.
-                        context: `"${message.text}" — ${message.senderName} in "${activity.title}"`,
+                        context: storedContext('message', {
+                          text: message.text,
+                          name: message.senderName,
+                          title: activity.title,
+                        }),
                       })
                     }
-                    aria-label={`Report this message from ${message.senderName}`}
+                    aria-label={t('chat.reportMessageFrom', { name: message.senderName })}
                   >
                     <Flag size={13} />
                   </button>
@@ -205,15 +209,15 @@ export default function ChatPage() {
           })}
         {failedHere.map((row) => (
           <div className="message-bubble mine unsent" key={row.id} role="alert">
-            <strong>Not sent</strong>
+            <strong>{t('chat.notSent')}</strong>
             <p>{row.payload.text}</p>
-            <span>{row.error?.message || 'It could not be sent.'}</span>
+            <span>{unsentErrorText(row.error, row.kind) || t('chat.couldNotSend')}</span>
             <div className="unsent-actions">
               <button className="text-button" onClick={() => resend(row)}>
-                Retry
+                {t('common.retry')}
               </button>
               <button className="text-button" onClick={() => discardUnsent(row.id)}>
-                Discard
+                {t('common.discard')}
               </button>
             </div>
           </div>
@@ -225,21 +229,19 @@ export default function ChatPage() {
           word of it. Offering a composer that the rules will refuse would
           only take somebody's message and throw it away. */}
       {user.suspended ? (
-        <p className="chat-closed-note">
-          Your account is suspended, so you cannot post here. You can still read the conversation.
-        </p>
+        <p className="chat-closed-note">{t('chat.suspendedNote')}</p>
       ) : (
         <form className="chat-form" onSubmit={submit}>
           <input
             value={text}
             onChange={(event) => setText(event.target.value)}
-            placeholder="Message the group"
-            aria-label="Chat message"
+            placeholder={t('chat.placeholder')}
+            aria-label={t('chat.inputLabel')}
             maxLength={2000}
           />
           <button
             className="primary-button icon-only"
-            aria-label="Send message"
+            aria-label={t('chat.send')}
             disabled={!text.trim()}
           >
             <Send size={18} />

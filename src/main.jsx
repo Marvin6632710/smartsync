@@ -6,6 +6,9 @@ import ErrorBoundary from './components/ErrorBoundary'
 import { AppProvider } from './context/AppContext'
 import { AuthProvider } from './context/AuthContext'
 import { installGlobalErrorReporting } from './utils/reportError'
+// The interface's languages, initialised before the first render so nothing
+// paints in one language and then switches.
+import './i18n'
 import './styles.css'
 
 // Before anything renders, so a failure during the first paint is caught too.

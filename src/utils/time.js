@@ -1,6 +1,23 @@
+import i18n, { currentLocale } from '../i18n'
+
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
+
+// Every date and clock is rendered for the language in force. The values
+// underneath — the stored 'YYYY-MM-DD' and 'HH:mm' — are untouched; only
+// their rendering follows the language.
+//
+// Clocks go through Intl with Latin digits whatever the locale's default
+// (Burmese would otherwise switch to its own numerals, which reads as a
+// different app from one screen to the next). The names of days and months,
+// and the order they are written in, come from the translation instead:
+// not every browser carries calendar data for every language — desktop
+// Chrome has none for Burmese and quietly answers in English — and a date
+// must read the same on every device.
+const intl = (options) => ({ numberingSystem: 'latn', ...options })
+const weekdayName = (date, style = 'weekdays') => i18n.t(`time.${style}.${date.getDay()}`)
+const monthName = (date) => i18n.t(`time.monthsShort.${date.getMonth()}`)
 
 /**
  * Renders a stored timestamp as relative text ("12 min ago").
@@ -17,23 +34,16 @@ export function formatRelativeTime(timestamp, now = Date.now()) {
   const elapsed = now - timestamp
   // A clock skew or a timestamp written slightly ahead shouldn't render
   // as a negative age.
-  if (elapsed < MINUTE) return 'Just now'
+  if (elapsed < MINUTE) return i18n.t('time.justNow')
 
-  if (elapsed < HOUR) {
-    const minutes = Math.floor(elapsed / MINUTE)
-    return `${minutes} min ago`
-  }
+  if (elapsed < HOUR) return i18n.t('time.minutesAgo', { count: Math.floor(elapsed / MINUTE) })
 
-  if (elapsed < DAY) {
-    const hours = Math.floor(elapsed / HOUR)
-    return `${hours} hr${hours === 1 ? '' : 's'} ago`
-  }
+  if (elapsed < DAY) return i18n.t('time.hoursAgo', { count: Math.floor(elapsed / HOUR) })
 
   const days = Math.floor(elapsed / DAY)
-  if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`
+  if (days < 7) return i18n.t('time.daysAgo', { count: days })
 
-  const weeks = Math.floor(days / 7)
-  return `${weeks} week${weeks === 1 ? '' : 's'} ago`
+  return i18n.t('time.weeksAgo', { count: Math.floor(days / 7) })
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -51,11 +61,15 @@ export function formatActivityDate(date, now = new Date()) {
   const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const days = Math.round((parsed - midnight) / DAY_MS)
 
-  if (days === 0) return 'Today'
-  if (days === 1) return 'Tomorrow'
-  if (days === -1) return 'Yesterday'
-  if (days > 1 && days < 7) return parsed.toLocaleDateString([], { weekday: 'long' })
-  return parsed.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })
+  if (days === 0) return i18n.t('time.today')
+  if (days === 1) return i18n.t('time.tomorrow')
+  if (days === -1) return i18n.t('time.yesterday')
+  if (days > 1 && days < 7) return weekdayName(parsed)
+  return i18n.t('time.shortDate', {
+    weekday: weekdayName(parsed, 'weekdaysShort'),
+    day: parsed.getDate(),
+    month: monthName(parsed),
+  })
 }
 
 /**
@@ -77,13 +91,16 @@ export function formatClock(time) {
   if (hours > 23 || minutes > 59) return raw
   const date = new Date()
   date.setHours(hours, minutes, 0, 0)
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  return date.toLocaleTimeString(currentLocale(), intl({ hour: 'numeric', minute: '2-digit' }))
 }
 
 /** Short clock for chat bubbles, from a millisecond timestamp. */
 export function formatMessageTime(timestamp) {
   if (!timestamp) return ''
-  return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  return new Date(timestamp).toLocaleTimeString(
+    currentLocale(),
+    intl({ hour: 'numeric', minute: '2-digit' }),
+  )
 }
 
 /**
@@ -103,19 +120,7 @@ export function partOfDay(now = new Date()) {
   return 'late'
 }
 
-const GREETINGS = {
-  morning: 'Morning',
-  afternoon: 'Afternoon',
-  evening: 'Evening',
-  late: 'Still up',
-}
+const PARTS = new Set(['morning', 'afternoon', 'evening', 'late'])
 
-const QUESTIONS = {
-  morning: 'What are you doing today?',
-  afternoon: 'Anything on this evening?',
-  evening: 'What are you doing tonight?',
-  late: 'Planning something for tomorrow?',
-}
-
-export const greetingFor = (part) => GREETINGS[part] || 'Hello'
-export const questionFor = (part) => QUESTIONS[part] || 'What are you doing next?'
+export const greetingFor = (part) => i18n.t(`home.greeting.${PARTS.has(part) ? part : 'default'}`)
+export const questionFor = (part) => i18n.t(`home.question.${PARTS.has(part) ? part : 'default'}`)

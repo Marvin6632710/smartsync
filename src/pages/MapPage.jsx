@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { ChevronRight, List, LocateFixed, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -12,7 +13,7 @@ import FiltersEmptyState from '../components/FiltersEmptyState'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { useDeviceLocation } from '../hooks/useDeviceLocation'
-import { formatDistance } from '../utils/geo'
+import { distanceLabel } from '../i18n'
 
 const BANGKOK = [13.7563, 100.5018]
 
@@ -241,6 +242,7 @@ function FlyToMe({ target }) {
 }
 
 export default function MapPage() {
+  const { t } = useTranslation()
   const { filteredActivities, loading, pushCelebration } = useApp()
   const { user } = useAuth()
   const { request, busy, error: locationError } = useDeviceLocation()
@@ -252,8 +254,8 @@ export default function MapPage() {
     pushCelebration({
       icon: 'alert',
       tone: 'warning',
-      title: "Couldn't show your location",
-      body: locationError,
+      title: t('location.couldNotShow'),
+      body: t(locationError),
     })
     // The toast is the only consumer; the hook's own state drives it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -345,7 +347,7 @@ export default function MapPage() {
         <button
           className="map-round-button map-search-button"
           onClick={() => navigate('/search')}
-          aria-label="Search activities"
+          aria-label={t('search.label')}
         >
           <Search size={19} />
         </button>
@@ -353,14 +355,14 @@ export default function MapPage() {
           className="map-round-button map-location-button"
           onClick={showMe}
           disabled={busy}
-          aria-label="Show my location"
+          aria-label={t('map.showMyLocation')}
         >
           <LocateFixed size={19} />
         </button>
         <button
           className="map-round-button map-list-button"
           onClick={() => navigate('/recommendations')}
-          aria-label="See activities as a list"
+          aria-label={t('map.seeAsList')}
         >
           <List size={19} />
         </button>
@@ -375,11 +377,13 @@ export default function MapPage() {
               <CategoryIcon category={selectedActivity.category} size={18} />
             </div>
             <div className="preview-copy">
-              <span className="preview-match">{selectedActivity.matchScore}% match</span>
+              <span className="preview-match">
+                {t('common.match', { value: selectedActivity.matchScore })}
+              </span>
               <strong>{selectedActivity.title}</strong>
               <small>
                 {selectedActivity.distanceKm != null
-                  ? `${formatDistance(selectedActivity.distanceKm)} away`
+                  ? t('distance.away', { distance: distanceLabel(selectedActivity.distanceKm) })
                   : selectedActivity.locationName}
               </small>
             </div>
@@ -389,7 +393,7 @@ export default function MapPage() {
 
         {!loading && located.length === 0 && (
           <div className="map-empty">
-            <FiltersEmptyState body="No activities match your filters, so the map has nothing to show." />
+            <FiltersEmptyState body={t('filtersEmpty.mapBody')} />
           </div>
         )}
       </div>

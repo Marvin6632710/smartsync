@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import ActivityCard from '../components/ActivityCard'
 import FiltersEmptyState from '../components/FiltersEmptyState'
 import ActivitiesLoading from '../components/ActivitiesLoading'
 import { defaultFilters, useApp } from '../context/AppContext'
 
 export default function SearchPage() {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const { filteredActivities, recommendations, loading, filters, resetFilters } = useApp()
 
@@ -30,8 +32,8 @@ export default function SearchPage() {
   return (
     <div className="page-content">
       <section className="headline-block">
-        <h2>Search</h2>
-        <p className="helper-text">Find activities fast.</p>
+        <h2>{t('search.title')}</h2>
+        <p className="helper-text">{t('search.lead')}</p>
       </section>
       <div className="search-box">
         <Search size={18} />
@@ -39,8 +41,8 @@ export default function SearchPage() {
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search activity or place"
-          aria-label="Search activities"
+          placeholder={t('search.placeholder')}
+          aria-label={t('search.label')}
         />
       </div>
       <div className="stack list-stack">
@@ -53,25 +55,31 @@ export default function SearchPage() {
         {loading ? (
           <ActivitiesLoading rows={2} />
         ) : filteredActivities.length === 0 ? (
-          <FiltersEmptyState body="Your filters are hiding every activity, so there is nothing to search." />
+          <FiltersEmptyState body={t('filtersEmpty.searchBody')} />
         ) : (
           results.length === 0 && (
             <div className="empty-state">
               <Search size={30} />
-              <h3>No results</h3>
+              <h3>{t('search.noResults')}</h3>
               {filtersActive ? (
                 <>
                   <p>
-                    Nothing matches “{query.trim()}” among the {filteredActivities.length}{' '}
-                    {filteredActivities.length === 1 ? 'activity' : 'activities'} your filters allow
-                    {hiddenByFilters > 0 && `, with ${hiddenByFilters} hidden`}.
+                    {t('search.noMatchFiltered', {
+                      query: query.trim(),
+                      count: filteredActivities.length,
+                      noun: t('search.activity', { count: filteredActivities.length }),
+                      hidden:
+                        hiddenByFilters > 0
+                          ? t('search.withHidden', { count: hiddenByFilters })
+                          : '',
+                    })}
                   </p>
                   <button className="secondary-button" onClick={resetFilters}>
-                    Clear filters and search everything
+                    {t('search.clearAndSearch')}
                   </button>
                 </>
               ) : (
-                <p>Nothing matches “{query.trim()}”. Try another word.</p>
+                <p>{t('search.noMatch', { query: query.trim() })}</p>
               )}
             </div>
           )

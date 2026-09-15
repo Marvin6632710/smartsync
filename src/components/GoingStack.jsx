@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { useApp } from '../context/AppContext'
 
 /**
@@ -14,16 +15,16 @@ import { useApp } from '../context/AppContext'
  * anonymous name and avatar by the time this sees them — there is no way for
  * this component to leak a real name by forgetting to check.
  */
-const UNKNOWN = { name: 'SmartSync user', avatar: '?' }
-
 export default function GoingStack({ uids = [], capacity = null, max = 3 }) {
+  const { t } = useTranslation()
   const { directory } = useApp()
+  const unknown = { name: t('common.unknownUser'), avatar: '?' }
   const list = Array.isArray(uids) ? uids : []
-  const shown = list.slice(0, max).map((uid) => ({ uid, person: directory.get(uid) || UNKNOWN }))
+  const shown = list.slice(0, max).map((uid) => ({ uid, person: directory.get(uid) || unknown }))
   const extra = Math.max(0, list.length - shown.length)
 
   if (list.length === 0) {
-    return <span className="going-line empty">Be the first to join</span>
+    return <span className="going-line empty">{t('card.beFirst')}</span>
   }
 
   return (
@@ -44,9 +45,15 @@ export default function GoingStack({ uids = [], capacity = null, max = 3 }) {
           since the meter that encodes this visually is aria-hidden. */}
       <span
         className="going-count"
-        aria-label={capacity ? `${list.length} of ${capacity} going` : `${list.length} going`}
+        aria-label={
+          capacity
+            ? t('card.ofCapacityGoing', { count: list.length, capacity })
+            : t('card.going', { count: list.length })
+        }
       >
-        {capacity ? `${list.length} of ${capacity}` : `${list.length} going`}
+        {capacity
+          ? t('card.ofCapacity', { count: list.length, capacity })
+          : t('card.going', { count: list.length })}
       </span>
     </span>
   )

@@ -1,11 +1,16 @@
 import React, { useMemo, useState } from 'react'
 import { Bell, Check, Clock3, Flag, Sparkles, UserRoundCheck, UsersRound } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+
+import { storedContext } from '../i18n/reportContext'
 import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
+import { categoryLabel, timeBandLabel } from '../i18n'
 import { calculateUserCompatibility } from '../services/recommendationService'
 
 export default function UserMatchingPage() {
+  const { t } = useTranslation()
   const { peers, followedUserIds, toggleUserNotifications } = useApp()
   const { user } = useAuth()
   const [reporting, setReporting] = useState(null)
@@ -22,18 +27,16 @@ export default function UserMatchingPage() {
   return (
     <div className="page-content">
       <section className="headline-block">
-        <span className="eyebrow">User matching</span>
-        <h2>People for you</h2>
-        <p className="helper-text">Follow people whose activities you want to hear about.</p>
+        <span className="eyebrow">{t('matching.eyebrow')}</span>
+        <h2>{t('matching.title')}</h2>
+        <p className="helper-text">{t('matching.lead')}</p>
       </section>
 
       {matches.length === 0 && (
         <div className="empty-state">
           <UsersRound size={30} />
-          <h3>No one else yet</h3>
-          <p>
-            When other people join SmartSync they will show up here, ranked by how well you match.
-          </p>
+          <h3>{t('matching.noneTitle')}</h3>
+          <p>{t('matching.noneBody')}</p>
         </div>
       )}
 
@@ -56,25 +59,23 @@ export default function UserMatchingPage() {
                           id: matchedUser.uid,
                           name: matchedUser.name,
                           avatar: matchedUser.avatar,
-                          label: 'this person',
-                          context: `Suggested match, ${matchedUser.score}% compatibility`,
+                          label: 'matching.reportLabel',
+                          context: storedContext('match', { score: matchedUser.score }),
                         })
                       }
-                      aria-label={`Report or block ${matchedUser.name}`}
+                      aria-label={t('matching.reportOrBlock', { name: matchedUser.name })}
                     >
                       <Flag size={15} />
                     </button>
                     <span className="match-pill">
                       <UserRoundCheck size={13} />
-                      {matchedUser.score}%
+                      {t('common.percent', { value: matchedUser.score })}
                     </span>
                   </div>
                   <p>
                     {matchedUser.shared.length > 0
-                      ? `${matchedUser.shared.length} shared ${
-                          matchedUser.shared.length === 1 ? 'interest' : 'interests'
-                        }`
-                      : 'Similar activity style'}
+                      ? t('matching.sharedInterests', { count: matchedUser.shared.length })
+                      : t('matching.similarStyle')}
                   </p>
                 </div>
               </div>
@@ -82,7 +83,7 @@ export default function UserMatchingPage() {
               <div className="chip-row">
                 {(matchedUser.interests || []).map((interest) => (
                   <span className="tiny-chip" key={interest}>
-                    {interest}
+                    {categoryLabel(interest)}
                   </span>
                 ))}
               </div>
@@ -91,24 +92,28 @@ export default function UserMatchingPage() {
                 <span>
                   <Sparkles size={13} />
                   {matchedUser.shared.length > 0
-                    ? matchedUser.shared
-                        .map((item) => item.charAt(0).toUpperCase() + item.slice(1))
-                        .join(' · ')
-                    : 'Similar interests'}
+                    ? matchedUser.shared.map(categoryLabel).join(' · ')
+                    : t('matching.similarInterests')}
                 </span>
                 <span>
                   <Clock3 size={13} />
-                  {matchedUser.preferredTime || 'Any time'}
+                  {matchedUser.preferredTime
+                    ? timeBandLabel(matchedUser.preferredTime)
+                    : t('matching.anyTime')}
                 </span>
               </div>
 
               <div className="notify-row">
                 <div className="notify-text">
-                  <strong>{notificationsOn ? 'Notifications on' : 'Activity notifications'}</strong>
+                  <strong>
+                    {notificationsOn
+                      ? t('matching.notificationsOn')
+                      : t('matching.activityNotifications')}
+                  </strong>
                   <p>
                     {notificationsOn
-                      ? `You'll be alerted when ${matchedUser.name} posts an activity.`
-                      : `Get alerted when ${matchedUser.name} posts an activity.`}
+                      ? t('matching.alertedWhen', { name: matchedUser.name })
+                      : t('matching.getAlerted', { name: matchedUser.name })}
                   </p>
                 </div>
                 <button
@@ -118,11 +123,11 @@ export default function UserMatchingPage() {
                 >
                   {notificationsOn ? (
                     <>
-                      <Check size={15} /> Following
+                      <Check size={15} /> {t('matching.following')}
                     </>
                   ) : (
                     <>
-                      <Bell size={15} /> Notify me
+                      <Bell size={15} /> {t('matching.notifyMe')}
                     </>
                   )}
                 </button>
