@@ -529,7 +529,9 @@
     "shareFailedTitle": "Couldn't share",
     "shareFailedBody": "Sharing is not available in this browser.",
     "shareTitle": "SmartSync profile",
-    "shareText": "{{name}} ({{username}}) is on SmartSync. {{bio}}"
+    "shareText": "{{name}} ({{username}}) is on SmartSync. {{bio}}",
+    "anonymousName": "Anonymous user",
+    "newUserName": "New user"
   },
   "editProfile": {
     "title": "Edit profile",

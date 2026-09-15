@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { ShieldOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+
+import { personName } from '../i18n'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useApp } from '../context/AppContext'
 import { formatRelativeTime } from '../utils/time'
@@ -30,7 +32,7 @@ export default function BlockedPage() {
           <div className="person-card" key={person.uid}>
             <div className="avatar">{person.avatar || '?'}</div>
             <div>
-              <h3>{person.name}</h3>
+              <h3>{personName(person.name)}</h3>
               {/* The stored name is a snapshot from the moment of blocking, so
                   this list stays readable even if they rename themselves or
                   turn on anonymous mode afterwards. The timestamp is absent

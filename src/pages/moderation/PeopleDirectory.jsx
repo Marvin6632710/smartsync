@@ -2,7 +2,7 @@ import React from 'react'
 import { Eye, MessageSquareWarning, ShieldOff, UserRoundCheck, UserRoundX } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { categoryLabel } from '../../i18n'
+import { categoryLabel, personName } from '../../i18n'
 
 /**
  * Everyone on SmartSync, with what each person has actually done attached.
@@ -98,7 +98,7 @@ export default function PeopleDirectory({
               </header>
 
               <h3>
-                {person.name}
+                {personName(person.name)}
                 {isMe ? t('moderation.people.youSuffix') : ''}
               </h3>
               <p className="report-context">

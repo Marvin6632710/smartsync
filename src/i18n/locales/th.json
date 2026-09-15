@@ -528,7 +528,9 @@
     "shareFailedTitle": "แชร์ไม่ได้",
     "shareFailedBody": "เบราว์เซอร์นี้ไม่รองรับการแชร์",
     "shareTitle": "โปรไฟล์ SmartSync",
-    "shareText": "{{name}} ({{username}}) อยู่บน SmartSync {{bio}}"
+    "shareText": "{{name}} ({{username}}) อยู่บน SmartSync {{bio}}",
+    "anonymousName": "ผู้ใช้นิรนาม",
+    "newUserName": "ผู้ใช้ใหม่"
   },
   "editProfile": {
     "title": "แก้ไขโปรไฟล์",

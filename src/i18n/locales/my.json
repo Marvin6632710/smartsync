@@ -270,8 +270,8 @@
     "any": "မည်သည့်အချိန်မဆို",
     "availableOnly": "နေရာလွတ် ရှိသည်များသာ",
     "availableOnlyHint": "ပြည့်သွားပြီးသော လှုပ်ရှားမှုများကို ဖုံးမည်",
-    "reset": "ပြန်လည်သတ်မှတ်",
-    "apply": "စစ်ထုတ်ချက် အသုံးပြုမည်"
+    "reset": "ပြန်သတ်မှတ်",
+    "apply": "အသုံးပြုမည်"
   },
   "card": {
     "open": "{{title}} ကို ဖွင့်ရန်",
@@ -520,7 +520,9 @@
     "shareFailedTitle": "မျှဝေ၍ မရပါ",
     "shareFailedBody": "ဤဘရောက်ဇာတွင် မျှဝေခြင်း မရနိုင်ပါ။",
     "shareTitle": "SmartSync ပရိုဖိုင်",
-    "shareText": "{{name}} ({{username}}) သည် SmartSync တွင် ရှိသည်။ {{bio}}"
+    "shareText": "{{name}} ({{username}}) သည် SmartSync တွင် ရှိသည်။ {{bio}}",
+    "anonymousName": "အမည်မဖော်သူ",
+    "newUserName": "အသုံးပြုသူအသစ်"
   },
   "editProfile": {
     "title": "ပရိုဖိုင် ပြင်ရန်",

@@ -6,7 +6,7 @@ import { storedContext } from '../i18n/reportContext'
 import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-import { categoryLabel, timeBandLabel } from '../i18n'
+import { categoryLabel, timeBandLabel, personName } from '../i18n'
 import { calculateUserCompatibility } from '../services/recommendationService'
 
 export default function UserMatchingPage() {
@@ -50,7 +50,7 @@ export default function UserMatchingPage() {
                 <div className="avatar match-avatar">{matchedUser.avatar}</div>
                 <div className="match-user-copy">
                   <div className="match-name-row">
-                    <h3>{matchedUser.name}</h3>
+                    <h3>{personName(matchedUser.name)}</h3>
                     <button
                       className="icon-button slim person-report"
                       onClick={() =>

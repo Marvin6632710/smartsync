@@ -125,6 +125,16 @@ i18n.use(initReactI18next).init({
 applyDocumentLanguage(i18n.language)
 i18n.on('languageChanged', applyDocumentLanguage)
 
+// A choice made in one tab reaches the others as they stand, rather than
+// on their next reload: the browser tells every other tab about the write.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key !== LANGUAGE_KEY) return
+    const next = matchLanguage(event.newValue)
+    if (next && next !== i18n.language) i18n.changeLanguage(next)
+  })
+}
+
 /**
  * The display name of a stored value — a category, a time band, a report
  * reason, a signal — which stays in English in the database and on the
@@ -218,6 +228,25 @@ export function reasonText(reason) {
 export function reasonLines(activity) {
   if (Array.isArray(activity?.reasonKeys)) return activity.reasonKeys.map(reasonText)
   return Array.isArray(activity?.reasons) ? activity.reasons.map(String) : []
+}
+
+/**
+ * A person's name as it should be shown.
+ *
+ * Two names are the app's rather than a person's: the public name written
+ * in place of the real one while anonymous mode is on — stored, so the
+ * privacy holds against a direct read of the database and travels onto
+ * every activity the person hosts — and the name a profile gets when none
+ * was typed. Both are fixed English constants in the documents and worded
+ * here for the reader. Any other name is somebody's own and is left alone.
+ */
+const APP_NAMES = {
+  'Anonymous user': 'profile.anonymousName',
+  'New user': 'profile.newUserName',
+}
+export function personName(name) {
+  const key = APP_NAMES[String(name ?? '').trim()]
+  return key ? i18n.t(key) : name
 }
 
 /**

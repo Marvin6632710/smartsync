@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react'
 import { MessageCircle, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+
+import { personName } from '../i18n'
 import CategoryIcon from '../components/CategoryIcon'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -100,7 +102,11 @@ export default function MessagesPage() {
               </div>
               <div>
                 <strong>{activity.title}</strong>
-                <p>{last ? `${last.senderName}: ${last.text}` : t('messages.noMessagesYet')}</p>
+                <p>
+                  {last
+                    ? `${personName(last.senderName)}: ${last.text}`
+                    : t('messages.noMessagesYet')}
+                </p>
               </div>
               <span>{formatMessageTime(last?.createdAt)}</span>
             </button>

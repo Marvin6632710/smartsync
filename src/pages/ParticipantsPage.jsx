@@ -8,7 +8,7 @@ import BootScreen from '../components/BootScreen'
 import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-import { categoryLabel } from '../i18n'
+import { categoryLabel, personName } from '../i18n'
 
 export default function ParticipantsPage() {
   const { t } = useTranslation()
@@ -54,7 +54,7 @@ export default function ParticipantsPage() {
             <div className="avatar">{person.avatar || '?'}</div>
             <div>
               <h3>
-                {person.name}
+                {personName(person.name)}
                 {person.uid === activity.hostId && (
                   <span className="tiny-chip host-chip">{t('common.host')}</span>
                 )}

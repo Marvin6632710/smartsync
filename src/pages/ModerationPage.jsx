@@ -44,7 +44,7 @@ import { useTranslation } from 'react-i18next'
 
 import { localizeReportContext } from '../i18n/reportContext'
 import { formatRelativeTime } from '../utils/time'
-import i18n, { reportReasonLabel } from '../i18n'
+import i18n, { reportReasonLabel, personName } from '../i18n'
 
 // The screen's words are looked up through the instance rather than the
 // hook where they are built outside a render: the helpers below are called
@@ -349,7 +349,9 @@ export default function ModerationPage() {
   // somebody must not blank out the queue entry about them, or blocking the
   // reviewers would be a way to become unreviewable.
   const nameFor = (uid) =>
-    uid === user.uid ? t('moderation.you') : directory.get(uid)?.name || t('common.unknownUser')
+    uid === user.uid
+      ? t('moderation.you')
+      : personName(directory.get(uid)?.name) || t('common.unknownUser')
 
   // Repeats matter more than any single report: three people flagging the
   // same thing is a different signal from one person flagging it once. Counted

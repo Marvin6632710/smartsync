@@ -1,4 +1,4 @@
-import i18n from './index'
+import i18n, { personName } from './index'
 import { extract, fill, recogniser } from './templates'
 
 /**
@@ -36,7 +36,10 @@ export function localizeReportContext(context) {
   const text = String(context ?? '')
   for (const { kind, recogniser: shape } of RECOGNISERS) {
     const params = extract(shape, text)
-    if (params) return i18n.t(`report.context.${kind}`, params)
+    if (!params) continue
+    if ('host' in params) params.host = personName(params.host)
+    if ('name' in params) params.name = personName(params.name)
+    return i18n.t(`report.context.${kind}`, params)
   }
   return text
 }

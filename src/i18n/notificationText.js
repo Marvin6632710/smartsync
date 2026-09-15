@@ -1,4 +1,4 @@
-import i18n from './index'
+import i18n, { personName } from './index'
 import { extract, fill, recogniser } from './templates'
 
 /**
@@ -119,6 +119,8 @@ export function localizeNotification(notification) {
     if (!titleParams) continue
     const bodyParams = extract(candidate.body, body)
     const params = { ...titleParams, ...(bodyParams || {}) }
+    // The person named may have been anonymous at the time.
+    if ('name' in params) params.name = personName(params.name)
     const key = KEY_OF[candidate.kind]
     return {
       title: i18n.t(`notifications.templates.${key}Title`, params),

@@ -3,6 +3,8 @@ import { Archive, Flag, Lock, Send } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
+import { personName } from '../i18n'
+
 import { storedContext } from '../i18n/reportContext'
 import BootScreen from '../components/BootScreen'
 import ReportDialog from '../components/ReportDialog'
@@ -172,7 +174,7 @@ export default function ChatPage() {
             const mine = message.senderId === user.uid
             return (
               <div className={`message-bubble ${mine ? 'mine' : ''}`} key={message.id}>
-                <strong>{message.senderName}</strong>
+                <strong>{personName(message.senderName)}</strong>
                 <p>{message.text}</p>
                 <span>{formatMessageTime(message.createdAt)}</span>
                 {!mine && (
@@ -199,7 +201,9 @@ export default function ChatPage() {
                         }),
                       })
                     }
-                    aria-label={t('chat.reportMessageFrom', { name: message.senderName })}
+                    aria-label={t('chat.reportMessageFrom', {
+                      name: personName(message.senderName),
+                    })}
                   >
                     <Flag size={13} />
                   </button>

@@ -18,6 +18,7 @@ import i18n, {
   languageOf,
   listInWords,
   matchLanguage,
+  personName,
   reasonLines,
   reasonText,
   setLanguage,
@@ -262,5 +263,51 @@ describe('dates and lists without browser locale data', () => {
     await setLanguage('en')
     expect(formatActivityDate('2026-09-18', now)).toBe('Friday')
     expect(formatActivityDate('2026-09-25', now)).toBe('Fri 25 Sept')
+  })
+})
+
+describe('personName', () => {
+  test('words the app’s own placeholder names and leaves people’s names alone', async () => {
+    expect(personName('Anonymous user')).toBe('Anonymous user')
+    expect(personName('Mya')).toBe('Mya')
+    await setLanguage('th')
+    expect(personName('Anonymous user')).toBe(th.profile.anonymousName)
+    expect(personName('New user')).toBe(th.profile.newUserName)
+    expect(personName('Mya')).toBe('Mya')
+    expect(personName(undefined)).toBeUndefined()
+    expect(personName('')).toBe('')
+  })
+
+  test('reaches into stored notifications and report context', async () => {
+    const { localizeNotification, storedText } = await import('../../src/i18n/notificationText')
+    const { localizeReportContext, storedContext } = await import('../../src/i18n/reportContext')
+    await setLanguage('zh')
+    const shown = localizeNotification(
+      storedText('someoneJoined', { name: 'Anonymous user', title: 'Sunday football' }),
+    )
+    expect(shown.body).toContain(zh.profile.anonymousName)
+    expect(shown.body).not.toContain('Anonymous user')
+    const context = localizeReportContext(
+      storedContext('activity', { title: 'Run', place: 'Park', host: 'Anonymous user' }),
+    )
+    expect(context).toContain(zh.profile.anonymousName)
+    expect(context).toContain('Run')
+  })
+})
+
+describe('another tab', () => {
+  test('changing the language there changes it here', async () => {
+    await setLanguage('en')
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: LANGUAGE_KEY, newValue: 'zh', oldValue: 'en' }),
+    )
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(i18n.language).toBe('zh')
+    expect(document.documentElement.lang).toBe('zh')
+    // Other keys, and values that are not a language, are ignored.
+    window.dispatchEvent(new StorageEvent('storage', { key: 'smartsync:other', newValue: 'th' }))
+    window.dispatchEvent(new StorageEvent('storage', { key: LANGUAGE_KEY, newValue: 'nope' }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(i18n.language).toBe('zh')
   })
 })

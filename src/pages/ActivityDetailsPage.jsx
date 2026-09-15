@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next'
 import { storedContext } from '../i18n/reportContext'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-import { categoryLabel, distanceLabel, reasonLines, takedownReasonText } from '../i18n'
+import { categoryLabel, distanceLabel, reasonLines, takedownReasonText, personName } from '../i18n'
 import { formatActivityDate, formatClock } from '../utils/time'
 import { activityBadge } from '../utils/urgency'
 
@@ -240,7 +240,7 @@ export default function ActivityDetailsPage() {
         <div className="section-heading">
           <div>
             <span className="eyebrow">{t('activity.hostEyebrow')}</span>
-            <h3>{a.hostName}</h3>
+            <h3>{personName(a.hostName)}</h3>
           </div>
         </div>
         {/* A name with no face is a database row. The avatar is already on
@@ -251,7 +251,7 @@ export default function ActivityDetailsPage() {
             {a.hostAvatar || '?'}
           </span>
           <span className="host-copy">
-            <strong>{a.hostName}</strong>
+            <strong>{personName(a.hostName)}</strong>
             <small>{t('activity.hostingThis')}</small>
           </span>
         </div>

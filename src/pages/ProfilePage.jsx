@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import ActivityCard from '../components/ActivityCard'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-import { categoryLabel } from '../i18n'
+import { categoryLabel, personName } from '../i18n'
 
 export default function ProfilePage() {
   const { t } = useTranslation()
@@ -79,7 +79,7 @@ export default function ProfilePage() {
               public profile itself is rewritten when anonymous mode is on,
               rather than the real name being hidden at render time. */}
           <div className="avatar xl">{user.avatar}</div>
-          <h2>{user.name}</h2>
+          <h2>{personName(user.name)}</h2>
           <p>{user.bio}</p>
           <div className="profile-handle">{user.username}</div>
         </div>

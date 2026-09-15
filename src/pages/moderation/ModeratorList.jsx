@@ -2,6 +2,8 @@ import React from 'react'
 import { ShieldCheck, UserRoundCheck, UserRoundX } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { personName } from '../../i18n'
+
 /**
  * Who holds the moderator rank, and appointing somebody to it.
  *
@@ -89,7 +91,7 @@ export default function ModeratorList({
             appointable.map((person) => (
               <div className="report-actions appoint-row" key={person.uid}>
                 <span>
-                  {person.name}
+                  {personName(person.name)}
                   {person.username ? ` · ${person.username}` : ''}
                   {/* A rank somebody cannot currently use is worth saying
                       out loud before it is handed to them, not after. */}

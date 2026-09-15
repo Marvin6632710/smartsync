@@ -520,7 +520,9 @@
     "shareFailedTitle": "无法分享",
     "shareFailedBody": "此浏览器不支持分享。",
     "shareTitle": "SmartSync 个人资料",
-    "shareText": "{{name}}（{{username}}）在 SmartSync 上。{{bio}}"
+    "shareText": "{{name}}（{{username}}）在 SmartSync 上。{{bio}}",
+    "anonymousName": "匿名用户",
+    "newUserName": "新用户"
   },
   "editProfile": {
     "title": "编辑个人资料",

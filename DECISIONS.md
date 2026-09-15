@@ -817,8 +817,9 @@ or, worse, a database whose categories differ by who created the record.
 translation service: the strings are reviewed text, present at first
 paint, and work offline. The chosen language lives on the device
 (`smartsync:language`), like the other preferences, and the first paint
-is already in it; the browser's language is the first-run default and
-English is the fallback for anything missing. The database keeps English
+is already in it; other open tabs follow a change as it is made; the
+browser's language is the first-run default and English is the fallback
+for anything missing. The database keeps English
 everywhere it already had it — every category, band, reason, signal id
 and default name is stored as before and translated only at the moment it
 is shown, so filters, rules and the evaluation harness see what they

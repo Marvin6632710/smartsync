@@ -2,6 +2,8 @@ import React from 'react'
 import { RotateCcw, Trash2 } from 'lucide-react'
 
 import { useTranslation } from 'react-i18next'
+
+import { personName } from '../../i18n'
 import { formatRelativeTime } from '../../utils/time'
 
 /**
@@ -42,7 +44,7 @@ export default function RemovedActivities({
             <h3>{activity.title}</h3>
             <p className="report-context">
               {t('moderation.removedPage.hostedBy', {
-                name: activity.hostName,
+                name: personName(activity.hostName),
                 place: activity.locationName,
               })}
             </p>

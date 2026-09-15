@@ -4678,3 +4678,12 @@ body {
 :root[lang='my'] .nav-item {
   gap: 2px;
 }
+/* Burmese words run wide: "Cancel" and "Report" side by side in a dialog
+   on a 320px phone missed fitting on one line by a pixel each. Paired
+   buttons give up a little of their side padding rather than wrap. */
+:root[lang='my'] .button-row > .primary-button,
+:root[lang='my'] .button-row > .secondary-button,
+:root[lang='my'] .button-row > .danger-button {
+  padding-left: 12px;
+  padding-right: 12px;
+}

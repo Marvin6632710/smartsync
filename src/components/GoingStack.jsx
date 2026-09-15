@@ -1,5 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
+
+import { personName } from '../i18n'
 import { useApp } from '../context/AppContext'
 
 /**
@@ -33,7 +35,7 @@ export default function GoingStack({ uids = [], capacity = null, max = 3 }) {
           screen reader should read, so the stack itself is hidden from it. */}
       <span className="going-stack" aria-hidden="true">
         {shown.map(({ uid, person }) => (
-          <span className="going-face" key={uid} title={person.name}>
+          <span className="going-face" key={uid} title={personName(person.name)}>
             {person.avatar || '?'}
           </span>
         ))}

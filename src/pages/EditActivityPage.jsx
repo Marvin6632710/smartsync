@@ -8,7 +8,7 @@ import { categories } from '../data/categories'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { deriveTimeBand } from '../firebase/activities'
-import { categoryLabel, takedownReasonText, timeBandLabel } from '../i18n'
+import { categoryLabel, takedownReasonText, timeBandLabel, personName } from '../i18n'
 import { formatClock } from '../utils/time'
 import { withinThailand } from '../data/region'
 
@@ -39,7 +39,7 @@ export default function EditActivityPage() {
       <div className="page-content">
         <div className="empty-state">
           <h3>{t('edit.onlyHost')}</h3>
-          <p>{t('edit.askHost', { name: existing.hostName })}</p>
+          <p>{t('edit.askHost', { name: personName(existing.hostName) })}</p>
         </div>
       </div>
     )

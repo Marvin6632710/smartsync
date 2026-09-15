@@ -41,6 +41,7 @@ import { rankActivities, recommendationWeights } from '../services/recommendatio
 import { distanceBetween } from '../utils/geo'
 import { useListenerRetry } from '../hooks/useListenerRetry'
 import { DURABLE, loadDurable, loadStorage, saveDurable, saveStorage } from '../utils/storage'
+import { personName } from '../i18n'
 import { storedText } from '../i18n/notificationText'
 import { reportError } from '../utils/reportError'
 import { awaitWrite, QUEUED } from '../utils/writes'
@@ -1345,7 +1346,7 @@ export function AppProvider({ children }) {
       failure: t('toasts.unblockFailed'),
       success: {
         icon: 'check',
-        title: t('toasts.unblockedTitle', { name: person?.name || t('toasts.they') }),
+        title: t('toasts.unblockedTitle', { name: personName(person?.name) || t('toasts.they') }),
       },
     })
   }

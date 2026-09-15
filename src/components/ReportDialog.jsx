@@ -3,7 +3,7 @@ import { Flag, ShieldOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { REPORT_REASONS } from '../firebase/moderation'
-import { reportReasonLabel } from '../i18n'
+import { reportReasonLabel, personName } from '../i18n'
 import { unsentErrorText } from '../i18n/unsent'
 import { useApp } from '../context/AppContext'
 
@@ -141,7 +141,7 @@ export default function ReportDialog({ open, subject, onClose }) {
         <h3 id="report-title">
           <Flag size={17} /> {t('report.title', { label: t(subject.label) })}
         </h3>
-        <p className="report-subject">{subject.name}</p>
+        <p className="report-subject">{personName(subject.name)}</p>
         {earlier && (
           <p className="form-error" role="status">
             {t('report.earlierFailed', {
