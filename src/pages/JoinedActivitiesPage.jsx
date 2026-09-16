@@ -13,7 +13,7 @@ export default function JoinedActivitiesPage() {
     <div className="page-content">
       <span className="eyebrow">{t('joined.eyebrow')}</span>
       <h2>{t('joined.title')}</h2>
-      <div className="stack">
+      <div className="stack card-grid">
         {joined.map((a) => (
           <ActivityCard key={a.id} activity={a} />
         ))}

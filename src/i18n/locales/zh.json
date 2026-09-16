@@ -68,7 +68,8 @@
     "aiPicks": "AI 精选",
     "messages": "消息",
     "profile": "我的",
-    "primary": "主导航"
+    "primary": "主导航",
+    "create": "创建"
   },
   "titles": {
     "home": "发现",
@@ -1029,6 +1030,9 @@
   },
   "map": {
     "showMyLocation": "显示我的位置",
-    "seeAsList": "以列表查看活动"
+    "seeAsList": "以列表查看活动",
+    "listTitle": "地图上的活动",
+    "listCount_other": "{{count}} 个活动",
+    "listHint": "选择一个活动查看它的位置"
   }
 }

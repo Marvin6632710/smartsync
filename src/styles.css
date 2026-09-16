@@ -116,6 +116,17 @@
      on it still reads. */
   --accent-deep: #4f46e5;
 
+  /* --- Layout ---------------------------------------------
+     The shell's measurements. The gutter widens with the screen (see WIDE
+     SCREENS at the end); the three widths are what a page is allowed on a
+     wide screen — a column of settings rows, a queue of reports, a feed
+     with a sidebar — so that a monitor never simply stretches a phone. */
+  --header-h: 64px;
+  --gutter: 16px;
+  --content-narrow: 760px;
+  --content-medium: 960px;
+  --content-max: 1200px;
+
   /* --- Radii --------------------------------------------- */
   --r-sm: 10px;
   --r-md: 14px;
@@ -472,45 +483,36 @@ select:focus-visible {
    ========================================================= */
 
 .app-shell {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 18px;
-}
-.mobile-frame,
-.standalone-page {
-  /* Hold real phone proportions (~9:19.5) on desktop. Without the height
-     term a short browser window leaves the frame full-width but stunted,
-     so it reads as a squat tablet rather than a phone. The 340px floor
-     stops very short windows from squeezing it narrower than a real
-     handset, which would cramp the layout. */
-  width: min(100%, 420px, max(340px, calc((100dvh - 36px) * 0.47)));
-  background: var(--bg);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-lg);
-}
-.mobile-frame {
-  /* The frame clips; its middle row (.page-scroll) does the scrolling.
-     Height floor keeps a very short window from producing a squat frame
-     (the shell scrolls instead); the cap stops a tall monitor stretching
-     it into an elongated slab. */
-  overflow: hidden;
-  height: clamp(600px, calc(100vh - 36px), 900px);
-  border-radius: 32px;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
+  /* The shell is the window: a header, whatever banners apply, the
+     scroller, and on a phone the tab bar. Nothing else scrolls, so a sticky
+     action bar, a chat composer and a map that fills the screen all measure
+     against the same box at every width. The rows are fixed in number —
+     the banners share one — so a banner arriving never shifts the scroller
+     into a different track. dvh, so a phone's collapsing toolbar does not
+     resize the page under the reader. */
   position: relative;
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  /* The one column is the window's width and no more: a header whose
+     controls outgrow a narrow window is clipped at its own edge, rather
+     than widening every row with it and shaving the page's right margin. */
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--bg);
 }
 .standalone-page {
-  /* Must scroll, not clip: on a short screen (landscape phone) these
-     pages are taller than the viewport and the primary action sits at
-     the bottom, so clipping would strand the user mid-onboarding. */
+  /* Sign-in, onboarding, the boot screen: outside the shell, and a page
+     that scrolls rather than clips. On a short screen (landscape phone)
+     these are taller than the window and the primary action sits at the
+     bottom, so clipping would strand the user mid-onboarding. */
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   overflow-y: auto;
   scrollbar-width: none;
-  min-height: clamp(600px, calc(100vh - 36px), 900px);
-  margin: 18px auto;
-  border-radius: 32px;
+  background: var(--bg);
   padding: 32px 24px;
   display: flex;
   flex-direction: column;
@@ -2089,6 +2091,11 @@ select:focus-visible {
 .map-list-button:hover {
   color: var(--accent);
 }
+/* It is a round button now, and the pill's side padding it kept from when
+   it carried a label squeezed the icon to a sliver inside the 42px disc. */
+.map-round-button.map-list-button {
+  padding: 0;
+}
 
 /* =========================================================
    ONBOARDING / SPLASH
@@ -2161,7 +2168,7 @@ select:focus-visible {
    ========================================================= */
 
 .dialog-backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 40;
   display: grid;
@@ -2316,25 +2323,15 @@ select:focus-visible {
    RESPONSIVE
    ========================================================= */
 
-@media (max-width: 520px) {
-  .app-shell {
-    padding: 0;
-    align-items: stretch;
-  }
-  .mobile-frame,
+/* The phone. Everything up to 719px is the shell as designed for a hand:
+   the bar, the scroller, the tabs, the floating create button. The web
+   header and the wide compositions begin at 720px, at the end of the file. */
+@media (max-width: 719px) {
   .standalone-page {
-    width: 100%;
-    min-height: 100vh;
+    /* Its own scroller at a fixed height, so the page never grows past the
+       window; dvh tracks the collapsing browser chrome on iOS/Android. */
     height: 100vh;
-    /* dvh tracks the collapsing browser chrome on iOS/Android; without it
-       100vh includes the address bar and pushes the nav below the fold. */
-    min-height: 100dvh;
     height: 100dvh;
-    border-radius: 0;
-    border: 0;
-    margin: 0;
-  }
-  .standalone-page {
     padding-top: max(40px, env(safe-area-inset-top));
   }
   .topbar {
@@ -2346,6 +2343,11 @@ select:focus-visible {
   .fab-create {
     bottom: calc(80px + env(safe-area-inset-bottom));
   }
+}
+
+/* Narrow content, whatever the shell: a form row or a facts grid has no
+   room for two columns under 520px. */
+@media (max-width: 520px) {
   .detail-facts,
   .weight-grid,
   .form-row {
@@ -2363,30 +2365,11 @@ select:focus-visible {
   }
 }
 
-/* Landscape phones (844x390, 932x430) are wider than the 520px breakpoint
-   but far too short for the framed presentation: the frame has a 600px
-   height floor, so below ~640px of viewport it would overflow and push
-   the bottom nav off screen. Keying this to height rather than to a touch
-   query covers landscape phones and short desktop windows alike, and
-   guarantees the nav is always reachable. Width stays capped so lines
-   don't run the full width of a landscape screen. */
+/* Short windows — a landscape phone (844x390, 932x430), a small browser
+   window: the standalone pages start at the top rather than centring a
+   column that would overflow, and the map gives up its height floor so it
+   never runs past the bottom of the screen. */
 @media (max-height: 640px) {
-  .app-shell {
-    padding: 0;
-    align-items: stretch;
-  }
-  .mobile-frame,
-  .standalone-page {
-    width: min(100%, 520px);
-    min-height: 100vh;
-    height: 100vh;
-    min-height: 100dvh;
-    height: 100dvh;
-    border-radius: 0;
-    border-top: 0;
-    border-bottom: 0;
-    margin: 0;
-  }
   .standalone-page {
     /* flex-start, not center: a centred flex column that overflows pushes
        its top out of reach of the scrollbar. */
@@ -3663,32 +3646,6 @@ body {
   overflow-x: hidden;
 }
 
-/* The frame's width was tied to the viewport *height*:
-   `max(340px, calc((100vh - 36px) * 0.47))`. On iOS the toolbar collapses as
-   you scroll, 100vh changes, and a centred box whose width depends on it
-   shifts horizontally while you read.
-   Phones take the full width and never compute one from the height. A
-   landscape phone is caught by the height clause; a tablet is deliberately
-   not caught by either, because stretching a layout built for a 400px column
-   across a 1024px screen is not an improvement — there it keeps the frame. */
-@media (max-width: 520px), ((max-height: 560px) and (pointer: coarse)) {
-  .mobile-frame,
-  .standalone-page {
-    width: 100%;
-    max-width: none;
-  }
-}
-
-/* Belt and braces for the same bug at every size: never derive a width from
-   the viewport height, and use the dynamic units where a height is needed so
-   a collapsing toolbar does not resize the page under the reader. */
-.mobile-frame {
-  height: clamp(600px, calc(100dvh - 36px), 900px);
-}
-.standalone-page {
-  min-height: clamp(600px, calc(100dvh - 36px), 900px);
-}
-
 /* Respect the notch and the home indicator on every edge that touches them. */
 @supports (padding: max(0px)) {
   .page-content {
@@ -4918,4 +4875,839 @@ body {
 }
 :root[data-theme='dark'] .leaflet-control-attribution a {
   color: var(--accent);
+}
+
+/* =========================================================
+   WIDE SCREENS
+   Under 720px the app is a phone, and everything above this line is
+   that phone: a bar, a scroller, tabs along the bottom, a floating
+   create button. From 720px it is a web application. One header
+   carries the brand, the tabs, search, the create action,
+   notifications and the profile; nothing sits along the bottom; the
+   scroller runs the full width of the window; and each page takes
+   the width its content earns — one column for settings and forms,
+   a wider one for a queue, and from 1024px two columns wherever a
+   page has a main thing and a second thing: Discover, the map, an
+   activity, AI Picks, the profile.
+
+   Three breakpoints, taken from the app rather than a framework:
+     up to 719px   phone     the shell above, unchanged
+     from 720px    tablet    web header (icons), one column, 24px gutters
+     from 1024px   desktop   web header (labels), two columns, 40px gutters
+
+   Everything here is additive: no rule above is rewritten, the phone
+   is never touched, and the tokens are the same tokens.
+   ========================================================= */
+
+/* Off the phone. */
+.web-header,
+.page-bar,
+.map-side,
+.hero-desc,
+.top-pick-desc,
+.rail-summary {
+  display: none;
+}
+/* The three groups on an activity page lay out as their contents on a
+   phone, so the page is the same flex column it was. */
+.detail-main,
+.detail-rail,
+.detail-more {
+  display: contents;
+}
+/* Holds the join burst without taking a row of the shell: the burst itself
+   is fixed to the window. */
+.burst-layer {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+/* The shell gives the scroller focus as each screen opens, so the keyboard
+   scrolls it (see Shell); there is nothing to draw for that. */
+.page-scroll:focus,
+.page-scroll:focus-visible {
+  outline: none;
+}
+
+/* ---------------------------------------------------------
+   TABLET AND UP
+   --------------------------------------------------------- */
+@media (min-width: 720px) {
+  :root {
+    --gutter: 24px;
+  }
+  .topbar,
+  .bottom-nav,
+  .fab-create {
+    display: none;
+  }
+
+  /* --- The header ---------------------------------------- */
+  .web-header {
+    display: block;
+    position: relative;
+    z-index: 7;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .web-header-inner {
+    height: var(--header-h);
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: 6px;
+    padding: 4px;
+    border-radius: var(--r-md);
+    color: var(--text);
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: var(--w-bold);
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+  }
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: var(--accent-deep);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 6px 14px -6px rgba(var(--accent-rgb), 0.6);
+  }
+  .brand-name {
+    display: none;
+  }
+  .web-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+  }
+  .web-nav-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 11px;
+    border-radius: var(--r-pill);
+    color: var(--text-2);
+    font-size: var(--t-body);
+    font-weight: var(--w-semibold);
+    white-space: nowrap;
+    transition:
+      background var(--dur-fast) var(--ease),
+      color var(--dur-fast) var(--ease);
+  }
+  .web-nav-item > span {
+    display: none;
+  }
+  .web-nav-item:hover {
+    background: var(--bg-sunken);
+    color: var(--text);
+  }
+  .web-nav-item.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .web-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .web-search {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: var(--t-sm);
+    font-weight: var(--w-semibold);
+    transition:
+      border-color var(--dur-fast) var(--ease),
+      color var(--dur-fast) var(--ease);
+  }
+  .web-search > span {
+    display: none;
+  }
+  .web-search:hover {
+    border-color: var(--line-strong);
+    color: var(--text);
+  }
+  .web-create {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 16px 0 12px;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: var(--t-sm);
+    font-weight: var(--w-bold);
+    white-space: nowrap;
+    box-shadow: 0 6px 16px -8px rgba(var(--accent-rgb), 0.6);
+    transition: background var(--dur-fast) var(--ease);
+  }
+  .web-create:hover {
+    background: var(--accent-strong);
+  }
+  .web-avatar {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    font-size: var(--t-xs);
+    transition:
+      border-color var(--dur-fast) var(--ease),
+      box-shadow var(--dur-fast) var(--ease);
+  }
+  .web-avatar:hover {
+    border-color: var(--line-strong);
+  }
+  .web-avatar.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  /* --- Language, beside the profile ----------------------------------
+     The Settings pill, sized to the header's row of controls. Where the
+     header is tight it shows the icon alone: the picker lies over the pill
+     unseen, so a click opens it and the keyboard reaches it exactly as
+     before, and the language's own name comes back once there is room. */
+  .web-language .language-menu {
+    min-height: 40px;
+    height: 40px;
+    padding: 0 26px 0 11px;
+    gap: 6px;
+    box-shadow: none;
+    color: var(--text-2);
+  }
+  .web-language .language-menu > svg {
+    display: block;
+  }
+  .web-language .language-menu select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    opacity: 0;
+  }
+
+  /* --- Banners: full-width strips under the header --------- */
+  .shell-banners > * {
+    margin: 0;
+    padding: 8px var(--gutter);
+    border-radius: 0;
+    justify-content: center;
+  }
+  .shell-banners > .data-error-banner span {
+    flex: 0 1 auto;
+  }
+
+  /* --- The scroller and the page ----------------------------- */
+  .page-scroll {
+    /* A visible, thin scrollbar: a web page with its scrollbar hidden reads
+       as one that cannot scroll. The gutter is reserved on both sides so the
+       column stays centred whether or not there is anything to scroll. */
+    scrollbar-width: thin;
+    scrollbar-gutter: stable both-edges;
+    --page-max: var(--content-narrow);
+  }
+  .page-scroll[data-view='home'],
+  .page-scroll[data-view='search'],
+  .page-scroll[data-view='activity'],
+  .page-scroll[data-view='recommendations'],
+  .page-scroll[data-view='profile'],
+  .page-scroll[data-view='joined'] {
+    --page-max: var(--content-max);
+  }
+  .page-scroll[data-view='moderation'],
+  .page-scroll[data-view='matching'] {
+    --page-max: var(--content-medium);
+  }
+  .page-bar {
+    display: block;
+    width: 100%;
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 16px var(--gutter) 0;
+  }
+  .page-bar .topbar-back {
+    margin-left: -8px;
+  }
+  .page-bar + .page-content {
+    padding-top: 8px;
+  }
+  .page-content {
+    width: 100%;
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 28px var(--gutter) 64px;
+    gap: 20px;
+  }
+  /* A dead end in the middle of a wide page, not stretched across it. */
+  .page-content > .empty-state {
+    width: 100%;
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .headline-block .helper-text,
+  .page-content > section > .helper-text {
+    max-width: 64ch;
+  }
+  .search-box {
+    max-width: 560px;
+  }
+  .detail-actions {
+    margin: 4px calc(-1 * var(--gutter)) -16px;
+    padding-left: var(--gutter);
+    padding-right: var(--gutter);
+  }
+  .celebration-toast {
+    position: fixed;
+    top: calc(var(--header-h) + 12px);
+    left: 0;
+    right: 0;
+    width: min(440px, calc(100% - 48px));
+    margin: 0 auto;
+    z-index: 45;
+  }
+  .chat-page .message-bubble {
+    max-width: 70%;
+  }
+  /* The chat fills the scroller so its composer sits at the bottom; with
+     the way back above it, "the scroller" is the scroller less that bar
+     (16px of padding and a 44px control), or the page scrolls by exactly
+     that much for nothing. */
+  .page-bar + .chat-page {
+    min-height: calc(100% - 60px);
+  }
+  .picker-map {
+    height: 260px;
+  }
+  /* Date beside time, and the interest tiles three across: the form has the
+     room now, and a wide screen makes a single column of fields read as a
+     phone's. */
+  .form-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .small-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* --- Cards in a grid ------------------------------------------
+     A column of cards is a phone's list. Given the room, they sit side by
+     side, as many as fit at a width where the title still has a line to
+     itself; the stagger they arrive with is unchanged. */
+  .stack.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  /* An empty state, or the skeletons while loading, cross the whole grid. */
+  .stack.card-grid > .empty-state,
+  .stack.card-grid > .stack {
+    grid-column: 1 / -1;
+  }
+  .stack.people-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 16px;
+  }
+
+  /* --- Discover -------------------------------------------------- */
+  .discover-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'head tools'
+      'hero hero'
+      'picks picks'
+      'soon soon';
+    column-gap: 24px;
+    row-gap: 20px;
+    align-items: end;
+  }
+  .discover-head {
+    grid-area: head;
+  }
+  .discover-tools {
+    grid-area: tools;
+    display: flex;
+    gap: 8px;
+    justify-self: end;
+    align-self: end;
+  }
+  .discover-tools button {
+    padding: 10px 16px;
+  }
+  .hero-pick {
+    grid-area: hero;
+    padding: 24px 28px;
+  }
+  .hero-pick h2 {
+    font-size: 30px;
+    max-width: 26ch;
+  }
+  .hero-when,
+  .hero-why,
+  .hero-desc {
+    max-width: 72ch;
+  }
+  .hero-desc {
+    display: -webkit-box;
+    margin: 10px 0 0;
+    font-size: var(--t-body);
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.86);
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .picks-block {
+    grid-area: picks;
+  }
+  .soon-block {
+    grid-area: soon;
+  }
+  .picks-block,
+  .soon-block {
+    align-self: start;
+    min-width: 0;
+  }
+  /* The ambient wash follows the whole width here rather than the heading
+     alone, which on a wide screen is only the left of it: drawn on the
+     scroller for the Discover view, in the tone the page declares. */
+  .discover-head::before {
+    display: none;
+  }
+  .page-scroll[data-view='home'] {
+    position: relative;
+    isolation: isolate;
+  }
+  .page-scroll[data-view='home']::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 360px;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.5;
+    transition: background 1.2s var(--ease);
+  }
+  .page-scroll:has(> .discover-page[data-part='morning'])::before {
+    background: radial-gradient(50% 70% at 18% 0%, rgba(255, 196, 92, 0.3), transparent 70%);
+  }
+  .page-scroll:has(> .discover-page[data-part='afternoon'])::before {
+    background: radial-gradient(50% 70% at 40% 0%, rgba(96, 190, 255, 0.26), transparent 70%);
+  }
+  .page-scroll:has(> .discover-page[data-part='evening'])::before {
+    background: radial-gradient(50% 70% at 70% 0%, rgba(255, 122, 89, 0.28), transparent 70%);
+  }
+  .page-scroll:has(> .discover-page[data-part='late'])::before {
+    background: radial-gradient(50% 70% at 45% 0%, rgba(99, 102, 241, 0.28), transparent 70%);
+  }
+
+  /* --- Map ----------------------------------------------------------- */
+  .smart-map-page {
+    padding: 16px var(--gutter);
+  }
+
+  /* --- Standalone pages: sign-in, onboarding, boot, errors ------------
+     A column in the middle of the window on the page's own ground, with
+     the language selector at the corner of the window rather than of the
+     column. The colour fields behind the sign-in page are fixed to the
+     window, so with the phone card gone they wash the whole of it. */
+  .standalone-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+    /* The column is centred by the page's own padding, so every child keeps
+       the width it was designed with — the brand mark stays a mark, the
+       form fills the column — and nothing needs to know it is centred. */
+    padding: 56px max(24px, calc((100% - 440px) / 2));
+  }
+  .standalone-page.onboarding-page,
+  .standalone-page.splash-page {
+    padding-left: max(24px, calc((100% - 640px) / 2));
+    padding-right: max(24px, calc((100% - 640px) / 2));
+  }
+  .entry-language {
+    position: fixed;
+    top: 20px;
+    right: 24px;
+    z-index: 5;
+    margin: 0;
+    align-self: auto;
+  }
+  .entry-copy p,
+  .splash-page p,
+  .onboarding-header p {
+    max-width: 440px;
+  }
+  .entry-copy h1,
+  .splash-page h1,
+  .auth-page .entry-copy h1,
+  .onboarding-header h1,
+  .luxe-header h1 {
+    font-size: 32px;
+  }
+  .splash-steps {
+    max-width: none;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .splash-steps li {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+  }
+  .splash-trust,
+  .splash-actions {
+    max-width: 440px;
+  }
+  .onboarding-page .interest-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ---------------------------------------------------------
+   DESKTOP
+   --------------------------------------------------------- */
+@media (min-width: 1024px) {
+  :root {
+    --gutter: 40px;
+  }
+  .web-header-inner {
+    gap: 16px;
+  }
+  .brand-name,
+  .web-nav-item > span {
+    display: inline;
+  }
+  .web-nav-item {
+    padding: 0 14px;
+  }
+  .page-content {
+    padding-top: 32px;
+  }
+
+  /* --- Discover: the feed with a sidebar ------------------------------
+     The hero is a banner across the page. Beneath it, what is on soonest
+     takes the main column and the picks from your interests keep it
+     company on the right, staying put as the feed scrolls. Without picks,
+     the feed takes the whole width. */
+  .discover-page[data-picks='yes'] {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-areas:
+      'head tools'
+      'hero hero'
+      'soon picks';
+    column-gap: 32px;
+    row-gap: 24px;
+  }
+  .discover-page[data-picks='no'] {
+    row-gap: 24px;
+  }
+  .discover-page[data-picks='yes'] .picks-block {
+    position: sticky;
+    top: 24px;
+  }
+  .discover-page[data-picks='yes'] .picks-block .stack {
+    display: flex;
+    flex-direction: column;
+  }
+  /* Beside the sidebar the feed is narrower, so the cards are allowed a
+     little narrower too: two across from 1024px rather than one. */
+  .discover-page[data-picks='yes'] .soon-block .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+  .hero-pick {
+    padding: 28px 32px;
+  }
+  .hero-pick h2 {
+    font-size: 34px;
+  }
+  .discover-head h2 {
+    font-size: 40px;
+  }
+
+  /* --- Map: the list beside it ---------------------------------------- */
+  .smart-map-page {
+    display: grid;
+    grid-template-columns: 380px minmax(0, 1fr);
+    gap: 16px;
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 20px var(--gutter);
+  }
+  .map-side {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+  }
+  .map-side-head {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .map-side-head h2 {
+    margin: 2px 0 2px;
+    font-size: var(--t-h2);
+  }
+  .map-side-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    scrollbar-width: thin;
+  }
+  .map-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+    transition:
+      background var(--dur-fast) var(--ease),
+      border-color var(--dur-fast) var(--ease);
+  }
+  .map-row:hover {
+    background: var(--bg-sunken);
+  }
+  .map-row[aria-current='true'] {
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+  }
+  .map-row-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .map-row-copy strong {
+    overflow: hidden;
+    font-size: var(--t-body);
+    font-weight: var(--w-semibold);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .map-row-copy small {
+    overflow: hidden;
+    color: var(--text-2);
+    font-size: var(--t-xs);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .smart-map {
+    min-height: 0;
+  }
+  .map-list-button {
+    display: none;
+  }
+
+  /* --- An activity: the page and its actions -----------------------------
+     What it is on the left; what you can do about it on the right, in a
+     card that stays in view as the reasons and the host scroll past. */
+  .detail-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-areas:
+      'main rail'
+      'more rail';
+    column-gap: 32px;
+    row-gap: 16px;
+    align-items: start;
+  }
+  .detail-main,
+  .detail-more {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+  .detail-main {
+    grid-area: main;
+  }
+  .detail-more {
+    grid-area: more;
+  }
+  .detail-more:empty {
+    display: none;
+  }
+  .detail-rail {
+    grid-area: rail;
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+  .detail-rail .detail-actions {
+    position: static;
+    margin: 0;
+    padding: 0;
+    background: none;
+  }
+  /* When, where and how full, repeated beside the action so that the
+     decision and the facts it rests on stay together as the page scrolls. */
+  .rail-summary {
+    display: grid;
+    gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .rail-summary span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: var(--t-sm);
+    color: var(--text-2);
+  }
+  .rail-summary svg {
+    flex-shrink: 0;
+    color: var(--text-3);
+  }
+  .rail-summary strong {
+    color: var(--text);
+    font-weight: var(--w-semibold);
+  }
+  .detail-hero {
+    padding: 28px;
+  }
+  .detail-hero h2 {
+    font-size: 30px;
+    max-width: 26ch;
+  }
+  .detail-hero > p {
+    max-width: 72ch;
+  }
+  .detail-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 16px;
+  }
+
+  /* --- AI Picks: the strongest match beside how it was chosen ------------- */
+  .picks-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    column-gap: 32px;
+    row-gap: 24px;
+    align-items: stretch;
+  }
+  .picks-page > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+  .picks-page > .top-pick {
+    grid-column: 1;
+    grid-template-rows: auto auto auto 1fr auto;
+    padding: 28px;
+  }
+  .picks-page > .top-pick h3 {
+    font-size: 30px;
+  }
+  .picks-page .top-pick-desc {
+    display: -webkit-box;
+    align-self: start;
+    margin: 0;
+    max-width: 72ch;
+    font-size: var(--t-body);
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.86);
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .picks-page > .how-panel {
+    grid-column: 2;
+  }
+
+  /* --- Profile: who you are beside what you do --------------------------- */
+  .profile-page {
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+    column-gap: 32px;
+    row-gap: 20px;
+    align-items: start;
+  }
+  .profile-page > .profile-showcase {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: 24px;
+  }
+  .profile-page > .section-block {
+    grid-column: 2;
+    min-width: 0;
+  }
+}
+
+/* The header's last two words. From 1024px the brand and the four tabs
+   are named; the language's own name and the word "Search" wait for a
+   window wide enough to hold them in every language — at 1024px the
+   Burmese tabs and the English ones both leave under 100px, and the
+   language pill with its name is 118px. Until then the pill is its icon,
+   and the picker under it is the same. */
+@media (min-width: 1280px) {
+  .web-language .language-menu {
+    padding: 0 11px;
+  }
+  .web-language .language-menu select {
+    position: static;
+    width: auto;
+    height: auto;
+    min-height: 40px;
+    padding: 0 20px 0 0;
+    opacity: 1;
+  }
+  .web-search > span {
+    display: inline;
+  }
+  .web-search {
+    padding: 0 14px;
+    min-width: 132px;
+  }
 }

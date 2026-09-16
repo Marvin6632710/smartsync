@@ -6,6 +6,7 @@ import {
   Map,
   MessageSquare,
   Plus,
+  Search,
   ShieldAlert,
   Sparkles,
   WifiOff,
@@ -15,6 +16,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import BackButton from './BackButton'
 import CelebrationToast from './CelebrationToast'
+import LanguageMenu from './LanguageMenu'
 import RouteErrorBoundary from './RouteErrorBoundary'
 import JoinBurst from './JoinBurst'
 import { useApp } from '../context/AppContext'
@@ -49,6 +51,27 @@ const ROUTE_TITLES = new Set([
   'joined',
   '404',
 ])
+
+/**
+ * Which screen the scroller is showing, as one word the stylesheet can key
+ * on: the width a page is given on a wide screen, and the composition it
+ * takes there, are decided in CSS by this rather than by every page naming
+ * its own. Sub-routes that need a different width from their parent get
+ * their own word (an activity's chat is a column; the activity itself is
+ * two).
+ */
+function viewOf(pathname) {
+  const [, first = 'home', second, third] = pathname.split('/')
+  if (first === 'activity') return third ? `activity-${third}` : 'activity'
+  if (first === 'profile') return second === 'edit' ? 'profile-edit' : 'profile'
+  if (first === 'recommendations') return second ? 'recommendations-details' : 'recommendations'
+  return first
+}
+
+// The bar's tabs, minus Profile: on a wide screen the avatar at the end of
+// the header is the way to the profile, the way every web application does
+// it, so a fifth tab would be the same door twice.
+const headerTabs = tabs.filter((tab) => tab.to !== '/profile')
 
 export default function Shell() {
   const { t } = useTranslation()
@@ -109,51 +132,144 @@ export default function Shell() {
     // whenever content arriving changes whether the page can scroll at all.
     const resize = new ResizeObserver(update)
     resize.observe(el)
-    if (el.firstElementChild) resize.observe(el.firstElementChild)
+    for (const child of el.children) resize.observe(child)
     return () => {
       el.removeEventListener('scroll', update)
       resize.disconnect()
     }
   }, [location.pathname])
+  // The page scrolls inside `main`, not the document, and a scroller only
+  // answers Page Down or the arrow keys once something inside it has focus.
+  // So each screen starts with focus on the scroller — unless the screen has
+  // already put it somewhere of its own, the way Search focuses its field.
+  // Nothing is drawn for it, and a screen reader lands on the new page
+  // rather than staying on the tab that was pressed.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el && !el.contains(document.activeElement)) el.focus({ preventScroll: true })
+  }, [location.pathname])
   const title = t(`titles.${ROUTE_TITLES.has(simpleTitle) ? simpleTitle : 'home'}`)
+  const view = viewOf(location.pathname)
 
   return (
     <div className="app-shell">
-      <div className="mobile-frame">
-        <header className="topbar" data-titled={barTitled ? 'yes' : 'no'}>
-          {atRootTab ? (
+      {/* Two headers, one shown at a time by the stylesheet. Under 720px the
+          app is a phone: a bar with the way back, and tabs along the bottom.
+          From 720px it is a web application: one header carrying the brand,
+          the tabs, search, the create action, notifications and the profile,
+          and nothing along the bottom. Both are rendered so that no width
+          measurement runs in JavaScript and no header flashes in late. */}
+      <header className="topbar" data-titled={barTitled ? 'yes' : 'no'}>
+        {atRootTab ? (
+          <button
+            className="avatar top-avatar"
+            onClick={() => navigate('/profile')}
+            aria-label={t('shell.openProfile')}
+          >
+            {user.avatar}
+          </button>
+        ) : (
+          <BackButton />
+        )}
+        <div className="topbar-copy">
+          <span className="eyebrow">{t('common.appName')}</span>
+          <h1>{title}</h1>
+        </div>
+        <div className="topbar-meta">
+          <button
+            className="icon-button notification-button"
+            onClick={() => navigate('/notifications')}
+            aria-label={t('shell.notifications')}
+          >
+            <Bell size={20} />
+            {unread > 0 && <span className="badge">{unread}</span>}
+          </button>
+        </div>
+      </header>
+
+      <header className="web-header">
+        <div className="web-header-inner">
+          <NavLink to="/home" className="brand" aria-label={t('common.appName')}>
+            <span className="brand-mark" aria-hidden="true">
+              <Sparkles size={17} />
+            </span>
+            <span className="brand-name">{t('common.appName')}</span>
+          </NavLink>
+
+          <nav className="web-nav" aria-label={t('nav.primary')}>
+            {headerTabs.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) => (isActive ? 'web-nav-item active' : 'web-nav-item')}
+                title={t(label)}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span>{t(label)}</span>
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="web-actions">
             <button
-              className="avatar top-avatar"
-              onClick={() => navigate('/profile')}
-              aria-label={t('shell.openProfile')}
+              className="web-search"
+              onClick={() => navigate('/search')}
+              aria-label={t('search.label')}
+              title={t('search.label')}
             >
-              {user.avatar}
+              <Search size={18} aria-hidden="true" />
+              <span>{t('titles.search')}</span>
             </button>
-          ) : (
-            <BackButton />
-          )}
-          <div className="topbar-copy">
-            <span className="eyebrow">{t('common.appName')}</span>
-            <h1>{title}</h1>
-          </div>
-          <div className="topbar-meta">
+            <button
+              className="web-create"
+              onClick={() => navigate('/create')}
+              aria-label={t('shell.createActivity')}
+              title={t('shell.createActivity')}
+              disabled={user.suspended}
+            >
+              <Plus size={18} aria-hidden="true" />
+              <span>{t('nav.create')}</span>
+            </button>
             <button
               className="icon-button notification-button"
               onClick={() => navigate('/notifications')}
               aria-label={t('shell.notifications')}
+              title={t('shell.notifications')}
             >
               <Bell size={20} />
               {unread > 0 && <span className="badge">{unread}</span>}
             </button>
+            {/* The same control as the Settings row, and the same stored
+                choice: here so the one person who cannot read the page
+                finds it without first finding Settings. The stylesheet
+                shows the language's name where there is room and the icon
+                alone where there is not; the picker itself is unchanged. */}
+            <div className="web-language">
+              <LanguageMenu compact />
+            </div>
+            <NavLink
+              to="/profile"
+              className={({ isActive }) =>
+                isActive ? 'avatar web-avatar active' : 'avatar web-avatar'
+              }
+              aria-label={t('nav.profile')}
+              title={t('nav.profile')}
+            >
+              {user.avatar}
+            </NavLink>
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* Offline is a normal state here, not an error: Firestore serves
-            reads from cache and queues writes. Saying so is the difference
-            between "this app still works" and "did my join actually save?" */}
-        {/* A suspended account can still read, so it must be told why the
-            rest has stopped working. Silently disabled controls read as a
-            broken app rather than a decision somebody made. */}
+      {/* Offline is a normal state here, not an error: Firestore serves
+          reads from cache and queues writes. Saying so is the difference
+          between "this app still works" and "did my join actually save?" */}
+      {/* A suspended account can still read, so it must be told why the
+          rest has stopped working. Silently disabled controls read as a
+          broken app rather than a decision somebody made. */}
+      {/* One row of the shell whatever is in it, so a banner arriving never
+          shifts the scroller into a different track. */}
+      <div className="shell-banners">
         {user.suspended && (
           <div className="suspended-banner" role="alert">
             <ShieldAlert size={15} />
@@ -189,58 +305,65 @@ export default function Shell() {
             </button>
           </div>
         )}
+      </div>
 
-        <CelebrationToast />
+      <CelebrationToast />
 
-        {/* Sits outside the scroller and above everything, so a burst thrown
-            from the middle of the screen is never clipped by the card that
-            caused it. Keyed on the celebration id, which changes once per
-            event — that is what makes it fire exactly once. */}
-        {celebration?.burst && (
-          <div data-category={celebration.burst}>
-            <JoinBurst token={celebration.id} color="var(--cat, var(--accent))" />
+      {/* Sits outside the scroller and above everything, so a burst thrown
+          from the middle of the screen is never clipped by the card that
+          caused it. Keyed on the celebration id, which changes once per
+          event — that is what makes it fire exactly once. */}
+      {celebration?.burst && (
+        <div className="burst-layer" data-category={celebration.burst}>
+          <JoinBurst token={celebration.id} color="var(--cat, var(--accent))" />
+        </div>
+      )}
+
+      <main className="page-scroll" ref={scrollRef} data-view={view} tabIndex={-1}>
+        {/* On a wide screen the phone bar is gone, and with it the way back.
+            A sub-page gets it here instead, at the head of its own column. */}
+        {!atRootTab && (
+          <div className="page-bar">
+            <BackButton />
           </div>
         )}
+        {/* Scoped to the page, so one screen failing leaves the bar and the
+            tabs intact rather than replacing the whole app. */}
+        <RouteErrorBoundary resetKey={location.pathname}>
+          <Outlet />
+        </RouteErrorBoundary>
+      </main>
 
-        <main className="page-scroll" ref={scrollRef}>
-          {/* Scoped to the page, so one screen failing leaves the bar and the
-              tabs intact rather than replacing the whole app. */}
-          <RouteErrorBoundary resetKey={location.pathname}>
-            <Outlet />
-          </RouteErrorBoundary>
-        </main>
+      {/* An activity page is a place to act on that activity, not to start
+          another one; a chat is a place to talk. */}
+      {showCreate && (
+        <button
+          className="fab-create"
+          data-tucked={createTucked ? 'yes' : 'no'}
+          onClick={() => navigate('/create')}
+          aria-label={t('shell.createActivity')}
+          // The rules refuse it anyway; disabling here means the answer is
+          // immediate and explained rather than a rejection after the fact.
+          disabled={user.suspended}
+        >
+          <Plus size={26} />
+        </button>
+      )}
 
-        {/* An activity page is a place to act on that activity, not to start
-            another one; a chat is a place to talk. */}
-        {showCreate && (
-          <button
-            className="fab-create"
-            data-tucked={createTucked ? 'yes' : 'no'}
-            onClick={() => navigate('/create')}
-            aria-label={t('shell.createActivity')}
-            // The rules refuse it anyway; disabling here means the answer is
-            // immediate and explained rather than a rejection after the fact.
-            disabled={user.suspended}
+      <nav className="bottom-nav" aria-label={t('nav.primary')}>
+        {tabs.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
           >
-            <Plus size={26} />
-          </button>
-        )}
-
-        <nav className="bottom-nav" aria-label={t('nav.primary')}>
-          {tabs.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
-            >
-              <span className="nav-icon-wrap">
-                <Icon size={21} />
-              </span>
-              <span>{t(label)}</span>
-            </NavLink>
-          ))}
-        </nav>
-      </div>
+            <span className="nav-icon-wrap">
+              <Icon size={21} />
+            </span>
+            <span>{t(label)}</span>
+          </NavLink>
+        ))}
+      </nav>
     </div>
   )
 }

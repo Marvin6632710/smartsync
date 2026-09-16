@@ -74,8 +74,14 @@ export default function HomePage() {
   // cheap to re-render will do that on its own long before anyone notices.
   const part = partOfDay()
 
+  // The wide layouts are decided in the stylesheet from what is on the page:
+  // with picks, the feed takes a sidebar; without, it takes the full width.
   return (
-    <div className="page-content">
+    <div
+      className="page-content discover-page"
+      data-part={part}
+      data-picks={fromPicks.length > 0 ? 'yes' : 'no'}
+    >
       <header className="discover-head" data-part={part}>
         <div>
           <span className="eyebrow">
@@ -118,6 +124,9 @@ export default function HomePage() {
             {heroPick.locationName}
           </p>
           <p className="hero-why">{reasonLines(heroPick).slice(0, 2).join(' • ')}</p>
+          {/* Room for it on a wide screen, where the hero is a banner rather
+              than a card; a phone shows it on the activity's own page. */}
+          {heroPick.description && <p className="hero-desc">{heroPick.description}</p>}
           <span className="hero-cta">
             {t('home.takeALook')} <ArrowRight size={16} />
           </span>
@@ -125,7 +134,7 @@ export default function HomePage() {
       )}
 
       {fromPicks.length > 0 && (
-        <section className="section-block">
+        <section className="section-block picks-block">
           <div className="section-heading">
             <div>
               <span className="eyebrow">{t('home.fromInterests')}</span>
@@ -135,7 +144,7 @@ export default function HomePage() {
               {t('common.seeAll')} <ArrowRight size={15} />
             </button>
           </div>
-          <div className="stack">
+          <div className="stack card-grid">
             {fromPicks.map((activity) => (
               <ActivityCard key={activity.id} activity={activity} />
             ))}
@@ -143,7 +152,7 @@ export default function HomePage() {
         </section>
       )}
 
-      <section className="section-block">
+      <section className="section-block soon-block">
         <div className="section-heading">
           <div>
             <span className="eyebrow">{t('home.soonestFirst')}</span>
@@ -151,7 +160,7 @@ export default function HomePage() {
           </div>
           <span className="count-chip">{soonest.length}</span>
         </div>
-        <div className="stack">
+        <div className="stack card-grid">
           {loading ? (
             <ActivitiesLoading />
           ) : filteredActivities.length === 0 ? (

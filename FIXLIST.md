@@ -141,6 +141,8 @@ three. Details in README.md; the parts worth knowing here:
   tablet, fills the screen on phones, and handles landscape phones and short
   windows (which previously pushed the bottom nav off screen and made onboarding
   unfinishable). `100dvh` so mobile browser chrome doesn't hide the nav.
+  _Superseded 2026-09-16 by the web layout below: the frame is gone at every
+  width; the phone rules and `100dvh` remain._
 - **Failure-scenario audit, 2026-09-14** — seventeen findings, all fixed
   (ADR-015 records the design). The chat composer keeps a message the server
   refuses; a refused thread listener says so and can be retried instead of
@@ -215,6 +217,28 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **Web layout, 2026-09-16** — the phone frame is gone: under 720px the app
+  is the phone it was; from 720px a web header (brand, four tabs, search,
+  create, notifications, avatar → profile) replaces the bar, the tabs and
+  the floating button, the scroller runs the full window, and each page
+  takes a width keyed by its route (760 / 960 / 1200px). From 1024px
+  Discover, Map (a list beside the map that selects pins), Activity (sticky
+  action card with the facts), AI Picks and Profile take two columns; card
+  lists become grids. Sign-in, splash and onboarding are centred columns on
+  the page's own ground. The scroller is focused on each screen so the
+  keyboard scrolls it. Also fixed in passing: the map's round "see as list"
+  button had kept pill padding and squeezed its icon to 4px. ADR-019.
+  Verified at 1920 / 1440 / 1280 / 1024 / 844×390 / 768 / 390 / 320, light
+  and dark, all four languages; 7 shell tests added.
+- **Language in the header, 2026-09-16** — from 720px the language picker
+  (the Settings control, the same stored choice) sits in the web header
+  between notifications and the avatar: icon and chevron to 1279px, the
+  language's own name from 1280px; Settings keeps its row and both show
+  the one value. Found on the way: the shell's grid column could widen
+  past the window when the header did (`1fr` → `minmax(0, 1fr)`).
+  ADR-019 addendum. Verified at 720 / 1024 / 1280 in all four languages
+  (no overflow; header ↔ Settings, reload, sign-out/in, second tab);
+  1 shell test added.
 
 ---
 

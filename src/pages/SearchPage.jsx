@@ -45,7 +45,7 @@ export default function SearchPage() {
           aria-label={t('search.label')}
         />
       </div>
-      <div className="stack list-stack">
+      <div className="stack list-stack card-grid">
         {results.map((a) => (
           <ActivityCard key={a.id} activity={a} compact />
         ))}

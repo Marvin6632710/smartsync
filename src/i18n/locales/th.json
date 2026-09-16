@@ -68,7 +68,8 @@
     "aiPicks": "AI แนะนำ",
     "messages": "ข้อความ",
     "profile": "โปรไฟล์",
-    "primary": "เมนูหลัก"
+    "primary": "เมนูหลัก",
+    "create": "สร้าง"
   },
   "titles": {
     "home": "ค้นพบ",
@@ -1037,6 +1038,9 @@
   },
   "map": {
     "showMyLocation": "แสดงตำแหน่งของฉัน",
-    "seeAsList": "ดูกิจกรรมแบบรายการ"
+    "seeAsList": "ดูกิจกรรมแบบรายการ",
+    "listTitle": "บนแผนที่",
+    "listCount_other": "{{count}} กิจกรรม",
+    "listHint": "เลือกกิจกรรมเพื่อดูตำแหน่งบนแผนที่"
   }
 }

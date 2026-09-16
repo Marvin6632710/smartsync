@@ -885,3 +885,86 @@ per profile, for the same reason as the language. What this does not do:
 re-theme the category gradients (they are saturated grounds that already
 read in the dark) or the OpenStreetMap tiles beyond a filter.
 
+## ADR-019 — A phone under 720px, a web application above it
+
+**Context.** On a desktop browser the app was a phone: a 420px frame with
+rounded corners in the middle of an empty window, tabs along its bottom and
+a floating create button, whatever the size of the screen. That was a
+sensible presentation for a prototype demonstrated on a laptop; for a
+product it read as an Android app inside a browser, and it wasted the one
+thing a large screen has — width — on nothing. The map in particular was
+a phone's map: 400px wide on a 1440px monitor.
+
+**Decision.** One shell, two presentations, chosen by the stylesheet and
+never by JavaScript. Under 720px the app is exactly the phone it was: the
+bar with the way back, the scroller, the tabs, the floating button. From
+720px it is a web application. One header carries the brand, the four
+tabs (Discover, Map, AI Picks, Messages), search, the create action,
+notifications and the avatar, which is the way to the profile — the
+placement every web application uses, so a fifth tab would be the same
+door twice. A top header rather than a sidebar, because five destinations
+do not need a rail, a rail reads as an administrative tool, and the map
+and the feed want the width. Nothing sits along the bottom. The scroller
+runs the full width of the window, and each page takes the width its
+content earns, keyed by the route (`data-view` on `main`): a 760px column
+for settings, forms, notifications and chat; 960px for the moderation queue
+and people matching; 1200px for Discover, Search, Joined, an activity, AI
+Picks and the profile. From 1024px, pages with a main thing and a second
+thing take two columns: Discover puts its hero across the page and the
+soonest activities beside the picks from your interests, which stay put as
+the feed scrolls; the map gets a list of what is on it, which lights a pin
+and moves the map when a row is chosen; an activity keeps its actions, and
+the facts they rest on, in a card that stays in view beside the reasons
+and the host; AI Picks puts the strongest match beside how it was chosen;
+the profile puts who you are beside what you do. Lists of activity cards
+become grids of as many as fit at a width where a title still has a line
+to itself. The pages outside the shell — sign-in, onboarding, boot, errors
+— lose the phone card and become a centred column on the page's own
+ground, with the colour fields behind sign-in washing the whole window.
+
+Both headers are in the document at every width and the stylesheet shows
+one, so no header arrives late and nothing measures the window in
+JavaScript. The scroller is `main` at every width, not the document, so
+the map fills the screen, the chat composer stays at the bottom and the
+sticky action bar keeps working unchanged; because a scroller only answers
+the keyboard once something in it has focus, the shell gives it focus as
+each screen opens (unless the screen has already put focus somewhere, as
+Search does). Three breakpoints, taken from the app rather than a
+framework: 720px is where a header with icons and a create button fits in
+every language, and 1024px is where labels and a second column do. The
+mobile-only rules that assumed the frame moved with it; the phone's own
+rules at 520px and 640px of height stayed.
+
+**Consequences.** The phone is untouched: every rule for it is the rule it
+was, and the wide-screen rules are additive, at the end of the stylesheet,
+under `min-width` queries. Adding a page means deciding its width once, in
+CSS, by its route word; a page that says nothing gets the reading column.
+A composition that needs the DOM regrouped (an activity's three groups)
+does it with wrappers that lay out as their contents on a phone, so the
+phone's box tree is the phone's box tree. The width of the header's
+labels was measured in all four languages at 1024px, the narrowest width
+that shows them. What this does not do: give the desktop its own
+navigation words (the tabs are the tabs), or put the document in charge of
+scrolling — Page Down works because the scroller is focused, which is the
+one thing a web page with an inner scroller has to be told.
+
+**Addendum, 2026-09-16 — the language picker in the header.** On a phone
+the language is chosen on the entry screens and at the top of Settings.
+On the web the header is the one place a person who cannot read the page
+can be sure to look, so from 720px the same control — `LanguageMenu`, the
+same stored choice under `smartsync:language`, nothing new to keep in
+step — sits in the header between the notifications and the avatar,
+where web applications keep the personal settings; the Settings row stays
+and shows the same value, since both are views of one setting. The pill is
+its icon and a chevron until 1280px and its language's own name from
+there: at 1024px the four labelled tabs, the brand and the buttons leave
+under 100px in Burmese and 30px in English, and the pill with its name is
+118px (a native select is as wide as its widest option). Below 720px the
+header is not shown and nothing changes. Also from this: the shell's one
+grid column is `minmax(0, 1fr)` rather than `1fr` — a header wider than
+the window had been widening every row with it, unseen behind the shell's
+`overflow: hidden`, and this was found because the language pill briefly
+made the English header 17px too wide at 1024px. Appearance stays in
+Settings: a theme is chosen once, a language is what makes the page
+readable.
+

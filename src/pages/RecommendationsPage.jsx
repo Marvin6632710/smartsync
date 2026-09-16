@@ -102,7 +102,7 @@ export default function RecommendationsPage() {
   }
 
   return (
-    <div className="page-content">
+    <div className="page-content picks-page">
       <section className="headline-block">
         <span className="eyebrow">{t('picks.eyebrow')}</span>
         <h2>{t('picks.title')}</h2>
@@ -154,6 +154,10 @@ export default function RecommendationsPage() {
                   <li key={reason}>{reason}</li>
                 ))}
             </ul>
+            {/* Room for it on a wide screen, where this card sits beside the
+                weights and has the height; a phone keeps it to the activity
+                page. */}
+            {top.description && <p className="top-pick-desc">{top.description}</p>}
             <button className="primary-button wide" onClick={() => navigate(`/activity/${top.id}`)}>
               {t('picks.takeALook')}
             </button>
@@ -220,7 +224,7 @@ export default function RecommendationsPage() {
                 </div>
                 <span className="count-chip">{group.items.length}</span>
               </div>
-              <div className="stack">
+              <div className="stack card-grid">
                 {group.items.map((activity) => (
                   <ActivityCard key={activity.id} activity={activity} />
                 ))}

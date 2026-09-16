@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, List, LocateFixed, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -13,7 +13,8 @@ import FiltersEmptyState from '../components/FiltersEmptyState'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { useDeviceLocation } from '../hooks/useDeviceLocation'
-import { distanceLabel } from '../i18n'
+import { categoryLabel, distanceLabel } from '../i18n'
+import { formatActivityDate, formatClock } from '../utils/time'
 
 const BANGKOK = [13.7563, 100.5018]
 
@@ -233,12 +234,85 @@ function ActivityPins({ activities, selectedId, onSelect }) {
   })
 }
 
-function FlyToMe({ target }) {
+/**
+ * Moves the view to a point: your own position, at street level as it
+ * always was; or an activity chosen from the list beside the map, which
+ * never zooms *out* — choosing a row while zoomed in on a district should
+ * not throw you back to the whole city.
+ */
+function FlyTo({ target, zoom = 15, atLeast = false }) {
   const map = useMap()
   React.useEffect(() => {
-    if (target) map.setView(target, 15)
-  }, [target, map])
+    if (target) map.setView(target, atLeast ? Math.max(map.getZoom(), zoom) : zoom)
+  }, [target, zoom, atLeast, map])
   return null
+}
+
+/**
+ * The activities on the map as a list, beside it.
+ *
+ * On a wide screen the map has room for a companion: the same activities as
+ * rows, so what the pins stand for can be read without hovering each one,
+ * and choosing a row lights its pin and moves the map to it. A phone shows
+ * the map alone and the stylesheet keeps this off it; the pins, the preview
+ * card and the buttons over the map are untouched.
+ */
+function MapSide({ activities, selectedId, onChoose, t }) {
+  const rows = useRef(new Map())
+  // A pin chosen on the map brings its row into view, so the two stay in
+  // step whichever side you drive from.
+  useEffect(() => {
+    if (!selectedId) return
+    rows.current.get(selectedId)?.scrollIntoView({ block: 'nearest' })
+  }, [selectedId])
+
+  return (
+    <aside className="map-side" aria-label={t('map.listTitle')}>
+      <div className="map-side-head">
+        <span className="eyebrow">{t('map.listTitle')}</span>
+        <h2>{t('map.listCount', { count: activities.length })}</h2>
+        <p className="helper-text">{t('map.listHint')}</p>
+      </div>
+      <div className="map-side-list">
+        {activities.map((activity) => {
+          const selected = activity.id === selectedId
+          return (
+            <button
+              key={activity.id}
+              type="button"
+              className="map-row"
+              data-category={categoryKey(activity.category)}
+              aria-current={selected ? 'true' : undefined}
+              ref={(el) => {
+                if (el) rows.current.set(activity.id, el)
+                else rows.current.delete(activity.id)
+              }}
+              onClick={() => onChoose(activity)}
+            >
+              <span className="preview-icon" aria-hidden="true">
+                <CategoryIcon category={activity.category} size={18} />
+              </span>
+              <span className="map-row-copy">
+                <strong>{activity.title}</strong>
+                <small>
+                  {categoryLabel(activity.category)} · {formatActivityDate(activity.date)} ·{' '}
+                  {formatClock(activity.time)}
+                </small>
+                <small>
+                  {activity.distanceKm != null
+                    ? t('distance.away', { distance: distanceLabel(activity.distanceKm) })
+                    : activity.locationName}
+                </small>
+              </span>
+              <span className="match-pill">
+                {t('common.match', { value: activity.matchScore ?? '--' })}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </aside>
+  )
 }
 
 export default function MapPage() {
@@ -263,6 +337,9 @@ export default function MapPage() {
   const navigate = useNavigate()
   const [selectedId, setSelectedId] = useState(null)
   const [flyTarget, setFlyTarget] = useState(null)
+  // A choice made in the list, which moves the map; a tap on a pin does
+  // not, because the map is already where you are looking.
+  const [focus, setFocus] = useState(null)
 
   const located = useMemo(
     () => filteredActivities.filter((a) => Number.isFinite(a.lat) && Number.isFinite(a.lng)),
@@ -302,8 +379,14 @@ export default function MapPage() {
     if (granted) setFlyTarget(null)
   }
 
+  const chooseFromList = (activity) => {
+    setSelectedId(activity.id)
+    setFocus([activity.lat, activity.lng])
+  }
+
   return (
     <div className="smart-map-page">
+      <MapSide activities={located} selectedId={selectedId} onChoose={chooseFromList} t={t} />
       <div className="smart-map">
         <MapContainer
           // Where to look before anything else decides. Your own position if
@@ -341,7 +424,8 @@ export default function MapPage() {
             <Marker position={[user.location.lat, user.location.lng]} icon={meIcon} />
           )}
           <FitToActivities points={points} />
-          <FlyToMe target={flyTarget} />
+          <FlyTo target={flyTarget} />
+          <FlyTo target={focus} zoom={14} atLeast />
         </MapContainer>
 
         <button

@@ -40,7 +40,7 @@ export default function UserMatchingPage() {
         </div>
       )}
 
-      <div className="stack">
+      <div className="stack people-grid">
         {matches.map((matchedUser) => {
           const notificationsOn = followedUserIds.includes(matchedUser.uid)
 

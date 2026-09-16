@@ -68,7 +68,8 @@
     "aiPicks": "AI Picks",
     "messages": "Messages",
     "profile": "Profile",
-    "primary": "Primary navigation"
+    "primary": "Primary navigation",
+    "create": "Create"
   },
   "titles": {
     "home": "Discover",
@@ -1042,6 +1043,10 @@
   },
   "map": {
     "showMyLocation": "Show my location",
-    "seeAsList": "See activities as a list"
+    "seeAsList": "See activities as a list",
+    "listTitle": "On the map",
+    "listCount_one": "{{count}} activity",
+    "listCount_other": "{{count}} activities",
+    "listHint": "Choose one to see where it is."
   }
 }

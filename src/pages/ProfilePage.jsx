@@ -47,7 +47,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="page-content">
+    <div className="page-content profile-page">
       <section className="profile-showcase">
         <div className="profile-actions-top">
           <button
@@ -126,7 +126,7 @@ export default function ProfilePage() {
             {t('common.seeAll')}
           </button>
         </div>
-        <div className="stack">
+        <div className="stack card-grid">
           {joined.slice(0, 2).map((a) => (
             <ActivityCard key={a.id} activity={a} compact />
           ))}
