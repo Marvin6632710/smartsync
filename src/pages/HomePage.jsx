@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react'
-import { ArrowRight, Filter, Map, Search } from 'lucide-react'
+import { ArrowRight, Filter, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useCountUp } from '../hooks/useCountUp'
@@ -95,9 +95,6 @@ export default function HomePage() {
         </button>
         <button onClick={() => navigate('/filters')}>
           <Filter size={16} /> {t('common.filter')}
-        </button>
-        <button onClick={() => navigate('/map')}>
-          <Map size={16} /> {t('common.map')}
         </button>
       </div>
 

@@ -3272,7 +3272,7 @@ input[type='range'] {
    reach for occasionally — they should not cost a third of the screen. */
 .discover-tools {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 .discover-tools button {
