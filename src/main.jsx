@@ -9,6 +9,9 @@ import { installGlobalErrorReporting } from './utils/reportError'
 // The interface's languages, initialised before the first render so nothing
 // paints in one language and then switches.
 import './i18n'
+// The theme's listeners (device setting, other tabs) attach at startup; the
+// document is already stamped by public/theme-boot.js before this runs.
+import './theme'
 import './styles.css'
 
 // Before anything renders, so a failure during the first paint is caught too.

@@ -850,3 +850,38 @@ device already remembers); or word a warning's seeded reason in the
 recipient's language — the moderator edits and sends that text, so it is
 their words, in their language, like any reason they type.
 
+## ADR-018 — Two token sets, one attribute, and a script that runs first
+
+**Context.** The app had one palette, declared as custom properties on
+`:root` and used everywhere; the only literal colours outside that block
+were white on category gradients, which are the same in any theme. People
+asked for a dark appearance, and for the choice to follow the device when
+they had no preference of their own.
+
+**Decision.** The theme is a second token set under
+`:root[data-theme='dark']` — the same warm hue at rising lightness, the
+accent lifted two stops so it reads as text on a dark card and takes dark
+ink on filled controls — and nothing else: no component knows which theme
+it is in, and no rule is duplicated. The few rules that carried literals
+that mattered (the dialog scrim, loading skeletons, two urgency pills, the
+per-category chip tints, shadows, the map ground) were given tokens so the
+dark set could turn them over. The preference is one word on the device
+(`smartsync:theme`: light, dark or system), like the language; the
+resolved theme is stamped on the root element, and `system` resolves
+through `prefers-color-scheme` and re-resolves on the device's `change`
+event, attached once for the life of the page. Because the hosting policy
+allows no inline scripts, `public/theme-boot.js` — a classic script
+served from this origin, first in `<head>`, ahead of the stylesheet —
+stamps the same attribute before the first paint, so the page opens in the
+theme it was left in; hosting serves it `no-cache` because its name carries
+no hash. `color-scheme` follows the attribute so native pickers and
+scrollbars match. The map's tiles are OpenStreetMap's and cannot be
+re-drawn; in the dark set they are inverted and turned back through the
+hue wheel, and the pins, in their own pane, keep their colours.
+
+**Consequences.** Adding a colour means declaring it in both sets; a
+literal in a component rule is now a bug. The choice is per device, not
+per profile, for the same reason as the language. What this does not do:
+re-theme the category gradients (they are saturated grounds that already
+read in the dark) or the OpenStreetMap tiles beyond a filter.
+

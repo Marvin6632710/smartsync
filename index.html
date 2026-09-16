@@ -3,7 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#071224" />
+    <!-- Stamps the stored theme on <html> before anything paints; see public/theme-boot.js. -->
+    <script src="/theme-boot.js"></script>
+    <!-- The ground colour before the stylesheet has arrived, so a cold load on a
+         slow connection paints the right theme from the first frame rather than
+         the browser's white. The stylesheet's own rules outrank these. -->
+    <style>
+      html {
+        background: #f4eee6;
+        color-scheme: light;
+      }
+      html[data-theme='dark'] {
+        background: #171410;
+        color-scheme: dark;
+      }
+    </style>
+    <meta name="theme-color" content="#f4eee6" />
     <meta name="description" content="SmartSync activity discovery prototype" />
     <title>SmartSync</title>
   </head>

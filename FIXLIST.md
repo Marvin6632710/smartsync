@@ -208,6 +208,13 @@ three. Details in README.md; the parts worth knowing here:
   auth forms validate in the app's language instead of the browser's.
   Design record: ADR-017. 34 tests added, including key parity across the
   four files and a stored-text round trip in each language.
+- **Appearance, 2026-09-16** — Light, Dark and System, chosen in Settings
+  and kept on the device (`smartsync:theme`); System follows
+  `prefers-color-scheme` live. Implemented as a second token set under
+  `:root[data-theme='dark']` (ADR-018) with the scrim, skeletons, urgency
+  pills, category chip tints, shadows and the map ground moved onto tokens;
+  `public/theme-boot.js` stamps the attribute before the first paint. Every
+  dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
 
 ---
 

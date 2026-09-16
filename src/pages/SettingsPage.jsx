@@ -2,19 +2,21 @@ import React, { useState } from 'react'
 import {
   Bell,
   ChevronRight,
+  Languages,
   LogOut,
   MessageCircle,
   MessageSquareWarning,
   ShieldAlert,
   ShieldCheck,
-  Languages,
   ShieldOff,
   SlidersHorizontal,
+  SunMoon,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ConfirmDialog from '../components/ConfirmDialog'
 import LanguageMenu from '../components/LanguageMenu'
+import ThemeChoice from '../components/ThemeChoice'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { setNotificationsEnabled } from '../firebase/users'
@@ -55,6 +57,14 @@ export default function SettingsPage() {
             <small>{t('language.hint')}</small>
           </span>
           <LanguageMenu />
+        </div>
+        <div className="setting-row theme-row">
+          <SunMoon size={18} />
+          <span>
+            <strong>{t('settings.theme')}</strong>
+            <small>{t('theme.hint')}</small>
+          </span>
+          <ThemeChoice />
         </div>
         <button className="setting-row" onClick={() => navigate('/privacy')}>
           <ShieldCheck size={18} />

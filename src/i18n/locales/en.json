@@ -49,6 +49,13 @@
     "hint": "The app's own words, not what people write",
     "select": "Choose language"
   },
+  "theme": {
+    "hint": "Light, dark, or whatever the device uses",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "select": "Choose appearance"
+  },
   "app": {
     "starting": "Starting SmartSync…",
     "loadingProfile": "Loading your profile…",
@@ -571,6 +578,7 @@
     "notifications": "Notifications",
     "notificationsHint": "Joins, messages and activity updates",
     "language": "Language",
+    "theme": "Appearance",
     "moderation": "Moderation",
     "moderationHintAdmin": "Open reports · you are an admin",
     "moderationHintModerator": "Open reports · you are a moderator",

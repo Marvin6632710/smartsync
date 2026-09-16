@@ -99,6 +99,22 @@
   --danger: #be123c;
   --danger-soft: #ffe9ea;
   --danger-line: #fbd3d8;
+  --warning-line: #f4ddb6;
+
+  /* --- Surfaces that are not a colour ---------------------
+     The scrim behind a dialog, and the grey of a card still loading,
+     both alpha over whatever is beneath. Declared so the dark set can
+     make the scrim deeper and the skeleton lighter, which is the
+     opposite of what a shared literal would do. */
+  --scrim: rgba(16, 18, 26, 0.4);
+  --skeleton: rgba(100, 116, 139, 0.14);
+  --skeleton-shine: rgba(100, 116, 139, 0.22);
+
+  /* The accent as a *ground* for white text — the profile showcase and
+     the brand mark. In the light set it is the accent itself; the dark
+     set lifts the accent for use as text and keeps this one deep, so white
+     on it still reads. */
+  --accent-deep: #4f46e5;
 
   /* --- Radii --------------------------------------------- */
   --r-sm: 10px;
@@ -153,6 +169,71 @@
 
   color: var(--text);
   background: var(--bg);
+  /* Native controls — selects, date pickers, scrollbars — follow the app's
+     theme, not the device's, so a light app never grows a dark picker. */
+  color-scheme: light;
+}
+
+/* =========================================================
+   DARK
+   The same palette, turned over. Every neutral keeps the warm hue
+   of the light set (78°) at rising lightness, so the app is the same
+   material in the dark rather than a different app; cards sit *above*
+   the page by being lighter, the way paper does under a lamp. Text
+   steps down through the same three levels. The accent is lifted two
+   stops so it reads as text on a dark card (5.3:1) and takes dark ink
+   on filled controls, where white would fall to 3:1. Semantic colours
+   are lifted the same way. Category identities keep their gradients —
+   those are already saturated grounds — and only their chip tints
+   change, from a pale wash to a dark one with the light partner as
+   the text on it.
+   `public/theme-boot.js` stamps `data-theme` before the first paint;
+   `src/theme` keeps it right after that.
+   ========================================================= */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #171410;
+  --bg-rgb: 23, 20, 16;
+  --bg-sunken: #100e0b;
+  --surface: #211d18;
+  --surface-2: #2a251f;
+  --line: #37312a;
+  --line-strong: #4a423a;
+
+  --text: #f3ede4;
+  --text-2: #b8afa2;
+  --text-3: #aaa194;
+  --ink: #f3ede4;
+  --ink-soft: #b8afa2;
+  --surface-soft: #2a251f;
+
+  --accent: #8b84f3;
+  --accent-rgb: 139, 132, 243;
+  --accent-strong: #a39df6;
+  --accent-soft: #2a2842;
+  --accent-line: #464380;
+  --on-accent: #14111c;
+  --accent-deep: #4f46e5;
+
+  --map-land: #1d1a16;
+
+  --success: #4fdca6;
+  --success-soft: #16302a;
+  --warning: #f7bd5e;
+  --warning-soft: #372a15;
+  --warning-line: #5a4522;
+  --danger: #ff8d9b;
+  --danger-soft: #3a1c22;
+  --danger-line: #5c2a33;
+
+  --scrim: rgba(0, 0, 0, 0.62);
+  --skeleton: rgba(255, 255, 255, 0.07);
+  --skeleton-shine: rgba(255, 255, 255, 0.13);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.55);
 }
 
 /* =========================================================
@@ -333,6 +414,59 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+/* Category chip tints, turned over for the dark set: a dark wash of the
+   category's own colour, with its light partner as the text on it. The
+   card gradients above are untouched — they were always a saturated
+   ground and read the same under a lamp or in the dark. */
+:root[data-theme='dark'] [data-category='football'] {
+  --cat-soft: rgba(91, 200, 120, 0.18);
+  --cat-on-soft: #5bc878;
+}
+:root[data-theme='dark'] [data-category='running'] {
+  --cat-soft: rgba(255, 134, 90, 0.18);
+  --cat-on-soft: #ff865a;
+}
+:root[data-theme='dark'] [data-category='cycling'] {
+  --cat-soft: rgba(81, 183, 255, 0.18);
+  --cat-on-soft: #51b7ff;
+}
+:root[data-theme='dark'] [data-category='gym'] {
+  --cat-soft: rgba(0, 190, 240, 0.18);
+  --cat-on-soft: #00bef0;
+}
+:root[data-theme='dark'] [data-category='study'] {
+  --cat-soft: rgba(14, 195, 188, 0.18);
+  --cat-on-soft: #0ec3bc;
+}
+:root[data-theme='dark'] [data-category='coffee'] {
+  --cat-soft: rgba(214, 169, 138, 0.18);
+  --cat-on-soft: #d6a98a;
+}
+:root[data-theme='dark'] [data-category='gaming'] {
+  --cat-soft: rgba(234, 136, 255, 0.18);
+  --cat-on-soft: #ea88ff;
+}
+:root[data-theme='dark'] [data-category='hangouts'] {
+  --cat-soft: rgba(255, 127, 211, 0.18);
+  --cat-on-soft: #ff7fd3;
+}
+:root[data-theme='dark'] [data-category='movies'] {
+  --cat-soft: rgba(255, 127, 152, 0.18);
+  --cat-on-soft: #ff7f98;
+}
+:root[data-theme='dark'] [data-category='food'] {
+  --cat-soft: rgba(208, 175, 21, 0.18);
+  --cat-on-soft: #d0af15;
+}
+:root[data-theme='dark'] [data-category='events'] {
+  --cat-soft: rgba(171, 160, 255, 0.18);
+  --cat-on-soft: #aba0ff;
+}
+:root[data-theme='dark'] [data-category='basketball'] {
+  --cat-soft: rgba(241, 159, 8, 0.18);
+  --cat-on-soft: #f19f08;
+}
+
 /* =========================================================
    SHELL
    ========================================================= */
@@ -423,7 +557,7 @@ select:focus-visible {
     border-color 0.24s var(--ease);
 }
 .topbar[data-titled='yes'] {
-  box-shadow: 0 1px 12px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--shadow-sm);
 }
 @media (prefers-reduced-motion: reduce) {
   .topbar-copy {
@@ -869,7 +1003,7 @@ select:focus-visible {
 .category-chip {
   padding: 5px 10px;
   background: var(--cat-soft, var(--bg-sunken));
-  color: var(--cat, var(--text-2));
+  color: var(--cat-on-soft, var(--cat, var(--text-2)));
   font-size: var(--t-xs);
   font-weight: var(--w-medium);
 }
@@ -1887,7 +2021,7 @@ select:focus-visible {
   place-items: center;
   border-radius: var(--r-sm);
   background: var(--cat-soft, var(--accent-soft));
-  color: var(--cat, var(--accent));
+  color: var(--cat-on-soft, var(--cat, var(--accent)));
 }
 .preview-copy {
   min-width: 0;
@@ -2033,7 +2167,7 @@ select:focus-visible {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(16, 18, 26, 0.4);
+  background: var(--scrim);
   animation: fadeIn 0.15s ease;
 }
 .dialog {
@@ -2648,12 +2782,12 @@ select:focus-visible {
    ========================================================================== */
 
 .past-banner {
-  background: rgba(100, 116, 139, 0.14);
+  background: var(--skeleton);
   color: var(--ink-soft);
 }
 
 .match-pill.ended-pill {
-  background: rgba(100, 116, 139, 0.14);
+  background: var(--skeleton);
   color: var(--ink-soft);
 }
 
@@ -2676,9 +2810,9 @@ select:focus-visible {
   margin: 0 -14px 4px;
   background: linear-gradient(
     90deg,
-    rgba(100, 116, 139, 0.1) 25%,
-    rgba(100, 116, 139, 0.18) 37%,
-    rgba(100, 116, 139, 0.1) 63%
+    var(--skeleton) 25%,
+    var(--skeleton-shine) 37%,
+    var(--skeleton) 63%
   );
   background-size: 400% 100%;
   animation: skeleton-sweep 1.3s ease-in-out infinite;
@@ -2690,9 +2824,9 @@ select:focus-visible {
   border-radius: 6px;
   background: linear-gradient(
     90deg,
-    rgba(100, 116, 139, 0.1) 25%,
-    rgba(100, 116, 139, 0.18) 37%,
-    rgba(100, 116, 139, 0.1) 63%
+    var(--skeleton) 25%,
+    var(--skeleton-shine) 37%,
+    var(--skeleton) 63%
   );
   background-size: 400% 100%;
   animation: skeleton-sweep 1.3s ease-in-out infinite;
@@ -2755,7 +2889,7 @@ select:focus-visible {
   margin: 0 12px 6px;
   padding: 8px 10px;
   border-radius: var(--r-sm);
-  background: rgba(100, 116, 139, 0.12);
+  background: var(--skeleton);
   color: var(--ink-soft);
   font-size: var(--t-tiny);
   line-height: 1.35;
@@ -3049,7 +3183,7 @@ input[type='range'] {
   gap: 4px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: var(--surface-soft, rgba(100, 116, 139, 0.12));
+  background: var(--surface-soft);
   text-transform: capitalize;
 }
 
@@ -3381,7 +3515,7 @@ input[type='range'] {
   overflow: hidden;
   color: #fff;
   isolation: isolate;
-  background: linear-gradient(150deg, var(--accent), #7c5cf5 55%, #b06ef0);
+  background: linear-gradient(150deg, var(--accent-deep), #7c5cf5 55%, #b06ef0);
   box-shadow: 0 14px 30px -12px rgba(var(--accent-rgb), 0.55);
 }
 .profile-showcase::after {
@@ -3635,7 +3769,7 @@ body {
 }
 .going-face.more {
   background: var(--cat-soft, var(--accent-soft));
-  color: var(--cat, var(--accent));
+  color: var(--cat-on-soft, var(--cat, var(--accent)));
   font-variant-numeric: tabular-nums;
 }
 .going-count {
@@ -3666,9 +3800,9 @@ body {
   border: 1px solid transparent;
 }
 .urgency-pill.tone-now {
-  background: #fdecea;
-  color: #a8281a;
-  border-color: #f6d2cd;
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger-line);
 }
 .urgency-pill.tone-soon {
   background: var(--accent-soft);
@@ -3676,9 +3810,9 @@ body {
   border-color: var(--accent-line);
 }
 .urgency-pill.tone-last {
-  background: #fdf0dd;
-  color: #8a5a06;
-  border-color: #f2ddb8;
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: var(--warning-line);
 }
 .urgency-pill.tone-filling {
   background: var(--bg-sunken);
@@ -3988,7 +4122,7 @@ body {
   width: 24px;
   height: 24px;
   border-radius: var(--r-pill);
-  background: rgba(100, 116, 139, 0.13);
+  background: var(--skeleton);
   margin-right: -8px;
 }
 .skeleton-face:last-of-type {
@@ -4686,4 +4820,102 @@ body {
 :root[lang='my'] .button-row > .danger-button {
   padding-left: 12px;
   padding-right: 12px;
+}
+
+/* =========================================================
+   APPEARANCE
+   The three-way switch in Settings, and the two things the dark set
+   cannot do with tokens alone: the map tiles, and the browser's own
+   chrome.
+   ========================================================= */
+
+.theme-row {
+  cursor: default;
+  grid-template-columns: auto 1fr;
+}
+.theme-row:hover {
+  background: transparent;
+}
+.theme-row:active {
+  transform: none;
+}
+.theme-row .segmented {
+  grid-column: 1 / -1;
+}
+
+/* A radio group drawn as one pill with three cells. The chosen cell is
+   filled with the accent and carries a tick, so the state reads in
+   shape as well as colour; the others are quiet text on the sunken
+   ground. */
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  /* Equal cells that can never grow past the card: a label that does not
+     fit is the container query's problem below, not the layout's. */
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--r-pill);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+}
+.segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+.segment:hover {
+  color: var(--text);
+}
+.segment.selected {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: var(--w-semibold);
+  box-shadow: var(--shadow-sm);
+}
+.segment:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.segment > span {
+  white-space: nowrap;
+}
+.segment-check {
+  flex: none;
+}
+@container (max-width: 300px) {
+  /* Three labelled cells do not fit across the narrowest phones; the
+     icons carry the row and the tick marks the choice. */
+  .segment > span {
+    display: none;
+  }
+  .segment {
+    padding: 0 8px;
+  }
+}
+
+/* The map's tiles are drawn by OpenStreetMap in daylight colours and
+   cannot be re-themed; in the dark set they are inverted and turned
+   back through the hue wheel, which leaves roads and water where they
+   were at a fraction of the brightness. Pins live in another pane and
+   keep their own colours. */
+:root[data-theme='dark'] .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.9) saturate(0.7);
+}
+:root[data-theme='dark'] .leaflet-control-attribution a {
+  color: var(--accent);
 }

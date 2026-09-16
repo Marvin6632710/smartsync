@@ -49,6 +49,13 @@
     "hint": "仅应用自身的文字，不含用户写的内容",
     "select": "选择语言"
   },
+  "theme": {
+    "hint": "浅色、深色，或跟随设备设置",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "系统",
+    "select": "选择外观"
+  },
   "app": {
     "starting": "正在启动 SmartSync…",
     "loadingProfile": "正在加载你的资料…",
@@ -562,6 +569,7 @@
     "notifications": "通知",
     "notificationsHint": "加入、消息和活动更新",
     "language": "语言",
+    "theme": "外观",
     "moderation": "内容审核",
     "moderationHintAdmin": "待处理举报 · 你是管理员",
     "moderationHintModerator": "待处理举报 · 你是审核员",
