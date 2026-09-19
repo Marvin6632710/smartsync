@@ -16,6 +16,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import BackButton from './BackButton'
 import CelebrationToast from './CelebrationToast'
+import BrandMark from './BrandMark'
 import LanguageMenu from './LanguageMenu'
 import RouteErrorBoundary from './RouteErrorBoundary'
 import JoinBurst from './JoinBurst'
@@ -190,9 +191,7 @@ export default function Shell() {
       <header className="web-header">
         <div className="web-header-inner">
           <NavLink to="/home" className="brand" aria-label={t('common.appName')}>
-            <span className="brand-mark" aria-hidden="true">
-              <Sparkles size={17} />
-            </span>
+            <BrandMark tile size={32} className="brand-mark" />
             <span className="brand-name">{t('common.appName')}</span>
           </NavLink>
 

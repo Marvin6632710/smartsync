@@ -61,6 +61,11 @@ test('both headers are rendered, and each carries the unread count', () => {
 
 test('the web header has the four tabs and reaches the profile through the avatar', () => {
   mount('/home')
+  // The brand link carries the mark (decorative) and the name (the label).
+  const brand = document.querySelector('.web-header a.brand')
+  expect(brand.getAttribute('href')).toBe('/home')
+  expect(brand.querySelector('svg.brand-mark rect')).not.toBeNull()
+  expect(brand.querySelector('.lucide')).toBeNull()
   const links = [...document.querySelectorAll('.web-nav a')].map((a) => a.getAttribute('href'))
   expect(links).toEqual(['/home', '/map', '/recommendations', '/messages'])
   expect(document.querySelector('.web-avatar').getAttribute('href')).toBe('/profile')

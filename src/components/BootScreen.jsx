@@ -1,6 +1,7 @@
 import React from 'react'
-import { Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+
+import BrandMark from './BrandMark'
 
 /**
  * Shown while Firebase restores the session from disk. Without it every
@@ -12,7 +13,7 @@ export default function BootScreen({ label }) {
   return (
     <div className="standalone-page boot-screen">
       <div className="brand-orb pulsing">
-        <Sparkles size={34} />
+        <BrandMark tile size={72} className="orb-mark" />
       </div>
       <p className="boot-label">{label || t('common.loading')}</p>
     </div>

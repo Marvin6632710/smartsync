@@ -230,6 +230,13 @@ three. Details in README.md; the parts worth knowing here:
   button had kept pill padding and squeezed its icon to 4px. ADR-019.
   Verified at 1920 / 1440 / 1280 / 1024 / 844×390 / 768 / 390 / 320, light
   and dark, all four languages; 7 shell tests added.
+- **The mark, 2026-09-19** — SmartSync has a logo: two hooks making an S,
+  ink and indigo (`src/components/BrandMark.jsx`). It replaces the stock
+  sparkles icon in the web header, on the splash, sign-in, sign-up and boot
+  screens, and the tab finally has an icon (`public/favicon.svg`, plus an
+  Apple touch icon). The header wordmark is ExtraBold, tracked −3%. Four
+  directions and seven colourways were compared first (kept under
+  `design/logo-concepts/`). ADR-020. 2 tests added.
 - **Language in the header, 2026-09-16** — from 720px the language picker
   (the Settings control, the same stored choice) sits in the web header
   between notifications and the avatar: icon and chevron to 1279px, the

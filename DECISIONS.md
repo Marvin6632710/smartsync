@@ -968,3 +968,48 @@ made the English header 17px too wide at 1024px. Appearance stays in
 Settings: a theme is chosen once, a language is what makes the page
 readable.
 
+
+## ADR-020 — The mark: two hooks making an S, in ink and indigo
+
+**Context.** The app had no mark of its own. The header, the splash, the
+sign-in and sign-up screens and the boot screen all showed the same stock
+"sparkles" icon from the icon library on an indigo square, and the browser
+tab showed no icon at all. Sparkles say "AI" — the one thing the product is
+least about — and a stock icon cannot be a brand, since anyone else can
+ship it tomorrow. Four directions were drawn and compared on the app's own
+grounds, at every size down to 16px, in the header and as an app icon:
+a monogram of two people linking (Link), a ring with one opening and the
+dot that fits it (Fit), three people over one table seen from above (Meet),
+and two circles fused into one shape (Together). Link was chosen, then
+seven colour pairs for it were compared the same way.
+
+**Decision.** Two hooks, each a 270° arc ending in a head, curl into one
+another and make an S: the initial of both halves of the name, and two
+people whose paths bend toward each other and meet at the seam in the
+middle. The top hook is ink and the bottom one the accent. Drawn on a page
+(`<BrandMark />`) it is therefore the page's own `currentColor` and
+`var(--accent)`, and follows the theme without knowing about it. Drawn as
+a tile (`<BrandMark tile />`) — the header, the entry-screen orb, the
+favicon, the touch icon — it is cream and lilac on ink at every size and on
+every ground, which is what an icon has to be. Ink and indigo rather than
+the two tones of indigo first drawn: two tones of one hue say "one thing,
+shaded", and the lilac tone was 2.7:1 against the cream page, under the 3:1
+a graphic needs; ink and indigo say two different people, clear 3:1 on
+white, cream and dark, and make the app icon near-black, which reads as
+premium rather than as another indigo SaaS tile. Indigo and coral was the
+warmer alternative and was set aside for being louder than the app. The
+mark is drawn in the component from four primitives (two arcs, two
+circles) so it is one source, not a file; the favicon is the same four
+primitives as a static SVG, and the touch icon is rasterised from the same
+numbers. The wordmark is the app's name in Plus Jakarta Sans ExtraBold,
+tracked −3%, which the header already sets; no font was added.
+
+**Consequences.** The mark is decorative everywhere it appears: the link,
+heading or eyebrow beside it says the name, so it is `aria-hidden`. The
+entry orb no longer paints its own indigo and no longer glows indigo; its
+shadow is ink's. The warning orb (profile error) is untouched — it sets its
+own colours. The AI Picks tab keeps its sparkles: that icon means "picks",
+not "SmartSync". Drawings for all four directions and the seven colourways
+are kept under `design/logo-concepts/` as the record of what was rejected
+and why; only `public/favicon.svg`, `public/apple-touch-icon.png` and the
+component are part of the product.

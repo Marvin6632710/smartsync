@@ -873,9 +873,16 @@ select:focus-visible {
   width: 72px;
   height: 72px;
   border-radius: var(--r-xl);
-  background: var(--accent);
-  color: var(--on-accent);
-  box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.28);
+  /* The mark's own tile is the orb: ink, on every ground. The shadow is
+     ink's too — a coloured glow under a black square reads as a lamp. */
+  box-shadow: 0 10px 24px rgba(23, 19, 12, 0.22);
+}
+/* The tile fills the orb, so the orb's own size (smaller on a short
+   window) is the tile's size. */
+.brand-orb > .orb-mark {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .avatar {
   width: 44px;
@@ -3596,7 +3603,7 @@ input[type='range'] {
   letter-spacing: -0.035em;
 }
 .brand-orb {
-  box-shadow: 0 14px 30px -10px rgba(var(--accent-rgb), 0.6);
+  box-shadow: 0 14px 30px -10px rgba(23, 19, 12, 0.5);
   animation: orbIn var(--dur-slow) var(--ease-spring) backwards;
 }
 @keyframes orbIn {
@@ -4969,19 +4976,15 @@ body {
     color: var(--text);
     font-family: var(--font-display);
     font-size: 17px;
-    font-weight: var(--w-bold);
-    letter-spacing: -0.02em;
+    font-weight: var(--w-black);
+    letter-spacing: -0.03em;
     flex-shrink: 0;
   }
   .brand-mark {
+    display: block;
     width: 32px;
     height: 32px;
-    border-radius: 10px;
-    background: var(--accent-deep);
-    color: #fff;
-    display: grid;
-    place-items: center;
-    box-shadow: 0 6px 14px -6px rgba(var(--accent-rgb), 0.6);
+    flex: none;
   }
   .brand-name {
     display: none;

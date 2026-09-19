@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
+import BrandMark from '../components/BrandMark'
 import LanguageMenu from '../components/LanguageMenu'
 import { authErrorKey, resetPassword } from '../firebase/auth'
 import { useAuth } from '../context/AuthContext'
@@ -64,7 +65,7 @@ export default function SignInPage() {
         <LanguageMenu />
       </div>
       <div className="brand-orb">
-        <Sparkles size={34} />
+        <BrandMark tile size={72} className="orb-mark" />
       </div>
       <div className="entry-copy">
         <span className="eyebrow">{t('common.appName')}</span>

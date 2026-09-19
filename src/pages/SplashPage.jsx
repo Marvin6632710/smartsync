@@ -1,7 +1,8 @@
 import React from 'react'
-import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react'
+import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import BrandMark from '../components/BrandMark'
 import LanguageMenu from '../components/LanguageMenu'
 
 /**
@@ -29,7 +30,7 @@ export default function SplashPage() {
         <LanguageMenu />
       </div>
       <div className="brand-orb">
-        <Sparkles size={38} />
+        <BrandMark tile size={72} className="orb-mark" />
       </div>
 
       <div className="entry-copy">
