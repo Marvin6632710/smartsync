@@ -1,0 +1,23 @@
+{
+  "_comment": "Shared by the app and the Cloud Function. `kinds` maps a stored notification kind to the translation key under notifications.templates; `appNames` are the two names the app itself writes in place of a person's, worded per language from the given keys.",
+  "kinds": {
+    "someoneJoined": "someoneJoined",
+    "activityCancelled": "cancelled",
+    "activityPosted": "posted",
+    "newMessage": "newMessage",
+    "suspended": "suspended",
+    "activeAgain": "activeAgain",
+    "activityRemoved": "activityRemoved",
+    "joinedRemoved": "joinedRemoved",
+    "nowModerator": "nowModerator",
+    "noLongerModerator": "noLongerModerator",
+    "closed": "closed",
+    "reopened": "reopened",
+    "warning": "warning",
+    "activityBack": "activityBack"
+  },
+  "appNames": {
+    "Anonymous user": "profile.anonymousName",
+    "New user": "profile.newUserName"
+  }
+}

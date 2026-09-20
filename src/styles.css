@@ -4885,6 +4885,124 @@ body {
 }
 
 /* =========================================================
+   BROWSER NOTIFICATIONS
+   The one-time offer after a join, the Notifications page under
+   Settings, and a toast that opens what it announces.
+   ========================================================= */
+
+.push-invite {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 12px 6px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent-line);
+  font-size: var(--t-sm);
+  line-height: 1.35;
+}
+.push-invite > svg {
+  flex: none;
+  color: var(--accent);
+}
+.push-invite-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.push-invite-text small {
+  color: var(--text-2);
+  font-size: var(--t-tiny);
+}
+.push-invite-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.primary-button.small,
+.secondary-button.small {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: var(--t-sm);
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .push-invite {
+    flex-wrap: wrap;
+  }
+  .push-invite-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+.settings-heading {
+  margin: 10px 4px -4px;
+  font-size: var(--t-sm);
+  font-weight: var(--w-semibold);
+  color: var(--text-2);
+}
+.push-status-row {
+  cursor: default;
+}
+.push-status-row:hover {
+  background: transparent;
+}
+.push-status {
+  color: var(--text-2);
+}
+.push-status[data-state='on'] {
+  color: var(--success);
+  font-weight: var(--w-medium);
+}
+.push-status[data-state='denied'] {
+  color: var(--danger);
+}
+.setting-note,
+.device-row {
+  cursor: default;
+}
+.setting-note:hover,
+.device-row:hover {
+  background: transparent;
+}
+.device-here {
+  font-style: normal;
+  font-size: var(--t-tiny);
+  font-weight: var(--w-semibold);
+  color: var(--accent);
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  vertical-align: middle;
+}
+.icon-button.subtle {
+  color: var(--text-2);
+}
+.icon-button.subtle:hover {
+  color: var(--danger);
+}
+
+/* A toast that opens something is a button; it looks like the toast. */
+button.celebration-toast {
+  width: auto;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+button.celebration-toast:hover {
+  border-color: var(--line-strong);
+}
+
+/* =========================================================
    WIDE SCREENS
    Under 720px the app is a phone, and everything above this line is
    that phone: a bar, a scroller, tabs along the bottom, a floating

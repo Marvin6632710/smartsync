@@ -416,13 +416,15 @@ export function resolveReport(reportId, { status, outcome, moderatorId }) {
  * failed decision — the removal or the suspension has already happened and is
  * not being rolled back because we could not announce it.
  */
-async function tell(uid, { title, body, activityId }) {
+async function tell(uid, { title, body, activityId, kind, params }) {
   if (!uid) return
   try {
     await addDoc(collection(db, 'users', uid, 'notifications'), {
       type: 'moderation',
       title,
       body: body.slice(0, 300),
+      // What it was worded from, for the reader's language and the push.
+      ...(kind ? { kind, params: params || {} } : {}),
       // Carrying the id makes the notification open the activity, where the
       // banner explains the decision in full. Without it the note is a
       // dead end that tells you something happened and not where.

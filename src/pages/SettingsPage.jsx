@@ -19,8 +19,6 @@ import LanguageMenu from '../components/LanguageMenu'
 import ThemeChoice from '../components/ThemeChoice'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-import { setNotificationsEnabled } from '../firebase/users'
-import { useSaveProfile } from '../hooks/useSaveProfile'
 
 export default function SettingsPage() {
   const { t } = useTranslation()
@@ -28,8 +26,6 @@ export default function SettingsPage() {
   const { user, signOut } = useAuth()
   const { pushCelebration } = useApp()
   const [signOutOpen, setSignOutOpen] = useState(false)
-  const { save, saving } = useSaveProfile()
-  const privacy = user.privacy
 
   // A sign-out that fails leaves the person signed in; that used to be an
   // unhandled rejection and a screen that did not change.
@@ -116,19 +112,15 @@ export default function SettingsPage() {
           </span>
           <ChevronRight size={17} />
         </button>
-        <button
-          className="setting-row"
-          onClick={() => save(() => setNotificationsEnabled(user.uid, !privacy.notifications))}
-          role="switch"
-          aria-checked={privacy.notifications}
-          disabled={saving}
-        >
+        {/* The inbox switch, browser notifications and the devices they
+            reach live on their own page: three things, not a toggle. */}
+        <button className="setting-row" onClick={() => navigate('/settings/notifications')}>
           <Bell size={18} />
           <span>
             <strong>{t('settings.notifications')}</strong>
             <small>{t('settings.notificationsHint')}</small>
           </span>
-          <span className={`switch ${privacy.notifications ? 'on' : ''}`} aria-hidden="true" />
+          <ChevronRight size={17} />
         </button>
       </div>
 

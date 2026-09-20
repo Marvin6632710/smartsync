@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   Bell,
@@ -35,11 +36,12 @@ const toastIcons = {
  * can too.
  */
 export default function CelebrationToast() {
-  const { celebration } = useApp()
+  const { celebration, pushCelebration } = useApp()
+  const navigate = useNavigate()
   if (!celebration) return null
   const Icon = toastIcons[celebration.icon] || Sparkles
-  return (
-    <div className="celebration-toast" key={celebration.id} role="status" aria-live="polite">
+  const inner = (
+    <>
       <div className={`toast-icon ${celebration.tone || 'default'}`}>
         <Icon size={18} />
       </div>
@@ -47,6 +49,31 @@ export default function CelebrationToast() {
         <strong>{celebration.title}</strong>
         <p>{celebration.body}</p>
       </div>
+    </>
+  )
+  // A toast that announces something arriving — a message, a change —
+  // opens it when tapped; one that confirms what the person just did is
+  // only read.
+  if (celebration.to) {
+    return (
+      <button
+        type="button"
+        className="celebration-toast celebration-link"
+        key={celebration.id}
+        role="status"
+        aria-live="polite"
+        onClick={() => {
+          pushCelebration(null)
+          navigate(celebration.to)
+        }}
+      >
+        {inner}
+      </button>
+    )
+  }
+  return (
+    <div className="celebration-toast" key={celebration.id} role="status" aria-live="polite">
+      {inner}
     </div>
   )
 }

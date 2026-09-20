@@ -213,6 +213,11 @@ export function AuthProvider({ children }) {
       },
       location: privateProfile?.location || null,
       onboarded: privateProfile?.onboarded ?? false,
+      // What the server knows of how this person reads, and what may reach
+      // their devices; both private, both read by the push Function.
+      language: privateProfile?.language || null,
+      timeZone: privateProfile?.timeZone || null,
+      pushPrefs: privateProfile?.notifications || {},
       // A rename or anonymous-mode switch saved offline stamped only the
       // activities the cache held; the rest are brought into line by the
       // app once the connection is back (see AppContext).

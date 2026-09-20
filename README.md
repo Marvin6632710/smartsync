@@ -43,7 +43,10 @@ Cloud Firestore) on the back end.
   actually joined it.
 - **Notifications.** Real cross-user notifications: the host is told when
   somebody joins, participants are told when the activity is cancelled or a
-  message arrives.
+  message arrives. The inbox is the record; the ones that matter when the
+  app is closed — messages, cancellations, safety notices — also reach the
+  person's devices as browser push, worded in their language, with the
+  message text kept off the lock screen unless they ask for it.
 - **People matching.** Other users ranked by how compatible their interests,
   preferred times and activity history are with yours.
 - **Privacy controls.** Anonymous mode genuinely removes your name from the
@@ -73,6 +76,7 @@ Java program — check with `java -version`).
 
 ```bash
 npm install
+npm run functions:install     # the Cloud Function that sends browser pushes
 cp .env.example .env.local
 ```
 
@@ -108,6 +112,13 @@ private window), sign in as somebody else, and join the other person's
 activity — the count, the participant list and the chat all update live in
 both windows.
 
+Browser notifications work under the emulators too, up to the last step:
+Settings → Notifications registers a stand-in token, the Cloud Function in
+the functions emulator claims each inbox record and words the push in your
+language, and — since there is no messaging emulator — writes it to the
+emulator log instead of sending it. Look for `push (not sent: log
+transport)` in the emulator terminal.
+
 The emulator UI at <http://127.0.0.1:4000> shows the database contents while
 you click around.
 
@@ -117,7 +128,12 @@ Steps 1–4 have to be done by you in the Firebase console; they involve
 creating an account and are not something the code can do for itself.
 
 1. Go to <https://console.firebase.google.com> and **Add project**. The free
-   Spark plan is enough for everything here.
+   Spark plan is enough for the app itself; browser push needs the Cloud
+   Function in `functions/`, and Cloud Functions need the **Blaze** plan
+   (pay as you go, with the same free allowance — expected to cost nothing
+   at this size; set a budget alert when you upgrade). Without Blaze
+   everything works as before and the app simply offers no browser
+   notifications.
 2. In **Build → Authentication → Sign-in method**, enable **Email/Password**.
 3. In **Build → Firestore Database**, click **Create database**. Choose a
    region near your users (`asia-southeast1` for Bangkok). Start in
@@ -133,6 +149,17 @@ cp .env.example .env.local
 
 Edit `.env.local`: set `VITE_USE_EMULATORS=false` and paste in the six values
 from step 4.
+
+For browser notifications, two more things in the console:
+
+5. **Project settings → Cloud Messaging → Web configuration → Web Push
+   certificates → Generate key pair.** Put the public key in `.env.local`
+   (and `.env.production`) as `VITE_FCM_VAPID_KEY`. The private half never
+   leaves Google. `VITE_FIREBASE_MESSAGING_SENDER_ID` from step 4 is
+   required too.
+6. Upgrade the project to **Blaze** and deploy the Function
+   (`npx firebase deploy --only functions`). It uses the project's default
+   service account; no key file is needed.
 
 Point the CLI at your project and publish the security rules:
 
@@ -183,8 +210,11 @@ is Min Khant's top match at 84% and sits at 39% for Maya.
 npm run deploy
 ```
 
-That builds the app and pushes both the static site and the security rules to
-Firebase Hosting. The console prints the live URL.
+That builds the app and pushes the static site, the security rules and the
+Cloud Function to Firebase. The console prints the live URL. The Function
+deploy copies `src/i18n/locales` into `functions/locales` first (the
+`predeploy` step in `firebase.json`), so a push is worded from the same
+strings as the screen.
 
 If you changed a query, deploy the indexes too — the moderation queue needs a
 composite index on `reports`, and without it the queue fails on a real project
@@ -193,6 +223,10 @@ even though it works fine on the emulator:
 ```bash
 npx firebase deploy --only firestore:indexes
 ```
+
+The stale-token sweep (`cleanupPushTokens`) needs the collection-group index
+on `pushTokens.lastSeenAt` from `firestore.indexes.json`, deployed the same
+way.
 
 ## 6. Making the first admin
 
@@ -363,12 +397,17 @@ reward and no penalty for a fact nobody knows yet.
 npm test
 ```
 
-This boots the Firestore emulator and runs both suites: 81 tests over the pure
-functions — scoring, dates, distances — and 286 that behave like a hostile
-client and check the rules refuse them. Of those, 161 go feature by feature
-and 125 live in `roles-matrix.test.js`, which checks who may do what to whom
-at every combination of rank and relationship. It needs Java, like the
-emulators.
+This runs five suites. The unit and rendering tests (`npm run test:unit`)
+cover the pure functions, the screens, the push policy and wording, and the
+service worker against a stand-in for the worker's globals. The rules tests
+(`npm run test:rules`) behave like a hostile client and check the rules
+refuse them — `roles-matrix.test.js` checks who may do what to whom at every
+combination of rank and relationship. The integration tests
+(`npm run test:integration`) run the auth and Firestore emulators together.
+The push tests run the delivery pipeline through the Admin SDK against the
+Firestore emulator (`npm run test:push`) and the trigger itself in the
+functions emulator (`npm run test:push:trigger`). Everything past the first
+suite needs Java, like the emulators.
 
 ```bash
 npm run lint
@@ -379,8 +418,10 @@ npm run format:check
 
 Honest about what is not there:
 
-- **Notifications are in-app only.** There is no push notification to a closed
-  phone; that needs Firebase Cloud Messaging and a service worker.
+- **Browser push needs the Blaze plan, and iPhones need the Home Screen.**
+  The inbox is the record; a push is a copy of it sent by a Cloud Function,
+  which the free plan cannot run. On iOS, Safari delivers push only to a
+  site added to the Home Screen. There is no email channel yet.
 - **No photo uploads.** Avatars are generated initials.
 - **No place search.** Hosts place a pin on a map rather than typing an
   address and having it geocoded.

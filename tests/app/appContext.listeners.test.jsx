@@ -55,6 +55,7 @@ const completeIdentitySweep = vi.fn(() => Promise.resolve(0))
 vi.mock('../../src/firebase/users', () => ({
   watchPeers: (uid, cb) => channel('peers')(uid, cb),
   recordCategoryHistory: vi.fn(() => Promise.resolve()),
+  saveReadingLocale: vi.fn(() => Promise.resolve()),
   completeIdentitySweep,
 }))
 const followUser = vi.fn(() => Promise.resolve())
@@ -2022,5 +2023,130 @@ describe('an identity sweep that started from the cache', () => {
     act(() => emit.activities([], { fromCache: false }))
     await flush()
     expect(completeIdentitySweep).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('a notification arriving while the app is on screen', () => {
+  function ToastProbe() {
+    const { celebration } = useApp()
+    return <span data-testid="toast">{celebration ? JSON.stringify(celebration) : ''}</span>
+  }
+  const toast = () => {
+    const text = screen.getByTestId('toast').textContent
+    return text ? JSON.parse(text) : null
+  }
+  const note = (id, extra = {}) => ({
+    id,
+    type: 'chat',
+    kind: 'newMessage',
+    params: { name: 'Mya', title: 'Run', text: 'hi' },
+    title: 'New message in Run',
+    body: 'Mya: hi',
+    activityId: 'act1',
+    read: false,
+    createdAt: Date.now(),
+    ...extra,
+  })
+
+  test('is a toast that opens the record; the inbox catching up is not', () => {
+    render(
+      <AppProvider>
+        <ToastProbe />
+      </AppProvider>,
+    )
+    // The first snapshot is the inbox as it stands — whatever it holds.
+    act(() => emit.notifications([note('old1'), note('old2')]))
+    expect(toast()).toBeNull()
+    act(() => emit.notifications([note('new1'), note('old1'), note('old2')]))
+    expect(toast()).toMatchObject({ title: 'New message in Run', body: 'Mya: hi', to: '/n/new1' })
+  })
+
+  test('a record already read, or from long before, is not news', () => {
+    render(
+      <AppProvider>
+        <ToastProbe />
+      </AppProvider>,
+    )
+    act(() => emit.notifications([]))
+    act(() =>
+      emit.notifications([
+        note('r1', { read: true }),
+        note('stale', { createdAt: Date.now() - 10 * 60_000 }),
+      ]),
+    )
+    expect(toast()).toBeNull()
+  })
+
+  test('a join is the badge’s to tell, and a message in the thread on screen is already seen', () => {
+    render(
+      <AppProvider>
+        <ToastProbe />
+      </AppProvider>,
+    )
+    act(() => emit.notifications([]))
+    act(() =>
+      emit.notifications([
+        note('j1', {
+          type: 'activity',
+          kind: 'someoneJoined',
+          params: { name: 'Mya', title: 'Run' },
+        }),
+      ]),
+    )
+    expect(toast()).toBeNull()
+    window.history.pushState({}, '', '/activity/act1/chat')
+    act(() =>
+      emit.notifications([note('c1'), note('j1', { type: 'activity', kind: 'someoneJoined' })]),
+    )
+    expect(toast()).toBeNull()
+    window.history.pushState({}, '', '/home')
+    act(() =>
+      emit.notifications([
+        note('c2'),
+        note('c1'),
+        note('j1', { type: 'activity', kind: 'someoneJoined' }),
+      ]),
+    )
+    expect(toast()).toMatchObject({ to: '/n/c2' })
+  })
+
+  test('a safety notice is a warning toast', () => {
+    render(
+      <AppProvider>
+        <ToastProbe />
+      </AppProvider>,
+    )
+    act(() => emit.notifications([]))
+    act(() =>
+      emit.notifications([
+        note('m1', {
+          type: 'moderation',
+          kind: 'warning',
+          params: { reason: 'Be kind.' },
+          title: 'A warning about your SmartSync account',
+          body: 'Be kind. Nothing has been taken away.',
+          activityId: null,
+        }),
+      ]),
+    )
+    expect(toast()).toMatchObject({ tone: 'warning', icon: 'alert', to: '/n/m1' })
+  })
+
+  test('a new account starts from its own inbox, not the last one’s', () => {
+    const view = render(
+      <AppProvider>
+        <ToastProbe />
+      </AppProvider>,
+    )
+    act(() => emit.notifications([note('a1')]))
+    currentUser = { uid: 'other', interests: [], historyCategories: [] }
+    view.rerender(
+      <AppProvider>
+        <ToastProbe />
+      </AppProvider>,
+    )
+    // The other account's first snapshot: baseline, not news.
+    act(() => emit.notifications([note('b1')]))
+    expect(toast()).toBeNull()
   })
 })

@@ -36,17 +36,42 @@ import {
   watchBlocked,
 } from '../firebase/moderation'
 import { drainQueue, EDIT_FIELDS, LANDED, outcomeOf, pick, SUPERSEDED } from '../firebase/pending'
-import { completeIdentitySweep, recordCategoryHistory, watchPeers } from '../firebase/users'
+import {
+  permissionState,
+  pushSupport,
+  recentlyDeclined,
+  registeredHere,
+  syncPushDevice,
+} from '../firebase/push'
+import {
+  completeIdentitySweep,
+  recordCategoryHistory,
+  saveReadingLocale,
+  watchPeers,
+} from '../firebase/users'
 import { rankActivities, recommendationWeights } from '../services/recommendationService'
 import { distanceBetween } from '../utils/geo'
 import { useListenerRetry } from '../hooks/useListenerRetry'
 import { DURABLE, loadDurable, loadStorage, saveDurable, saveStorage } from '../utils/storage'
 import { personName } from '../i18n'
-import { storedText } from '../i18n/notificationText'
+import { localizeNotification, storedText } from '../i18n/notificationText'
 import { reportError } from '../utils/reportError'
 import { awaitWrite, QUEUED } from '../utils/writes'
 
 const AppContext = createContext(null)
+
+/**
+ * Whether an arriving notification is news worth a toast. A join is the
+ * badge's to tell; a message in the thread on screen is already in front
+ * of the reader.
+ */
+function worthAToast(notification) {
+  if (notification.kind === 'someoneJoined') return false
+  if (notification.type === 'chat' && notification.activityId) {
+    if (window.location.pathname === `/activity/${notification.activityId}/chat`) return false
+  }
+  return true
+}
 
 /** How far ahead of the rules' thirty-day cut-off a chat preview is closed. */
 const PREVIEW_CLOSE_MARGIN_MS = 60 * 60 * 1000
@@ -104,7 +129,7 @@ export const defaultFilters = {
 export function AppProvider({ children }) {
   // The words every toast is made of, in the language in force. Toasts are
   // built in event handlers, so they read `t` at the moment they are shown.
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { user, serverSeen } = useAuth()
   const uid = user?.uid || null
 
@@ -134,6 +159,9 @@ export function AppProvider({ children }) {
     loadStorage('smartsync:weights', recommendationWeights),
   )
   const [celebration, setCelebration] = useState(null)
+  // An offer to turn browser notifications on, made once per session at
+  // the moment it makes sense: right after joining something.
+  const [pushInvite, setPushInvite] = useState(null)
   // Joins this client has sent that the server has not yet answered. See
   // `rosterPending` below for why that has to be known.
   const [pendingJoins, setPendingJoins] = useState(() => new Set())
@@ -439,6 +467,7 @@ export function AppProvider({ children }) {
     setServerSilent(false)
     setFeedSynced(false)
     setFeedWaited(false)
+    setPushInvite(null)
     resetAttempts()
   }
 
@@ -554,6 +583,10 @@ export function AppProvider({ children }) {
   }, [celebration])
 
   function pushCelebration(payload) {
+    if (payload === null) {
+      setCelebration(null)
+      return
+    }
     setCelebration({
       id: Date.now(),
       icon: 'sparkles',
@@ -562,6 +595,88 @@ export function AppProvider({ children }) {
       body: '',
       ...payload,
     })
+  }
+
+  // ----------------------------------------------------------------- push
+
+  // The language this person reads in, kept on the server: a push is
+  // worded by a Function that has never seen this device, and it has to
+  // say the same thing the screen would. Written only when it differs from
+  // what the profile already says, so a visit costs nothing.
+  useEffect(() => {
+    if (!uid || !user) return
+    const language = i18n.language
+    let timeZone = null
+    try {
+      timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    } catch {
+      // Left as the profile has it.
+    }
+    const patch = {}
+    if (language && language !== user.language) patch.language = language
+    if (timeZone && timeZone !== user.timeZone) patch.timeZone = timeZone
+    if (Object.keys(patch).length === 0) return
+    saveReadingLocale(uid, patch).catch((error) =>
+      reportError('users.readingLocale', error, { uid }),
+    )
+  }, [uid, user, i18n.language])
+
+  // A registered device stays registered: the token is refreshed on each
+  // start, and a permission the browser withdrew behind the app's back is
+  // noticed and the registration taken back. Never asks.
+  useEffect(() => {
+    if (!uid) return
+    syncPushDevice(uid, { language: i18n.language })
+  }, [uid]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A notification that arrives while the app is on screen is shown as a
+  // toast, since the browser notification is deliberately not drawn while
+  // a SmartSync window is visible. Only arrivals: the first snapshot, and a
+  // reconnect replaying the cache, are the inbox catching up, not news.
+  // Chat for the thread on screen is not news either — the message is
+  // already in front of the reader — and a join is the badge's to tell.
+  const seenNotificationsRef = React.useRef({ uid: undefined, ids: null })
+  useEffect(() => {
+    const tracked = seenNotificationsRef.current
+    if (tracked.uid !== uid) {
+      // Mounted, or another account: what is held is the empty initial
+      // state, not the inbox. The first snapshot is the baseline.
+      seenNotificationsRef.current = { uid, ids: null }
+      return
+    }
+    if (!tracked.ids) {
+      tracked.ids = new Set(notifications.map((n) => n.id))
+      return
+    }
+    const seen = tracked.ids
+    const attachedAgo = Date.now() - 60_000
+    const fresh = notifications.filter((n) => !seen.has(n.id))
+    fresh.forEach((n) => seen.add(n.id))
+    const news = fresh.find((n) => !n.read && n.createdAt >= attachedAgo && worthAToast(n))
+    if (!news) return
+    const text = localizeNotification(news)
+    pushCelebration({
+      icon: news.type === 'moderation' ? 'alert' : 'bell',
+      tone: news.type === 'moderation' ? 'warning' : 'default',
+      title: text.title,
+      body: text.body,
+      to: `/n/${news.id}`,
+    })
+  }, [notifications, uid])
+
+  // Offered once per session, after a join, to somebody who has never been
+  // asked here and did not recently say "not now" — the one moment when
+  // "be told when this changes" is an answer to a question they have.
+  const pushInvitedRef = React.useRef({ uid: null, done: false })
+  function maybeInvitePush(activity) {
+    if (!uid) return
+    const invited = pushInvitedRef.current
+    if (invited.uid === uid && invited.done) return
+    if (pushSupport() !== 'ok') return
+    if (permissionState() !== 'default') return
+    if (registeredHere(uid) || recentlyDeclined()) return
+    pushInvitedRef.current = { uid, done: true }
+    setPushInvite({ title: activity?.title || '' })
   }
 
   /**
@@ -1051,6 +1166,7 @@ export function AppProvider({ children }) {
 
     try {
       await pending
+      maybeInvitePush(activity)
     } catch (error) {
       // Not routed through `attempt`, because its generic "you do not have
       // permission" is actively misleading here. The rules refuse a join for
@@ -1199,6 +1315,9 @@ export function AppProvider({ children }) {
         name: user.name,
         title: String(data.title || '').trim(),
         place: String(data.locationName || '').trim(),
+        // Who posted, so a push about it can collapse per host rather than
+        // stack: public already, on every activity.
+        hostId: uid,
       }),
     )
     return id
@@ -1464,6 +1583,9 @@ export function AppProvider({ children }) {
 
     celebration,
     pushCelebration,
+
+    pushInvite,
+    dismissPushInvite: () => setPushInvite(null),
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

@@ -400,6 +400,47 @@ export function setNotificationsEnabled(uid, enabled) {
   return updatePublicProfile(uid, { notificationsEnabled: Boolean(enabled) })
 }
 
+/**
+ * What reaches this person's devices, category by category.
+ *
+ * Private: only the owner and the Cloud Function that sends a push read
+ * it. `push.<category>` switches a category; `chatPreview` says whether a
+ * message push may carry the message's text (off unless asked for — a
+ * lock screen is not a private place). Merged field by field, so two
+ * switches flipped in quick succession do not undo each other.
+ */
+export function savePushPreferences(uid, { push = {}, chatPreview } = {}) {
+  const patch = {}
+  for (const [category, enabled] of Object.entries(push)) {
+    patch[`notifications.push.${category}`] = Boolean(enabled)
+  }
+  if (chatPreview !== undefined) patch['notifications.chatPreview'] = Boolean(chatPreview)
+  if (Object.keys(patch).length === 0) return Promise.resolve()
+  return updateDoc(privateDoc(uid), patch).catch((error) => {
+    // A private profile that predates the field has no map to merge into
+    // by path; setDoc with merge creates the shape.
+    if (error?.code !== 'not-found') throw error
+    const nested = { notifications: { push: {} } }
+    for (const [category, enabled] of Object.entries(push))
+      nested.notifications.push[category] = Boolean(enabled)
+    if (chatPreview !== undefined) nested.notifications.chatPreview = Boolean(chatPreview)
+    return setDoc(privateDoc(uid), nested, { merge: true })
+  })
+}
+
+/**
+ * The language and time zone this person reads in, kept on the server so a
+ * push — worded by a Function that has never seen this device — is in the
+ * same language as the screen. Written only when they change.
+ */
+export function saveReadingLocale(uid, { language, timeZone }) {
+  const patch = {}
+  if (language) patch.language = String(language).slice(0, 12)
+  if (timeZone) patch.timeZone = String(timeZone).slice(0, 64)
+  if (Object.keys(patch).length === 0) return Promise.resolve()
+  return updatePrivateProfile(uid, patch)
+}
+
 export function saveLocation(uid, location) {
   return updatePrivateProfile(uid, { location })
 }

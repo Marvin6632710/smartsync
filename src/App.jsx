@@ -31,6 +31,8 @@ import BlockedPage from './pages/BlockedPage'
 import WarningsPage from './pages/WarningsPage'
 import ModerationPage from './pages/ModerationPage'
 import SettingsPage from './pages/SettingsPage'
+import NotificationSettingsPage from './pages/NotificationSettingsPage'
+import NotificationOpenPage from './pages/NotificationOpenPage'
 import WeightsPage from './pages/WeightsPage'
 import PrivacyPage from './pages/PrivacyPage'
 import JoinedActivitiesPage from './pages/JoinedActivitiesPage'
@@ -146,6 +148,8 @@ export default function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/edit" element={<EditProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
+        <Route path="/n/:id" element={<NotificationOpenPage />} />
         <Route path="/weights" element={<WeightsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/blocked" element={<BlockedPage />} />

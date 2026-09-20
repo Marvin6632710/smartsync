@@ -1013,3 +1013,64 @@ not "SmartSync". Drawings for all four directions and the seven colourways
 are kept under `design/logo-concepts/` as the record of what was rejected
 and why; only `public/favicon.svg`, `public/apple-touch-icon.png` and the
 component are part of the product.
+
+## ADR-021 — Browser push: a copy of the inbox record, sent once, by a Function
+
+**Context.** Notifications were in-app only. Every record is written by
+another user's browser straight into the recipient's inbox, and the rules
+are the only thing between a client and an inbox; a person who closed the
+tab was told nothing until they came back. A browser cannot send a push to
+another browser — the Web Push protocol wants a private key that must never
+ship in client code — so this is the first thing in SmartSync that needs a
+server, and the project had deliberately stayed on the free plan (ADR-003).
+
+**Decision.** The inbox record at `users/{uid}/notifications/{id}` stays the
+single source of truth; nothing is pushed that is not first a record, and a
+record now carries `kind` and `params` — what it was worded from — beside
+the English text older readers show. One Cloud Function (`functions/`, 2nd
+gen, Node 22), triggered when a record lands, decides from a policy table
+whether it is the kind that matters when the app is closed (chat,
+cancellations, activities taken down, followed hosts' posts, safety and
+account notices; never joins by default, never recommendations,
+restorations or role changes), checks the recipient's private preferences,
+words it in the recipient's language from the same locale files as the
+screen (copied into the package at build), and sends a data-only message
+through Firebase Cloud Messaging to every device the person registered. It
+sends once: a transaction claims the record by writing `delivery.push`
+before anything else, and a retry or a duplicate event finds the claim and
+stops. A chat push never carries the message text unless the person
+switched previews on — a lock screen is not a private place — and each
+person is capped at thirty pushes an hour, safety notices excepted.
+
+Devices are `users/{uid}/pushTokens/{sha256(token)}`, readable and
+deletable by the owner alone; the Function reads them with the Admin SDK.
+The app asks for permission only from a click — after the first join, once,
+naming the activity, or from Settings — never on load; "not now" holds for
+a month. A registration is refreshed on each start, touched at most once a
+day, replaced when the browser hands out a new token, and taken back on
+sign-out, when the browser withdraws permission, when FCM says the token is
+dead, and after sixty days unseen. The service worker (`public/push-sw.js`)
+is a plain script with no imports: it shows a push unless a SmartSync
+window is visible — the app's own listener already shows the record, as a
+toast, and one banner is enough — drops a push naming someone other than
+the person signed in on the device, collapses repeats by tag, and on a tap
+focuses an open window or opens one at `/n/{id}`, where the app marks the
+record read the way the inbox does and goes to the thread or activity. FCM
+over raw Web Push because it is the same work with less to own; over a
+hosted provider because a third party would hold uids and tokens, which the
+rest of the app's privacy stance forbids.
+
+**Consequences.** Cloud Functions need the Blaze plan; without it the app
+runs exactly as before and offers no browser notifications. A manifest and
+icons from the mark make the site installable, which on iOS is the
+prerequisite for push at all. The private profile gains the person's
+language and time zone, written when they change, so the server can word a
+push. The rules refuse a client that tries to write `delivery`, so nobody
+can claim a push they never got. Under the emulators there is no FCM: the
+token is a stand-in and the Function writes the push to the log, so every
+step but the last is exercised locally — and tested, in the functions
+emulator, by `npm run test:push:trigger`. Not done, on purpose: email,
+reminders, change notices and waitlists, which are the next phases of the
+plan this came from; quiet hours; a cross-account guard on the server side
+(the worker's owner check covers the one case a sign-out's clean-up could
+not reach).

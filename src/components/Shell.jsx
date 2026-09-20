@@ -18,6 +18,8 @@ import BackButton from './BackButton'
 import CelebrationToast from './CelebrationToast'
 import BrandMark from './BrandMark'
 import LanguageMenu from './LanguageMenu'
+import PushInvite from './PushInvite'
+import { usePushNavigation } from '../hooks/usePushNavigation'
 import RouteErrorBoundary from './RouteErrorBoundary'
 import JoinBurst from './JoinBurst'
 import { useApp } from '../context/AppContext'
@@ -76,6 +78,7 @@ const headerTabs = tabs.filter((tab) => tab.to !== '/profile')
 
 export default function Shell() {
   const { t } = useTranslation()
+  usePushNavigation()
   const navigate = useNavigate()
   const location = useLocation()
   const { notifications, celebration, dataError, offline, browserOffline, serverSilent } = useApp()
@@ -269,6 +272,7 @@ export default function Shell() {
       {/* One row of the shell whatever is in it, so a banner arriving never
           shifts the scroller into a different track. */}
       <div className="shell-banners">
+        <PushInvite />
         {user.suspended && (
           <div className="suspended-banner" role="alert">
             <ShieldAlert size={15} />

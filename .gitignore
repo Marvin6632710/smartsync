@@ -16,3 +16,7 @@ demo-credentials.local.txt
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# Copied from src/i18n by functions/scripts/sync-locales.mjs
+functions/locales/
+functions/node_modules/

@@ -110,15 +110,29 @@ export function watchNotifications(uid, callback, onError) {
  * has to be written by Alex. The rules constrain the shape and force
  * read:false so a sender cannot forge a pre-read system message.
  */
-export function pushNotification(uid, { type, title, body, activityId = null }) {
+export function pushNotification(uid, { type, title, body, activityId = null, kind, params }) {
   return addDoc(notificationsRef(uid), {
     type: type || 'general',
     title: String(title || '').slice(0, 120),
     body: String(body || '').slice(0, 300),
     activityId,
+    ...kindFields(kind, params),
     read: false,
     createdAt: serverTimestamp(),
   })
+}
+
+/**
+ * The kind and parameters a record was worded from, when the writer knows
+ * them: what a newer app, and the push that reaches a closed one, word in
+ * the reader's language without parsing the English.
+ */
+function kindFields(kind, params) {
+  if (!kind) return {}
+  return {
+    kind: String(kind).slice(0, 40),
+    params: params && typeof params === 'object' ? params : {},
+  }
 }
 
 /**
@@ -129,13 +143,17 @@ export function pushNotification(uid, { type, title, body, activityId = null }) 
  * A refusal here is the design working, not a failure — the caller treats
  * permission-denied as nothing to say.
  */
-export function pushChatNotification(uid, { activityId, title, body, now = Date.now() }) {
+export function pushChatNotification(
+  uid,
+  { activityId, title, body, kind, params, now = Date.now() },
+) {
   const bucket = Math.floor(now / CHAT_NOTIFY_WINDOW_MS)
   return setDoc(doc(db, 'users', uid, 'notifications', `chat-${activityId}-${bucket}`), {
     type: 'chat',
     title: String(title || '').slice(0, 120),
     body: String(body || '').slice(0, 300),
     activityId,
+    ...kindFields(kind, params),
     read: false,
     createdAt: serverTimestamp(),
   })
@@ -247,7 +265,11 @@ export async function ensureFollowerMirror(uid, targetId) {
  *
  * Returns what happened, for whoever wants to know.
  */
-export async function notifyFollowers(hostId, activityId, { title, body, skip = new Set() }) {
+export async function notifyFollowers(
+  hostId,
+  activityId,
+  { title, body, kind, params, skip = new Set() },
+) {
   let followers
   try {
     followers = await getDocs(query(followersRef(hostId), limit(FOLLOWER_FANOUT_LIMIT)))
@@ -266,6 +288,7 @@ export async function notifyFollowers(hostId, activityId, { title, body, skip = 
           title: String(title || '').slice(0, 120),
           body: String(body || '').slice(0, 300),
           activityId,
+          ...kindFields(kind, params),
           read: false,
           createdAt: serverTimestamp(),
         }),

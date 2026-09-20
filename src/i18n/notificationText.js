@@ -1,4 +1,5 @@
 import i18n, { personName } from './index'
+import kinds from './notificationKinds.json'
 import { extract, fill, recogniser } from './templates'
 
 /**
@@ -75,29 +76,46 @@ const TEMPLATES = {
   },
 }
 
-/** The translation key each template is worded from. */
-const KEY_OF = {
-  someoneJoined: 'someoneJoined',
-  activityCancelled: 'cancelled',
-  activityPosted: 'posted',
-  newMessage: 'newMessage',
-  suspended: 'suspended',
-  activeAgain: 'activeAgain',
-  activityRemoved: 'activityRemoved',
-  joinedRemoved: 'joinedRemoved',
-  nowModerator: 'nowModerator',
-  noLongerModerator: 'noLongerModerator',
-  closed: 'closed',
-  reopened: 'reopened',
-  warning: 'warning',
-  activityBack: 'activityBack',
+/**
+ * The translation key each template is worded from. Shared with the Cloud
+ * Function that words a push, so the two can never disagree about a kind.
+ */
+const KEY_OF = kinds.kinds
+
+/** How many parameters a record may carry, and how long each may be. */
+const MAX_PARAMS = 8
+const MAX_PARAM_LENGTH = 300
+
+/**
+ * The parameters as they are stored: strings only, bounded, and never more
+ * of them than the rules accept.
+ */
+function storedParams(params) {
+  const clean = {}
+  for (const [name, value] of Object.entries(params || {})) {
+    if (value === undefined || value === null) continue
+    if (Object.keys(clean).length >= MAX_PARAMS) break
+    clean[name] = String(value).slice(0, MAX_PARAM_LENGTH)
+  }
+  return clean
 }
 
-/** The English text a writer stores for a template. */
+/**
+ * What a writer stores for a template: the English wording, as always, and
+ * beside it the kind and the parameters it was filled from. The wording is
+ * what an older app shows; the kind and parameters are what a newer one —
+ * and the push that reaches a closed one — word afresh without parsing.
+ */
 export function storedText(kind, params = {}) {
   const template = TEMPLATES[kind]
   if (!template) throw new Error(`Unknown notification template: ${kind}`)
-  return { title: fill(template.title, params), body: fill(template.body, params) }
+  const clean = storedParams(params)
+  return {
+    title: fill(template.title, clean),
+    body: fill(template.body, clean),
+    kind,
+    params: clean,
+  }
 }
 
 const RECOGNISERS = Object.entries(TEMPLATES).map(([kind, template]) => ({
@@ -114,6 +132,16 @@ const RECOGNISERS = Object.entries(TEMPLATES).map(([kind, template]) => ({
 export function localizeNotification(notification) {
   const title = String(notification?.title ?? '')
   const body = String(notification?.body ?? '')
+  // A record that says what it is needs no recognising.
+  const key = KEY_OF[notification?.kind]
+  if (key && notification.params && typeof notification.params === 'object') {
+    const params = { ...notification.params }
+    if ('name' in params) params.name = personName(params.name)
+    return {
+      title: i18n.t(`notifications.templates.${key}Title`, params),
+      body: i18n.t(`notifications.templates.${key}Body`, params),
+    }
+  }
   for (const candidate of RECOGNISERS) {
     const titleParams = extract(candidate.title, title)
     if (!titleParams) continue

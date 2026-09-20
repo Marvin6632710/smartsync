@@ -37,6 +37,10 @@ describe('storedText', () => {
     expect(storedText('someoneJoined', { name: 'Mya', title: 'Sunday football' })).toEqual({
       title: 'Someone joined',
       body: 'Mya joined Sunday football.',
+      // And what it was worded from, for a reader — or a push — that
+      // would rather not parse the English.
+      kind: 'someoneJoined',
+      params: { name: 'Mya', title: 'Sunday football' },
     })
     expect(() => storedText('nope')).toThrow(/Unknown notification template/)
   })
@@ -61,9 +65,21 @@ describe('localizeNotification', () => {
 
   test('is the identity in English', () => {
     for (const [kind, params] of CASES) {
-      const stored = storedText(kind, params)
-      expect(localizeNotification(stored)).toEqual(stored)
+      const { title, body, ...rest } = storedText(kind, params)
+      expect(localizeNotification({ title, body, ...rest })).toEqual({ title, body })
+      // An older record, with only the English text, reads the same way.
+      expect(localizeNotification({ title, body })).toEqual({ title, body })
     }
+  })
+
+  test('a record that names its kind is worded from it, not parsed', async () => {
+    await setLanguage('th')
+    const stored = storedText('newMessage', { name: 'Mya', title: 'Plan', text: 'x' })
+    // Even with the English text mangled, the kind and params carry it.
+    const shown = localizeNotification({ ...stored, title: '???', body: '???' })
+    expect(shown.body).toContain('Mya')
+    expect(shown.title).toContain('Plan')
+    expect(shown.title).not.toBe('???')
   })
 
   test('gives the colon in a message to the name and the rest to the text', async () => {

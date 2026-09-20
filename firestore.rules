@@ -263,13 +263,23 @@ service cloud.firestore {
         // pointing at whatever listing it liked. Now a notification about an
         // activity has to come from somebody on that activity's roster, and a
         // moderation notice has to come from a moderator. Nothing else exists.
+        //
+        // `kind` and `params` are what the record was worded from — the
+        // template and its fill-ins — so a newer app, and the push that
+        // reaches a closed one, can word it in the reader's language without
+        // parsing the English. Both optional; a bounded map of strings. The
+        // `delivery` field is not in the list on purpose: it is written only
+        // by the Cloud Function (which bypasses these rules) to say what was
+        // sent, and a client must not be able to claim a push it never got.
         function notificationShape(n) {
-          return n.keys().hasOnly(['type', 'title', 'body', 'activityId', 'read', 'createdAt'])
+          return n.keys().hasOnly(['type', 'title', 'body', 'activityId', 'read', 'createdAt', 'kind', 'params'])
             && n.type is string
             && isString(n.title, 120)
             && n.body is string
             && n.body.size() <= 300
-            && n.read == false;
+            && n.read == false
+            && (!('kind' in n) || isString(n.kind, 40))
+            && (!('params' in n) || (n.params is map && n.params.size() <= 8));
         }
 
         // "Bob joined", "the host cancelled", "Bob wrote" — every one of those
@@ -305,6 +315,29 @@ service cloud.firestore {
 
       match /following/{targetId} {
         allow read, write: if isSelf(uid);
+      }
+
+      // The devices that receive this person's browser pushes: one document
+      // per FCM token, named by the token's hash so the token itself never
+      // appears in a path. Written and read by the owner only; the Cloud
+      // Function that sends reads them with the Admin SDK, past these
+      // rules. Nobody else can learn how many devices somebody has, let
+      // alone address them. The token is bounded, not validated — FCM says
+      // whether it is real, and the Function deletes the ones that are not.
+      match /pushTokens/{tokenId} {
+        allow read, delete: if isSelf(uid);
+        allow create, update: if isSelf(uid)
+          && request.resource.data.keys().hasOnly([
+               'token', 'createdAt', 'lastSeenAt', 'label', 'language', 'timeZone',
+               'platform', 'failures', 'lastError'
+             ])
+          && isString(request.resource.data.token, 4096)
+          && request.resource.data.token.size() > 0
+          && request.resource.data.lastSeenAt is timestamp
+          && (!('label' in request.resource.data) || isString(request.resource.data.label, 80))
+          && (!('language' in request.resource.data) || isString(request.resource.data.language, 12))
+          && (!('timeZone' in request.resource.data) || isString(request.resource.data.timeZone, 64))
+          && (!('platform' in request.resource.data) || isString(request.resource.data.platform, 20));
       }
 
       // The other half of a follow: who is listening to this person. Written

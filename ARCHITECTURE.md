@@ -272,6 +272,32 @@ else can honour. The rules check it before allowing the write.
 your activity. Nothing arrives — and check the database if you like; nothing
 was written.
 
+### Browser push
+
+**Path:** a record lands in `users/{uid}/notifications` →
+`functions/index.js:onNotificationCreated` → `lib/deliver.js` → FCM →
+`public/push-sw.js` → a tap → `/n/{id}` (`NotificationOpenPage`) → the
+thread or the activity, and the record marked read.
+
+The inbox record is the truth; the push is a copy of it, sent once. The
+Function claims the record (a transaction writing `delivery.push` — a
+retry finds the claim and stops), reads the recipient's private preferences,
+language and devices (`users/{uid}/pushTokens`, self-only rules), words the
+push from the same locale files as the screen (copied into `functions/` at
+build), and sends a data-only message to every device. The worker shows it
+only when no SmartSync window is visible — an open app shows the record
+itself, as a toast — and drops a push naming somebody other than the person
+signed in on the device. A chat push says who wrote, not what, unless
+previews are switched on. Registration happens only from a click (the
+one-time offer after a join, or Settings); it is taken back on sign-out,
+revocation, a dead token, and after sixty days unseen.
+
+**Test:** under the emulators, Settings → Notifications → Turn on, then have
+another account write in a chat you are in. The functions emulator's log
+shows `push (not sent: log transport)` with the title in your language and
+no message text; the record's `delivery.push` says `sent`. Deployed, the
+same path ends at FCM (needs Blaze and a VAPID key).
+
 ### Privacy
 
 **Path:** `PrivacyPage` → `users.js:setAnonymousMode` → both profile halves

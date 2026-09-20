@@ -5,6 +5,8 @@ import en from './locales/en.json'
 import my from './locales/my.json'
 import th from './locales/th.json'
 import zh from './locales/zh.json'
+// Shared with the Cloud Function that words a push; see notificationText.
+import kinds from './notificationKinds.json'
 
 /**
  * The languages the interface speaks.
@@ -240,12 +242,8 @@ export function reasonLines(activity) {
  * was typed. Both are fixed English constants in the documents and worded
  * here for the reader. Any other name is somebody's own and is left alone.
  */
-const APP_NAMES = {
-  'Anonymous user': 'profile.anonymousName',
-  'New user': 'profile.newUserName',
-}
 export function personName(name) {
-  const key = APP_NAMES[String(name ?? '').trim()]
+  const key = kinds.appNames[String(name ?? '').trim()]
   return key ? i18n.t(key) : name
 }
 

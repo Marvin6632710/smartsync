@@ -230,6 +230,19 @@ three. Details in README.md; the parts worth knowing here:
   button had kept pill padding and squeezed its icon to 4px. ADR-019.
   Verified at 1920 / 1440 / 1280 / 1024 / 844×390 / 768 / 390 / 320, light
   and dark, all four languages; 7 shell tests added.
+- **Browser push, 2026-09-19** — the inbox record is now also sent, once,
+  to a person's devices through Firebase Cloud Messaging by a Cloud
+  Function (`functions/`) for the kinds that matter when the app is closed;
+  records carry `kind` + `params`; devices live under
+  `users/{uid}/pushTokens`, self-only, cleaned on sign-out, revocation,
+  dead token and after 60 days; `public/push-sw.js` shows a push only when
+  no SmartSync window is visible and opens `/n/{id}`; Settings →
+  Notifications has the inbox switch, this browser's state, four category
+  switches, message previews (off), and the device list; the app asks for
+  permission once, after a join. In-app: a tappable toast for arrivals.
+  Needs Blaze to deploy the Function; not deployed. ADR-021. Tests: policy,
+  wording ×4 languages, worker, client module, settings page, open route,
+  invite, toast, rules, Admin-SDK delivery and the live trigger.
 - **The mark, 2026-09-19** — SmartSync has a logo: two hooks making an S,
   ink and indigo (`src/components/BrandMark.jsx`). It replaces the stock
   sparkles icon in the web header, on the splash, sign-in, sign-up and boot

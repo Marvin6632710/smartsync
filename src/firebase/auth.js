@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth'
 
 import { auth } from './config'
+import { unregisterPushDevice } from './push'
 import { acceptableName, ensureUserProfile } from './users'
 import { reportError } from '../utils/reportError'
 
@@ -153,7 +154,14 @@ export async function signIn({ email, password }) {
   return credential.user
 }
 
-export function signOutUser() {
+/**
+ * Signs out — after taking this device's push registration back, so a
+ * shared computer does not keep receiving the last person's chat. The
+ * clean-up is best-effort and bounded; the sign-out itself is not held
+ * hostage by the network.
+ */
+export async function signOutUser() {
+  await unregisterPushDevice(auth.currentUser?.uid || null, { reason: 'sign-out' })
   return signOut(auth)
 }
 
