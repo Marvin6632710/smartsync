@@ -11,6 +11,12 @@ the original hand-off commit. The user requested activity and profile uploads,
 previews, replacements and default preservation, then explicitly asked to
 commit and deploy so they can review the feature on the live domain.
 
+**Deployed:** implementation commit `355b89f`, released 2026-09-21 to
+<https://smartsync-c1f07.web.app>. Rules and indexes were deployed successfully
+before hosting. Live bundle `index-BYPnDSKM.js` matches the production build
+byte-for-byte (SHA-256); `/`, `/profile/edit` and `/create` return HTTP 200 and
+the matching application HTML. The build uses the production Firebase project.
+
 - Added `PicturePicker`, `SavedPicture`, `usePicture`, `utils/pictures.js`
   and `firebase/pictures.js`. JPG/PNG/WebP input through 5 MB is decoded and
   resized before saving. Profile maximum edge: 512 px; activities: 1440 px;
@@ -40,17 +46,17 @@ Lint, source formatting and `git diff --check` pass. Production build succeeds,
 with Vite's large-chunk warning for the Firebase bundle. Push delivery and
 trigger suites were not rerun; this change does not touch their code.
 
-**Browser check:** a PNG selection produced a real browser preview. Final
-save/reload and responsive walkthrough still await owner sign-in in the local
-preview, per the credentials rule in §7. Do not report these as completed.
+**Browser check:** a PNG selection produced a real browser preview. The
+owner chose to do the final signed-in save/reload and responsive walkthrough
+on production after deployment. These manual checks are not yet recorded as
+completed; the credentials rule in §7 still applies to agent browser work.
 Vite was restarted at <http://127.0.0.1:5173>; the existing dev Auth/Firestore
 emulators were left running. The rules tests used an isolated emulator and
 did not reset the development data.
 
-**Release order:** commit, deploy `firestore:rules` and `firestore:indexes`,
-then hosting. This code's photo saves and activity deletions depend on the new
-picture-collection rules. Record the verified live bundle below after release.
-The owner will do the signed-in walkthrough on production: Profile → Edit
+**Release order followed:** commit, deploy `firestore:rules` and
+`firestore:indexes`, then hosting. Photo saves and activity deletions depend on
+the new picture-collection rules. The owner will do the walkthrough: Profile → Edit
 profile → Choose picture; Create activity or an owned activity's Edit page →
 Choose picture. The previously unverified production composite-index build
 state and live `/admin` walkthrough in §3 remain outstanding.
@@ -59,14 +65,16 @@ state and live `/admin` walkthrough in §3 remain outstanding.
 
 |                  |                                                                                                                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live             | <https://smartsync-c1f07.web.app> — hosting bundle `index-H39CzUfX.js`, built from `0ba6e0b`, released 2026-09-21                                                                      |
-| Repo             | `github.com/Marvin6632710/smartsync`, branch `main` at `feae71b`; uncommitted local picture-upload changes (see §0)                                                                    |
-| Deployed         | Firestore rules and indexes as of `0ba6e0b` (including the console's two composite indexes), hosting. The local photo rules/index exemptions are not deployed                         |
+| Live             | <https://smartsync-c1f07.web.app> — hosting bundle `index-BYPnDSKM.js`, built from `355b89f`, released and checksum-verified 2026-09-21                                                   |
+| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`; photo implementation `355b89f`, followed by this release-record update                                                            |
+| Deployed         | Firestore rules, indexes (including photo-field index exemptions) and hosting as of `355b89f`                                                                                       |
 | **Not** deployed | Cloud Functions in `functions/` (browser push). They need the Blaze plan and a `VITE_FCM_VAPID_KEY`. The live site has no push notifications, which is what README and DEMO_SCRIPT say |
 | Local state      | Firebase CLI 15.29.0 signed in as the owner on this machine. A dev emulator and Vite dev server may still be running (see §7)                                                          |
 
 Recent commits, newest first:
 
+- `355b89f` Add profile and activity picture uploads — previews, bounded Firestore storage, owner/host rules, privacy, offline recovery and tests (see §0).
+- `feae71b` HANDOFF.md for the next assistant — original hand-off after the console release.
 - `0ba6e0b` Rules without the moderator's ban guard — removed the dead `willBeBanned()` helper the rules compiler flagged on release. No behaviour change.
 - `fff68bb` One rank that acts: the admin console at /admin, the moderator rank retired — 76 files, the whole feature.
 - `ea4fd64` Settings without the Activity messages row
