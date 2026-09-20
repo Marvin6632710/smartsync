@@ -4,7 +4,6 @@ import {
   ChevronRight,
   Languages,
   LogOut,
-  MessageCircle,
   MessageSquareWarning,
   ScrollText,
   ShieldAlert,
@@ -102,14 +101,6 @@ export default function SettingsPage() {
           <span>
             <strong>{t('settings.weights')}</strong>
             <small>{t('settings.weightsHint')}</small>
-          </span>
-          <ChevronRight size={17} />
-        </button>
-        <button className="setting-row" onClick={() => navigate('/messages')}>
-          <MessageCircle size={18} />
-          <span>
-            <strong>{t('settings.messages')}</strong>
-            <small>{t('settings.messagesHint')}</small>
           </span>
           <ChevronRight size={17} />
         </button>

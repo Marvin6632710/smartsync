@@ -692,8 +692,6 @@
     "warningsHint": "SmartSync 向你提出过的问题",
     "weights": "匹配权重",
     "weightsHint": "查看并调整活动的评分方式",
-    "messages": "活动消息",
-    "messagesHint": "你加入的活动的聊天",
     "notifications": "通知",
     "notificationsHint": "加入、消息和活动更新",
     "terms": "条款与安全",

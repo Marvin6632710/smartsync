@@ -701,8 +701,6 @@
     "warningsHint": "Anything SmartSync has raised with you",
     "weights": "Matching weights",
     "weightsHint": "See and adjust how activities are scored",
-    "messages": "Activity messages",
-    "messagesHint": "Chats for activities you joined",
     "notifications": "Notifications",
     "notificationsHint": "Joins, messages and activity updates",
     "terms": "Terms & Safety",
