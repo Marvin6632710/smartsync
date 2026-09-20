@@ -77,13 +77,6 @@ service cloud.firestore {
       return myRole() == 'admin' && !cannotAct();
     }
 
-    // Would the row this write produces mark the account closed? On a merge
-    // `request.resource.data` is the document as it will be, so this catches
-    // both setting the flag and leaving an existing one in place.
-    function willBeBanned() {
-      return 'banned' in request.resource.data && request.resource.data.banned == true;
-    }
-
     // The rank of the person being acted ON, as opposed to myRole(), which is
     // the rank of whoever is calling. Somebody with no row is an ordinary user.
     function rankOf(uid) {
