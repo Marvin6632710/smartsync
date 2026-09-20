@@ -99,7 +99,8 @@
     "suspended": "你的账号已被暂停。你仍可以浏览，但无法创建、加入或发送消息。",
     "offline": "离线——重新联网后更改会自动同步。",
     "serverSilent": "服务器暂无响应——正在显示上次加载的内容。服务器恢复后更改会自动同步。",
-    "dataError": "无法加载最新数据，请检查网络连接。"
+    "dataError": "无法加载最新数据，请检查网络连接。",
+    "console": "打开控制台"
   },
   "errors": {
     "somethingWrong": "出了点问题",
@@ -391,8 +392,24 @@
     "today": "今天",
     "tomorrow": "明天",
     "yesterday": "昨天",
-    "weekdays": ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"],
-    "weekdaysShort": ["周日", "周一", "周二", "周三", "周四", "周五", "周六"],
+    "weekdays": [
+      "星期日",
+      "星期一",
+      "星期二",
+      "星期三",
+      "星期四",
+      "星期五",
+      "星期六"
+    ],
+    "weekdaysShort": [
+      "周日",
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六"
+    ],
     "monthsShort": [
       "1月",
       "2月",
@@ -438,11 +455,11 @@
     "cancelDialogTitle": "取消此活动？",
     "deleteDialogBody": "还没有其他人加入 {{title}}，它会被直接移除。",
     "cancelDialogBody": "加入 {{title}} 的每个人都会收到取消通知。聊天对他们仍然可用。",
-    "moderator": {
-      "eyebrow": "审核员",
+    "admin": {
+      "eyebrow": "管理员",
       "putBack": "恢复此活动？",
       "takeDown": "下架此活动？",
-      "putBackHint": "它曾被审核员下架。恢复操作会记录在活动上，并通知主办者。",
+      "putBackHint": "它曾被管理员下架。恢复操作会记录在活动上，并通知主办者。",
       "takeDownHint": "它会对所有人消失，包括已加入的人，他们都会收到通知。主办者无法撤销——只有管理员可以。",
       "whyPutBack": "为什么恢复？",
       "whyTakeDown": "为什么下架？",
@@ -454,8 +471,7 @@
       "removedBody": "{{title}} 已从发现中移除。主办者和所有已加入的人都已收到通知。",
       "restoredTitle": "已恢复",
       "restoredBody": "{{title}} 重新可见，主办者已收到通知。",
-      "failedTitle": "操作失败",
-      "adminOnlyRestore": "只有管理员才能恢复已下架的活动。"
+      "failedTitle": "操作失败"
     }
   },
   "participants": {
@@ -578,10 +594,6 @@
       "activityRemovedBody": "SmartSync 已下架“{{title}}”：{{reason}}。",
       "joinedRemovedTitle": "你加入的活动已被下架",
       "joinedRemovedBody": "“{{title}}”不会举行了。SmartSync 已将其下架。",
-      "nowModeratorTitle": "你已成为审核员",
-      "nowModeratorBody": "可以从“设置 → 内容审核”处理举报。你的每一项操作都会记录在对应举报上。",
-      "noLongerModeratorTitle": "你不再是审核员",
-      "noLongerModeratorBody": "你的 SmartSync 账号其他方面不变。",
       "closedTitle": "你的 SmartSync 账号已被关闭",
       "closedBody": "{{reason}} 你仍可以登录，但此账号无法再主办、加入活动或向任何人发送消息。如果你认为这是误判，请回复我们规范中的邮箱地址。",
       "reopenedTitle": "你的账号已重新开启",
@@ -698,12 +710,11 @@
     "termsHint": "你已同意的规则",
     "language": "语言",
     "theme": "外观",
-    "moderation": "内容审核",
-    "moderationHintAdmin": "待处理举报 · 你是管理员",
-    "moderationHintModerator": "待处理举报 · 你是审核员",
     "account": "账号",
     "signedInAs": "当前登录：{{email}}。",
-    "signOut": "退出登录"
+    "signOut": "退出登录",
+    "adminConsole": "管理员控制台",
+    "adminConsoleHint": "举报、账号、活动与历史"
   },
   "privacy": {
     "eyebrow": "由你掌控的隐私",
@@ -905,17 +916,7 @@
     "stillTryingBody": "此操作需要网络连接。连接恢复后会自动完成；你也可以稍后再试——重复操作不会有副作用。"
   },
   "moderation": {
-    "notAvailable": "不可用",
-    "forModerators": "此页面仅供审核员使用。",
-    "noSuchSection": "没有这个板块",
-    "noSuchSectionBody": "返回内容审核重新选择。",
-    "adminsOnly": "仅限管理员",
-    "adminsOnlyBody": "此板块仅供管理员使用。举报队列对你开放。",
-    "you": "你",
     "referenceError": "暂时无法加载角色和警告信息。在网络恢复前，暂停状态、警告数量和角色信息可能不是最新的。",
-    "eyebrow": "内容审核",
-    "openReports": "待处理举报",
-    "lead": "每项操作都会记录操作者和原因。这里的内容无法删除。",
     "capped": "正在显示最新的 {{count}} 条待处理举报。更早的未列出，下方的“被举报 N 次”只统计已显示的内容。处理完队列后即可看到更早的举报。",
     "loadFailed": "无法加载举报。",
     "checkRole": "请检查你的角色。",
@@ -926,14 +927,10 @@
     },
     "role": {
       "user": "用户",
-      "moderator": "审核员",
       "admin": "管理员"
     },
     "reportedTimes": "被举报 {{count}} 次",
     "inReviewBy": "{{name}} 正在处理",
-    "reportedBy": "举报人：{{name}}",
-    "about": " · 关于 {{name}}",
-    "alreadyWarned": " · 已警告 {{count}} 次",
     "removeActivity": "下架活动",
     "suspendAccount": "暂停账号",
     "warn": "警告",
@@ -943,26 +940,13 @@
     "takedownReason": "{{reason}}——由用户举报",
     "nothingWaiting": "没有待处理的举报",
     "nothingWaitingBody": "有人提交举报后会立即显示在这里。",
-    "suspendedEyebrow": "已暂停",
-    "onHold": "被暂停的账号",
-    "onHoldLead": "他们仍可以浏览 SmartSync，但无法创建、加入或发送消息，其主办的活动也不再接受新人。",
-    "moderatorOnlyAdmin": "这是一名审核员。只有管理员才能解除此暂停。",
-    "lifting": "正在解除…",
-    "liftSuspension": "解除暂停",
-    "sections": "审核板块",
-    "removed": "已下架的活动",
-    "removedHint": "审核员下架的全部内容",
-    "everyone": "SmartSync 的所有用户",
-    "everyoneHint": "主动查看，无需等待举报",
-    "moderators": "审核员",
-    "moderatorsHint": "谁拥有该角色，以及任命",
     "toasts": {
       "beingHandled": "正在处理中",
-      "beingHandledBody": "另一位审核员正在处理这条举报。",
+      "beingHandledBody": "另一位管理员正在处理这条举报。",
       "alreadyDone": "已完成",
       "alreadyDoneBody": "你的决定在第一次操作时就已记录。",
       "alreadyHandled": "已处理",
-      "alreadyHandledBody": "另一位审核员已先关闭了这条举报，以他们的决定为准。",
+      "alreadyHandledBody": "另一位管理员已先关闭了这条举报，以他们的决定为准。",
       "couldNotComplete": "无法完成",
       "couldNotDo": "操作失败",
       "whoIsThisAbout": "无法确定举报对象",
@@ -976,18 +960,11 @@
       "activity_other": "活动",
       "putBack": "已恢复",
       "putBackBody": "{{title}} 重新可见，主办者已收到通知。",
-      "restoreFailed": "无法恢复",
-      "adminOnlyRestore": "只有管理员才能撤销下架。",
       "suspensionLifted": "已解除暂停",
       "liftedBody": "{{name}} 可以再次发布内容，并已收到通知。暂停期间被下架的内容保持下架。",
-      "liftedBodyShort": "{{name}} 可以再次发布内容，并已收到通知。已下架的内容保持下架。",
-      "liftFailed": "无法解除",
-      "adminOnlyModerator": "只有管理员才能对审核员进行操作。",
-      "adminOnlyModeratorAdmin": "只有管理员才能对审核员进行操作，且任何人都不能对管理员进行操作。",
       "cannotAct": "{{name}} 无法创建、加入或发送消息。",
       "cannotActStoodDown": "{{name}} 无法创建、加入或发送消息。{{count}} 个{{noun}}已下架，所有已加入的人都已收到通知。",
       "accountSuspended": "账号已暂停",
-      "adminDecision": "关闭和重新开启账号由管理员决定，且任何角色都不能对管理员进行操作。",
       "warningIssued": "已发出警告",
       "warningIssuedBody": "{{name}} 已收到通知，并记录在案。没有任何处罚。",
       "partlyClosed": "已关闭，但未能全部下架",
@@ -996,12 +973,7 @@
       "closedBodyStoodDown": "{{name}} 无法再使用 SmartSync。{{count}} 个{{noun}}已下架，所有已加入的人都已收到通知。",
       "accountReopened": "账号已重新开启",
       "reopenedBody": "{{name}} 可以再次使用 SmartSync，并已收到通知。",
-      "appointed": "已任命审核员",
-      "appointedBody": "{{name}} 现在可以处理此队列，并已收到通知。",
-      "dismissed": "已解除审核员",
-      "dismissedBody": "{{name}} 不能再处理举报。其账号其他方面不变。",
-      "roleFailed": "无法更改",
-      "adminOnlyAppoint": "只有管理员才能任命或解除审核员。"
+      "nobodyActsOnAdmin": "任何人都不能对管理员进行操作，也不能对自己进行操作。"
     },
     "dialogs": {
       "removeTitle": "下架此活动？",
@@ -1013,12 +985,6 @@
       "remove": "下架",
       "suspend": "暂停",
       "dismiss": "驳回",
-      "appointTitle": "任命为审核员？",
-      "dismissModeratorTitle": "解除此审核员？",
-      "appointBody": "{{name}} 将能阅读所有举报、下架活动并暂停普通用户。他们不能任命任何人、撤销下架，或处理关于自己的举报。",
-      "appointBodySuspended": " 他们的账号目前处于暂停状态，因此在解除暂停前只拥有该角色而无法使用。",
-      "dismissModeratorBody": "{{name}} 将失去此队列的访问权限。其账号其他方面不变——如有暂停，也保持原样。",
-      "appoint": "任命",
       "liftTitle": "解除此暂停？",
       "liftBody": "{{name}} 可以再次创建、加入和发送消息，并会收到通知。暂停期间被下架的内容保持下架。",
       "lift": "解除暂停",
@@ -1039,11 +1005,6 @@
       "reopen": "重新开启"
     },
     "removedPage": {
-      "eyebrow": "管理员",
-      "title": "已下架的活动",
-      "lead": "审核员下架的全部内容。恢复操作会记录在活动上，并通知主办者。",
-      "kind": "已下架",
-      "hostedBy": "主办者：{{name}} · {{place}}",
       "takenDownBy": "下架者：{{name}}",
       "noReason": "未记录原因",
       "whyPutBack": "为什么恢复？",
@@ -1051,13 +1012,9 @@
       "placeholder": "举报有误",
       "writeReasonFirst": "请先填写原因",
       "puttingBack": "正在恢复…",
-      "putItBack": "恢复",
-      "nothing": "没有下架的内容",
-      "nothingBody": "被审核员下架的活动会列在这里。"
+      "putItBack": "恢复"
     },
     "people": {
-      "eyebrow": "监督",
-      "title": "SmartSync 的所有用户",
       "accounts_other": "{{count}} 个账号",
       "loaded": "已加载",
       "lead": "。被暂停或有内容被下架的用户排在前面。你看到的是公开资料——邮箱、匿名模式背后的真实姓名和存储的位置，只有本人能读取。",
@@ -1066,8 +1023,6 @@
       "searchPlaceholder": "姓名或 @用户名",
       "searching": "正在搜索所有用户…",
       "searchFailed": "暂时无法搜索服务器——只显示已加载的账号。",
-      "closed": "已关闭",
-      "suspended": "已暂停",
       "warnings_other": "{{count}} 次警告",
       "takenDown": "{{count}} 个被下架",
       "youSuffix": "（你）",
@@ -1081,34 +1036,10 @@
       "liftSuspension": "解除暂停",
       "closeAccount": "关闭账号",
       "reopenAccount": "重新开启账号",
-      "isAdmin": "这是一名管理员。在应用内任何角色都不能对此账号进行操作。",
-      "isModerator": "这是一名审核员。只有管理员才能对此账号进行操作。",
+      "isAdmin": "这是一名管理员。在应用内任何人都不能对管理员进行操作。",
       "nobody": "没有匹配的用户",
       "nobodyBody": "试试输入姓名的一部分，或清除搜索查看所有人。",
       "showingFirst": "共 {{count}} 人，显示前 {{shown}} 人。可通过搜索缩小范围。"
-    },
-    "moderatorsPage": {
-      "eyebrow": "管理员",
-      "title": "审核员",
-      "lead": "可以处理此队列的人。自任命起，他们就能下架活动并暂停普通用户，并会收到相应通知。",
-      "kind": "审核员",
-      "suspended": "已暂停",
-      "suspendedNote": "处于暂停状态，因此拥有该角色但无法使用。在上方解除暂停即可恢复权限。",
-      "dismissing": "正在解除…",
-      "dismiss": "解除审核员",
-      "none": "还没有审核员",
-      "noneBody": "在你任命他人之前，每条举报都只能由你处理。",
-      "appointTitle": "任命某人",
-      "searchLabel": "按姓名搜索用户",
-      "searchPlaceholder": "开始输入姓名",
-      "typeToFind": "输入姓名查找某人。现任审核员和管理员不会列在这里。",
-      "noneMatch": "没有与“{{query}}”匹配的其他用户。已拥有角色的人不会列在此处。",
-      "suspendedTag": " · 已暂停",
-      "appointing": "正在任命…",
-      "appoint": "任命",
-      "adminOne": "管理员：{{name}}。",
-      "adminMany": "管理员：{{names}}。",
-      "adminNote": "该角色只能在 Firebase 控制台授予——这里特意没有提供按钮。"
     }
   },
   "categories": {
@@ -1161,5 +1092,229 @@
     "listTitle": "地图上的活动",
     "listCount_other": "{{count}} 个活动",
     "listHint": "选择一个活动查看它的位置"
+  },
+  "console": {
+    "admin": {
+      "title": "管理员控制台"
+    },
+    "backToApp": "返回 SmartSync",
+    "nav": {
+      "overview": "概览",
+      "reports": "举报",
+      "accounts": "账号",
+      "history": "历史",
+      "activities": "活动"
+    },
+    "denied": {
+      "adminsTitle": "仅限管理员",
+      "adminsBody": "此控制台仅供管理员使用。其他账号在这里没有可用内容。",
+      "suspendedTitle": "你的身份已被暂停",
+      "suspendedBody": "被暂停的账号保留身份但无法行使任何权限。请管理员解除暂停。"
+    },
+    "status": {
+      "open": "待处理",
+      "mine": "我已认领",
+      "held": "审核中",
+      "heldBy": "审核中 · {{name}}",
+      "stale": "认领已过期",
+      "actioned": "已处理",
+      "dismissed": "已驳回"
+    },
+    "state": {
+      "suspended": "已暂停",
+      "closed": "已关闭"
+    },
+    "kinds": {
+      "suspend": "已暂停账号",
+      "lift": "已解除暂停",
+      "close": "已关闭账号",
+      "reopen": "已重新开放账号",
+      "remove": "已移除活动",
+      "restore": "已恢复活动",
+      "warn": "警告",
+      "actioned": "举报已处理",
+      "dismissed": "举报已驳回"
+    },
+    "activityStatus": {
+      "active": "进行中",
+      "upcoming": "即将开始",
+      "past": "已过去",
+      "cancelled": "已取消",
+      "removed": "已移除"
+    },
+    "filters": {
+      "label": "筛选",
+      "clear": "清除",
+      "any": "全部"
+    },
+    "keys": {
+      "move": "移动",
+      "open": "打开",
+      "search": "搜索",
+      "close": "关闭面板"
+    },
+    "claim": {
+      "title": "认领",
+      "nobody": "尚无人处理此举报。",
+      "take": "认领以审核",
+      "renew": "续期认领",
+      "release": "释放",
+      "yours": "在接下来的 {{time}} 内归你处理。",
+      "yoursExpired": "你的认领已过期。除非同事接手，你仍可以完成。",
+      "staleOther": "{{name}} 的认领已过期——你可以接手。",
+      "expiresIn": "{{time}} 后过期"
+    },
+    "toasts": {
+      "claimed": "已认领",
+      "claimedBody": "这份举报在五分钟内归你处理。每次操作都会续期认领。",
+      "released": "已释放",
+      "releasedBody": "举报已开放给下一位处理。",
+      "removed": "活动已移除",
+      "removedBody": "{{title}} 已从发现中消失。主办者和所有参与者已收到通知。"
+    },
+    "dialogs": {
+      "suspendPrompt": "为什么暂停此账号？",
+      "suspendPlaceholder": "警告后仍反复收到安全举报",
+      "liftPrompt": "记录备注（可选）",
+      "liftPlaceholder": "一周后重新审核"
+    },
+    "reports": {
+      "title": "举报",
+      "one": "举报 {{id}}",
+      "search": "搜索举报",
+      "searchPlaceholder": "原因、文字、被举报人、举报人、编号",
+      "columns": {
+        "status": "状态",
+        "type": "类型",
+        "reason": "原因",
+        "subject": "被举报人",
+        "reporter": "举报人",
+        "filed": "提交",
+        "handler": "处理人"
+      },
+      "statusFilter": {
+        "open": "待处理",
+        "unclaimed": "等待中（未认领）",
+        "mine": "我已认领",
+        "held": "他人审核中",
+        "resolved": "已决定",
+        "everything": "已加载的全部"
+      },
+      "resolvedCapped": "显示最近决定的 {{count}} 份举报。更早的决定见各账号页面。",
+      "noMatch": "没有匹配的举报",
+      "noMatchBody": "放宽筛选条件，或全部清除。",
+      "notLoaded": "未找到举报",
+      "notLoadedBody": "它不在已加载的两页中，也无法获取——可能已被删除，或你没有权限。",
+      "involvesYou": "这份举报与你有关或由你提交。需由同事处理。",
+      "decision": "决定",
+      "decidedBy": "决定人",
+      "decidedAt": "决定时间",
+      "outcome": "结果",
+      "evidence": "举报内容",
+      "noDetail": "举报人未添加说明。",
+      "messageNote": "消息按提交举报时的原样引用。聊天仅参与者可读，因此这段引用即为证据。",
+      "activityNotLoaded": "此活动不在已加载范围内——打开以查看。",
+      "subject": "被举报人",
+      "otherOpen_other": "另有 {{count}} 份待处理举报",
+      "record": "已有记录",
+      "cleanRecord": "无记录",
+      "fullRecord": "完整记录见账号页面",
+      "reporter": "举报人",
+      "reportedBy": "举报人",
+      "reportId": "举报编号"
+    },
+    "accounts": {
+      "title": "账号",
+      "one": "账号",
+      "columns": {
+        "person": "用户",
+        "state": "状态",
+        "hosts": "主办",
+        "joined": "参加"
+      },
+      "states": {
+        "all": "所有人",
+        "suspended": "已暂停",
+        "closed": "已关闭",
+        "warned": "已警告",
+        "takenDown": "曾被移除活动"
+      },
+      "yourself": "这是你自己的账号。没有人能在此对自己采取行动。",
+      "profile": "公开资料",
+      "interests": "兴趣",
+      "bio": "简介",
+      "since": "加入时间",
+      "uid": "编号",
+      "profileUnknown": "无法加载此编号的公开资料。",
+      "publicOnly": "仅公开资料。邮箱、匿名模式背后的真实姓名和存储的位置，除本人外无人可读。",
+      "activity": "活动",
+      "takenDown": "已移除",
+      "windowNote": "计数与列表覆盖已加载的活动范围。",
+      "openReports": "关于此账号的待处理举报",
+      "record": "记录",
+      "recordFailed": "无法加载记录。请重试。",
+      "filed": "其提交的举报",
+      "filedNone": "尚未提交过举报。"
+    },
+    "history": {
+      "byTo": "{{by}} → {{subject}}",
+      "account": "账号",
+      "report": "举报",
+      "activity": "活动",
+      "none": "暂无内容",
+      "noneBody": "操作、警告和决定发生后会显示在这里。",
+      "search": "搜索历史",
+      "searchPlaceholder": "原因、姓名、举报或活动编号",
+      "what": "内容",
+      "scope": "已加载最近 {{log}} 条操作和 {{reports}} 份决定。账号页面保存其完整记录。"
+    },
+    "activities": {
+      "title": "活动",
+      "one": "活动",
+      "search": "搜索活动",
+      "searchPlaceholder": "标题、地点、主办者、编号",
+      "columns": {
+        "activity": "活动",
+        "category": "类别",
+        "when": "时间",
+        "place": "地点",
+        "roster": "名单"
+      },
+      "roster": "{{count}} / {{capacity}}",
+      "windowNote": "已加载自昨天起最近的 {{count}} 个活动，以及你本人参与的活动。包含已移除和已取消的活动。",
+      "none": "没有匹配的活动",
+      "noneBody": "放宽筛选条件，或全部清除。",
+      "details": "详情",
+      "description": "描述",
+      "moderationRecord": "审核记录",
+      "lastDecisionBy": "最近由 {{name}} 决定",
+      "updated": "更新时间",
+      "cleanRecord": "此活动没有审核记录。"
+    },
+    "overview": {
+      "platform": "平台",
+      "counted": "服务器计数",
+      "live": "实时",
+      "accounts": "账号",
+      "activitiesUpcoming": "即将开始的活动",
+      "activitiesRemoved": "已移除活动",
+      "reportsTotal": "举报总数",
+      "reportsBreakdown": "已处理 {{actioned}} · 已驳回 {{dismissed}}",
+      "warnings": "警告总数",
+      "countedAt": "计数时间",
+      "countNote": "来自服务器的整个集合计数，而非已加载范围。无法计数的数字显示为 —。",
+      "recount": "重新计数",
+      "queue": "队列",
+      "inReview": "审核中",
+      "people": "人员",
+      "admins": "管理员",
+      "closed": "已关闭账号",
+      "open": "待处理举报",
+      "waiting": "等待审核",
+      "suspended": "已暂停账号",
+      "recent": "近期审核",
+      "allHistory": "全部历史",
+      "decided": "已决定的举报"
+    }
   }
 }

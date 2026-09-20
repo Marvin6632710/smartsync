@@ -33,8 +33,9 @@ let testEnv
 const ALICE = 'alice'
 const BOB = 'bob'
 const CAROL = 'carol'
-const MOD = 'mod'
 const ADMIN = 'admin'
+// A second admin: the claim and the conflict-of-interest rules need two.
+const ADMIN2 = 'admin2'
 
 const publicProfile = (uid, name) => ({
   uid,
@@ -100,8 +101,8 @@ beforeEach(async () => {
       senderName: 'Alice',
       text: 'See you there',
     })
-    await setDoc(doc(db, 'roles', MOD), { role: 'moderator', suspended: false })
     await setDoc(doc(db, 'roles', ADMIN), { role: 'admin', suspended: false })
+    await setDoc(doc(db, 'roles', ADMIN2), { role: 'admin', suspended: false })
     await setDoc(doc(db, 'users', ALICE, 'notifications', 'note1'), {
       type: 'activity',
       title: 'Someone joined',
@@ -115,8 +116,8 @@ const asAlice = () => testEnv.authenticatedContext(ALICE).firestore()
 const asBob = () => testEnv.authenticatedContext(BOB).firestore()
 const asCarol = () => testEnv.authenticatedContext(CAROL).firestore()
 const asGuest = () => testEnv.unauthenticatedContext().firestore()
-const asMod = () => testEnv.authenticatedContext(MOD).firestore()
 const asAdmin = () => testEnv.authenticatedContext(ADMIN).firestore()
+const asAdmin2 = () => testEnv.authenticatedContext(ADMIN2).firestore()
 
 /** Puts a role or a suspension on somebody, bypassing the rules under test. */
 const setRole = (uid, data) =>
@@ -257,7 +258,7 @@ describe('activity ownership', () => {
     await testEnv.withSecurityRulesDisabled((context) =>
       setDoc(
         doc(context.firestore(), 'activities', 'act1'),
-        activityFixture(ALICE, { status: 'removed', moderation: { by: MOD, reason: 'x' } }),
+        activityFixture(ALICE, { status: 'removed', moderation: { by: ADMIN2, reason: 'x' } }),
       ),
     )
     await assertSucceeds(updateDoc(doc(asAlice(), 'activities', 'act1'), stamp))
@@ -274,7 +275,7 @@ describe('activity ownership', () => {
     await testEnv.withSecurityRulesDisabled((context) =>
       setDoc(
         doc(context.firestore(), 'activities', 'act1'),
-        activityFixture(ALICE, { status: 'removed', moderation: { by: MOD, reason: 'x' } }),
+        activityFixture(ALICE, { status: 'removed', moderation: { by: ADMIN2, reason: 'x' } }),
       ),
     )
     const ref = doc(asAlice(), 'activities', 'act1')
@@ -285,9 +286,9 @@ describe('activity ownership', () => {
     await assertFails(updateDoc(ref, { hostName: '', hostAvatar: 'AN' }))
   })
 
-  test('nobody else can restamp it, moderator included', async () => {
+  test('nobody else can restamp it, an admin included', async () => {
     await assertFails(updateDoc(doc(asBob(), 'activities', 'act1'), stamp))
-    await assertFails(updateDoc(doc(asMod(), 'activities', 'act1'), stamp))
+    await assertFails(updateDoc(doc(asAdmin2(), 'activities', 'act1'), stamp))
   })
 
   test('the profile and every hosted activity can change in one batch', async () => {
@@ -297,7 +298,7 @@ describe('activity ownership', () => {
       const db = context.firestore()
       await setDoc(
         doc(db, 'activities', 'act2'),
-        activityFixture(ALICE, { status: 'removed', moderation: { by: MOD, reason: 'x' } }),
+        activityFixture(ALICE, { status: 'removed', moderation: { by: ADMIN2, reason: 'x' } }),
       )
     })
     const db = asAlice()
@@ -760,9 +761,9 @@ describe('notifications', () => {
     )
   })
 
-  test('a moderator can send a moderation notice, with or without an activity', async () => {
+  test('an admin can send a moderation notice, with or without an activity', async () => {
     await assertSucceeds(
-      addDoc(collection(asMod(), 'users', ALICE, 'notifications'), {
+      addDoc(collection(asAdmin2(), 'users', ALICE, 'notifications'), {
         type: 'moderation',
         title: 'Your activity was removed',
         body: 'SmartSync removed "Football Night": a safety concern.',
@@ -771,7 +772,7 @@ describe('notifications', () => {
       }),
     )
     await assertSucceeds(
-      addDoc(collection(asMod(), 'users', ALICE, 'notifications'), {
+      addDoc(collection(asAdmin2(), 'users', ALICE, 'notifications'), {
         type: 'moderation',
         title: 'A warning about your SmartSync account',
         body: 'Please read the community policy.',
@@ -780,20 +781,20 @@ describe('notifications', () => {
     )
   })
 
-  test('a moderator is not exempt from the roster rule for ordinary notices', async () => {
+  test('an admin is not exempt from the roster rule for ordinary notices', async () => {
     // The rank lets them write moderation notices. It does not let them
     // write "Bob joined" on behalf of a roster they are not on.
     await assertFails(
-      addDoc(collection(asMod(), 'users', ALICE, 'notifications'), note({ type: 'activity' })),
+      addDoc(collection(asAdmin2(), 'users', ALICE, 'notifications'), note({ type: 'activity' })),
     )
   })
 
-  test('a suspended moderator cannot send a moderation notice', async () => {
+  test('a suspended admin cannot send a moderation notice', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), 'roles', MOD), { role: 'moderator', suspended: true })
+      await setDoc(doc(context.firestore(), 'roles', ADMIN2), { role: 'admin', suspended: true })
     })
     await assertFails(
-      addDoc(collection(asMod(), 'users', ALICE, 'notifications'), {
+      addDoc(collection(asAdmin2(), 'users', ALICE, 'notifications'), {
         type: 'moderation',
         title: 'A warning about your SmartSync account',
         body: 'x',
@@ -1139,9 +1140,9 @@ describe('roles — who can grant what', () => {
     await assertFails(getDoc(doc(asAlice(), 'roles', BOB)))
   })
 
-  test('a moderator can read anyone s role', async () => {
+  test('an admin can read anyone s role', async () => {
     await setRole(ALICE, {})
-    await assertSucceeds(getDoc(doc(asMod(), 'roles', ALICE)))
+    await assertSucceeds(getDoc(doc(asAdmin2(), 'roles', ALICE)))
   })
 
   test('a plain user cannot promote themselves', async () => {
@@ -1156,15 +1157,13 @@ describe('roles — who can grant what', () => {
     await assertFails(setDoc(doc(asAlice(), 'roles', BOB), { role: 'moderator', suspended: false }))
   })
 
-  test('a moderator cannot hand out roles', async () => {
-    // Moderating is reviewing reports, not deciding who moderates.
-    await assertFails(setDoc(doc(asMod(), 'roles', ALICE), { role: 'moderator', suspended: false }))
-  })
-
-  test('an admin can appoint a moderator', async () => {
-    await assertSucceeds(
+  test('there is no rank to hand out: the only role the app may write is "user"', async () => {
+    // The moderator rank was retired. Nothing may bring it back by writing
+    // the word, an admin included.
+    await assertFails(
       setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'moderator', suspended: false }),
     )
+    await assertSucceeds(setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'user', suspended: false }))
   })
 
   test('an admin cannot create another admin', async () => {
@@ -1176,9 +1175,7 @@ describe('roles — who can grant what', () => {
   test('an admin cannot edit their own row', async () => {
     // Somebody who can rewrite their own role can undo any limit placed on
     // them, and can strip their own admin by mistake and lock everyone out.
-    await assertFails(
-      setDoc(doc(asAdmin(), 'roles', ADMIN), { role: 'moderator', suspended: false }),
-    )
+    await assertFails(setDoc(doc(asAdmin(), 'roles', ADMIN), { role: 'user', suspended: false }))
     await assertFails(deleteDoc(doc(asAdmin(), 'roles', ADMIN)))
   })
 
@@ -1188,7 +1185,7 @@ describe('roles — who can grant what', () => {
   })
 
   test('a role row must say whether the person is suspended', async () => {
-    await assertFails(setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'moderator' }))
+    await assertFails(setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'user' }))
   })
 
   test('an unknown role is refused', async () => {
@@ -1253,11 +1250,11 @@ describe('suspension', () => {
 })
 
 describe('moderation powers', () => {
-  test('a moderator can take an activity down', async () => {
+  test('an admin can take an activity down', async () => {
     await assertSucceeds(
-      updateDoc(doc(asMod(), 'activities', 'act1'), {
+      updateDoc(doc(asAdmin2(), 'activities', 'act1'), {
         status: 'removed',
-        moderation: { by: MOD, reason: 'Breaks the safety policy' },
+        moderation: { by: ADMIN2, reason: 'Breaks the safety policy' },
         updatedAt: 1,
       }),
     )
@@ -1265,17 +1262,17 @@ describe('moderation powers', () => {
 
   test('taking one down has to say why', async () => {
     await assertFails(
-      updateDoc(doc(asMod(), 'activities', 'act1'), {
+      updateDoc(doc(asAdmin2(), 'activities', 'act1'), {
         status: 'removed',
-        moderation: { by: MOD, reason: '' },
+        moderation: { by: ADMIN2, reason: '' },
         updatedAt: 1,
       }),
     )
   })
 
-  test('a moderator cannot pin the decision on somebody else', async () => {
+  test('an admin cannot pin the decision on somebody else', async () => {
     await assertFails(
-      updateDoc(doc(asMod(), 'activities', 'act1'), {
+      updateDoc(doc(asAdmin2(), 'activities', 'act1'), {
         status: 'removed',
         moderation: { by: ALICE, reason: 'Breaks the safety policy' },
         updatedAt: 1,
@@ -1283,30 +1280,30 @@ describe('moderation powers', () => {
     )
   })
 
-  test('a moderator cannot edit an activity, only remove it', async () => {
+  test('an admin cannot edit an activity, only remove it', async () => {
     // Taking something down is a narrow power on purpose: not rewriting it,
     // not reassigning it, not deciding who else is going.
-    await assertFails(updateDoc(doc(asMod(), 'activities', 'act1'), { title: 'Rewritten' }))
-    await assertFails(updateDoc(doc(asMod(), 'activities', 'act1'), { capacity: 500 }))
-    await assertFails(updateDoc(doc(asMod(), 'activities', 'act1'), { hostId: MOD }))
+    await assertFails(updateDoc(doc(asAdmin2(), 'activities', 'act1'), { title: 'Rewritten' }))
+    await assertFails(updateDoc(doc(asAdmin2(), 'activities', 'act1'), { capacity: 500 }))
+    await assertFails(updateDoc(doc(asAdmin2(), 'activities', 'act1'), { hostId: ADMIN2 }))
     await assertFails(
-      updateDoc(doc(asMod(), 'activities', 'act1'), {
+      updateDoc(doc(asAdmin2(), 'activities', 'act1'), {
         participantUids: [ALICE, CAROL],
         updatedAt: 1,
       }),
     )
     await assertFails(
       // And cannot quietly cancel instead of removing, which would hide that
-      // a moderator acted at all.
-      updateDoc(doc(asMod(), 'activities', 'act1'), { status: 'cancelled', updatedAt: 1 }),
+      // an admin acted at all.
+      updateDoc(doc(asAdmin2(), 'activities', 'act1'), { status: 'cancelled', updatedAt: 1 }),
     )
   })
 
-  test('a moderator may still join an activity like anybody else', async () => {
+  test('an admin may still join an activity like anybody else', async () => {
     // Moderating is a job, not a different kind of membership.
     await assertSucceeds(
-      updateDoc(doc(asMod(), 'activities', 'act1'), {
-        participantUids: [ALICE, MOD],
+      updateDoc(doc(asAdmin2(), 'activities', 'act1'), {
+        participantUids: [ALICE, ADMIN2],
         updatedAt: 1,
       }),
     )
@@ -1322,7 +1319,7 @@ describe('moderation powers', () => {
     )
   })
 
-  test('a moderator can read a report they did not file', async () => {
+  test('an admin can read a report they did not file', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(doc(context.firestore(), 'reports', 'r1'), {
         reporterId: BOB,
@@ -1333,7 +1330,7 @@ describe('moderation powers', () => {
         status: 'open',
       })
     })
-    await assertSucceeds(getDoc(doc(asMod(), 'reports', 'r1')))
+    await assertSucceeds(getDoc(doc(asAdmin2(), 'reports', 'r1')))
     await assertFails(getDoc(doc(asCarol(), 'reports', 'r1')))
   })
 
@@ -1365,102 +1362,104 @@ describe('moderation powers', () => {
     updateDoc(doc(dbFor(), 'reports', 'r1'), decision(by, status, outcome))
   const staleClaim = (by) => ({ by, at: new Date(Date.now() - 10 * 60_000) })
 
-  test('a moderator can record a decision — on a report they have claimed', async () => {
+  test('an admin can record a decision — on a report they have claimed', async () => {
     await seedReport()
-    await assertSucceeds(claimAs(asMod, MOD))
-    await assertSucceeds(decideAs(asMod, MOD))
+    await assertSucceeds(claimAs(asAdmin2, ADMIN2))
+    await assertSucceeds(decideAs(asAdmin2, ADMIN2))
   })
 
   test('a decision without a claim is refused, even from the right rank', async () => {
     await seedReport()
-    await assertFails(decideAs(asMod, MOD))
+    await assertFails(decideAs(asAdmin2, ADMIN2))
     await assertFails(decideAs(asAdmin, ADMIN))
   })
 
   test('a report is closed once — a second decision is refused, whoever makes it', async () => {
-    // Two moderators ruling within seconds of each other both used to
+    // Two admins ruling within seconds of each other both used to
     // succeed, and the record kept only whichever landed second. The first
-    // decision stands; the app tells the second moderator so.
+    // decision stands; the app tells the second admin so.
     await seedReport()
-    await assertSucceeds(claimAs(asMod, MOD))
-    await assertSucceeds(decideAs(asMod, MOD))
-    // The same moderator again, and an admin: neither may reopen or overwrite.
-    await assertFails(decideAs(asMod, MOD, 'dismissed', 'No action needed'))
+    await assertSucceeds(claimAs(asAdmin2, ADMIN2))
+    await assertSucceeds(decideAs(asAdmin2, ADMIN2))
+    // The same admin again, and another: neither may reopen or overwrite.
+    await assertFails(decideAs(asAdmin2, ADMIN2, 'dismissed', 'No action needed'))
     await assertFails(claimAs(asAdmin, ADMIN))
     await assertFails(decideAs(asAdmin, ADMIN, 'dismissed', 'No action needed'))
     await assertFails(decideAs(asAdmin, ADMIN, 'open', ''))
   })
 
   describe('claiming a report', () => {
-    test('two moderators claiming at once: exactly one wins', async () => {
+    test('two admins claiming at once: exactly one wins', async () => {
       await seedReport()
-      const results = await Promise.allSettled([claimAs(asMod, MOD), claimAs(asAdmin, ADMIN)])
+      const results = await Promise.allSettled([claimAs(asAdmin2, ADMIN2), claimAs(asAdmin, ADMIN)])
       expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
       expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1)
     })
 
-    test('another moderator cannot claim, decide, or release while a fresh claim stands', async () => {
+    test('another admin cannot claim, decide, or release while a fresh claim stands', async () => {
       await seedReport()
-      await assertSucceeds(claimAs(asMod, MOD))
+      await assertSucceeds(claimAs(asAdmin2, ADMIN2))
       await assertFails(claimAs(asAdmin, ADMIN))
       await assertFails(decideAs(asAdmin, ADMIN))
       await assertFails(releaseAs(asAdmin))
       // The holder may renew their own claim, and decide.
-      await assertSucceeds(claimAs(asMod, MOD))
-      await assertSucceeds(decideAs(asMod, MOD))
+      await assertSucceeds(claimAs(asAdmin2, ADMIN2))
+      await assertSucceeds(decideAs(asAdmin2, ADMIN2))
     })
 
     test('a claim that failed to finish is released, and the next person gets in', async () => {
       await seedReport()
-      await assertSucceeds(claimAs(asMod, MOD))
-      await assertSucceeds(releaseAs(asMod))
+      await assertSucceeds(claimAs(asAdmin2, ADMIN2))
+      await assertSucceeds(releaseAs(asAdmin2))
       await assertSucceeds(claimAs(asAdmin, ADMIN))
       await assertSucceeds(decideAs(asAdmin, ADMIN))
     })
 
     test('a stale claim can be taken over, and its holder can no longer decide', async () => {
-      await seedReport({ claim: staleClaim(MOD) })
+      await seedReport({ claim: staleClaim(ADMIN2) })
       await assertSucceeds(claimAs(asAdmin, ADMIN))
-      await assertFails(decideAs(asMod, MOD))
+      await assertFails(decideAs(asAdmin2, ADMIN2))
       await assertSucceeds(decideAs(asAdmin, ADMIN))
     })
 
     test('a claim must be the caller’s own, stamped by the server, and nothing more', async () => {
       await seedReport()
       await assertFails(
-        updateDoc(doc(asMod(), 'reports', 'r1'), { claim: { by: ADMIN, at: serverTimestamp() } }),
+        updateDoc(doc(asAdmin2(), 'reports', 'r1'), {
+          claim: { by: ADMIN, at: serverTimestamp() },
+        }),
       )
       await assertFails(
-        updateDoc(doc(asMod(), 'reports', 'r1'), { claim: { by: MOD, at: new Date() } }),
+        updateDoc(doc(asAdmin2(), 'reports', 'r1'), { claim: { by: ADMIN2, at: new Date() } }),
       )
       await assertFails(
-        updateDoc(doc(asMod(), 'reports', 'r1'), {
-          claim: { by: MOD, at: serverTimestamp(), note: 'mine' },
+        updateDoc(doc(asAdmin2(), 'reports', 'r1'), {
+          claim: { by: ADMIN2, at: serverTimestamp(), note: 'mine' },
         }),
       )
     })
 
     test('nobody claims a report that is already closed', async () => {
       await seedReport({ status: 'dismissed', reviewedBy: ADMIN, outcome: 'x' })
-      await assertFails(claimAs(asMod, MOD))
+      await assertFails(claimAs(asAdmin2, ADMIN2))
     })
 
     test('the reporter, the subject and a plain user cannot claim', async () => {
-      await seedReport({ reporterId: MOD })
-      await assertFails(claimAs(asMod, MOD))
-      await seedReport({ targetId: MOD, subjectId: MOD })
-      await assertFails(claimAs(asMod, MOD))
+      await seedReport({ reporterId: ADMIN2 })
+      await assertFails(claimAs(asAdmin2, ADMIN2))
+      await seedReport({ targetId: ADMIN2, subjectId: ADMIN2 })
+      await assertFails(claimAs(asAdmin2, ADMIN2))
       await seedReport()
       await assertFails(claimAs(asBob, BOB))
       await assertFails(claimAs(asAlice, ALICE))
     })
 
-    test('a suspended moderator cannot claim', async () => {
+    test('a suspended admin cannot claim', async () => {
       await seedReport()
       await testEnv.withSecurityRulesDisabled(async (context) => {
-        await setDoc(doc(context.firestore(), 'roles', MOD), { role: 'moderator', suspended: true })
+        await setDoc(doc(context.firestore(), 'roles', ADMIN2), { role: 'admin', suspended: true })
       })
-      await assertFails(claimAs(asMod, MOD))
+      await assertFails(claimAs(asAdmin2, ADMIN2))
     })
 
     test('a report cannot be filed already claimed', async () => {
@@ -1483,24 +1482,24 @@ describe('moderation powers', () => {
 
     test('lands only while the claim is held and the report is open', async () => {
       await seedReport({ targetType: 'activity', targetId: 'act1', subjectId: ALICE })
-      await assertFails(takeDown(asMod, MOD))
-      await assertSucceeds(claimAs(asMod, MOD))
-      await assertSucceeds(takeDown(asMod, MOD))
+      await assertFails(takeDown(asAdmin2, ADMIN2))
+      await assertSucceeds(claimAs(asAdmin2, ADMIN2))
+      await assertSucceeds(takeDown(asAdmin2, ADMIN2))
     })
 
     test('is refused under somebody else’s claim, and after the report is closed', async () => {
       await seedReport({ targetType: 'activity', targetId: 'act1', subjectId: ALICE })
       await assertSucceeds(claimAs(asAdmin, ADMIN))
-      await assertFails(takeDown(asMod, MOD))
+      await assertFails(takeDown(asAdmin2, ADMIN2))
       await assertSucceeds(decideAs(asAdmin, ADMIN))
       await assertFails(takeDown(asAdmin, ADMIN))
     })
 
     test('a takedown that names no report is judged as before', async () => {
       await assertSucceeds(
-        updateDoc(doc(asMod(), 'activities', 'act1'), {
+        updateDoc(doc(asAdmin2(), 'activities', 'act1'), {
           status: 'removed',
-          moderation: { by: MOD, reason: 'spam' },
+          moderation: { by: ADMIN2, reason: 'spam' },
           updatedAt: 1,
         }),
       )
@@ -1508,9 +1507,9 @@ describe('moderation powers', () => {
 
     test('a takedown naming a report that does not exist is refused', async () => {
       await assertFails(
-        updateDoc(doc(asMod(), 'activities', 'act1'), {
+        updateDoc(doc(asAdmin2(), 'activities', 'act1'), {
           status: 'removed',
-          moderation: { by: MOD, reason: 'spam', reportId: 'nope' },
+          moderation: { by: ADMIN2, reason: 'spam', reportId: 'nope' },
           updatedAt: 1,
         }),
       )
@@ -1518,12 +1517,12 @@ describe('moderation powers', () => {
 
     test('the moderation record carries nothing but who, why and which report', async () => {
       await seedReport({ targetType: 'activity', targetId: 'act1', subjectId: ALICE })
-      await assertSucceeds(claimAs(asMod, MOD))
-      await assertFails(takeDown(asMod, MOD, { extra: 'field' }))
+      await assertSucceeds(claimAs(asAdmin2, ADMIN2))
+      await assertFails(takeDown(asAdmin2, ADMIN2, { extra: 'field' }))
     })
   })
 
-  test('a moderator cannot rewrite what was reported', async () => {
+  test('an admin cannot rewrite what was reported', async () => {
     // Only the decision is writable. Letting a reviewer edit the reason or
     // the description would make the record worthless.
     await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -1536,9 +1535,9 @@ describe('moderation powers', () => {
         status: 'open',
       })
     })
-    await assertFails(updateDoc(doc(asMod(), 'reports', 'r1'), { detail: 'nothing happened' }))
-    await assertFails(updateDoc(doc(asMod(), 'reports', 'r1'), { reason: 'spam' }))
-    await assertFails(deleteDoc(doc(asMod(), 'reports', 'r1')))
+    await assertFails(updateDoc(doc(asAdmin2(), 'reports', 'r1'), { detail: 'nothing happened' }))
+    await assertFails(updateDoc(doc(asAdmin2(), 'reports', 'r1'), { reason: 'spam' }))
+    await assertFails(deleteDoc(doc(asAdmin2(), 'reports', 'r1')))
   })
 
   test('a plain user cannot resolve a report, even their own', async () => {
@@ -1563,25 +1562,27 @@ describe('moderation powers', () => {
   })
 })
 
-describe('a suspended moderator', () => {
+describe('a suspended admin', () => {
   // Suspension takes the powers, not the rank. Before this, suspending a
-  // moderator who was abusing the queue took nothing away from them — they
-  // kept removing activities and suspending people while suspended.
+  // rank that was abusing the queue took nothing away from them — they kept
+  // removing activities and suspending people while suspended. Only
+  // reachable from the Firebase console — no admin can suspend another —
+  // but if it happens the powers must go with it.
 
-  beforeEach(() => setRole(MOD, { role: 'moderator', suspended: true }))
+  beforeEach(() => setRole(ADMIN2, { role: 'admin', suspended: true }))
 
   test('cannot take an activity down', async () => {
     await assertFails(
-      updateDoc(doc(asMod(), 'activities', 'act1'), {
+      updateDoc(doc(asAdmin2(), 'activities', 'act1'), {
         status: 'removed',
-        moderation: { by: MOD, reason: 'Breaks the safety policy' },
+        moderation: { by: ADMIN2, reason: 'Breaks the safety policy' },
         updatedAt: 1,
       }),
     )
   })
 
   test('cannot suspend anybody', async () => {
-    await assertFails(setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: true }))
+    await assertFails(setDoc(doc(asAdmin2(), 'roles', ALICE), { role: 'user', suspended: true }))
   })
 
   test('cannot read somebody else s report', async () => {
@@ -1596,34 +1597,26 @@ describe('a suspended moderator', () => {
         status: 'open',
       })
     })
-    await assertFails(getDoc(doc(asMod(), 'reports', 'r1')))
+    await assertFails(getDoc(doc(asAdmin2(), 'reports', 'r1')))
   })
 
   test('cannot lift their own suspension', async () => {
-    await assertFails(setDoc(doc(asMod(), 'roles', MOD), { role: 'moderator', suspended: false }))
+    await assertFails(setDoc(doc(asAdmin2(), 'roles', ADMIN2), { role: 'admin', suspended: false }))
   })
 
-  test('keeps the rank, so an admin can hand it back', async () => {
-    await assertSucceeds(
-      setDoc(doc(asAdmin(), 'roles', MOD), { role: 'moderator', suspended: false }),
-    )
+  test('keeps the rank, and only the console hands the powers back', async () => {
+    // No admin may act on another, a suspended one included — so lifting
+    // this is done where the rank was granted.
+    await assertFails(setDoc(doc(asAdmin(), 'roles', ADMIN2), { role: 'admin', suspended: false }))
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'roles', ADMIN2), { role: 'admin', suspended: false })
+    })
+    await assertSucceeds(setDoc(doc(asAdmin2(), 'roles', ALICE), { role: 'user', suspended: true }))
   })
 
   test('and can still read, which is the point of suspending rather than banning', async () => {
-    await assertSucceeds(getDoc(doc(asMod(), 'activities', 'act1')))
-    await assertSucceeds(getDoc(doc(asMod(), 'roles', MOD)))
-  })
-})
-
-describe('a suspended admin', () => {
-  // Only reachable from the Firebase console — no admin can suspend another —
-  // but if it happens the powers must go with it.
-  beforeEach(() => setRole(ADMIN, { role: 'admin', suspended: true }))
-
-  test('cannot appoint moderators', async () => {
-    await assertFails(
-      setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'moderator', suspended: false }),
-    )
+    await assertSucceeds(getDoc(doc(asAdmin2(), 'activities', 'act1')))
+    await assertSucceeds(getDoc(doc(asAdmin2(), 'roles', ADMIN2)))
   })
 
   test('cannot restore a removed activity', async () => {
@@ -1632,14 +1625,14 @@ describe('a suspended admin', () => {
         doc(context.firestore(), 'activities', 'act1'),
         activityFixture(ALICE, {
           status: 'removed',
-          moderation: { by: MOD, reason: 'A safety concern' },
+          moderation: { by: ADMIN, reason: 'A safety concern' },
         }),
       )
     })
     await assertFails(
-      updateDoc(doc(asAdmin(), 'activities', 'act1'), {
+      updateDoc(doc(asAdmin2(), 'activities', 'act1'), {
         status: 'active',
-        moderation: { by: ADMIN, reason: 'Reviewed again' },
+        moderation: { by: ADMIN2, reason: 'Reviewed again' },
         updatedAt: 1,
       }),
     )
@@ -1647,9 +1640,9 @@ describe('a suspended admin', () => {
 })
 
 describe('reviewing a report about yourself', () => {
-  // A moderator can never suspend themselves — /roles refuses that. But
+  // An admin can never suspend themselves — /roles refuses that. But
   // until this was closed they could mark the complaint dismissed, which is
-  // the same power exercised quietly. Found by looking at a moderator's own
+  // the same power exercised quietly. Found by looking at a reviewer's own
   // queue in the running app and seeing a report about them sitting in it
   // with a Dismiss button.
 
@@ -1658,7 +1651,7 @@ describe('reviewing a report about yourself', () => {
       await setDoc(doc(context.firestore(), 'reports', 'r1'), {
         reporterId: BOB,
         targetType: 'user',
-        targetId: MOD,
+        targetId: ADMIN2,
         reason: 'spam',
         detail: 'Posting the same thing over and over.',
         context: '',
@@ -1670,7 +1663,7 @@ describe('reviewing a report about yourself', () => {
   // Claim, then decide: the decision needs the claim, and the claim is
   // refused for the same conflicts of interest, so "cannot decide" holds at
   // the first write and "can decide" needs both.
-  const decide = async (db, outcome, by = MOD) => {
+  const decide = async (db, outcome, by = ADMIN2) => {
     await updateDoc(doc(db, 'reports', 'r1'), { claim: { by, at: serverTimestamp() } })
     await updateDoc(doc(db, 'reports', 'r1'), {
       status: outcome,
@@ -1680,22 +1673,22 @@ describe('reviewing a report about yourself', () => {
     })
   }
 
-  test('a moderator cannot dismiss a report about themselves', async () => {
+  test('an admin cannot dismiss a report about themselves', async () => {
     await fileReport({})
-    await assertFails(decide(asMod(), 'dismissed'))
+    await assertFails(decide(asAdmin2(), 'dismissed'))
   })
 
   test('nor mark it actioned to make it look dealt with', async () => {
     await fileReport({})
-    await assertFails(decide(asMod(), 'actioned'))
+    await assertFails(decide(asAdmin2(), 'actioned'))
   })
 
-  test('a moderator cannot dismiss a report about their own activity', async () => {
+  test('an admin cannot dismiss a report about their own activity', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), 'activities', 'mine'), activityFixture(MOD))
+      await setDoc(doc(context.firestore(), 'activities', 'mine'), activityFixture(ADMIN2))
     })
     await fileReport({ targetType: 'activity', targetId: 'mine' })
-    await assertFails(decide(asMod(), 'dismissed'))
+    await assertFails(decide(asAdmin2(), 'dismissed'))
   })
 
   test('but somebody else can decide it', async () => {
@@ -1705,71 +1698,62 @@ describe('reviewing a report about yourself', () => {
 
   test('and a report about somebody else is still theirs to decide', async () => {
     await fileReport({ targetId: ALICE })
-    await assertSucceeds(decide(asMod(), 'actioned'))
+    await assertSucceeds(decide(asAdmin2(), 'actioned'))
   })
 
   test('a report naming an activity that no longer exists is still decidable', async () => {
     // aboutMe() reads the activity to find its host. A deleted target must
     // not make the report unresolvable.
     await fileReport({ targetType: 'activity', targetId: 'gone' })
-    await assertSucceeds(decide(asMod(), 'dismissed'))
+    await assertSucceeds(decide(asAdmin2(), 'dismissed'))
   })
 })
 
 describe('the privilege ladder', () => {
-  // Who may do what to whom. The client had a matching bug — setSuspended()
-  // wrote role:'user' next to the flag, so suspending a moderator demoted
-  // them and un-suspending left them demoted. These tests pin the boundary
-  // the rules are responsible for; the client fix is in moderation.js.
+  // Who may do what to whom. Two ranks: an admin acts on every ordinary
+  // account and on no admin; an ordinary account acts on nobody. These pin
+  // the boundary the rules are responsible for.
 
-  test('a moderator can suspend an ordinary user', async () => {
-    // The whole point of the rank. A moderator who could take down one
-    // activity while the same account posted ten more moderates nothing.
-    await assertSucceeds(setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: true }))
+  test('an admin can suspend an ordinary user', async () => {
+    // An admin who could take down one activity while the same account
+    // posted ten more would be moderating nothing.
+    await assertSucceeds(setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'user', suspended: true }))
   })
 
-  test('a moderator can lift a suspension they placed', async () => {
+  test('an admin can lift a suspension, whoever placed it', async () => {
     await setRole(ALICE, { role: 'user', suspended: true })
-    await assertSucceeds(setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: false }))
-  })
-
-  test('a moderator cannot promote anyone while suspending them', async () => {
-    await assertFails(setDoc(doc(asMod(), 'roles', ALICE), { role: 'moderator', suspended: true }))
-  })
-
-  test('a moderator cannot suspend a fellow moderator', async () => {
-    // Otherwise two moderators can disable each other, and whoever moves
-    // first wins. Acting on a peer is an admin's call.
-    await setRole(ALICE, { role: 'moderator', suspended: false })
-    await assertFails(setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: true }))
-  })
-
-  test('a moderator cannot suspend an admin', async () => {
-    await assertFails(setDoc(doc(asMod(), 'roles', ADMIN), { role: 'user', suspended: true }))
-  })
-
-  test('a moderator cannot demote a moderator', async () => {
-    await setRole(ALICE, { role: 'moderator', suspended: false })
-    await assertFails(setDoc(doc(asMod(), 'roles', ALICE), { role: 'user', suspended: false }))
-  })
-
-  test('a moderator cannot lift their own suspension', async () => {
-    await setRole(MOD, { role: 'moderator', suspended: true })
-    await assertFails(setDoc(doc(asMod(), 'roles', MOD), { role: 'moderator', suspended: false }))
-  })
-
-  test('an admin can suspend a moderator without demoting them', async () => {
-    await setRole(ALICE, { role: 'moderator', suspended: false })
     await assertSucceeds(
-      setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'moderator', suspended: true }),
+      setDoc(doc(asAdmin2(), 'roles', ALICE), { role: 'user', suspended: false }),
     )
   })
 
-  test('an admin cannot suspend another admin', async () => {
-    // Two admins able to disable each other is a race with no good outcome.
-    // Removing an admin is a console act, like creating one.
-    await setRole(CAROL, { role: 'admin', suspended: false })
-    await assertFails(setDoc(doc(asAdmin(), 'roles', CAROL), { role: 'user', suspended: true }))
+  test('an admin cannot grant a rank while suspending somebody', async () => {
+    await assertFails(
+      setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'moderator', suspended: true }),
+    )
+    await assertFails(setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'admin', suspended: true }))
+  })
+
+  test('an admin cannot suspend a fellow admin', async () => {
+    // Otherwise two admins can disable each other, and whoever moves first
+    // wins. Removing an admin is a console act, like creating one.
+    await assertFails(setDoc(doc(asAdmin(), 'roles', ADMIN2), { role: 'user', suspended: true }))
+    await assertFails(setDoc(doc(asAdmin(), 'roles', ADMIN2), { role: 'admin', suspended: true }))
+  })
+
+  test('an admin cannot demote a fellow admin', async () => {
+    await assertFails(setDoc(doc(asAdmin(), 'roles', ADMIN2), { role: 'user', suspended: false }))
+  })
+
+  test('an admin cannot lift their own suspension', async () => {
+    await setRole(ADMIN, { role: 'admin', suspended: true })
+    await assertFails(setDoc(doc(asAdmin(), 'roles', ADMIN), { role: 'admin', suspended: false }))
+  })
+
+  test('a row still saying "moderator" is an ordinary account: an admin acts on it, it acts on nobody', async () => {
+    await setRole(CAROL, { role: 'moderator', suspended: false })
+    await assertFails(setDoc(doc(asCarol(), 'roles', ALICE), { role: 'user', suspended: true }))
+    await assertSucceeds(setDoc(doc(asAdmin(), 'roles', CAROL), { role: 'user', suspended: true }))
   })
 
   test('a plain user cannot suspend anybody, including themselves', async () => {
@@ -1778,7 +1762,7 @@ describe('the privilege ladder', () => {
   })
 
   test('nobody can write a role with a missing suspended flag', async () => {
-    await assertFails(setDoc(doc(asMod(), 'roles', ALICE), { role: 'user' }))
+    await assertFails(setDoc(doc(asAdmin(), 'roles', ALICE), { role: 'user' }))
   })
 })
 
@@ -1787,16 +1771,16 @@ describe('a removal the host cannot walk back', () => {
   // accepts every status, and the host-edit branch ran nothing but
   // `validActivity` — so a host whose activity had just been taken down could
   // write status back to 'active' and carry on. Found by driving the emulator
-  // as the host after a real moderator removal, not by reading the rules.
+  // as the host after a real admin removal, not by reading the rules.
 
-  /** Takes act1 down the way a moderator would, bypassing the rules. */
+  /** Takes act1 down the way an admin would, bypassing the rules. */
   const removeAct1 = () =>
     testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(
         doc(context.firestore(), 'activities', 'act1'),
         activityFixture(ALICE, {
           status: 'removed',
-          moderation: { by: MOD, reason: 'A safety concern' },
+          moderation: { by: ADMIN2, reason: 'A safety concern' },
         }),
       )
     })
@@ -1841,7 +1825,7 @@ describe('a removal the host cannot walk back', () => {
   test('a host cannot forge a moderation record on a live activity', async () => {
     await assertFails(
       updateDoc(doc(asAlice(), 'activities', 'act1'), {
-        moderation: { by: MOD, reason: 'Reviewed and fine' },
+        moderation: { by: ADMIN2, reason: 'Reviewed and fine' },
       }),
     )
   })
@@ -1853,24 +1837,25 @@ describe('a removal the host cannot walk back', () => {
     await assertFails(
       setDoc(
         doc(asAlice(), 'activities', 'act3'),
-        activityFixture(ALICE, { moderation: { by: MOD, reason: 'Fine' } }),
+        activityFixture(ALICE, { moderation: { by: ADMIN2, reason: 'Fine' } }),
       ),
     )
   })
 
-  test('a moderator cannot put back what a moderator took down', async () => {
-    // Reversing a takedown is a rank above making one.
+  test('an admin can put back what another admin took down, on the record', async () => {
+    // Reversing a takedown is not a rank above making one — there is no
+    // rank above — but it is never silent: the restore names who and why.
     await removeAct1()
-    await assertFails(
-      updateDoc(doc(asMod(), 'activities', 'act1'), {
+    await assertSucceeds(
+      updateDoc(doc(asAdmin2(), 'activities', 'act1'), {
         status: 'active',
-        moderation: { by: MOD, reason: 'Changed my mind' },
+        moderation: { by: ADMIN2, reason: 'Reviewed again — the report was mistaken' },
         updatedAt: 1,
       }),
     )
   })
 
-  test('an admin can put it back, on the record', async () => {
+  test('the admin who took it down can put it back too', async () => {
     await removeAct1()
     await assertSucceeds(
       updateDoc(doc(asAdmin(), 'activities', 'act1'), {
@@ -1909,7 +1894,7 @@ describe('a removal the host cannot walk back', () => {
         activityFixture(ALICE, {
           participantUids: [ALICE, BOB],
           status: 'removed',
-          moderation: { by: MOD, reason: 'A safety concern' },
+          moderation: { by: ADMIN2, reason: 'A safety concern' },
         }),
       )
     })

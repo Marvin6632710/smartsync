@@ -242,6 +242,18 @@ export default function Shell() {
               <Bell size={20} />
               {unread > 0 && <span className="badge">{unread}</span>}
             </button>
+            {/* The desk, for the admin: the console is its own room, and
+                this is its door from the app. */}
+            {user.isAdmin && (
+              <button
+                className="icon-button web-console"
+                onClick={() => navigate('/admin')}
+                aria-label={t('shell.console')}
+                title={t('shell.console')}
+              >
+                <ShieldAlert size={19} />
+              </button>
+            )}
             {/* The same control as the Settings row, and the same stored
                 choice: here so the one person who cannot read the page
                 finds it without first finding Settings. The stylesheet

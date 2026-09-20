@@ -270,6 +270,14 @@ promising something untrue).
 
 ## ADR-011 — Two ranks of moderator, and an admin who can only be made in the console
 
+> **Superseded in part by ADR-024 (2026-09-21).** The `moderator` rank
+> described below was retired: there are now two ranks, an ordinary user
+> and an admin, and the admin does everything the ladder describes. What
+> survives unchanged is the ladder itself (warn, remove, suspend, close),
+> the roles collection nobody can write to for themselves, the two
+> collisions at the end, and admin as a console-only rank. Kept as
+> written, because the reasoning for each limit is still the reasoning.
+
 **Context.** People meet strangers off this app in physical places. That makes
 a report queue a safety feature rather than housekeeping, and it makes the
 moderation powers themselves worth attacking: whoever can take an activity
@@ -458,31 +466,36 @@ needs Cloud Functions and the paid plan. Claiming "the chat is deleted" would
 be false; "nobody can open it, and here is the rule" is true and checkable.
 ADR-010.
 
-### "Who watches the moderators?"
+### "Who watches the admin?"
 
 Ask this one of yourself before they do, because it is the real question about
-any reporting system. Four answers, all enforced in the rules rather than the
+any reporting system. Six answers, all enforced in the rules rather than the
 UI:
 
-- A moderator cannot close a report about themselves, or about an activity
-  they host. They could never have suspended themselves, but before this they
+- An admin cannot close a report about themselves, or about an activity they
+  host. They could never have suspended themselves, but before this they
   could have dismissed the complaint — the same power, exercised quietly.
-- A moderator cannot suspend another moderator or an admin, so they cannot
-  disable the people who could review them. An admin cannot suspend a fellow
-  admin, or delete their role row — deleting it is demotion by another name.
-- A moderator cannot rule on a report they filed themselves. Prosecutor and
+- An admin cannot suspend, warn, close or demote another admin, or delete
+  their role row — deleting it is lifting every limit by another name. So
+  no admin can disable the people who could review them.
+- An admin cannot rule on a report they filed themselves. Prosecutor and
   judge is the other half of the conflict of interest, and it is the half
   that is easy to forget.
-- A moderator cannot undo a takedown. An admin can, and both decisions stay on
-  the record: the activity carries the restore, the report carries the
-  removal.
+- A takedown is never silent, and neither is its undoing: both decisions stay
+  on the record. The activity carries the restore, the report carries the
+  removal, and the log carries both in order, bound by the rules to the
+  writer, the server's clock and the state the subject is actually in.
 - A suspended account exercises no rank at all. It keeps the rank, so the
-  suspension is reversible, but a suspended moderator moderates nothing —
+  suspension is reversible, but a suspended admin moderates nothing —
   otherwise suspending one who was abusing the queue would take nothing away.
+  Since no admin may act on another, that suspension is placed and lifted
+  where the rank was granted: the Firebase console.
 - `admin` cannot be created from inside the app at all. It is written in the
-  Firebase console, so compromising any account in the app cannot mint one.
+  Firebase console, so compromising any account in the app cannot mint one —
+  and there is no lesser rank to hand out, so nothing in the app grants
+  anybody authority over anybody.
 
-**Own the gap:** a moderator can still read a report filed about themselves,
+**Own the gap:** an admin can still read a report filed about themselves,
 and learn who filed it. Firestore has no field-level read rules and refuses a
 whole query if any single document in it fails, so those are hidden in the
 client, which is a courtesy and not a control. ADR-011 says so in writing.
@@ -1121,3 +1134,146 @@ data are untouched: the dialog sits over the three stages, it is not a
 change to any of them. React 18 has no `inert` boolean, so the wrapper
 sets the attribute as an empty string; React 19 will take `true`.
 
+
+## ADR-023 — Two consoles, one desk, and a log the rules can vouch for
+
+> **Amended by ADR-024 (2026-09-21).** The moderation console (`/mod`)
+> was removed with the rank it served, and the admin console was cut
+> down. What stands from this record is the desk (`useDesk`), the
+> `moderationLog` collection and its rules, the two feeds and two indexes,
+> and the redirects. Kept as written for the reasoning.
+
+**Context.** Moderation lived in the consumer shell: a phone column with
+a queue of cards, a list of suspended accounts, and three sections behind
+it. It worked, and it had learned a great deal about failure — the claim
+before the action, the decision recorded with it, a colleague getting
+there first told apart from a refusal — but it was a screen in the app,
+drawn like the app, for people whose job is not to use the app. A
+moderator could not see what colleagues had decided, could not read a
+person's record in one place, could not tell who had suspended somebody
+or when, and an admin had no figure that was not a window.
+
+**Decision.** Two consoles, outside the shell, each its own room. The
+moderation console (`/mod`) is the desk for whoever holds a rank:
+dashboard, queue, accounts, history. The admin console (`/admin`) is
+everything an admin alone may do — moderators, activities and their
+restoring, closing and reopening accounts, the audit log, the system's
+own state — plus the queue, because an admin works it too. The same
+product (the app's tokens, its dialogs, its toast, its language and
+appearance switches) and unmistakably not the app: thirteen-pixel type,
+tables, a sidebar, a panel for the selected record, the keyboard walking
+the rows. The two are told apart from the doorway — indigo for the desk,
+a teal of its own for the admin's — and the door itself is a screen that
+says what lies behind it and nothing of what does: a plain user is shown
+it at both, a moderator at the admin's, a suspended rank at either, since
+`isModerator` is false for a rank on hold exactly as the rules treat it.
+An admin's powers are drawn only in the admin console, so a moderator
+never sees a button they cannot press.
+
+One desk for both. Every handler the old page had grown — the claim taken
+before the action, the decision committed with it, "being handled" /
+"already handled" / "already done", buttons that wait, a stand-down that
+half worked said as such, offline refused before anything starts — moved
+whole into `useDesk`, with its wording, and both consoles call it. Three
+things were added to it, not changed in it: the claim can be taken on
+purpose, renewed and released, with its lease counting down, so a
+report is visibly somebody's while it is being read; several reports can
+be closed in turn with one decision, each claimed and decided on its own
+so a colleague's fresh claim skips that one; and a suspension from the
+directory takes a reason, because from now on the reason has somewhere
+to go.
+
+Which is the other half of the decision. The state documents said what
+was true and nothing said how it came to be: a role row is three fields
+on purpose, and a restore overwrites the takedown it undoes. A
+`moderationLog` collection now holds the decisions in order — eight
+kinds: suspend, lift, close, reopen, appoint, dismiss, remove, restore —
+written in the same transaction as the action. The rules make an entry
+worth reading: it names its writer as the caller and nobody else; it is
+stamped by the server's clock; an admin's kinds need an admin; and it can
+only claim a state the subject is actually in when the write lands,
+because the rules read the role row or the activity *as it will be after
+the batch* (`getAfter`) — "suspended" is refused unless the row written
+alongside it, or already there, says so. Nothing is ever edited or
+deleted, by anybody. Warnings and decided reports were records already;
+the history views merge the three into one timeline. Two more feeds and
+two more indexes came with it: the decided reports, most recently decided
+first, and whole-collection counts for the overview, because a total read
+off a window is not a total.
+
+**Consequences.** The old `/moderation` addresses redirect into the
+consoles, so bookmarks and notifications keep working; the page and its
+three sections are gone, and their tests are ported rather than
+dropped. The log is complete for everything done through the app; stated
+rather than hidden, somebody writing to Firestore directly could take an
+action and skip the record, which is why the state documents stay the
+truth and the log is the index of how they came to be that way — and why
+a moderator could, at worst, write a redundant entry about a state that
+already holds, attributed to themselves. The triage score is a heuristic
+and is shown as a number beside its badge so it can be disagreed with.
+Nothing the consoles show is estimated: a count that could not be made
+shows as unknown, "active users" is not shown at all because nothing in
+the data says when somebody was last here, and notifications and push
+tokens are self-only in the rules and so stay out of an admin's sight.
+The consoles are lazy chunks, so a session without a rank never loads
+them. Deploying needs the two new indexes alongside the rules.
+
+---
+
+## ADR-024 — One rank that acts, and one console small enough to explain
+
+**Context.** ADR-011 gave SmartSync two ranks of moderator — a `moderator`
+appointed in-app for the routine work, and an `admin` made in the console
+for the rest — and ADR-023 gave each its own desk. Built, tested and
+verified, the pair was then judged against the thing it is actually for:
+an exhibition, where every function on the screen is one the team has to
+explain to a stranger in a sentence. Two consoles with a ladder drawn
+differently in each, a rank that exists to be appointed and dismissed, a
+triage score, bulk closing, workload tallies and a system page were more
+sentences than the story deserved.
+
+**Decision.** Two ranks and no more: an ordinary user, and an admin who
+does the moderating. Removed from the rules outward, not the screens
+inward — the rules are the control, and a rank that survived in the rules
+while the screens forgot it would be a rank somebody could still exercise
+directly:
+
+- `firestore.rules` has no `isModerator()`. Every write that took a rank —
+  the takedown and the restore, the suspension, the warning, the claim
+  and the decision, the moderation notice, the log — takes `isAdmin()`.
+  The only role the app may write is `user`, so a row that still says
+  `moderator` grants nothing and is rewritten by the first decision taken
+  on it. Nobody warns, suspends, closes or demotes a fellow admin, and no
+  admin edits or deletes their own row. The log's `appoint` and `dismiss`
+  kinds are refused; six remain.
+- One console at `/admin`, five sections: Overview, Reports, Accounts,
+  Activities, History. Three controls above a list at most — a search and
+  two selects — and nothing acts on more than one thing at a time. The
+  triage score, the bulk close, the date and handler filters, the
+  workload table, the moderators page and the system page are gone. The
+  ladder is the whole of what the console does: warn, suspend and lift,
+  close and reopen, take down and put back, dismiss.
+- `isModerator` left `AuthContext`; the activity page's tools, Settings
+  and the web header know one rank; the two rank-change notification
+  templates are gone; the locales lost the words with the feature.
+
+**Consequences.** The admin now does routine work that was meant to be
+delegated, and a suspended admin — reachable only from the Firebase
+console, since no admin may act on another — is also lifted only there.
+Every limit ADR-011 enforced between ranks now holds between admins, and
+the two-rank matrix (`tests/rules/roles-matrix.test.js`) carries a legacy
+`moderator` row through every case to prove it acts on nobody. The
+history can still show an `appoint` entry written before this change, as
+the word it was; none exist outside the emulator, because the log itself
+never shipped. The terms and the welcome copy still say "a moderator
+reviews every report", which is true of the admin and would otherwise
+mean asking everybody to accept the terms again (ADR-022). Nothing about
+the claim (ADR-016), the log's `getAfter` binding (ADR-023), the private
+profile (ADR-005) or the block list changed.
+
+**Rejected.** Keeping the rank in the rules and hiding its screens (a
+power nobody can see is worse than one everybody can); keeping both
+consoles and trimming each (two rooms is the thing that needed explaining);
+a single flat page without the claim (the claim is the one mechanism worth
+demonstrating, because it is the one that stops two people acting on the
+same report).

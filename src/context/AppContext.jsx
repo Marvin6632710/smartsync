@@ -870,7 +870,7 @@ export function AppProvider({ children }) {
     return [...upcoming, ...past]
   }, [visibleActivities, joinedIds])
 
-  // Everything a moderator has taken down, for the admin review queue. Derived
+  // Everything an admin has taken down, for the console's activities list. Derived
   // from the listener that is already open, so seeing it costs no extra read —
   // and the rules, not this line, are what keep the list to admins: anyone can
   // already read activities, which is why removal is a status and not a secret.
@@ -1534,7 +1534,7 @@ export function AppProvider({ children }) {
     peers: visiblePeers,
     // Unfiltered, for the moderation queue only. Blocking must not hide
     // somebody from the person reviewing a report about them — that would be
-    // the same hole as blocking a moderator to escape moderation, just
+    // the same hole as blocking the admin to escape moderation, just
     // wearing a name instead of a rule.
     directory,
 

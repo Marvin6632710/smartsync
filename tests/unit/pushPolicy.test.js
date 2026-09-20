@@ -33,12 +33,9 @@ describe('decidePush', () => {
     expect(decidePush({ kind: 'activityPosted', activityId: 'act9' }, 'n1').tag).toBe('follow-act9')
   })
 
-  test.each(['activityBack', 'nowModerator', 'noLongerModerator', 'recommendation', undefined])(
-    '%s is never a push',
-    (kind) => {
-      expect(decidePush({ kind, activityId: 'act1' }, 'n1')).toBeNull()
-    },
-  )
+  test.each(['activityBack', 'recommendation', undefined])('%s is never a push', (kind) => {
+    expect(decidePush({ kind, activityId: 'act1' }, 'n1')).toBeNull()
+  })
 
   test('a record with no kind — written by an older app — is never pushed', () => {
     expect(decidePush({ type: 'chat', title: 'New message in x', body: 'a: b' }, 'n1')).toBeNull()

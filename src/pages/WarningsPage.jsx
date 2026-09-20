@@ -10,10 +10,10 @@ import { formatRelativeTime } from '../utils/time'
  *
  * A warning nobody can go back and read is a rumour. The notification says it
  * once and scrolls away; this is the record, and it is the same record a
- * moderator sees — there is no second, harsher version of it kept somewhere
+ * admin sees — there is no second, harsher version of it kept somewhere
  * else. Who issued it is deliberately not shown: the decision is SmartSync's,
- * and naming an individual moderator to the person they acted on invites
- * exactly the retaliation the ranks exist to prevent.
+ * and naming the individual admin to the person they acted on invites
+ * exactly the retaliation the rank exists to prevent.
  */
 export default function WarningsPage() {
   const { t } = useTranslation()

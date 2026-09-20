@@ -3,6 +3,7 @@ import {
   collection,
   deleteField,
   doc,
+  documentId,
   getDoc,
   getDocs,
   limit,
@@ -222,7 +223,7 @@ export const SEARCH_LIMIT = 20
  *
  * The moderation screens list "everyone" from the directory the app already
  * holds — which is the first five hundred accounts, and no more (see
- * PEER_LIMIT). Past that, somebody a moderator needed to find could not be
+ * PEER_LIMIT). Past that, somebody an admin needed to find could not be
  * found, and nothing on the screen said so. This asks Firestore instead: two
  * prefix queries, one per field, bounded, merged. Reads whatever the rules
  * let the caller read, which for public profiles is any signed-in account;
@@ -266,6 +267,30 @@ export async function searchUsers(term) {
 }
 
 /** Public-profile fields the user is allowed to edit. */
+/**
+ * The public profiles of a handful of people by id, for the consoles.
+ *
+ * A report, a role row and a log entry all name people by uid, and the
+ * directory in memory holds only the first five hundred accounts (see
+ * PEER_LIMIT): past that, a name in the queue read "Unknown user". This
+ * asks for exactly the ids that are missing, thirty per query — the limit
+ * on an `in` filter — and reads only what the rules already let any
+ * signed-in account read. A profile that does not exist is simply absent
+ * from the answer.
+ */
+export const PROFILE_BATCH = 30
+
+export async function fetchPublicProfiles(uids) {
+  const wanted = [...new Set((uids || []).filter(Boolean))]
+  const found = new Map()
+  for (let start = 0; start < wanted.length; start += PROFILE_BATCH) {
+    const chunk = wanted.slice(start, start + PROFILE_BATCH)
+    const snap = await getDocs(query(collection(db, 'users'), where(documentId(), 'in', chunk)))
+    snap.docs.forEach((d) => found.set(d.id, d.data()))
+  }
+  return found
+}
+
 export function updatePublicProfile(uid, patch) {
   return updateDoc(publicDoc(uid), { ...patch, updatedAt: serverTimestamp() })
 }

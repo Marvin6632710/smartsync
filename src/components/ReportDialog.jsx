@@ -111,7 +111,7 @@ export default function ReportDialog({ open, subject, onClose }) {
       targetId: subject.id,
       // Who is answerable, as opposed to what was reported. For a person the
       // two are the same; for an activity it is the host, and for a message
-      // its sender. This is the field a moderator's Suspend button acts on,
+      // its sender. This is the field the admin's Suspend button acts on,
       // and the rules verify it against the activity or the message itself —
       // so a report cannot quote one person and blame another.
       subjectId: subject.subjectId || subject.id,

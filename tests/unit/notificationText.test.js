@@ -24,8 +24,6 @@ const CASES = [
   ['activeAgain', {}],
   ['activityRemoved', { title: 'Sunday football', reason: 'Spam' }],
   ['joinedRemoved', { title: 'Sunday football' }],
-  ['nowModerator', {}],
-  ['noLongerModerator', {}],
   ['closed', { reason: 'Repeated harassment.' }],
   ['reopened', { reason: 'Appeal upheld.' }],
   ['warning', { reason: 'Please keep it civil.' }],

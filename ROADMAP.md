@@ -59,12 +59,13 @@ collision between two rules that were each correct on their own:
   from a message report wrote a role document keyed by the message
 - and a reporter could name anyone as the author of a message they quoted
 
-**Moderation with limits on the moderators.** Reports go to a queue inside the
-app, worked by moderators and admins whose powers are bounded by the rules:
-nobody closes a report about themselves, no moderator touches a peer, only an
-admin reverses a takedown, and `admin` can only be granted from the Firebase
-console. Every action records who took it and why, and the people affected are
-told. ADR-011.
+**Moderation with limits on the moderator.** Reports go to a queue in an
+admin console, worked by an admin whose powers are bounded by the rules:
+nobody closes a report about themselves, no admin touches another, every
+takedown is reversible and on the record, and `admin` can only be granted
+from the Firebase console — there is no lesser rank to hand out. Every action
+records who took it and why, and the people affected are told. ADR-011,
+ADR-024.
 
 **A measured recommendation engine.** 39.3% precision@5 against 18.0% for the
 best single signal and 5.2% for random, over seven independent populations —

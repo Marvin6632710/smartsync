@@ -30,8 +30,7 @@ const member = {
   email: 'uma@example.com',
   onboarded: true,
   banned: false,
-  isModerator: false,
-  isAdmin: false,
+    isAdmin: false,
 }
 const signedIn = { ...signedOut, status: 'ready', user: member, profileReady: true }
 let auth = signedOut

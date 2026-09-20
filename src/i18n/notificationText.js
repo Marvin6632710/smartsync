@@ -50,14 +50,6 @@ const TEMPLATES = {
     title: 'An activity you joined was removed',
     body: '"{{title}}" is not going ahead. SmartSync removed it.',
   },
-  nowModerator: {
-    title: 'You are now a moderator',
-    body: 'You can review reports from Settings → Moderation. Every action you take is recorded against the report.',
-  },
-  noLongerModerator: {
-    title: 'You are no longer a moderator',
-    body: 'Your SmartSync account is otherwise unchanged.',
-  },
   closed: {
     title: 'Your SmartSync account has been closed',
     body: '{{reason}} You can still sign in, but the account can no longer host, join, or message anybody. If you believe this is wrong, reply to the email address in our policy.',
@@ -126,7 +118,7 @@ const RECOGNISERS = Object.entries(TEMPLATES).map(([kind, template]) => ({
 
 /**
  * The title and body to show for a stored notification, in the language in
- * force. Names, activity titles, message text and moderators' reasons are
+ * force. Names, activity titles, message text and an admin's reasons are
  * carried across as they were written; only the app's own words change.
  */
 export function localizeNotification(notification) {

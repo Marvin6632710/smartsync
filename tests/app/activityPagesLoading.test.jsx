@@ -14,7 +14,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 let app = {}
 vi.mock('../../src/context/AppContext', () => ({ useApp: () => app }))
 vi.mock('../../src/context/AuthContext', () => ({
-  useAuth: () => ({ user: { uid: 'me', isModerator: false } }),
+  useAuth: () => ({ user: { uid: 'me' } }),
 }))
 vi.mock('../../src/components/LocationPicker', () => ({ default: () => null }))
 vi.mock('../../src/components/ReportDialog', () => ({ default: () => null }))

@@ -21,7 +21,7 @@ vi.mock('../../src/context/AppContext', () => ({
   }),
 }))
 vi.mock('../../src/context/AuthContext', () => ({
-  useAuth: () => ({ user: { uid: 'me', name: 'Uma', avatar: 'UM', isModerator: false } }),
+  useAuth: () => ({ user: { uid: 'me', name: 'Uma', avatar: 'UM' } }),
 }))
 vi.mock('../../src/components/CelebrationToast', () => ({ default: () => null }))
 vi.mock('../../src/components/JoinBurst', () => ({ default: () => null }))

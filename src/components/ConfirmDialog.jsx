@@ -31,6 +31,9 @@ export default function ConfirmDialog({
   promptValue = '',
   promptPlaceholder,
   onPromptChange,
+  // A prompt is required unless a caller says otherwise: lifting a
+  // suspension takes a note for the record but must not be blocked on one.
+  promptRequired = true,
 }) {
   const { t } = useTranslation()
   const confirmRef = useRef(null)
@@ -130,7 +133,7 @@ export default function ConfirmDialog({
             className={tone === 'danger' ? 'danger-button' : 'primary-button'}
             onClick={onConfirm}
             ref={confirmRef}
-            disabled={Boolean(promptLabel) && !promptValue.trim()}
+            disabled={Boolean(promptLabel) && promptRequired && !promptValue.trim()}
           >
             {confirmLabel || t('common.confirm')}
           </button>

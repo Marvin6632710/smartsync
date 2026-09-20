@@ -32,7 +32,7 @@ export function usePeopleSearch(term, enabled = true) {
         if (live) setAnswer({ needle, rows, failed: false })
       } catch (error) {
         // An answer of "nobody" and an answer that never came are different
-        // things to a moderator looking for somebody; `failed` tells them
+        // things to an admin looking for somebody; `failed` tells them
         // apart on screen.
         if (live) setAnswer({ needle, rows: [], failed: true })
         reportError('users.search', error)

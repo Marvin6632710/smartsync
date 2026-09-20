@@ -250,6 +250,63 @@ three. Details in README.md; the parts worth knowing here:
   Apple touch icon). The header wordmark is ExtraBold, tracked −3%. Four
   directions and seven colourways were compared first (kept under
   `design/logo-concepts/`). ADR-020. 2 tests added.
+- **One rank, one console, 2026-09-21** — the moderator rank is gone,
+  from the rules outward. Two ranks remain: an ordinary user, and an
+  admin who does the moderating. `firestore.rules` has no `isModerator()`
+  any more; every write that took a rank takes `isAdmin()`, the only role
+  the app may write is `user` (so a row still saying `moderator` grants
+  nothing and is brought into line by the first decision taken on it),
+  nobody warns or suspends a fellow admin, and the log's `appoint` and
+  `dismiss` kinds are refused. `/mod` and the moderators page are
+  deleted; `/admin` is the one console, cut down to what an exhibition
+  can explain in a sentence each: Overview (fewer figures, no median),
+  Reports (search, status, type — no triage score, no bulk close, no date
+  or handler filters), Accounts (warn, suspend and lift, close and
+  reopen), Activities (take down, put back), History (search and kind —
+  no workload table). The System page is gone. `isModerator` left
+  `AuthContext`; the activity page's tools say Admin; Settings and the
+  web header carry one door; the two rank-change notification templates
+  are gone (a stored one still reads as its English text); the four
+  locales lost 239 dead keys and gained the admin wording in each
+  language. Tests rewritten rather than dropped: the roles matrix is a
+  two-rank matrix with a legacy `moderator` row that must act on nobody
+  (116 cases), the feature rules use two admins, the log tests refuse the
+  retired kinds — 348 rules tests; 73 console tests. ADR-024. Not
+  deployed, not committed.
+  Verified in the browser against the emulator: a suspension taken on a
+  legacy `moderator` row from the queue rewrote it to `user` through the
+  rules, with its log entry, its decision and two stand-downs; lifted and
+  restored again from the console; a plain user and the legacy row see
+  the closed door and are refused by the rules on every read and write;
+  375px; Thai.
+- **Two consoles: the moderators' desk and the admin's, 2026-09-20** —
+  the moderation screens leave the phone shell for two internal
+  consoles, each its own room outside the app: `/mod` for whoever holds a
+  rank (dashboard, report queue, accounts, history) and `/admin` for an
+  admin (overview, queue, accounts, moderators, activities, audit log,
+  system). Dense tables with keyboard rows (arrows, Enter, Space, `/`,
+  Escape), sticky filters, a details panel for the selected record, a
+  claim taken on purpose with its lease counting down, a triage score
+  shown next to its badge, bulk close for duplicates, and the ladder of
+  actions drawn by rank — an admin's powers appear only in the admin
+  console. Every handler the old page had grown moved into one hook
+  (`src/console/useDesk.js`) with its wording and its failure-telling
+  intact. New underneath, because the desk needed them: a
+  `moderationLog` collection whose rules bind each entry to its writer,
+  to the server's clock and — through `getAfter` — to a state the subject
+  is actually in; a bounded feed of decided reports (index on
+  `status`/`reviewedAt`); one-shot readers for an account's and an
+  activity's whole record; names resolved past the peer window; server
+  counts for the overview (`getCountFromServer`, one more index on
+  `activities` `status`/`startsAt`). `/moderation*` redirects into the
+  consoles; Settings and the web header carry the door. ADR-023. Not
+  deployed, not committed. Verified in the browser against the emulator
+  as admin and as moderator: claim, takedown and restore each landed
+  through the rules with their log entries; the door for a plain user and
+  for a moderator at `/admin`; 1440 / 1280 / 900 / 375; light and dark;
+  Thai and Burmese. Tests: rules (16), consoles (77 across guards,
+  reports, accounts, admin pages, languages and theme, routes, history);
+  two module tests extended for the log.
 - **Settings without the Activity messages row, 2026-09-20** — the row
   was a door to `/messages`, which is a tab: chats are activity
   interactions, not preferences. The row and its two strings (four

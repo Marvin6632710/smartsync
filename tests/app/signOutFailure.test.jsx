@@ -19,8 +19,7 @@ vi.mock('../../src/context/AuthContext', () => ({
     user: {
       uid: 'me',
       email: 'me@x.y',
-      isModerator: false,
-      privacy: { notifications: true },
+            privacy: { notifications: true },
     },
   }),
 }))

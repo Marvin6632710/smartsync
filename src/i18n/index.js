@@ -250,7 +250,7 @@ export function personName(name) {
 /**
  * A takedown reason as the app itself writes it — when an account is
  * suspended or closed, everything it hosts comes down with one of two fixed
- * reasons — is worded for the reader; a moderator's own words are shown as
+ * reasons — is worded for the reader; an admin's own words are shown as
  * written.
  */
 const APP_TAKEDOWN_REASONS = {

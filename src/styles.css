@@ -1662,42 +1662,16 @@ select:focus-visible {
   padding-top: 10px;
 }
 
-/* Moderator tools on an activity page. Marked out from the rest of the page
+/* Admin tools on an activity page. Marked out from the rest of the page
    because it is a different kind of action from joining or leaving, and
    should not be reachable by muscle memory. */
-.moderator-panel {
+.admin-tools {
   border: 1px solid var(--warning);
   background: var(--warning-soft);
 }
-.moderator-panel .helper-text,
-.moderator-panel .report-detail {
+.admin-tools .helper-text,
+.admin-tools .report-detail {
   color: var(--ink);
-}
-
-/* The oversight search sits between a heading and a list, so it needs the
-   breathing room a card would otherwise have given it. */
-.watch-search {
-  margin-bottom: 14px;
-}
-
-/* A search result in the appoint-a-moderator list: the person on the left,
-   the action on the right, wrapping rather than truncating a long name. */
-.appoint-row {
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-  font-size: var(--t-sm);
-}
-.appoint-row > span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.appoint-note {
-  color: var(--warning);
-  font-style: normal;
-  font-weight: var(--w-medium);
 }
 
 /* Sits where the composer would, so a suspended reader is told why they
@@ -3193,7 +3167,7 @@ input[type='range'] {
   overflow-wrap: anywhere;
   /* A report may run to a thousand characters, and somebody working a queue
      needs to compare several at a glance. Capped and scrolled inside its own
-     box rather than truncated: a moderator deciding what to do about somebody
+     box rather than truncated: an admin deciding what to do about somebody
      must be able to read all of what was said, but one long report must not
      push every other one off the screen. Found by filing one at the limit. */
   max-height: 8.5em;

@@ -35,11 +35,13 @@ const runTransaction = vi.fn(async (_db, fn) => {
 })
 const getDocs = vi.fn(async () => ({ docs: [] }))
 
+let minted = 0
 vi.mock('firebase/firestore', () => ({
   addDoc,
-  collection: (_db, ...path) => ({ path: path.join('/') }),
+  collection: (_db, ...path) => ({ path: path.join('/'), isCollection: true }),
   deleteDoc: vi.fn(),
-  doc: (_db, ...path) => ({ path: path.join('/') }),
+  doc: (first, ...path) =>
+    first?.isCollection ? { path: `${first.path}/m${++minted}` } : { path: path.join('/') },
   getDocs,
   limit: vi.fn(),
   onSnapshot: vi.fn(),
@@ -51,13 +53,17 @@ vi.mock('firebase/firestore', () => ({
   updateDoc: vi.fn(),
   where: vi.fn(),
 }))
-vi.mock('../../src/firebase/config', () => ({ db: {} }))
+vi.mock('../../src/firebase/config', () => ({
+  db: {},
+  auth: { currentUser: { uid: 'signed-in' } },
+}))
 vi.mock('../../src/utils/reportError', () => ({ reportError: vi.fn() }))
 
-const { closeAccount, removeActivity, reopenAccount, restoreActivity, setSuspended, setUserRole } =
+const { closeAccount, removeActivity, reopenAccount, restoreActivity, setSuspended } =
   await import('../../src/firebase/moderation')
 
 const removalNotices = () => notices.filter((n) => /removed/i.test(n.title))
+const logged = () => writes.filter((w) => w.path.startsWith('moderationLog/')).map((w) => w.data)
 
 beforeEach(() => {
   store.clear()
@@ -73,7 +79,7 @@ beforeEach(() => {
 
 describe('removeActivity', () => {
   test('the first time: the record is written and everyone is told', async () => {
-    await removeActivity('a1', { moderatorId: 'mod', reason: 'spam' })
+    await removeActivity('a1', { adminId: 'mod', reason: 'spam' })
     expect(store.get('activities/a1').status).toBe('removed')
     expect(removalNotices().map((n) => n.path)).toEqual([
       'users/host/notifications',
@@ -83,9 +89,20 @@ describe('removeActivity', () => {
   })
 
   test('a second time: nothing is written and nobody is told again', async () => {
-    await removeActivity('a1', { moderatorId: 'mod', reason: 'spam' })
+    await removeActivity('a1', { adminId: 'mod', reason: 'spam' })
+    // The first time is on the record, once, naming the host.
+    expect(logged()).toEqual([
+      {
+        kind: 'remove',
+        by: 'mod',
+        subjectId: 'host',
+        activityId: 'a1',
+        reason: 'spam',
+        at: 'server-time',
+      },
+    ])
     const writesAfterFirst = writes.length
-    await removeActivity('a1', { moderatorId: 'mod2', reason: 'again' })
+    await removeActivity('a1', { adminId: 'mod2', reason: 'again' })
     expect(writes.length).toBe(writesAfterFirst)
     expect(removalNotices()).toHaveLength(3)
     // The first decision's record stands.
@@ -93,7 +110,7 @@ describe('removeActivity', () => {
   })
 
   test('an activity that no longer exists is left alone', async () => {
-    await removeActivity('gone', { moderatorId: 'mod', reason: 'x' })
+    await removeActivity('gone', { adminId: 'mod', reason: 'x' })
     expect(writes).toHaveLength(0)
     expect(notices).toHaveLength(0)
   })
@@ -106,6 +123,18 @@ describe('restoreActivity', () => {
     await restoreActivity('a1', { adminId: 'admin', reason: 'mistake' })
     expect(store.get('activities/a1').status).toBe('active')
     expect(notices.filter((n) => /back/i.test(n.title))).toHaveLength(1)
+    // Recorded once, as the admin's, and the log keeps the takedown the
+    // activity itself no longer shows.
+    expect(logged()).toEqual([
+      {
+        kind: 'restore',
+        by: 'admin',
+        subjectId: 'host',
+        activityId: 'a1',
+        reason: 'mistake',
+        at: 'server-time',
+      },
+    ])
   })
 
   test('does nothing to an activity that was never removed', async () => {
@@ -125,30 +154,26 @@ describe('suspension', () => {
     await setSuspended('u', false)
     expect(notices).toHaveLength(2)
     expect(notices[1].title).toBe('Your account is active again')
+    // The log has the two decisions and not the two repeats, attributed
+    // to whoever is signed in when no actor was named.
+    expect(logged().map((e) => [e.kind, e.by, e.subjectId])).toEqual([
+      ['suspend', 'signed-in', 'u'],
+      ['lift', 'signed-in', 'u'],
+    ])
   })
 
-  test('suspending keeps the rank and the closure it found', async () => {
-    store.set('roles/u', { role: 'moderator', suspended: false, banned: true })
+  test('suspending keeps the closure it found, and writes the only role there is', async () => {
+    store.set('roles/u', { role: 'user', suspended: false, banned: true })
     await setSuspended('u', true)
-    expect(store.get('roles/u')).toEqual({ role: 'moderator', suspended: true, banned: true })
-  })
-})
-
-describe('rank', () => {
-  test('appointing twice tells them once; dismissing twice likewise', async () => {
-    await setUserRole('u', 'moderator')
-    await setUserRole('u', 'moderator')
-    expect(notices).toHaveLength(1)
-    expect(notices[0].title).toBe('You are now a moderator')
-    await setUserRole('u', 'user')
-    await setUserRole('u', 'user')
-    expect(notices).toHaveLength(2)
+    expect(store.get('roles/u')).toEqual({ role: 'user', suspended: true, banned: true })
   })
 
-  test('a rank change leaves a suspension exactly as it was', async () => {
-    store.set('roles/u', { role: 'user', suspended: true })
-    await setUserRole('u', 'moderator')
-    expect(store.get('roles/u')).toEqual({ role: 'moderator', suspended: true })
+  test('a row left over from the retired moderator rank is brought into line', async () => {
+    // There is no rank to keep: the rules accept 'user' and nothing else,
+    // so the first decision taken on such a row rewrites the word.
+    store.set('roles/u', { role: 'moderator', suspended: false })
+    await setSuspended('u', true)
+    expect(store.get('roles/u')).toEqual({ role: 'user', suspended: true })
   })
 })
 
@@ -158,6 +183,15 @@ describe('closing and reopening', () => {
     await closeAccount('u', { adminId: 'admin', reason: 'Repeated reports.' })
     expect(store.get('roles/u').banned).toBe(true)
     expect(notices.filter((n) => /closed/i.test(n.title))).toHaveLength(1)
+    expect(logged()).toEqual([
+      {
+        kind: 'close',
+        by: 'admin',
+        subjectId: 'u',
+        reason: 'Repeated reports.',
+        at: 'server-time',
+      },
+    ])
   })
 
   test('a repeat still stands down anything left standing', async () => {

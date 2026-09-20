@@ -228,9 +228,8 @@ export function AuthProvider({ children }) {
       // renders one screen saying so — see App.jsx.
       banned: access.banned,
       // A suspended account keeps its rank and exercises none of it, matching
-      // the rules exactly. Showing the moderation queue to somebody whose
-      // every action there would be refused is worse than hiding it.
-      isModerator: (access.role === 'moderator' || access.role === 'admin') && !access.suspended,
+      // the rules exactly. Showing the admin console to somebody whose every
+      // action there would be refused is worse than hiding it.
       isAdmin: access.role === 'admin' && !access.suspended,
     }
   }, [authUser, publicProfile, privateProfile, access])

@@ -3,7 +3,7 @@ import { extract, fill, recogniser } from './templates'
 
 /**
  * The line of context a report carries — what was reported, in a sentence
- * — is stored in English, as it always was, and worded for the moderator
+ * — is stored in English, as it always was, and worded for the admin
  * reading it. Writers render through `storedContext` so the stored wording
  * and the recogniser cannot drift apart; a context this table does not
  * recognise is shown as stored.

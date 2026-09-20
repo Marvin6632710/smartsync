@@ -276,6 +276,44 @@ else can honour. The rules check it before allowing the write.
 your activity. Nothing arrives — and check the database if you like; nothing
 was written.
 
+### The admin console
+
+**Path:** `/admin` → `src/console/AdminPanel.jsx` → `ConsoleProvider`
+(five listeners: roles, warnings, the open queue, the decided reports, the
+log) → `useDesk` (every action) → `firebase/moderation.js`
+
+One internal desk outside the shell, loaded on demand, for the one rank
+that acts: an overview in figures; the report queue; every account with
+its record and the ladder of actions on it — warn, suspend and lift, close
+and reopen; every activity, with a takedown or a restore a click away; and
+the history of everything that was done. Drawn from the app's tokens and
+drawn densely: tables the keyboard walks, sticky filters, a panel for the
+selected record. Three controls above a list at most, and no bulk actions,
+so that every function is one sentence to explain.
+
+Working a report is claim → act and record in one transaction, exactly as
+before (ADR-016); the desk adds a claim taken on purpose, with its lease
+counting down. Every action of the six kinds that change an account or an
+activity also writes an entry to `moderationLog` in the same transaction,
+and the rules bind each entry to its writer, to the server's clock and —
+through `getAfter` — to a state the subject is actually in (ADR-023,
+ADR-024). The history views merge that log with the warnings and the
+decided reports into one timeline.
+
+**Check it yourself** — the door is the guard, once, and the rules are
+the control:
+
+```bash
+grep -n "isAdmin" src/console/AdminPanel.jsx
+# expect: one guard at the top, nothing per page
+grep -c "isModerator\|'moderator'" firestore.rules src/**/*.js src/**/*.jsx
+# expect: 0 in every file — the rank is gone from the rules and the code
+npm run test:rules   # tests/rules/roles-matrix.test.js: the two-rank matrix
+```
+
+Signed in as a plain user, `/admin` shows a closed door; so does a row
+that still says `moderator`, because the rank no longer exists.
+
 ### Browser push
 
 **Path:** a record lands in `users/{uid}/notifications` →

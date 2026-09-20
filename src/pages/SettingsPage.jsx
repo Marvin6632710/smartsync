@@ -6,7 +6,6 @@ import {
   LogOut,
   MessageSquareWarning,
   ScrollText,
-  ShieldAlert,
   ShieldCheck,
   ShieldOff,
   SlidersHorizontal,
@@ -125,17 +124,15 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {user.isModerator && (
+      {/* The desk: the admin console is its own room, and this is its
+          door from Settings. */}
+      {user.isAdmin && (
         <div className="settings-card">
-          <button className="setting-row" onClick={() => navigate('/moderation')}>
-            <ShieldAlert size={18} />
+          <button className="setting-row" onClick={() => navigate('/admin')}>
+            <ShieldCheck size={18} />
             <span>
-              <strong>{t('settings.moderation')}</strong>
-              <small>
-                {user.isAdmin
-                  ? t('settings.moderationHintAdmin')
-                  : t('settings.moderationHintModerator')}
-              </small>
+              <strong>{t('settings.adminConsole')}</strong>
+              <small>{t('settings.adminConsoleHint')}</small>
             </span>
             <ChevronRight size={17} />
           </button>

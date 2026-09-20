@@ -71,7 +71,7 @@ vi.mock('firebase/firestore', () => ({
   updateDoc,
   where: vi.fn(),
 }))
-vi.mock('../../src/firebase/config', () => ({ db: {} }))
+vi.mock('../../src/firebase/config', () => ({ db: {}, auth: { currentUser: null } }))
 const reportError = vi.fn()
 vi.mock('../../src/utils/reportError', () => ({ reportError }))
 
@@ -161,7 +161,7 @@ describe('the decision, recorded with the action', () => {
 
   test('a suspension from the queue writes the role row and the decision in one transaction', async () => {
     await claimReport('r1', 'mod')
-    await suspendAccount('alice', { moderatorId: 'mod', reportId: 'r1', decision })
+    await suspendAccount('alice', { adminId: 'mod', reportId: 'r1', decision })
     expect(store.get('roles/alice')).toMatchObject({ suspended: true })
     expect(store.get('reports/r1')).toMatchObject({
       status: 'actioned',
@@ -169,18 +169,27 @@ describe('the decision, recorded with the action', () => {
       reviewedBy: 'mod',
       reviewedAt: 'server-time',
     })
-    // Both writes came out of the same transaction call.
+    // All three writes came out of the same transaction call: the row, the
+    // decision, and the log entry naming the report it was taken under.
     const roleWrite = writes.findIndex((w) => w.path === 'roles/alice')
     const decisionWrite = writes.findIndex((w) => w.path === 'reports/r1' && w.data.status)
+    const logWrite = writes.findIndex((w) => w.path.startsWith('moderationLog/'))
     expect(roleWrite).toBeGreaterThanOrEqual(0)
     expect(decisionWrite).toBe(roleWrite + 1)
+    expect(logWrite).toBe(roleWrite + 2)
+    expect(writes[logWrite].data).toMatchObject({
+      kind: 'suspend',
+      by: 'mod',
+      subjectId: 'alice',
+      reportId: 'r1',
+    })
     expect(runTransaction).toHaveBeenCalledTimes(2) // the claim, then act-and-record
   })
 
   test('a lost claim leaves neither the role row nor the decision behind', async () => {
     store.get('reports/r1').claim = fresh('other')
     await expect(
-      code(suspendAccount('alice', { moderatorId: 'mod', reportId: 'r1', decision })),
+      code(suspendAccount('alice', { adminId: 'mod', reportId: 'r1', decision })),
     ).resolves.toBe('claim-lost')
     expect(store.has('roles/alice')).toBe(false)
     expect(store.get('reports/r1').status).toBe('open')
@@ -191,7 +200,7 @@ describe('the decision, recorded with the action', () => {
     await claimReport('r1', 'mod')
     store.get('activities/a1').status = 'removed'
     await removeActivity('a1', {
-      moderatorId: 'mod',
+      adminId: 'mod',
       reason: 'spam',
       reportId: 'r1',
       decision: { status: 'actioned', outcome: 'Activity removed' },
@@ -205,7 +214,7 @@ describe('the decision, recorded with the action', () => {
   test('a takedown from the queue on a standing activity lands both halves together', async () => {
     await claimReport('r1', 'mod')
     await removeActivity('a1', {
-      moderatorId: 'mod',
+      adminId: 'mod',
       reason: 'spam',
       reportId: 'r1',
       decision: { status: 'actioned', outcome: 'Activity removed' },
@@ -216,12 +225,20 @@ describe('the decision, recorded with the action', () => {
       'users/alice/notifications',
       'users/p1/notifications',
     ])
+    // And the record, in the same transaction, naming the report.
+    const entry = writes.find((w) => w.path.startsWith('moderationLog/'))
+    expect(entry.data).toMatchObject({
+      kind: 'remove',
+      by: 'mod',
+      activityId: 'a1',
+      reportId: 'r1',
+    })
   })
 
   test('the outcome is capped, as the rules cap it', async () => {
     await claimReport('r1', 'mod')
     await suspendAccount('alice', {
-      moderatorId: 'mod',
+      adminId: 'mod',
       reportId: 'r1',
       decision: { status: 'actioned', outcome: 'x'.repeat(400) },
     })
@@ -230,7 +247,7 @@ describe('the decision, recorded with the action', () => {
 
   test('a warning from the queue lets the claim go in the same transaction', async () => {
     await claimReport('r1', 'mod')
-    await issueWarning('alice', { moderatorId: 'mod', reason: 'be kind', reportId: 'r1' })
+    await issueWarning('alice', { adminId: 'mod', reason: 'be kind', reportId: 'r1' })
     expect(store.get('reports/r1').claim).toBeUndefined()
     expect(store.get('reports/r1').status).toBe('open')
     const warningWrite = writes.findIndex((w) => w.path.startsWith('warnings/'))
@@ -242,7 +259,7 @@ describe('the decision, recorded with the action', () => {
 
   test('without a decision, an action under the claim records nothing on the report', async () => {
     await claimReport('r1', 'mod')
-    await suspendAccount('alice', { moderatorId: 'mod', reportId: 'r1' })
+    await suspendAccount('alice', { adminId: 'mod', reportId: 'r1' })
     expect(store.get('roles/alice')).toMatchObject({ suspended: true })
     expect(store.get('reports/r1').status).toBe('open')
   })
@@ -251,7 +268,7 @@ describe('the decision, recorded with the action', () => {
 describe('an action under the claim', () => {
   test('removeActivity from the queue writes the takedown with the report named', async () => {
     await claimReport('r1', 'mod')
-    await removeActivity('a1', { moderatorId: 'mod', reason: 'spam', reportId: 'r1' })
+    await removeActivity('a1', { adminId: 'mod', reason: 'spam', reportId: 'r1' })
     expect(store.get('activities/a1')).toMatchObject({
       status: 'removed',
       moderation: { by: 'mod', reason: 'spam', reportId: 'r1' },
@@ -265,7 +282,7 @@ describe('an action under the claim', () => {
   test('removeActivity aborts before writing when the claim is somebody else’s', async () => {
     store.get('reports/r1').claim = fresh('other')
     await expect(
-      code(removeActivity('a1', { moderatorId: 'mod', reason: 'spam', reportId: 'r1' })),
+      code(removeActivity('a1', { adminId: 'mod', reason: 'spam', reportId: 'r1' })),
     ).resolves.toBe('claim-lost')
     expect(store.get('activities/a1').status).toBe('active')
     expect(notices).toHaveLength(0)
@@ -275,21 +292,21 @@ describe('an action under the claim', () => {
     await claimReport('r1', 'mod')
     store.get('reports/r1').status = 'dismissed'
     await expect(
-      code(removeActivity('a1', { moderatorId: 'mod', reason: 'spam', reportId: 'r1' })),
+      code(removeActivity('a1', { adminId: 'mod', reason: 'spam', reportId: 'r1' })),
     ).resolves.toBe('claim-lost')
     expect(store.get('activities/a1').status).toBe('active')
   })
 
   test('removeActivity with no report is unchanged — no claim is read', async () => {
     store.get('reports/r1').claim = fresh('other')
-    await removeActivity('a1', { moderatorId: 'mod', reason: 'spam' })
+    await removeActivity('a1', { adminId: 'mod', reason: 'spam' })
     expect(store.get('activities/a1').moderation).toEqual({ by: 'mod', reason: 'spam' })
   })
 
   test('suspendAccount from the queue ties the role write to the claim', async () => {
     store.get('reports/r1').claim = fresh('other')
     await expect(
-      code(suspendAccount('alice', { moderatorId: 'mod', reportId: 'r1' })),
+      code(suspendAccount('alice', { adminId: 'mod', reportId: 'r1' })),
     ).resolves.toBe('claim-lost')
     expect(store.has('roles/alice')).toBe(false)
     expect(notices).toHaveLength(0)
@@ -297,31 +314,31 @@ describe('an action under the claim', () => {
     // The other claim goes stale; ours takes over.
     store.get('reports/r1').claim = stale('other')
     await claimReport('r1', 'mod')
-    await suspendAccount('alice', { moderatorId: 'mod', reportId: 'r1' })
+    await suspendAccount('alice', { adminId: 'mod', reportId: 'r1' })
     expect(store.get('roles/alice')).toMatchObject({ suspended: true })
     expect(notices.map((n) => n.title)).toEqual(['Your account is suspended'])
   })
 
   test('a repeat under a valid claim changes nothing and tells nobody twice', async () => {
     await claimReport('r1', 'mod')
-    await suspendAccount('alice', { moderatorId: 'mod', reportId: 'r1' })
-    await removeActivity('a1', { moderatorId: 'mod', reason: 'spam', reportId: 'r1' })
+    await suspendAccount('alice', { adminId: 'mod', reportId: 'r1' })
+    await removeActivity('a1', { adminId: 'mod', reason: 'spam', reportId: 'r1' })
     const told = notices.length
-    await suspendAccount('alice', { moderatorId: 'mod', reportId: 'r1' })
-    await removeActivity('a1', { moderatorId: 'mod', reason: 'spam', reportId: 'r1' })
+    await suspendAccount('alice', { adminId: 'mod', reportId: 'r1' })
+    await removeActivity('a1', { adminId: 'mod', reason: 'spam', reportId: 'r1' })
     expect(notices).toHaveLength(told)
   })
 
   test('a warning from the queue is written only under the claim', async () => {
     store.get('reports/r1').claim = fresh('other')
     await expect(
-      code(issueWarning('alice', { moderatorId: 'mod', reason: 'be kind', reportId: 'r1' })),
+      code(issueWarning('alice', { adminId: 'mod', reason: 'be kind', reportId: 'r1' })),
     ).resolves.toBe('claim-lost')
     expect([...store.keys()].filter((k) => k.startsWith('warnings/'))).toHaveLength(0)
 
     store.get('reports/r1').claim = stale('other')
     await claimReport('r1', 'mod')
-    await issueWarning('alice', { moderatorId: 'mod', reason: 'be kind', reportId: 'r1' })
+    await issueWarning('alice', { adminId: 'mod', reason: 'be kind', reportId: 'r1' })
     const written = [...store.entries()].filter(([k]) => k.startsWith('warnings/'))
     expect(written).toHaveLength(1)
     expect(written[0][1]).toMatchObject({ subjectId: 'alice', by: 'mod', reportId: 'r1' })
@@ -329,7 +346,7 @@ describe('an action under the claim', () => {
   })
 
   test('a warning from a profile needs no claim', async () => {
-    await issueWarning('alice', { moderatorId: 'mod', reason: 'be kind' })
+    await issueWarning('alice', { adminId: 'mod', reason: 'be kind' })
     expect([...store.keys()].filter((k) => k.startsWith('warnings/'))).toHaveLength(1)
   })
 })

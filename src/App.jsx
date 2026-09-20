@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import ClosedAccountScreen from './components/ClosedAccountScreen'
@@ -32,7 +32,6 @@ import ProfilePage from './pages/ProfilePage'
 import EditProfilePage from './pages/EditProfilePage'
 import BlockedPage from './pages/BlockedPage'
 import WarningsPage from './pages/WarningsPage'
-import ModerationPage from './pages/ModerationPage'
 import SettingsPage from './pages/SettingsPage'
 import NotificationSettingsPage from './pages/NotificationSettingsPage'
 import NotificationOpenPage from './pages/NotificationOpenPage'
@@ -55,6 +54,24 @@ import NotFoundPage from './pages/NotFoundPage'
 const MapPage = lazyRoute(() => import('./pages/MapPage'))
 const CreateActivityPage = lazyRoute(() => import('./pages/CreateActivityPage'))
 const EditActivityPage = lazyRoute(() => import('./pages/EditActivityPage'))
+// The admin console is loaded the same way: most sessions never hold the
+// rank, and the desk — its tables, its stylesheet — is weight the phone
+// should not carry for them.
+const AdminPanel = lazyRoute(() => import('./console/AdminPanel'))
+
+/**
+ * Where the old moderation addresses go. The screens moved into the admin
+ * console; a bookmark, a notification or a colleague's message may still
+ * name the old ones.
+ */
+const MODERATION_MOVED = {
+  people: '/admin/accounts',
+  removed: '/admin/activities?status=removed',
+}
+function ModerationRedirect() {
+  const { section } = useParams()
+  return <Navigate to={MODERATION_MOVED[section] || '/admin'} replace />
+}
 
 /**
  * The Terms & Safety agreement sits over everything, whatever the stage
@@ -180,14 +197,24 @@ function Stages() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/blocked" element={<BlockedPage />} />
         <Route path="/warnings" element={<WarningsPage />} />
-        <Route path="/moderation" element={<ModerationPage />} />
-        {/* Same component: the sections share every handler, dialog and
-            subscription, so splitting them into separate files would be
-            four copies of the same live data. */}
-        <Route path="/moderation/:section" element={<ModerationPage />} />
         <Route path="/joined" element={<JoinedActivitiesPage />} />
         <Route path="/404" element={<NotFoundPage />} />
       </Route>
+
+      {/* The admin console: outside the shell, because a desk is not a
+          phone screen with a tab bar. It guards itself — a plain user who
+          types the address is shown the door — and the rules refuse every
+          read behind it regardless. */}
+      <Route
+        path="/admin/*"
+        element={
+          <Suspense fallback={<BootScreen />}>
+            <AdminPanel />
+          </Suspense>
+        }
+      />
+      <Route path="/moderation" element={<Navigate to="/admin" replace />} />
+      <Route path="/moderation/:section" element={<ModerationRedirect />} />
 
       {/* Signed-in users have no reason to see the splash or auth screens. */}
       <Route path="/" element={<Navigate to="/home" replace />} />

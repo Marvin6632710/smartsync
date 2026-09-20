@@ -56,15 +56,15 @@ Cloud Firestore) on the back end.
   activities, their profile and their messages — and the database refuses to
   let them join anything you host. Report a person, an activity or a single
   message, with the thing you were looking at attached.
-- **Moderation and oversight.** Reports land in a queue moderators work from
-  inside the app, and an oversight directory lists every account with what it
-  has actually done — so a moderator can act on something they noticed rather
-  than only on what somebody flagged. A moderator can take an activity down
-  from its own page or suspend an account; an admin can also appoint
-  moderators and put a removed activity back. Every action records who took it
-  and why, nobody can act on a report about themselves, admin can only be
-  granted from the Firebase console, and no rank can read a private profile, a
-  block list, or a chat they did not join. See ADR-011.
+- **Moderation and oversight.** Reports land in a queue the admin works from
+  a console of its own, and an accounts list shows every account with what it
+  has actually done — so the admin can act on something they noticed rather
+  than only on what somebody flagged. The ladder is warn, take down, suspend,
+  close, each reversible except the warning, and every action records who
+  took it and why. Nobody can act on a report about themselves, no admin can
+  act on another, admin can only be granted from the Firebase console, and
+  the rank cannot read a private profile, a block list, or a chat it did not
+  join. See ADR-011 and ADR-024.
 
 ## 2. Running it locally without a Firebase account
 
@@ -216,9 +216,11 @@ deploy copies `src/i18n/locales` into `functions/locales` first (the
 `predeploy` step in `firebase.json`), so a push is worded from the same
 strings as the screen.
 
-If you changed a query, deploy the indexes too — the moderation queue needs a
-composite index on `reports`, and without it the queue fails on a real project
-even though it works fine on the emulator:
+If you changed a query, deploy the indexes too — the moderation queue needs
+composite indexes on `reports` (open by `createdAt`, decided by
+`reviewedAt`) and the admin overview one on `activities` (`status` and
+`startsAt`), and without them the query fails on a real project even though
+it works fine on the emulator:
 
 ```bash
 npx firebase deploy --only firestore:indexes
@@ -248,16 +250,20 @@ admin. The first one is made by hand, once, in the Firebase console.
    | `role`      | string  | `admin` |
    | `suspended` | boolean | `false` |
 
-5. Reload the app. **Profile → Settings → Moderation** now appears.
+5. Reload the app. **Profile → Settings → Admin console** now appears.
 
-That is the only step that happens outside the app. From there the admin
-appoints and dismisses moderators in **Moderation → Moderators**, and
-suspending, un-suspending, taking activities down and putting them back all
-happen in the app too. `admin` is the one rank with no button anywhere.
+That is the only step that happens outside the app, and the only rank
+there is to grant: there are two ranks, an ordinary user and an admin, and
+no lesser rank to appoint from inside the app. Warning, suspending and
+un-suspending, closing and reopening, taking activities down and putting
+them back all happen in the console at `/admin`. `admin` itself is the one
+rank with no button anywhere.
 
-To check it worked without a queue to look at: the Moderation row appears in
-Settings only for a moderator or an admin, and `/moderation` shows "This
-screen is for moderators" to everyone else.
+To check it worked without a queue to look at: Settings shows an "Admin
+console" row to the admin, the web header carries a shield, and `/admin`
+shows a closed door to everyone else. The console is an internal desk
+outside the app's shell — a sidebar, tables, a panel for the selected
+record — see ARCHITECTURE.md §4, ADR-023 and ADR-024.
 
 ## 7. Project structure
 
@@ -434,12 +440,13 @@ Honest about what is not there:
   Firebase means Cloud Functions and the paid plan.
 - **Anonymity is not retroactive for chat.** It covers your profile and the
   activities you host, but messages keep the name they were sent under.
-- **Moderation is manual, and the first admin is made by hand.** Nothing is
-  detected or actioned automatically — a human reads every report. The very
-  first admin has to be created in the Firebase console, because there is
-  deliberately no in-app path to that rank; everything after that, including
-  appointing moderators, happens in the app.
-- **A moderator can see a report filed about themselves.** They cannot act on
+- **Moderation is manual, and every admin is made by hand.** Nothing is
+  detected or actioned automatically — a human reads every report. An admin
+  has to be created in the Firebase console, because there is deliberately no
+  in-app path to that rank and no lesser rank to hand out; everything after
+  that happens in the app. A suspended admin is lifted in the console too,
+  since no admin may act on another.
+- **An admin can see a report filed about themselves.** They cannot act on
   it — the rules refuse that — but they can read it, and so learn who filed
   it. Firestore has no field-level read rules and refuses a whole query if any
   document in it fails, so those reports are hidden from that reviewer's queue

@@ -226,7 +226,7 @@ export default function WelcomePage() {
         </section>
 
         {/* Every line here is something the app actually does — reporting
-            and blocking are real, moderators really do review, anonymous
+            and blocking are real, an admin really does review, anonymous
             mode really swaps the name, and approximate location really
             rounds to about a kilometre before storing. */}
         <section className="welcome-safe" aria-labelledby="welcome-safe-title">

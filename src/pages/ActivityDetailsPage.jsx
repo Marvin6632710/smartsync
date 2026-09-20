@@ -15,7 +15,7 @@ import GoingStack from '../components/GoingStack'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ReportDialog from '../components/ReportDialog'
 import { MORPH } from '../hooks/useMorph'
-import { removeActivity as removeAsModerator, restoreActivity } from '../firebase/moderation'
+import { removeActivity as takeDownActivity, restoreActivity } from '../firebase/moderation'
 import { useModerationAction } from '../hooks/useModerationAction'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -48,21 +48,21 @@ export default function ActivityDetailsPage() {
   // unconditionally on every render.
   const [cancelOpen, setCancelOpen] = useState(false)
   const [reporting, setReporting] = useState(null)
-  // Moderator tools on any activity, not only ones somebody reported. A queue
+  // Admin tools on any activity, not only ones somebody reported. A queue
   // driven entirely by reports can only ever see what people bother to flag.
   const [moderationReason, setModerationReason] = useState('')
   const [moderating, setModerating] = useState(false)
   // Read from `activities`, not `recommendations`: a cancelled activity is
   // dropped from recommendations but the people who joined it still need to
   // be able to open it and see that it was called off.
-  // Discovery's list first, then — for a moderator only — everything else the
+  // Discovery's list first, then — for an admin only — everything else the
   // listener holds. Without the fallback, following "Look at it" from a report
   // to something already taken down, or to a cancelled activity they never
-  // joined, showed a moderator "Activity not found" for a document they are
+  // joined, showed an admin "Activity not found" for a document they are
   // explicitly allowed to read.
   const a =
     activities.find((item) => item.id === id) ||
-    (user.isModerator ? allActivities.find((item) => item.id === id) : undefined)
+    (user.isAdmin ? allActivities.find((item) => item.id === id) : undefined)
 
   // Not loaded is not not found. Every deep link — a notification tap, a
   // shared URL, a reload on this page — arrives before the first snapshot,
@@ -114,7 +114,7 @@ export default function ActivityDetailsPage() {
       const done = await perform(
         () =>
           next === 'removed'
-            ? removeAsModerator(id, { moderatorId: user.uid, reason })
+            ? takeDownActivity(id, { adminId: user.uid, reason })
             : restoreActivity(id, { adminId: user.uid, reason }),
         {
           done: () =>
@@ -122,22 +122,22 @@ export default function ActivityDetailsPage() {
               ? {
                   icon: 'check',
                   tone: 'success',
-                  title: t('activity.moderator.removedTitle'),
-                  body: t('activity.moderator.removedBody', { title: a.title }),
+                  title: t('activity.admin.removedTitle'),
+                  body: t('activity.admin.removedBody', { title: a.title }),
                 }
               : {
                   icon: 'check',
                   tone: 'success',
-                  title: t('activity.moderator.restoredTitle'),
-                  body: t('activity.moderator.restoredBody', { title: a.title }),
+                  title: t('activity.admin.restoredTitle'),
+                  body: t('activity.admin.restoredBody', { title: a.title }),
                 },
           fail: (moderationError) => ({
             icon: 'alert',
             tone: 'warning',
-            title: t('activity.moderator.failedTitle'),
+            title: t('activity.admin.failedTitle'),
             body:
               moderationError?.code === 'permission-denied'
-                ? t('activity.moderator.adminOnlyRestore')
+                ? t('common.noPermission')
                 : t('common.repeatingIsSafe'),
           }),
         },
@@ -353,33 +353,29 @@ export default function ActivityDetailsPage() {
       </div>
 
       <div className="detail-more">
-        {/* Moderator tools sit on every activity, not only ones that were
+        {/* Admin tools sit on every activity, not only ones that were
           reported — otherwise the only things anybody can act on are the ones
-          somebody bothered to flag. Shown to a moderator looking at somebody
+          somebody bothered to flag. Shown to an admin looking at somebody
           else's activity: their own has Cancel and Delete instead. */}
-        {user.isModerator && !isHost && (isRemoved ? user.isAdmin : !isCancelled) && (
-          <section className="panel moderator-panel">
+        {user.isAdmin && !isHost && (isRemoved || !isCancelled) && (
+          <section className="panel admin-tools">
             <div className="section-heading">
               <div>
-                <span className="eyebrow">{t('activity.moderator.eyebrow')}</span>
-                <h3>
-                  {isRemoved ? t('activity.moderator.putBack') : t('activity.moderator.takeDown')}
-                </h3>
+                <span className="eyebrow">{t('activity.admin.eyebrow')}</span>
+                <h3>{isRemoved ? t('activity.admin.putBack') : t('activity.admin.takeDown')}</h3>
               </div>
             </div>
             <p className="helper-text">
-              {isRemoved
-                ? t('activity.moderator.putBackHint')
-                : t('activity.moderator.takeDownHint')}
+              {isRemoved ? t('activity.admin.putBackHint') : t('activity.admin.takeDownHint')}
             </p>
             <label className="report-detail">
-              {isRemoved ? t('activity.moderator.whyPutBack') : t('activity.moderator.whyTakeDown')}
+              {isRemoved ? t('activity.admin.whyPutBack') : t('activity.admin.whyTakeDown')}
               <input
                 maxLength={300}
                 placeholder={
                   isRemoved
-                    ? t('activity.moderator.putBackPlaceholder')
-                    : t('activity.moderator.takeDownPlaceholder')
+                    ? t('activity.admin.putBackPlaceholder')
+                    : t('activity.admin.takeDownPlaceholder')
                 }
                 value={moderationReason}
                 onChange={(event) => setModerationReason(event.target.value)}
@@ -393,8 +389,8 @@ export default function ActivityDetailsPage() {
               {moderating
                 ? t('common.working')
                 : isRemoved
-                  ? t('activity.moderator.putItBack')
-                  : t('activity.moderator.removeActivity')}
+                  ? t('activity.admin.putItBack')
+                  : t('activity.admin.removeActivity')}
             </button>
           </section>
         )}

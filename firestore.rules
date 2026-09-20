@@ -48,10 +48,12 @@ service cloud.firestore {
     // edit. That is the whole design: a role stored anywhere its holder can
     // write is a role its holder can grant themselves.
     //
-    // `admin` can only ever be set from the Firebase console. There is no
-    // in-app path to create one, so compromising a moderator — or an admin —
-    // cannot mint more admins. Moderators are grantable in-app by an admin,
-    // because that is routine work; admin is not.
+    // Two ranks and no more: an ordinary user, and an admin. `admin` can
+    // only ever be set from the Firebase console. There is no in-app path
+    // to create one, so compromising an admin cannot mint more admins, and
+    // there is no lesser rank to hand out — the app writes `role: 'user'`
+    // and nothing else. (A `moderator` rank existed once; a row still
+    // saying so grants nothing and is treated as an ordinary user.)
 
     function roleDoc(uid) {
       return get(/databases/$(database)/documents/roles/$(uid)).data;
@@ -66,17 +68,13 @@ service cloud.firestore {
     }
 
     // A suspended account holds its rank but exercises none of it. Otherwise
-    // suspending a moderator who was abusing the queue would take nothing
-    // away from them: they would keep removing activities and suspending
-    // people while suspended themselves. The rank is kept rather than stripped
-    // so that lifting the suspension restores what they were, and so the
-    // record shows a suspended moderator rather than a demoted stranger.
+    // suspending an admin who was abusing the queue would take nothing away
+    // from them: they would keep removing activities and suspending people
+    // while suspended themselves. The rank is kept rather than stripped so
+    // that lifting the suspension restores what they were, and so the record
+    // shows a suspended admin rather than a demoted stranger.
     function isAdmin() {
       return myRole() == 'admin' && !cannotAct();
-    }
-
-    function isModerator() {
-      return (myRole() == 'moderator' || myRole() == 'admin') && !cannotAct();
     }
 
     // Would the row this write produces mark the account closed? On a merge
@@ -262,7 +260,7 @@ service cloud.firestore {
         // account has been closed — email us to appeal" into anybody's inbox,
         // pointing at whatever listing it liked. Now a notification about an
         // activity has to come from somebody on that activity's roster, and a
-        // moderation notice has to come from a moderator. Nothing else exists.
+        // moderation notice has to come from an admin. Nothing else exists.
         //
         // `kind` and `params` are what the record was worded from — the
         // template and its fill-ins — so a newer app, and the push that
@@ -306,7 +304,7 @@ service cloud.firestore {
               && senderOnRoster(request.resource.data)
             ) || (
               request.resource.data.type == 'moderation'
-              && isModerator()
+              && isAdmin()
             )
           );
         allow update: if isSelf(uid) && touches(['read']);
@@ -458,7 +456,7 @@ service cloud.firestore {
         // and without this their existing activities stayed live and kept
         // accepting strangers — the suspension protecting nobody from the
         // thing it was for. The client cannot enforce this on its own either:
-        // roles are readable only by their owner and by moderators, so
+        // roles are readable only by their owner and by an admin, so
         // discovery genuinely cannot tell, and this rule is the only place
         // the answer is known.
         && !accountSuspended(resource.data.hostId)
@@ -494,7 +492,7 @@ service cloud.firestore {
         && request.resource.data.hostId == request.auth.uid
         // A host starts as the sole participant of their own activity.
         && request.resource.data.participantUids == [request.auth.uid]
-        // Something new is active. 'removed' is a moderator's word, and a
+        // Something new is active. 'removed' is an admin's word, and a
         // host cannot pre-write the record of a decision nobody has taken.
         && request.resource.data.status == 'active'
         && !('moderation' in request.resource.data)
@@ -516,7 +514,7 @@ service cloud.firestore {
           && request.resource.data.hostId == resource.data.hostId
           && request.resource.data.participantUids == resource.data.participantUids
           && request.resource.data.capacity >= resource.data.participantUids.size()
-          // A moderator's decision is not the host's to reverse. Once an
+          // An admin's decision is not the host's to reverse. Once an
           // activity is removed it is frozen to its host: they cannot put it
           // back, cannot relabel it 'cancelled' to hide that it was taken
           // down, and cannot keep editing it. Nothing above said so, and
@@ -537,7 +535,7 @@ service cloud.firestore {
           // the copy has to follow the profile — on a removed activity too,
           // which the host may otherwise not touch. Anonymous mode that
           // stopped at removed activities would leave the real name on
-          // exactly the listings a moderator is looking at, and because the
+          // exactly the listings an admin is looking at, and because the
           // profile and the activities are written together, one frozen
           // activity used to make the switch impossible to flip at all.
           // Nothing else may move: not the status, not the roster, not the
@@ -548,11 +546,11 @@ service cloud.firestore {
           && isString(request.resource.data.hostName, 60)
           && request.resource.data.hostAvatar is string
         ) || (
-          // Moderation. A moderator may take an activity down and record why,
+          // Moderation. An admin may take an activity down and record why,
           // and may do nothing else to it — not edit its details, not touch
           // its roster, not hand it to somebody. Taking something down is a
           // narrow power on purpose.
-          isModerator()
+          isAdmin()
           && touches(['status', 'moderation', 'updatedAt'])
           && request.resource.data.moderation.by == request.auth.uid
           && isString(request.resource.data.moderation.reason, 300)
@@ -571,15 +569,12 @@ service cloud.firestore {
           )
           && (
             request.resource.data.status == 'removed'
-            // Putting something back is an admin's power, never a plain
-            // moderator's. A mistake has to be fixable — an unrecoverable
-            // takedown is its own kind of harm — but not by the same rank
-            // that might have made it, and never silently: the restore
-            // overwrites `moderation` with who did it and why, so the
-            // record shows both decisions in turn.
+            // Putting something back. A mistake has to be fixable — an
+            // unrecoverable takedown is its own kind of harm — but never
+            // silently: the restore overwrites `moderation` with who did it
+            // and why, so the record shows both decisions in turn.
             || (
-              isAdmin()
-              && resource.data.status == 'removed'
+              resource.data.status == 'removed'
               && request.resource.data.status == 'active'
             )
           )
@@ -653,26 +648,22 @@ service cloud.firestore {
     // ------------------------------------------------------------------ roles
     match /roles/{uid} {
       // You can see your own role — the app needs it to decide whether to
-      // show the moderation screens — and moderators can see everyone's,
-      // which they need to do the job.
-      allow read: if isSelf(uid) || isModerator();
+      // show the admin console — and an admin can see everyone's, which
+      // they need to do the job.
+      allow read: if isSelf(uid) || isAdmin();
 
-      // Two ranks with different reach, and nobody may edit their own row: a
-      // person who can edit their own role can undo any limit placed on them,
-      // and an admin who can strip their own admin is one mis-tap from
-      // locking everyone out.
+      // One rank acts, and nobody may edit their own row: a person who can
+      // edit their own role can undo any limit placed on them, and an admin
+      // who can strip their own admin is one mis-tap from locking everyone
+      // out.
       //
-      // An admin appoints and dismisses moderators, and suspends anybody
-      // except another admin. They still cannot mint an admin — that stays a
-      // console-only act, so compromising one account cannot make more.
-      //
-      // A moderator may suspend and restore ordinary users and nothing else.
-      // Suspension is the sharpest tool they have and the whole reason the
-      // rank exists: a moderator who could only take down one activity while
-      // the same account posted ten more would not be moderating anything.
-      // They cannot change anyone's role, and cannot touch a peer or a
-      // superior — acting on a fellow moderator is an admin's call.
-      allow create, update: if signedIn()
+      // An admin warns, suspends, closes and reopens anybody except another
+      // admin. The only role the app may write is 'user' — there is no
+      // rank to hand out, and admin stays a console-only act, so
+      // compromising one account cannot make more. Acting on a fellow admin
+      // is refused outright: two admins able to disable one another is a
+      // race whose winner is whoever moves first.
+      allow create, update: if isAdmin()
         && uid != request.auth.uid
         // Exactly these three fields and nothing else. A role document is the
         // most consequential row in the database, and everything reading it
@@ -681,36 +672,15 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['role', 'suspended', 'banned'])
         && request.resource.data.suspended is bool
         && (!('banned' in request.resource.data) || request.resource.data.banned is bool)
-        && (
-          (
-            isAdmin()
-            && request.resource.data.role in ['user', 'moderator']
-            && rankOf(uid) != 'admin'
-          ) || (
-            isModerator()
-            // Closing an account, and reopening one, is an admin's decision
-            // and only an admin's: it is the one action with nothing after it.
-            //
-            // Two checks, not one. `willBeBanned()` stops them writing a row
-            // that says closed. `accountBanned(uid)` stops them touching an
-            // account that already is — and that second one is not redundant:
-            // a plain `setDoc` replaces the document rather than merging, so
-            // without it a moderator could reopen a closed account simply by
-            // writing a fresh row with no `banned` key at all. A test caught
-            // exactly that.
-            && !willBeBanned()
-            && !accountBanned(uid)
-            && request.resource.data.role == 'user'
-            && rankOf(uid) == 'user'
-          )
-        );
+        && request.resource.data.role == 'user'
+        && rankOf(uid) != 'admin';
 
-      // Deleting the row is demotion by another name — no row means an
-      // ordinary user. So it carries the same limit as editing one: an admin
-      // may dismiss a moderator this way, and may not erase a fellow admin.
-      // Without the rank check, "an admin cannot suspend another admin" would
-      // be true and useless, because they could delete them instead, which is
-      // strictly worse.
+      // Deleting the row is lifting every limit at once — no row means an
+      // ordinary user in good standing. So it carries the same limit as
+      // editing one: an admin may not erase a fellow admin. Without the rank
+      // check, "an admin cannot suspend another admin" would be true and
+      // useless, because they could delete them instead, which is strictly
+      // worse.
       allow delete: if isAdmin()
         && uid != request.auth.uid
         && rankOf(uid) != 'admin';
@@ -725,22 +695,22 @@ service cloud.firestore {
     // reaches for the second far too often.
     //
     // A warning is a record, not a message: immutable and undeletable by
-    // everybody including the moderator who wrote it and an admin. The person
-    // warned can read their own, which is the point — a warning nobody can
-    // review is a rumour.
+    // everybody including the admin who wrote it. The person warned can read
+    // their own, which is the point — a warning nobody can review is a
+    // rumour.
     match /warnings/{warningId} {
       allow read: if signedIn()
         && !isBanned()
-        && (resource.data.subjectId == request.auth.uid || isModerator());
+        && (resource.data.subjectId == request.auth.uid || isAdmin());
 
-      allow create: if isModerator()
+      allow create: if isAdmin()
         && request.resource.data.keys().hasOnly(
              ['subjectId', 'by', 'reason', 'reportId', 'createdAt'])
         && request.resource.data.by == request.auth.uid
-        // Nobody warns themselves, and nobody warns a peer or a superior —
-        // the same ladder as every other action.
+        // Nobody warns themselves, and nobody warns a fellow admin — the
+        // same ladder as every other action.
         && request.resource.data.subjectId != request.auth.uid
-        && (isAdmin() || rankOf(request.resource.data.subjectId) == 'user')
+        && rankOf(request.resource.data.subjectId) != 'admin'
         && isString(request.resource.data.reason, 500)
         // A warning issued from the queue names its report, and then it has
         // to hold that report's claim — still open, still theirs — and be
@@ -766,12 +736,12 @@ service cloud.firestore {
 
     // ---------------------------------------------------------------- reports
     //
-    // A reporter may file one and read back their own. Moderators read all of
+    // A reporter may file one and read back their own. An admin reads all of
     // them, because that is the queue. Nobody can edit the substance of a
     // report or delete one: reports are evidence, and evidence the accused can
     // alter or erase is not evidence.
     //
-    // Residual risk, stated rather than hidden: a moderator can read a report
+    // Residual risk, stated rather than hidden: an admin can read a report
     // filed about themselves, and so can learn who filed it. Firestore has no
     // field-level read rules and a query is refused wholesale if any document
     // in it fails, so excluding those from the queue is done in the client and
@@ -780,11 +750,11 @@ service cloud.firestore {
     match /reports/{reportId} {
       allow read: if signedIn()
         && !isBanned()
-        && (resource.data.reporterId == request.auth.uid || isModerator());
+        && (resource.data.reporterId == request.auth.uid || isAdmin());
       // A *suspended* account may still report, deliberately. Being under a
       // limit must not stop somebody flagging a danger to other people — that
       // would punish everybody else for the reporter's own conduct, and the
-      // report costs nobody anything until a moderator reads it.
+      // report costs nobody anything until an admin reads it.
       //
       // A *closed* account may not. They are out of the community, and the
       // queue is a scarce human resource: leaving it open to somebody who has
@@ -810,10 +780,10 @@ service cloud.firestore {
       // Working a report is two writes, in order: claim it, then act and
       // record in one transaction.
       //
-      // The claim is the part that was missing. Two moderators could act on
+      // The claim is the part that was missing. Two admins could act on
       // the same report at once; the record kept whichever landed second,
       // and the action — a suspension — was taken on a complaint a colleague
-      // had already dismissed. A claim is a lease: one moderator, stamped
+      // had already dismissed. A claim is a lease: one admin, stamped
       // with the server's clock, that nobody else may take while it is fresh.
       // Every action taken from the queue reads the claim in the same
       // transaction that writes the consequence, so a claim that was lost —
@@ -828,10 +798,10 @@ service cloud.firestore {
       // a transaction lands whole or not at all, which makes a suspension
       // recorded against a report impossible to commit without holding its
       // claim, and leaves no moment at which the account is suspended and
-      // the report still open. A moderator suspending from the People
-      // directory names no report and is judged by /roles alone, as before.
+      // the report still open. An admin suspending from the accounts list
+      // names no report and is judged by /roles alone, as before.
       //
-      // Stale after five minutes. A moderator who closed the tab mid-action
+      // Stale after five minutes. An admin who closed the tab mid-action
       // must not lock a report for good; a colleague may take over then, and
       // the original's late writes are refused because the claim is no
       // longer theirs. Their own fresh claim may be renewed.
@@ -853,13 +823,13 @@ service cloud.firestore {
           && c.at == request.time;
       }
 
-      // The report itself stays immutable to everybody. A moderator may
+      // The report itself stays immutable to everybody. An admin may
       // claim it, release their own claim, and record what they decided —
       // and nothing else. Letting a reviewer edit the reason or the
       // description would make the record worthless, and letting anyone
       // delete it would make it disappearable.
-      allow update: if isModerator()
-        // Closed once. Two moderators ruling on the same report within
+      allow update: if isAdmin()
+        // Closed once. Two admins ruling on the same report within
         // seconds of each other both succeeded, and the record kept only
         // whichever landed second — "no action needed" over an account
         // that had just been suspended. The first decision is the decision;
@@ -867,13 +837,13 @@ service cloud.firestore {
         && resource.data.status == 'open'
         // Nobody works a report they are a party to — on either side.
         //
-        // Being the subject is the obvious half: a moderator could never
+        // Being the subject is the obvious half: an admin could never
         // suspend themselves, that rule is in /roles, but without this they
         // could mark the complaint dismissed and bury it, which is the same
         // power exercised quietly. Their own activities and their own messages
         // count as themselves.
         //
-        // Being the reporter is the half that is easy to forget. A moderator
+        // Being the reporter is the half that is easy to forget. An admin
         // who reports somebody and then rules on it is prosecutor and judge,
         // and the record would show a decision that looks independent and is
         // not.
@@ -903,6 +873,75 @@ service cloud.firestore {
         );
 
       allow delete: if false;
+    }
+
+    // --------------------------------------------------------- moderation log
+    //
+    // What an admin did, as a record the rules can vouch for. The state
+    // documents say what is true now — a role row says suspended, an
+    // activity says removed — and nothing said who made it so, when, or why:
+    // a role row is three fields on purpose, and a restore overwrites the
+    // takedown it undoes. This collection holds the decisions in order.
+    //
+    // Three things make an entry worth reading. It names its writer as the
+    // caller and nobody else, so a record cannot be pinned on a colleague.
+    // It is stamped by the server's clock. And it can only claim a state
+    // the subject is actually in when the write lands: `getAfter` reads the
+    // document as it will be once this batch commits, so an entry saying
+    // "suspended" is refused unless the role row — written in the same
+    // transaction, or already there — says so too. Nothing is ever edited
+    // or deleted, by anybody.
+    //
+    // Stated rather than hidden: an entry is written by the client that
+    // took the action, so somebody writing to Firestore directly could take
+    // an action and skip the record. The state documents stay the truth;
+    // this is the index of how they came to be that way, complete for
+    // everything done through the app.
+    match /moderationLog/{entryId} {
+      function entry() {
+        return request.resource.data;
+      }
+      function roleAfter() {
+        return getAfter(/databases/$(database)/documents/roles/$(entry().subjectId)).data;
+      }
+      function activityAfter() {
+        return getAfter(/databases/$(database)/documents/activities/$(entry().activityId)).data;
+      }
+      function statesMatch() {
+        return (entry().kind == 'suspend' && roleAfter().suspended == true)
+          || (entry().kind == 'lift' && roleAfter().suspended == false)
+          || (entry().kind == 'close' && roleAfter().get('banned', false) == true)
+          || (entry().kind == 'reopen' && roleAfter().get('banned', false) == false)
+          || (
+            entry().kind == 'remove'
+            && activityAfter().status == 'removed'
+            && activityAfter().hostId == entry().subjectId
+          )
+          || (
+            entry().kind == 'restore'
+            && activityAfter().status == 'active'
+            && activityAfter().hostId == entry().subjectId
+          );
+      }
+
+      allow read: if isAdmin();
+
+      allow create: if isAdmin()
+        && entry().keys().hasOnly(['kind', 'by', 'subjectId', 'activityId', 'reportId', 'reason', 'at'])
+        && entry().kind in ['suspend', 'lift', 'close', 'reopen', 'remove', 'restore']
+        && entry().by == request.auth.uid
+        && entry().at == request.time
+        && isString(entry().subjectId, 200)
+        && entry().reason is string
+        && entry().reason.size() <= 500
+        && (!('reportId' in entry()) || isString(entry().reportId, 200))
+        // The two kinds about an activity name it; the four about an account
+        // do not.
+        && ((entry().kind in ['remove', 'restore']) == ('activityId' in entry()))
+        && (!('activityId' in entry()) || isString(entry().activityId, 200))
+        && statesMatch();
+
+      allow update, delete: if false;
     }
 
     // Anything not matched above is denied.
