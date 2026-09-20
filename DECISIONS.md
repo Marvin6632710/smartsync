@@ -1277,3 +1277,52 @@ consoles and trimming each (two rooms is the thing that needed explaining);
 a single flat page without the claim (the claim is the one mechanism worth
 demonstrating, because it is the one that stops two people acting on the
 same report).
+
+---
+
+## ADR-025 — Small optional pictures in separate Firestore documents
+
+**Context.** Activities need a picture on their cards and details page, and
+people need a photo they can replace from their profile editor. Existing
+accounts and activities must keep their initials/category artwork until a
+picture is chosen. The project currently persists shared data in Firestore
+on the Spark plan, with no object-storage implementation. Firebase Cloud
+Storage now requires Blaze billing ([Firebase documentation](https://firebase.google.com/docs/storage/faq-and-troubleshooting)).
+
+**Decision.** Use the existing database for bounded, resized picture copies.
+Accept JPG, PNG and WebP files through 5 MB. Decode and re-encode in the
+browser, stripping metadata and limiting the maximum edge to 512 px for
+profiles and 1440 px for activities; reduce further as needed to fit a
+320,000-character raster data URL. Originals are not retained. This keeps
+uploads usable with the existing Firebase setup and emulator.
+
+Store one document per photo in `profilePictures/{uid}` or
+`activityPictures/{activityId}` with `dataUrl`, an opaque `version` and
+`updatedAt`. The parent carries only `pictureVersion`, and activities copy
+their host's `hostPictureVersion` with the existing identity sweep. Save the
+photo and parent in the same batch, overwrite that fixed document on
+replacement, and remove an activity's picture with its hard deletion. No
+new selection means no photo fields are written, including stale markers
+from a form opened before a replacement on another device.
+
+`usePicture` shares listeners by signed-in viewer, picture and version and
+drops the listener and hook-held bytes when its last view unmounts. The
+existing Firestore offline cache and refused-draft flow remain available;
+photo-only edits compare versions when recovering a queued save. Image
+bytes never enter the people/activity feed documents or their indexes.
+
+Rules bind picture writes to the owning profile/host and parent version,
+refuse removed-activity replacements, enforce the stored size and raster
+data-URL shape, and deny collection listing. Anonymous-mode profile photos
+can be read only by their owner, including against direct API reads. Admin
+rank grants no additional picture editing or private-photo access. The
+rules cannot decode image bytes, so the browser validates decoding and
+falls back to initials/category artwork for an unreadable stored image.
+
+**Consequences.** This is sized for the current project and exhibition;
+Firestore storage, reads and bandwidth still count toward quotas. It is
+not original-resolution media hosting. A larger deployment should migrate
+photo bytes to object storage and keep the same optional parent markers and
+ownership rules. Deploy the new rules and the two `dataUrl` index exemptions
+before hosting this version. No Functions, new service credentials or
+billing changes are required for this implementation.

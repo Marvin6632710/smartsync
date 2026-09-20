@@ -19,6 +19,8 @@ import {
 
 import { hostedActivitiesFromServer, hostedActivityRefs, stampHostIdentity } from './activities'
 import { db } from './config'
+import { writePicture } from './pictures'
+import { validPicture } from '../utils/pictures'
 
 const ANONYMOUS_NAME = 'Anonymous user'
 const ANONYMOUS_AVATAR = 'AN'
@@ -320,11 +322,13 @@ const BATCH_LIMIT = 500
  * failure part-way leaves the switch showing the old state, which is true,
  * and a retry simply stamps the same activities again and finishes.
  */
-async function writeIdentity(uid, identity, { publicPatch, privatePatch }) {
+async function writeIdentity(uid, identity, { publicPatch, privatePatch, picture }) {
+  // Reject a damaged restored draft before any overflow batch can commit.
+  if (picture && !validPicture(picture)) throw new Error('pictures.readError')
   const refs = await hostedActivityRefs(uid)
   // The final batch carries the profile's two writes, so it has that much
   // less room for activities. Everything before it is activities only.
-  const room = BATCH_LIMIT - 2
+  const room = BATCH_LIMIT - (picture ? 3 : 2)
   const overflow = Math.max(0, refs.length - room)
   for (let start = 0; start < overflow; start += BATCH_LIMIT) {
     const batch = writeBatch(db)
@@ -343,6 +347,7 @@ async function writeIdentity(uid, identity, { publicPatch, privatePatch }) {
     { ...privatePatch, identitySweepPending: refs.partial ? true : deleteField() },
     { merge: true },
   )
+  if (picture) writePicture(last, 'profile', uid, picture)
   await last.commit()
 }
 
@@ -356,10 +361,15 @@ async function writeIdentity(uid, identity, { publicPatch, privatePatch }) {
  * the last of them, so a failure part-way leaves the note in place and the
  * next connection tries again. Returns how many were brought into line.
  */
-export async function completeIdentitySweep(uid, { name, avatar }) {
+export async function completeIdentitySweep(uid, { name, avatar, pictureVersion }) {
   const hosted = await hostedActivitiesFromServer(uid)
   const stale = hosted
-    .filter((a) => a.hostName !== name || a.hostAvatar !== avatar)
+    .filter(
+      (a) =>
+        a.hostName !== name ||
+        a.hostAvatar !== avatar ||
+        (pictureVersion && a.hostPictureVersion !== pictureVersion),
+    )
     .map((a) => a.ref)
   const room = BATCH_LIMIT - 1
   const overflow = Math.max(0, stale.length - room)
@@ -368,11 +378,12 @@ export async function completeIdentitySweep(uid, { name, avatar }) {
     stampHostIdentity(batch, stale.slice(start, Math.min(start + BATCH_LIMIT, overflow)), {
       name,
       avatar,
+      pictureVersion,
     })
     await batch.commit()
   }
   const last = writeBatch(db)
-  stampHostIdentity(last, stale.slice(overflow), { name, avatar })
+  stampHostIdentity(last, stale.slice(overflow), { name, avatar, pictureVersion })
   last.set(privateDoc(uid), { identitySweepPending: deleteField() }, { merge: true })
   await last.commit()
   return stale.length
@@ -387,9 +398,12 @@ export async function completeIdentitySweep(uid, { name, avatar }) {
  */
 export async function updateDisplayName(uid, realName, anonymous, publicPatch = {}) {
   const identity = publicIdentity({ realName, anonymous })
+  const { picture, ...fields } = publicPatch
+  delete fields.pictureVersion
+  if (picture) identity.pictureVersion = picture.version
   // The activities carry their own copy of the name; without them a rename
   // is visible on the profile and nowhere else.
-  await writeIdentity(uid, identity, { publicPatch, privatePatch: { realName } })
+  await writeIdentity(uid, identity, { publicPatch: fields, privatePatch: { realName }, picture })
 }
 
 /**

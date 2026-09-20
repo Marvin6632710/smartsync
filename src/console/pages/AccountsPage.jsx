@@ -1,3 +1,4 @@
+import { AvatarContent } from '../../components/SavedPicture'
 import React, { useMemo } from 'react'
 import { Users } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -120,7 +121,7 @@ export default function AccountsPage({ base }) {
       render: (person) => (
         <span className="con-cell-person">
           <span className="avatar con-person-avatar" aria-hidden="true">
-            {person.avatar || '?'}
+            <AvatarContent person={person} />
           </span>
           <span className="con-cell-main">
             <strong>

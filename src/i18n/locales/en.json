@@ -1331,5 +1331,20 @@
       "allHistory": "All history",
       "decided": "Decided reports"
     }
+  },
+  "pictures": {
+    "activity": "Activity picture",
+    "profile": "Profile picture",
+    "preview": "Selected picture preview",
+    "hint": "Optional · JPG, PNG or WebP · Up to 5 MB",
+    "choose": "Choose picture",
+    "preparing": "Preparing picture…",
+    "undo": "Undo selection",
+    "saveHint": "Your new picture will be uploaded when you save.",
+    "typeError": "Choose a JPG, PNG or WebP image.",
+    "sizeError": "This picture is larger than 5 MB. Choose a smaller file.",
+    "readError": "This picture could not be opened. Try another JPG, PNG or WebP image.",
+    "saveError": "Could not save the picture and your changes. Please try again.",
+    "anonymousHint": "Your picture stays hidden from others while anonymous mode is on."
   }
 }

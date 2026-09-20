@@ -424,7 +424,11 @@ export function AppProvider({ children }) {
     }
     sweepingRef.current = true
     let live = true
-    completeIdentitySweep(uid, { name: user.name, avatar: user.avatar })
+    completeIdentitySweep(uid, {
+      name: user.name,
+      avatar: user.avatar,
+      ...(user.pictureVersion ? { pictureVersion: user.pictureVersion } : {}),
+    })
       .catch((error) => {
         if (live) reportError('users.identitySweep', error, { uid })
       })
@@ -434,7 +438,14 @@ export function AppProvider({ children }) {
     return () => {
       live = false
     }
-  }, [uid, serverReachable, user?.identitySweepPending, user?.name, user?.avatar])
+  }, [
+    uid,
+    serverReachable,
+    user?.identitySweepPending,
+    user?.name,
+    user?.avatar,
+    user?.pictureVersion,
+  ])
 
   useEffect(() => {
     saveStorage('smartsync:filters', filters)
@@ -812,6 +823,7 @@ export function AppProvider({ children }) {
         // lands — and right anyway if it ever fails.
         hostName: host?.name || activity.hostName,
         hostAvatar: host?.avatar || activity.hostAvatar,
+        hostPictureVersion: host ? host.pictureVersion : activity.hostPictureVersion,
         distanceKm: from ? distanceBetween(from, { lat: activity.lat, lng: activity.lng }) : null,
       }
     })
@@ -1277,7 +1289,7 @@ export function AppProvider({ children }) {
         return pending
       },
       {
-        failure: t('toasts.createFailed'),
+        failure: t(data.picture ? 'pictures.saveError' : 'toasts.createFailed'),
         success: {
           icon: 'check',
           tone: 'success',
@@ -1335,7 +1347,7 @@ export function AppProvider({ children }) {
   // firebase/pending.js).
   async function updateActivity(id, updates, { before = null } = {}) {
     const ok = await attempt(() => updateActivityDoc(id, updates), {
-      failure: t('toasts.editFailed'),
+      failure: t(updates.picture ? 'pictures.saveError' : 'toasts.editFailed'),
       success: {
         icon: 'check',
         tone: 'success',
@@ -1346,7 +1358,12 @@ export function AppProvider({ children }) {
         kind: 'activity-edit',
         key: id,
         payload: updates,
-        before: before ? pick(before, EDIT_FIELDS['activity-edit']) : null,
+        before: before
+          ? {
+              ...pick(before, EDIT_FIELDS['activity-edit']),
+              ...(updates.picture ? { pictureVersion: before.pictureVersion || null } : {}),
+            }
+          : null,
       },
     })
     return ok !== null

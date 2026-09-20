@@ -1,3 +1,4 @@
+import { AvatarContent } from '../components/SavedPicture'
 import React, { useState } from 'react'
 import { ShieldOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -16,7 +17,7 @@ import { formatRelativeTime } from '../utils/time'
  */
 export default function BlockedPage() {
   const { t } = useTranslation()
-  const { blocked, unblockPerson } = useApp()
+  const { blocked, unblockPerson, directory } = useApp()
   const [confirming, setConfirming] = useState(null)
 
   return (
@@ -30,7 +31,9 @@ export default function BlockedPage() {
       <div className="stack">
         {blocked.map((person) => (
           <div className="person-card" key={person.uid}>
-            <div className="avatar">{person.avatar || '?'}</div>
+            <div className="avatar">
+              <AvatarContent person={directory?.get(person.uid) || person} />
+            </div>
             <div>
               <h3>{personName(person.name)}</h3>
               {/* The stored name is a snapshot from the moment of blocking, so

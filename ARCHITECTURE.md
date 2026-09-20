@@ -23,8 +23,9 @@ yourself. Written to be read in order.
 ```
 
 **The rule: no screen reads Firebase directly.** Every read goes through a
-context, so there is exactly one subscription per collection no matter how
-many screens want the data.
+context or a shared hook, so rendering the same data in several places does
+not open duplicate subscriptions. Photo bytes use `usePicture` independently
+of the profile/activity feeds and are subscribed to only while rendered.
 
 Writes are split, and the split is worth knowing because it is not
 symmetrical:
@@ -188,6 +189,44 @@ it is the one that was asked for.
 
 **Test:** sign up with a new email. You should land on interest selection, not
 home — the engine has nothing to work with until interests exist.
+
+### Profile and activity pictures
+
+**Path:** `PicturePicker` → `utils/pictures.js:preparePicture` → the existing
+profile/activity save → `firebase/pictures.js:writePicture`, in the same batch.
+
+The picker accepts JPG, PNG and WebP through 5 MB, decodes the image, and draws
+a resized copy onto a canvas. This preserves proportions and strips original
+metadata. Profile pictures start at a maximum edge of 512 px; activities at
+1440 px. Compression and further resizing keep the encoded data URL at or
+below 320,000 characters. Only that static copy is retained, not the original.
+
+`profilePictures/{uid}` and `activityPictures/{activityId}` contain
+`{ dataUrl, version, updatedAt }`. The parent's optional `pictureVersion`
+points to that copy; activities also carry `hostPictureVersion` with their
+host identity. The fixed picture document is overwritten on replacement, so
+there is one current copy per owner/activity. A save with no new selection
+does not write any picture fields. Activity deletion removes its picture in
+the same batch. `dataUrl` has single-field indexing disabled in both collections.
+
+`SavedPicture` uses `usePicture` to share one listener for each signed-in
+viewer, picture and version. Only mounted images load these documents; feed
+and people queries carry no image bytes. Missing, refused or undecodable
+pictures fall back to initials or category artwork. CSS uses fixed frames and
+`object-fit: cover` for a consistent crop without stretching.
+
+The rules permit writes only by the profile owner or an activity's host
+with edit permission, and bind each picture to its parent version with
+`getAfter`. No collection-wide picture listing is allowed. A profile photo
+is unreadable by other accounts while the public profile is anonymous; its
+owner can still preview it in the editor. Offline saves use the existing
+durable drafts and batch queue, including the picture version when judging
+whether a replacement was saved, refused or superseded after a reload.
+
+**Check it yourself:** choose a picture, confirm the preview, save, reload,
+then replace it. Save another edit without choosing a file and verify the
+photo stays. Try an unsupported or oversized file, and toggle anonymous mode
+while viewing from a second account. See ADR-025 for the storage tradeoff.
 
 ### Discovery and ranking
 

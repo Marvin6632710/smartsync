@@ -1,3 +1,4 @@
+import { ActivityPicture } from './SavedPicture'
 import React, { useRef } from 'react'
 import { ArrowUpRight, Clock3, MapPin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -32,7 +33,11 @@ export default function ActivityCard({ activity, compact = false }) {
       onClick={() => morph(`/activity/${activity.id}`, visual.current)}
       aria-label={t('card.open', { title: activity.title })}
     >
-      <div className="activity-visual" ref={visual}>
+      <div
+        className={`activity-visual ${activity.pictureVersion ? 'has-picture' : ''}`}
+        ref={visual}
+      >
+        <ActivityPicture activity={activity} />
         <div className="card-topline">
           <span className="category-chip">
             <CategoryIcon category={activity.category} size={12} />

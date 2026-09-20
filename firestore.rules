@@ -183,10 +183,59 @@ service cloud.firestore {
       return value is list && value.size() <= maxItems;
     }
 
+    function validPictureVersion(data) {
+      return !('pictureVersion' in data)
+        || (data.pictureVersion is string
+          && data.pictureVersion.matches('^[a-zA-Z0-9-]{1,64}$'));
+    }
+
+    // Resized, metadata-free pictures live outside the activity and people
+    // feeds. Each parent has just a version, and the fixed document id binds
+    // the picture to its owner. Both records are saved in the same batch.
+    function validPicture(data) {
+      return data.keys().hasOnly(['dataUrl', 'version', 'updatedAt'])
+        && data.version is string && data.version.matches('^[a-zA-Z0-9-]{1,64}$')
+        && data.dataUrl is string && data.dataUrl.size() <= 320000
+        && data.dataUrl.matches('^data:image/(webp|png|jpeg);base64,[A-Za-z0-9+/]+=*$')
+        && data.updatedAt == request.time;
+    }
+
+    match /profilePictures/{uid} {
+      // Even with the path and version known, an anonymous person's photo
+      // cannot be fetched by another user. Only its owner can preview it.
+      allow get: if signedIn()
+        && (isSelf(uid) || (!isBanned()
+          && get(/databases/$(database)/documents/users/$(uid)).data.anonymous == false));
+      allow create, update: if isSelf(uid) && !isBanned()
+        && validPicture(request.resource.data)
+        && getAfter(/databases/$(database)/documents/users/$(uid)).data.pictureVersion
+          == request.resource.data.version;
+      allow delete: if isSelf(uid) && !isBanned();
+    }
+
+    match /activityPictures/{activityId} {
+      allow get: if signedIn() && !isBanned()
+        && exists(/databases/$(database)/documents/activities/$(activityId));
+      allow create, update: if signedIn() && !isBanned()
+        && validPicture(request.resource.data)
+        && getAfter(/databases/$(database)/documents/activities/$(activityId)).data.hostId
+          == request.auth.uid
+        && getAfter(/databases/$(database)/documents/activities/$(activityId)).data.status != 'removed'
+        && getAfter(/databases/$(database)/documents/activities/$(activityId)).data.pictureVersion
+          == request.resource.data.version;
+      // Read the original parent: this also works when both are deleted in
+      // one batch. A non-host and a removed activity's host cannot erase it.
+      allow delete: if signedIn() && !isBanned()
+        && get(/databases/$(database)/documents/activities/$(activityId)).data.hostId
+          == request.auth.uid
+        && get(/databases/$(database)/documents/activities/$(activityId)).data.status != 'removed';
+    }
+
     // ------------------------------------------------------------------ users
 
     function validPublicProfile(data) {
       return isString(data.name, 60)
+        && validPictureVersion(data)
         && isString(data.username, 40)
         && data.bio is string && data.bio.size() <= 300
         && isTagList(data.interests, 20)
@@ -379,6 +428,7 @@ service cloud.firestore {
 
     function validActivity(data) {
       return isString(data.title, 100)
+        && validPictureVersion(data)
         && data.description is string && data.description.size() <= 1000
         && isKnownCategory(data.category)
         && isString(data.locationName, 120)
@@ -535,9 +585,12 @@ service cloud.firestore {
           // record of who took it down.
           resource.data.hostId == request.auth.uid
           && !isBanned()
-          && touches(['hostName', 'hostAvatar', 'updatedAt'])
+          && touches(['hostName', 'hostAvatar', 'hostPictureVersion', 'updatedAt'])
           && isString(request.resource.data.hostName, 60)
           && request.resource.data.hostAvatar is string
+          && (!('hostPictureVersion' in request.resource.data)
+            || (request.resource.data.hostPictureVersion is string
+              && request.resource.data.hostPictureVersion.matches('^[a-zA-Z0-9-]{1,64}$')))
         ) || (
           // Moderation. An admin may take an activity down and record why,
           // and may do nothing else to it — not edit its details, not touch

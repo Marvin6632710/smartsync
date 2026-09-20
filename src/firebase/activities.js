@@ -2,7 +2,6 @@ import {
   arrayRemove,
   arrayUnion,
   collection,
-  deleteDoc,
   doc,
   getDocs,
   getDocsFromServer,
@@ -15,9 +14,11 @@ import {
   Timestamp,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore'
 
 import { db } from './config'
+import { pictureRef, writePicture } from './pictures'
 
 const activitiesRef = collection(db, 'activities')
 const activityDoc = (id) => doc(db, 'activities', id)
@@ -160,7 +161,7 @@ export function watchMyActivities(uid, callback, onError) {
 export function createActivity(user, data) {
   const time = data.time || '18:00'
   const ref = doc(activitiesRef)
-  const written = setDoc(ref, {
+  const payload = {
     title: String(data.title || '').trim(),
     description: String(data.description || '').trim(),
     category: data.category,
@@ -178,10 +179,21 @@ export function createActivity(user, data) {
     hostId: user.uid,
     hostName: user.name,
     hostAvatar: user.avatar,
+    ...(user.pictureVersion ? { hostPictureVersion: user.pictureVersion } : {}),
     status: 'active',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  })
+    ...(data.picture ? { pictureVersion: data.picture.version } : {}),
+  }
+  let written
+  if (data.picture) {
+    const batch = writeBatch(db)
+    batch.set(ref, payload)
+    writePicture(batch, 'activity', ref.id, data.picture)
+    written = batch.commit()
+  } else {
+    written = setDoc(ref, payload)
+  }
   const pending = written.then(() => ref.id)
   pending.id = ref.id
   return pending
@@ -189,6 +201,10 @@ export function createActivity(user, data) {
 
 export function updateActivity(activityId, updates) {
   const patch = { ...updates, updatedAt: serverTimestamp() }
+  delete patch.picture
+  // No selection means no picture fields move, even if another device has
+  // replaced the saved picture while this form was open.
+  delete patch.pictureVersion
   if (updates.capacity !== undefined) patch.capacity = Math.round(Number(updates.capacity))
   // `startsAt` is the instant every query runs on, and it is derived from
   // the date and the time together. Moving one without the other used to
@@ -204,6 +220,12 @@ export function updateActivity(activityId, updates) {
     }
     patch.timeBand = deriveTimeBand(updates.time)
     patch.startsAt = toStartsAt(updates.date, updates.time)
+  }
+  if (updates.picture) {
+    const batch = writeBatch(db)
+    batch.update(activityDoc(activityId), { ...patch, pictureVersion: updates.picture.version })
+    writePicture(batch, 'activity', activityId, updates.picture)
+    return batch.commit()
   }
   return updateDoc(activityDoc(activityId), patch)
 }
@@ -271,6 +293,7 @@ export async function hostedActivitiesFromServer(uid) {
     ref: entry.ref,
     hostName: entry.data().hostName,
     hostAvatar: entry.data().hostAvatar,
+    hostPictureVersion: entry.data().hostPictureVersion,
   }))
 }
 
@@ -281,9 +304,14 @@ export async function hostedActivitiesFromServer(uid) {
  * activities it has to agree with: see `writeIdentity` in users.js. The
  * caller is responsible for staying under the batch limit.
  */
-export function stampHostIdentity(batch, refs, { name, avatar }) {
+export function stampHostIdentity(batch, refs, { name, avatar, pictureVersion }) {
   refs.forEach((ref) =>
-    batch.update(ref, { hostName: name, hostAvatar: avatar, updatedAt: serverTimestamp() }),
+    batch.update(ref, {
+      hostName: name,
+      hostAvatar: avatar,
+      ...(pictureVersion ? { hostPictureVersion: pictureVersion } : {}),
+      updatedAt: serverTimestamp(),
+    }),
   )
 }
 
@@ -301,7 +329,10 @@ export function stampHostIdentity(batch, refs, { name, avatar }) {
  * while the host is the sole participant.
  */
 export function deleteActivity(activityId) {
-  return deleteDoc(activityDoc(activityId))
+  const batch = writeBatch(db)
+  batch.delete(pictureRef('activity', activityId))
+  batch.delete(activityDoc(activityId))
+  return batch.commit()
 }
 
 export function cancelActivity(activityId) {

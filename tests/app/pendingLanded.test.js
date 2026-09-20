@@ -117,6 +117,30 @@ describe('outcomeOf', () => {
     expect(await outcomeOf({ kind: 'something-new', key: 'k', payload: {} })).toBe(LANDED)
   })
 
+  test.each([
+    ['profile', 'users', { username: '@a', bio: '', preferredTime: '', interests: [] }],
+    ['activity-edit', 'activities', before],
+  ])(
+    'a picture-only %s edit distinguishes refused, saved and replaced pictures',
+    async (kind, collection, fields) => {
+      const row = {
+        kind,
+        key: 'a1',
+        before: { ...fields, pictureVersion: 'old' },
+        payload: { ...fields, picture: { version: 'selected' } },
+      }
+      docs.set(`${collection}/a1`, { ...fields, pictureVersion: 'old' })
+      expect(await outcomeOf(row)).toBe(REFUSED)
+      docs.set(`${collection}/a1`, { ...fields, pictureVersion: 'selected' })
+      expect(await outcomeOf(row)).toBe(LANDED)
+      docs.set(`${collection}/a1`, { ...fields, pictureVersion: 'other-device' })
+      expect(await outcomeOf(row)).toBe(SUPERSEDED)
+      row.before = fields
+      docs.set(`${collection}/a1`, fields)
+      expect(await outcomeOf(row)).toBe(REFUSED)
+    },
+  )
+
   test('drainQueue waits on the pending writes', async () => {
     await drainQueue()
     expect(waitForPendingWrites).toHaveBeenCalledTimes(1)

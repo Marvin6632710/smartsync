@@ -1,3 +1,4 @@
+import { ActivityPicture } from '../components/SavedPicture'
 import React, { useMemo, useRef } from 'react'
 import { ArrowRight, Filter, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -106,11 +107,12 @@ export default function HomePage() {
 
       {heroPick && (
         <button
-          className="hero-pick"
+          className={`hero-pick ${heroPick.pictureVersion ? 'has-picture' : ''}`}
           ref={heroRef}
           data-category={(heroPick.category || '').toLowerCase()}
           onClick={() => morph(`/activity/${heroPick.id}`, heroRef.current)}
         >
+          <ActivityPicture activity={heroPick} />
           <div className="hero-pick-top">
             <span className="category-chip">
               <CategoryIcon category={heroPick.category} size={12} />

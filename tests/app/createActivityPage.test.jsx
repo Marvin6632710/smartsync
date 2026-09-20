@@ -30,6 +30,12 @@ vi.mock('../../src/components/LocationPicker', () => ({
   },
 }))
 
+const selectedPicture = { version: 'selected-v1', dataUrl: 'data:image/png;base64,aGVsbG8=' }
+vi.mock('../../src/utils/pictures', async () => ({
+  ...(await vi.importActual('../../src/utils/pictures')),
+  preparePicture: vi.fn(async () => selectedPicture),
+}))
+
 const { default: CreateActivityPage } = await import('../../src/pages/CreateActivityPage')
 
 beforeEach(() => createActivity.mockClear())
@@ -106,4 +112,21 @@ test('a complete form is sent as typed', async () => {
     lng: 100.5,
   })
   expect(screen.queryByRole('alert')).toBeNull()
+})
+
+test('a selected activity picture travels with the create, after showing a preview', async () => {
+  render(
+    <MemoryRouter>
+      <CreateActivityPage />
+    </MemoryRouter>,
+  )
+  fill()
+  fireEvent.change(field('date'), { target: { value: '2030-06-01' } })
+  fireEvent.change(screen.getByLabelText('Activity picture'), {
+    target: { files: [new File(['a'], 'a.png', { type: 'image/png' })] },
+  })
+  await screen.findByAltText('Selected picture preview')
+  submit()
+  await waitFor(() => expect(createActivity).toHaveBeenCalledTimes(1))
+  expect(createActivity.mock.calls[0][0].picture).toEqual(selectedPicture)
 })

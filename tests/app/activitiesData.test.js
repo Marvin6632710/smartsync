@@ -6,6 +6,12 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 const updateDoc = vi.fn(() => Promise.resolve())
 const setDoc = vi.fn(() => Promise.resolve())
 const onSnapshot = vi.fn(() => () => {})
+const batches = []
+const writeBatch = () => {
+  const batch = { set: vi.fn(), update: vi.fn(), delete: vi.fn(), commit: vi.fn(async () => {}) }
+  batches.push(batch)
+  return batch
+}
 let minted = 0
 vi.mock('firebase/firestore', () => ({
   arrayRemove: vi.fn(),
@@ -25,6 +31,7 @@ vi.mock('firebase/firestore', () => ({
   Timestamp: { fromDate: (d) => ({ ms: d.getTime() }), fromMillis: (ms) => ({ ms }) },
   updateDoc,
   where: vi.fn(),
+  writeBatch,
 }))
 vi.mock('../../src/firebase/config', () => ({ db: {} }))
 
@@ -32,6 +39,7 @@ const { createActivity, deriveTimeBand, updateActivity, watchActivities, watchMy
   await import('../../src/firebase/activities')
 
 beforeEach(() => {
+  batches.length = 0
   updateDoc.mockClear()
   setDoc.mockReset()
   setDoc.mockImplementation(() => Promise.resolve())
@@ -172,4 +180,37 @@ describe('the two activity feeds', () => {
     handler({ docs: [doc(false)] })
     expect(rows.map((r) => r.pendingWrite)).toEqual([true, false])
   })
+})
+
+const photo = { version: 'photo-v1', dataUrl: 'data:image/png;base64,aGVsbG8=' }
+
+test('an activity picture and its parent are created in one batch with the local id preserved', async () => {
+  const pending = createActivity(
+    { uid: 'host', name: 'Host', avatar: 'HO' },
+    {
+      title: 'Photo activity',
+      date: '2030-01-01',
+      time: '07:00',
+      picture: photo,
+    },
+  )
+  expect(pending.id).toMatch(/^minted-/)
+  expect(await pending).toBe(pending.id)
+  expect(setDoc).not.toHaveBeenCalled()
+  expect(batches[0].set.mock.calls[0][1]).toMatchObject({ pictureVersion: photo.version })
+  expect(batches[0].set.mock.calls[0][1].picture).toBeUndefined()
+  expect(batches[0].set.mock.calls[1][0].path).toBe(`activityPictures/${pending.id}`)
+  expect(batches[0].set.mock.calls[1][1]).toMatchObject(photo)
+})
+
+test('a replacement is atomic, and an edit without a selection never changes the picture marker', async () => {
+  await updateActivity('a1', { title: 'New title', picture: photo })
+  expect(batches[0].update.mock.calls[0][1]).toMatchObject({
+    title: 'New title',
+    pictureVersion: photo.version,
+  })
+  expect(batches[0].update.mock.calls[0][1].picture).toBeUndefined()
+  expect(batches[0].set.mock.calls[0][0].path).toBe('activityPictures/a1')
+  await updateActivity('a1', { title: 'Later title', pictureVersion: 'stale-form-version' })
+  expect(updateDoc.mock.calls[0][1]).toEqual({ title: 'Later title', updatedAt: 'server-time' })
 })

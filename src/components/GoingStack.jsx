@@ -1,3 +1,4 @@
+import { AvatarContent } from './SavedPicture'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -9,8 +10,9 @@ import { useApp } from '../context/AppContext'
  *
  * A count told you three people had joined. It did not tell you that this is
  * a thing other humans are doing — which, for an app whose entire purpose is
- * meeting people, is the fact that matters most on the card. Costs nothing:
- * these profiles are already loaded for matching, so nothing extra is read.
+ * meeting people, is the fact that matters most on the card. The profiles
+ * are already loaded for matching; optional photos use a shared listener
+ * per person so several cards do not fetch separate copies.
  *
  * Identity here is the public one. Anonymity is resolved where the profile is
  * written, not here, so somebody in anonymous mode is already carrying the
@@ -36,7 +38,7 @@ export default function GoingStack({ uids = [], capacity = null, max = 3 }) {
       <span className="going-stack" aria-hidden="true">
         {shown.map(({ uid, person }) => (
           <span className="going-face" key={uid} title={personName(person.name)}>
-            {person.avatar || '?'}
+            <AvatarContent person={{ ...person, uid }} />
           </span>
         ))}
         {extra > 0 && <span className="going-face more">+{extra}</span>}

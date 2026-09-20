@@ -89,6 +89,16 @@
           "queryScope": "COLLECTION_GROUP"
         }
       ]
+    },
+    {
+      "collectionGroup": "profilePictures",
+      "fieldPath": "dataUrl",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "activityPictures",
+      "fieldPath": "dataUrl",
+      "indexes": []
     }
   ]
 }

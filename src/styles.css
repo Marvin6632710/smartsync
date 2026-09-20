@@ -866,6 +866,8 @@ select:focus-visible {
 
 .brand-orb,
 .avatar {
+  position: relative;
+  overflow: hidden;
   display: grid;
   place-items: center;
 }
@@ -6494,4 +6496,123 @@ button.celebration-toast:hover {
     margin-top: 14px;
     margin-left: 4%;
   }
+}
+
+/* Optional pictures keep the existing initials and category artwork as
+   fallbacks. Every photo uses a fixed frame, never stretched dimensions. */
+.avatar-picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.going-face {
+  position: relative;
+  overflow: hidden;
+}
+.activity-picture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  z-index: -1;
+}
+.has-picture::after {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.76));
+}
+.activity-visual.has-picture {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.detail-picture {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--r-xl);
+}
+.picture-picker {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.picture-preview {
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+}
+.picture-preview > img,
+.picture-placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.picture-placeholder {
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: linear-gradient(
+    135deg,
+    var(--cat, var(--accent)),
+    var(--cat-deep, var(--accent-strong))
+  );
+}
+.picture-current {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.picture-picker-profile .picture-preview {
+  width: 112px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+.picture-picker-profile .picture-preview > .avatar {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+.picture-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.form-card .picture-choose {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+  min-height: 44px;
+  max-width: 100%;
+}
+.picture-choose input[type='file'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.picture-choose:focus-within {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.picture-choose:has(input:disabled) {
+  opacity: 0.6;
+  cursor: wait;
+}
+.picture-picker p {
+  margin: 0;
 }

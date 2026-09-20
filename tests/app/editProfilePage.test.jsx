@@ -42,6 +42,13 @@ vi.mock('../../src/context/AuthContext', () => ({
     },
   }),
 }))
+
+const selectedPicture = { version: 'selected-v1', dataUrl: 'data:image/png;base64,aGVsbG8=' }
+vi.mock('../../src/utils/pictures', async () => ({
+  ...(await vi.importActual('../../src/utils/pictures')),
+  preparePicture: vi.fn(async () => selectedPicture),
+}))
+
 const { default: EditProfilePage } = await import('../../src/pages/EditProfilePage')
 
 const page = () => (
@@ -120,4 +127,19 @@ test('saved offline, the edit is kept with what the form was seeded with', async
   expect(pushCelebration).toHaveBeenCalledWith(
     expect.objectContaining({ title: 'Profile saved — will sync' }),
   )
+})
+
+test('a selected profile picture is saved with the form; a failure preserves its preview for retry', async () => {
+  updateDisplayName.mockRejectedValueOnce({ code: 'permission-denied' })
+  render(page())
+  fireEvent.change(screen.getByLabelText('Profile picture'), {
+    target: { files: [new File(['a'], 'a.png', { type: 'image/png' })] },
+  })
+  await screen.findByAltText('Selected picture preview')
+  fireEvent.click(screen.getByText('Save profile'))
+  expect((await screen.findByRole('alert')).textContent).toMatch(/Could not save the picture/)
+  expect(screen.getByAltText('Selected picture preview')).toBeTruthy()
+  expect(updateDisplayName.mock.calls[0][3].picture).toEqual(selectedPicture)
+  fireEvent.click(screen.getByText('Save profile'))
+  await screen.findByText('profile')
 })

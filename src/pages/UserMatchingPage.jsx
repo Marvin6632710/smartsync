@@ -1,3 +1,4 @@
+import { AvatarContent } from '../components/SavedPicture'
 import React, { useMemo, useState } from 'react'
 import { Bell, Check, Clock3, Flag, Sparkles, UserRoundCheck, UsersRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -47,7 +48,9 @@ export default function UserMatchingPage() {
           return (
             <section className="new-match-card" key={matchedUser.uid}>
               <div className="new-match-top">
-                <div className="avatar match-avatar">{matchedUser.avatar}</div>
+                <div className="avatar match-avatar">
+                  <AvatarContent person={matchedUser} />
+                </div>
                 <div className="match-user-copy">
                   <div className="match-name-row">
                     <h3>{personName(matchedUser.name)}</h3>

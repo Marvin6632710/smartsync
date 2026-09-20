@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import LocationPicker from '../components/LocationPicker'
 import UnsentDraft from '../components/UnsentDraft'
+import PicturePicker from '../components/PicturePicker'
+import CategoryIcon from '../components/CategoryIcon'
 import { categories } from '../data/categories'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -36,6 +38,8 @@ export default function CreateActivityPage() {
   // Kept as a translation key, so a change of language re-words it.
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [picture, setPicture] = useState(null)
+  const [pictureBusy, setPictureBusy] = useState(false)
   const { createActivity, unsent } = useApp()
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -48,12 +52,15 @@ export default function CreateActivityPage() {
   const restore = (payload) => {
     const fields = { ...payload }
     delete fields.id
+    delete fields.picture
+    setPicture(payload.picture || null)
     setForm({ ...initial, ...fields })
     setError('')
   }
 
   const submit = async (event) => {
     event.preventDefault()
+    if (busy || pictureBusy) return
     if (!form.title.trim() || !form.description.trim()) {
       setError('create.errors.nameAndDescription')
       return
@@ -98,7 +105,7 @@ export default function CreateActivityPage() {
     }
     setError('')
     setBusy(true)
-    const id = await createActivity(form)
+    const id = await createActivity({ ...form, ...(picture ? { picture } : {}) })
     setBusy(false)
     if (id) navigate(`/activity/${id}`)
   }
@@ -133,6 +140,17 @@ export default function CreateActivityPage() {
       />
 
       <form className="form-card" onSubmit={submit}>
+        <PicturePicker
+          kind="activity"
+          value={picture}
+          onChange={setPicture}
+          onBusyChange={setPictureBusy}
+          disabled={busy}
+        >
+          <div className="picture-placeholder" data-category={form.category.toLowerCase()}>
+            <CategoryIcon category={form.category} size={36} />
+          </div>
+        </PicturePicker>
         <label>
           {t('create.activityName')}
           <input
@@ -210,7 +228,7 @@ export default function CreateActivityPage() {
             {t(error)}
           </p>
         )}
-        <button className="primary-button wide" type="submit" disabled={busy}>
+        <button className="primary-button wide" type="submit" disabled={busy || pictureBusy}>
           {busy ? t('create.busy') : t('create.submit')}
         </button>
       </form>

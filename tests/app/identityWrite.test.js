@@ -50,10 +50,11 @@ vi.mock('../../src/firebase/activities', async () => {
       return refs
     }),
     hostedActivitiesFromServer: vi.fn(async () =>
-      onServer.map(({ id, hostName, hostAvatar }) => ({
+      onServer.map(({ id, hostName, hostAvatar, hostPictureVersion }) => ({
         ref: { path: `activities/${id}` },
         hostName,
         hostAvatar,
+        hostPictureVersion,
       })),
     ),
   }
@@ -270,4 +271,58 @@ describe('completeIdentitySweep', () => {
     )
     expect(batches).toHaveLength(0)
   })
+})
+
+test('profile picture, profile marker and host avatars are written together', async () => {
+  hosted = activities(2)
+  const picture = { version: 'profile-v1', dataUrl: 'data:image/png;base64,aGVsbG8=' }
+  await updateDisplayName('u1', 'Alice Anderson', false, { bio: 'Hello', picture })
+  expect(batches).toHaveLength(1)
+  const ops = batches[0].ops
+  expect(
+    ops
+      .filter((op) => op.path.startsWith('activities/'))
+      .every((op) => op.data.hostPictureVersion === picture.version),
+  ).toBe(true)
+  expect(ops.find((op) => op.path === 'users/u1').data).toMatchObject({
+    pictureVersion: picture.version,
+    bio: 'Hello',
+  })
+  expect(ops.find((op) => op.path === 'users/u1').data.picture).toBeUndefined()
+  expect(ops.find((op) => op.path === 'profilePictures/u1').data).toMatchObject(picture)
+})
+
+test('a profile edit without a selection does not overwrite a saved picture', async () => {
+  await updateDisplayName('u1', 'Alice Anderson', false, {
+    bio: 'New bio',
+    pictureVersion: 'stale',
+  })
+  expect(batches[0].ops.find((op) => op.path === 'users/u1').data.pictureVersion).toBeUndefined()
+  expect(batches[0].ops.some((op) => op.path.startsWith('profilePictures/'))).toBe(false)
+})
+
+test('a damaged photo draft cannot commit even the overflow identity batches', async () => {
+  hosted = activities(700)
+  await expect(
+    updateDisplayName('u1', 'Alice Anderson', false, {
+      picture: { version: 'v1', dataUrl: 'data:image/svg+xml;base64,aGVsbG8=' },
+    }),
+  ).rejects.toThrow('pictures.readError')
+  expect(batches).toHaveLength(0)
+})
+
+test('an offline picture change updates stale host photo versions when reconnected', async () => {
+  onServer = [
+    { id: 'a0', hostName: 'Alice', hostAvatar: 'AL', hostPictureVersion: 'old' },
+    { id: 'a1', hostName: 'Alice', hostAvatar: 'AL', hostPictureVersion: 'new' },
+  ]
+  expect(
+    await completeIdentitySweep('u1', {
+      name: 'Alice',
+      avatar: 'AL',
+      pictureVersion: 'new',
+    }),
+  ).toBe(1)
+  expect(paths(batches[0])).toEqual(['activities/a0', 'users/u1/private/profile'])
+  expect(batches[0].ops[0].data.hostPictureVersion).toBe('new')
 })

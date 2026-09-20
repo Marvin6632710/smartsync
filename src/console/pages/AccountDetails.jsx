@@ -1,3 +1,4 @@
+import { AvatarContent } from '../../components/SavedPicture'
 import React, { useEffect, useMemo } from 'react'
 import { MessageSquareWarning, ShieldOff, UserRoundCheck, UserRoundX } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -165,7 +166,7 @@ export default function AccountDetails({ uid, person, profile, base, onClose }) 
       <Section title={t('console.accounts.profile')} id="con-profile">
         <div className="con-person">
           <span className="avatar con-person-avatar" aria-hidden="true">
-            {profile?.avatar || '?'}
+            <AvatarContent person={profile} />
           </span>
           <div className="con-person-copy">
             <strong>{name}</strong>

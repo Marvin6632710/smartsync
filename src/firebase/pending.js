@@ -45,10 +45,16 @@ const SAME = (stored, wanted) =>
   )
 
 function judge(stored, row, fields) {
-  if (SAME(stored, pick(row.payload, fields))) return LANDED
+  const withPicture = (value, version) =>
+    row.payload.picture ? { ...value, pictureVersion: version || null } : value
+  const current = withPicture(stored, stored.pictureVersion)
+  if (SAME(current, withPicture(pick(row.payload, fields), row.payload.picture?.version)))
+    return LANDED
   // A row from before `before` was recorded: the old, two-way answer.
   if (!row.before) return REFUSED
-  return SAME(stored, pick(row.before, fields)) ? REFUSED : SUPERSEDED
+  return SAME(current, withPicture(pick(row.before, fields), row.before.pictureVersion))
+    ? REFUSED
+    : SUPERSEDED
 }
 
 export function drainQueue() {

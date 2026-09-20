@@ -1,3 +1,4 @@
+import { AvatarContent } from '../components/SavedPicture'
 import React from 'react'
 import { AlertTriangle, ArrowLeftCircle, WifiOff } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
@@ -85,7 +86,7 @@ export default function ConsoleLayout({ nav, title }) {
             <ThemeChoice />
             <span className="console-user" title={user.email}>
               <span className="avatar console-avatar" aria-hidden="true">
-                {user.avatar}
+                <AvatarContent person={user} />
               </span>
               <span className="console-user-copy">
                 <strong>{user.name}</strong>

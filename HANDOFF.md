@@ -1,16 +1,67 @@
 # SmartSync — hand-off
 
-Written 2026-09-21 at the end of the session that removed the moderator rank
-and shipped the admin console. Everything below that is not in the code or
-the git history was, until now, only in that conversation.
+Original hand-off written 2026-09-21 after removing the moderator rank and
+shipping the admin console. The continuation below records the later local
+picture-upload work; the original session details remain for context.
+
+## 0. Latest continuation — picture uploads (2026-09-21)
+
+**Release requested by the owner.** Started from clean `main` at `feae71b`,
+the original hand-off commit. The user requested activity and profile uploads,
+previews, replacements and default preservation, then explicitly asked to
+commit and deploy so they can review the feature on the live domain.
+
+- Added `PicturePicker`, `SavedPicture`, `usePicture`, `utils/pictures.js`
+  and `firebase/pictures.js`. JPG/PNG/WebP input through 5 MB is decoded and
+  resized before saving. Profile maximum edge: 512 px; activities: 1440 px;
+  resized further if needed to fit a 320,000-character raster data URL.
+- Persisted in the existing Firestore setup, in separate
+  `profilePictures/{uid}` and `activityPictures/{activityId}` documents.
+  This avoids requiring Cloud Storage/Blaze. See ADR-025 for limits and
+  eventual object-storage migration. No original files are retained.
+- Create/edit activity and edit profile show previews and preserve the
+  existing image if nothing new is selected. Saved photos appear on cards,
+  activity details, the home feature and all existing avatar surfaces,
+  including the admin console. Labels and errors cover all four languages.
+- Parent marker and picture writes are batched. Profile changes propagate
+  `hostPictureVersion` through the existing identity sweep. Offline drafts
+  retain selected pictures and compare versions on reconnect. Activity
+  hard deletion removes its image in the same batch.
+- Rules enforce owner/host permissions, version binding, bounded raster
+  data, no collection listing, and private photos while anonymous. Admin
+  rank grants no additional photo rights. Added two `dataUrl` index
+  exemptions; existing rules were not weakened.
+
+**Verification:** 788 unit/rendering tests, 382 security-rule tests and 8
+Auth/Firestore integration tests pass. The integration suite exercises the
+application's real save functions, replacement, no-selection edits, activity
+deletion with and without a photo, and persistence after signing in again.
+Lint, source formatting and `git diff --check` pass. Production build succeeds,
+with Vite's large-chunk warning for the Firebase bundle. Push delivery and
+trigger suites were not rerun; this change does not touch their code.
+
+**Browser check:** a PNG selection produced a real browser preview. Final
+save/reload and responsive walkthrough still await owner sign-in in the local
+preview, per the credentials rule in §7. Do not report these as completed.
+Vite was restarted at <http://127.0.0.1:5173>; the existing dev Auth/Firestore
+emulators were left running. The rules tests used an isolated emulator and
+did not reset the development data.
+
+**Release order:** commit, deploy `firestore:rules` and `firestore:indexes`,
+then hosting. This code's photo saves and activity deletions depend on the new
+picture-collection rules. Record the verified live bundle below after release.
+The owner will do the signed-in walkthrough on production: Profile → Edit
+profile → Choose picture; Create activity or an owned activity's Edit page →
+Choose picture. The previously unverified production composite-index build
+state and live `/admin` walkthrough in §3 remain outstanding.
 
 ## 1. Where things stand
 
 |                  |                                                                                                                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Live             | <https://smartsync-c1f07.web.app> — hosting bundle `index-H39CzUfX.js`, built from `0ba6e0b`, released 2026-09-21                                                                      |
-| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`, working tree clean, everything pushed                                                                                             |
-| Deployed         | Firestore rules (as of `0ba6e0b`), Firestore indexes (`firestore.indexes.json` — two new composite indexes for the console), hosting                                                   |
+| Repo             | `github.com/Marvin6632710/smartsync`, branch `main` at `feae71b`; uncommitted local picture-upload changes (see §0)                                                                    |
+| Deployed         | Firestore rules and indexes as of `0ba6e0b` (including the console's two composite indexes), hosting. The local photo rules/index exemptions are not deployed                         |
 | **Not** deployed | Cloud Functions in `functions/` (browser push). They need the Blaze plan and a `VITE_FCM_VAPID_KEY`. The live site has no push notifications, which is what README and DEMO_SCRIPT say |
 | Local state      | Firebase CLI 15.29.0 signed in as the owner on this machine. A dev emulator and Vite dev server may still be running (see §7)                                                          |
 
@@ -185,10 +236,11 @@ themselves and approved.
 - **ADR-016**: the report claim lease stays exactly as it was.
 - **Q&A "Who watches the admin?"**: the immutable log, the rules that stop
   any admin acting on another or on themselves, and the Firebase console.
-- Commit messages follow the repo's style — a sentence-case title, a body
-  that says what changed and why — and end with
-  `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`. Commit and deploy
-  only when the owner asks; the owner reviews on localhost first.
+- Commit messages use a sentence-case title and a body that says what
+  changed and why. Earlier Claude sessions used a Claude co-author trailer;
+  attribute new work to its actual contributor. Commit and deploy only when
+  the owner asks; they normally review on localhost first. The owner explicitly
+  chose deployment before their walkthrough for the picture-upload release.
 
 ## 7. Running it locally — what only the conversation knew
 

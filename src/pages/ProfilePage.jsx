@@ -1,3 +1,4 @@
+import { AvatarContent } from '../components/SavedPicture'
 import React from 'react'
 import { Edit3, Settings, Share2, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -78,7 +79,9 @@ export default function ProfilePage() {
           {/* `name` and `avatar` are already the display-safe values — the
               public profile itself is rewritten when anonymous mode is on,
               rather than the real name being hidden at render time. */}
-          <div className="avatar xl">{user.avatar}</div>
+          <div className="avatar xl">
+            <AvatarContent person={user} />
+          </div>
           <h2>{personName(user.name)}</h2>
           <p>{user.bio}</p>
           <div className="profile-handle">{user.username}</div>

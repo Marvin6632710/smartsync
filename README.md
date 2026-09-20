@@ -31,6 +31,11 @@ Cloud Firestore) on the back end.
 ## 1. What it does
 
 - **Accounts.** Email and password sign-up, sign-in and password reset.
+- **Pictures.** Upload or replace profile and activity pictures, with a
+  preview before saving. JPG, PNG and WebP files up to 5 MB are resized and
+  saved in separate Firestore documents; leaving the picker empty keeps the
+  saved picture or existing initials/category artwork. Anonymous mode hides
+  the profile photo from other accounts. See ADR-025 for the storage limits.
 - **Discovery.** Every activity anyone creates is visible to everyone, ranked
   for you personally.
 - **Real places.** Hosts place an activity by tapping a map. Distance is then
@@ -274,12 +279,13 @@ src/
     auth.js            sign up / in / out, readable error messages
     users.js           public + private profile documents
     activities.js      create, edit, join, leave, cancel
+    pictures.js        separate picture documents, batched with their parent
     messages.js        activity chat
     notifications.js   per-user inbox and following
   context/
     AuthContext.jsx    who is signed in; nothing else
     AppContext.jsx     live application data and every write action
-  hooks/               useThread, useDeviceLocation
+  hooks/               useThread, useDeviceLocation, usePicture
   services/
     recommendationService.js   pure scoring and matching logic
   utils/               geo (haversine, formatting), time, storage
@@ -290,8 +296,9 @@ scripts/seed.js        demo data loader for the emulators
 firestore.rules        the security rules themselves
 ```
 
-Screens never import `firebase/*` directly — they go through the two
-contexts. `recommendationService.js` is deliberately pure: it takes data and
+Shared writes go through `AppContext`; profile forms call the profile data
+module directly, and reads use contexts or shared hooks (ARCHITECTURE §1).
+`recommendationService.js` is deliberately pure: it takes data and
 returns numbers, so it can be tested without a database.
 
 ## 8. Data model
@@ -299,7 +306,7 @@ returns numbers, so it can be tested without a database.
 ```
 users/{uid}                       PUBLIC — any signed-in user can read
   uid, name, avatar, username, bio,
-  interests[], preferredTime, historyCategories[], anonymous
+  interests[], preferredTime, historyCategories[], anonymous, pictureVersion?
 
   private/profile                 PRIVATE — only the owner can read
     email, realName, privacy{}, location{lat,lng}, onboarded
@@ -312,9 +319,15 @@ activities/{id}
   locationName, lat, lng,
   date, time, startsAt, timeBand,
   capacity, participantUids[],
-  hostId, hostName, hostAvatar, status
+  hostId, hostName, hostAvatar, hostPictureVersion?, status, pictureVersion?
 
   messages/{id}                   participants only
+
+profilePictures/{uid}             owner writes; anonymous photos are owner-only
+  dataUrl, version, updatedAt
+
+activityPictures/{id}             host writes, following activity edit permission
+  dataUrl, version, updatedAt
 ```
 
 Two decisions worth explaining, because both were forced by how security
@@ -327,9 +340,9 @@ and "increment because I felt like it" are indistinguishable, so anyone could
 inflate any activity to full and lock others out. One field on one document
 makes each change atomically checkable.
 
-**Hosts cancel; nothing is hard-deleted.** Deleting an activity document would
-strand its message subcollection as unreachable orphans and erase the chat
-history of everyone who had joined.
+**Hosts cancel once others have joined.** A host can delete an unused
+activity, with its picture removed in the same batch. Once others join,
+cancellation preserves their plans and chat history.
 
 ## 9. Security model
 
@@ -338,6 +351,10 @@ determined user can call Firestore directly without going through the UI:
 
 - Signed-out users can read nothing at all.
 - You can only edit your own profile, and cannot reassign your `uid`.
+- You can only change your own profile picture or pictures for activities
+  you host and may edit. Picture writes are size/type constrained and tied
+  to the parent's version. Anonymous profile pictures cannot be read by
+  another account, even an admin.
 - Your email, your real name while anonymous mode is on, and your stored
   position live in a document nobody else can read. Firestore has no
   field-level read rules, so this separation is the only way to make it real
@@ -428,7 +445,11 @@ Honest about what is not there:
   The inbox is the record; a push is a copy of it sent by a Cloud Function,
   which the free plan cannot run. On iOS, Safari delivers push only to a
   site added to the Home Screen. There is no email channel yet.
-- **No photo uploads.** Avatars are generated initials.
+- **Pictures are resized copies.** Originals are not retained. Profile photos
+  have a maximum edge of 512 px and activity pictures 1440 px, reduced further
+  if needed to fit a 320,000-character data URL. Separate Firestore documents
+  keep photos out of the feeds, but storage and photo reads still count toward
+  Firebase quotas. Full-resolution media would need object storage (ADR-025).
 - **No place search.** Hosts place a pin on a map rather than typing an
   address and having it geocoded.
 - **Android is untested.** Confirmed working on iPhone Safari and on

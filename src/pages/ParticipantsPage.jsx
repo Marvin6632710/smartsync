@@ -1,3 +1,4 @@
+import { AvatarContent } from '../components/SavedPicture'
 import React, { useState } from 'react'
 import { Flag } from 'lucide-react'
 import { useParams } from 'react-router-dom'
@@ -51,7 +52,9 @@ export default function ParticipantsPage() {
       <div className="stack">
         {participants.map((person) => (
           <div className="person-card" key={person.uid}>
-            <div className="avatar">{person.avatar || '?'}</div>
+            <div className="avatar">
+              <AvatarContent person={person} />
+            </div>
             <div>
               <h3>
                 {personName(person.name)}

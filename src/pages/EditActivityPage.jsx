@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next'
 import BootScreen from '../components/BootScreen'
 import LocationPicker from '../components/LocationPicker'
 import UnsentDraft from '../components/UnsentDraft'
+import PicturePicker from '../components/PicturePicker'
+import { ActivityPicture } from '../components/SavedPicture'
+import CategoryIcon from '../components/CategoryIcon'
 import { categories } from '../data/categories'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -86,6 +89,8 @@ function EditActivityForm({ existing }) {
   // A key and its values, so a change of language re-words the error.
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [picture, setPicture] = useState(null)
+  const [pictureBusy, setPictureBusy] = useState(false)
 
   // An edit saved offline that the server refused later. The screen had
   // moved on; the typing is offered back here.
@@ -94,6 +99,7 @@ function EditActivityForm({ existing }) {
     .at(-1)
   const restore = (payload) => {
     setForm((current) => ({ ...current, ...payload }))
+    setPicture(payload.picture || null)
     setError(null)
   }
 
@@ -102,6 +108,7 @@ function EditActivityForm({ existing }) {
 
   const submit = async (event) => {
     event.preventDefault()
+    if (busy || pictureBusy) return
     if (!form.title?.trim() || !form.description?.trim()) {
       setError({ key: 'edit.errors.nameAndDescription' })
       return
@@ -148,6 +155,7 @@ function EditActivityForm({ existing }) {
         time: form.time,
         capacity: form.capacity,
         tags: [form.category, deriveTimeBand(form.time)].filter(Boolean),
+        ...(picture ? { picture } : {}),
       },
       // What the form was seeded with, so a save queued offline can later
       // be told apart from an edit somebody else made meanwhile.
@@ -164,6 +172,18 @@ function EditActivityForm({ existing }) {
       <h2>{t('edit.title')}</h2>
       <UnsentDraft row={draft} what={t('edit.draftWhat')} onRestore={restore} />
       <form className="form-card" onSubmit={submit}>
+        <PicturePicker
+          kind="activity"
+          value={picture}
+          onChange={setPicture}
+          onBusyChange={setPictureBusy}
+          disabled={busy}
+        >
+          <div className="picture-placeholder" data-category={(form.category || '').toLowerCase()}>
+            <CategoryIcon category={form.category} size={36} />
+            <ActivityPicture activity={existing} className="picture-current" />
+          </div>
+        </PicturePicker>
         <label>
           {t('create.activityName')}
           <input
@@ -241,7 +261,7 @@ function EditActivityForm({ existing }) {
             {t(error.key, error)}
           </p>
         )}
-        <button className="primary-button wide" disabled={busy}>
+        <button className="primary-button wide" disabled={busy || pictureBusy}>
           {busy ? t('common.saving') : t('edit.submit')}
         </button>
       </form>

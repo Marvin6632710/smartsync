@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { categories, MIN_INTERESTS, timeBands } from '../data/categories'
 import UnsentDraft from '../components/UnsentDraft'
+import PicturePicker from '../components/PicturePicker'
+import { AvatarContent } from '../components/SavedPicture'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { updateDisplayName } from '../firebase/users'
@@ -26,6 +28,8 @@ export default function EditProfilePage() {
   })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [picture, setPicture] = useState(null)
+  const [pictureBusy, setPictureBusy] = useState(false)
 
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
 
@@ -34,6 +38,7 @@ export default function EditProfilePage() {
   const draft = unsent.filter((row) => row.kind === 'profile' && row.status === 'failed').at(-1)
   const restore = (payload) => {
     setForm((current) => ({ ...current, ...payload }))
+    setPicture(payload.picture || null)
     setError('')
   }
 
@@ -47,6 +52,7 @@ export default function EditProfilePage() {
 
   const submit = async (event) => {
     event.preventDefault()
+    if (busy || pictureBusy) return
     if (form.name.trim().length < 2) {
       setError('editProfile.nameRequired')
       return
@@ -80,12 +86,14 @@ export default function EditProfilePage() {
         bio: form.bio.trim(),
         preferredTime: form.preferredTime,
         interests: form.interests,
+        ...(picture ? { picture } : {}),
       }
       const write = updateDisplayName(user.uid, payload.name, user.anonymous, {
         username: payload.username,
         bio: payload.bio,
         preferredTime: payload.preferredTime,
         interests: payload.interests,
+        ...(picture ? { picture } : {}),
       })
       const outcome = await awaitWrite(write, {
         offline,
@@ -111,6 +119,7 @@ export default function EditProfilePage() {
             bio: user.bio || '',
             preferredTime: user.preferredTime || '',
             interests: user.interests || [],
+            ...(picture ? { pictureVersion: user.pictureVersion || null } : {}),
           },
         })
         write.then(
@@ -125,7 +134,7 @@ export default function EditProfilePage() {
       }
       navigate('/profile')
     } catch (saveError) {
-      setError(describe(saveError))
+      setError(picture ? 'pictures.saveError' : describe(saveError))
     } finally {
       setBusy(false)
     }
@@ -136,6 +145,18 @@ export default function EditProfilePage() {
       <h2>{t('editProfile.title')}</h2>
       <UnsentDraft row={draft} what={t('editProfile.draftWhat')} onRestore={restore} />
       <form className="form-card" onSubmit={submit}>
+        <PicturePicker
+          kind="profile"
+          value={picture}
+          onChange={setPicture}
+          onBusyChange={setPictureBusy}
+          disabled={busy}
+        >
+          <div className="avatar xl">
+            <AvatarContent person={user} showPrivate />
+          </div>
+        </PicturePicker>
+        {user.anonymous && <p className="field-hint">{t('pictures.anonymousHint')}</p>}
         <label>
           {t('editProfile.name')}
           <input value={form.name} onChange={(e) => set('name', e.target.value)} maxLength={60} />
@@ -200,7 +221,7 @@ export default function EditProfilePage() {
         )}
         <button
           className="primary-button wide"
-          disabled={busy || form.interests.length < MIN_INTERESTS}
+          disabled={busy || pictureBusy || form.interests.length < MIN_INTERESTS}
         >
           {busy ? t('common.saving') : t('editProfile.submit')}
         </button>

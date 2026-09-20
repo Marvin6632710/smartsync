@@ -1,3 +1,4 @@
+import { ActivityPicture, AvatarContent } from '../components/SavedPicture'
 import React, { useState } from 'react'
 import {
   CalendarDays,
@@ -163,6 +164,7 @@ export default function ActivityDetailsPage() {
   return (
     <div className="page-content detail-page">
       <div className="detail-main">
+        <ActivityPicture activity={a} className="detail-picture" />
         <section
           className="detail-hero"
           data-category={(a.category || '').toLowerCase()}
@@ -252,7 +254,14 @@ export default function ActivityDetailsPage() {
             you are deciding whether to spend an evening with. */}
           <div className="host-row">
             <span className="avatar" aria-hidden="true">
-              {a.hostAvatar || '?'}
+              <AvatarContent
+                person={{
+                  uid: a.hostId,
+                  avatar: a.hostAvatar,
+                  pictureVersion: a.hostPictureVersion,
+                  anonymous: a.hostName === 'Anonymous user',
+                }}
+              />
             </span>
             <span className="host-copy">
               <strong>{personName(a.hostName)}</strong>

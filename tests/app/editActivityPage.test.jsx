@@ -25,6 +25,12 @@ vi.mock('../../src/components/LocationPicker', () => ({
   default: () => <div data-testid="picker" />,
 }))
 
+const selectedPicture = { version: 'selected-v1', dataUrl: 'data:image/png;base64,aGVsbG8=' }
+vi.mock('../../src/utils/pictures', async () => ({
+  ...(await vi.importActual('../../src/utils/pictures')),
+  preparePicture: vi.fn(async () => selectedPicture),
+}))
+
 const { default: EditActivityPage } = await import('../../src/pages/EditActivityPage')
 
 const saturday = {
@@ -176,4 +182,18 @@ describe('who may edit', () => {
     render(page())
     expect(screen.getByText('This activity was removed')).toBeTruthy()
   })
+})
+
+test('a selected replacement stays available after a refused edit', async () => {
+  updateActivity.mockResolvedValue(false)
+  render(page())
+  fireEvent.change(screen.getByLabelText('Activity picture'), {
+    target: { files: [new File(['a'], 'a.png', { type: 'image/png' })] },
+  })
+  await screen.findByAltText('Selected picture preview')
+  fireEvent.click(screen.getByText('Save changes'))
+  await waitFor(() => expect(updateActivity).toHaveBeenCalledTimes(1))
+  expect(updateActivity.mock.calls[0][1].picture).toEqual(selectedPicture)
+  expect(screen.getByAltText('Selected picture preview')).toBeTruthy()
+  expect(screen.queryByText('details page')).toBeNull()
 })

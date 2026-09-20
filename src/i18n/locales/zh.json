@@ -1316,5 +1316,20 @@
       "allHistory": "全部历史",
       "decided": "已决定的举报"
     }
+  },
+  "pictures": {
+    "activity": "活动图片",
+    "profile": "个人头像",
+    "preview": "所选图片预览",
+    "hint": "选填 · JPG、PNG 或 WebP · 最大 5 MB",
+    "choose": "选择图片",
+    "preparing": "正在处理图片…",
+    "undo": "撤销选择",
+    "saveHint": "保存时将上传新图片。",
+    "typeError": "请选择 JPG、PNG 或 WebP 图片。",
+    "sizeError": "图片超过 5 MB，请选择较小的文件。",
+    "readError": "无法打开此图片，请尝试其他 JPG、PNG 或 WebP 图片。",
+    "saveError": "无法保存图片和更改，请重试。",
+    "anonymousHint": "开启匿名模式时，其他用户无法看到你的头像。"
   }
 }

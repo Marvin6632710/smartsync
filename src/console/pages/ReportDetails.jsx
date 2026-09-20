@@ -1,3 +1,4 @@
+import { AvatarContent } from '../../components/SavedPicture'
 import React, { useEffect } from 'react'
 import {
   CheckCircle2,
@@ -291,7 +292,7 @@ export default function ReportDetails({ report, base, onClose }) {
       <Section title={t('console.reports.subject')} id="con-subject">
         <div className="con-person">
           <span className="avatar con-person-avatar" aria-hidden="true">
-            {subject?.avatar || '?'}
+            <AvatarContent person={subject} />
           </span>
           <div className="con-person-copy">
             <Link to={`${base}/accounts/${subjectId}`}>

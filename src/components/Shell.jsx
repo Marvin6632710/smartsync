@@ -1,3 +1,4 @@
+import { AvatarContent } from './SavedPicture'
 import React, { useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
@@ -171,7 +172,7 @@ export default function Shell() {
             onClick={() => navigate('/profile')}
             aria-label={t('shell.openProfile')}
           >
-            {user.avatar}
+            <AvatarContent person={user} />
           </button>
         ) : (
           <BackButton />
@@ -270,7 +271,7 @@ export default function Shell() {
               aria-label={t('nav.profile')}
               title={t('nav.profile')}
             >
-              {user.avatar}
+              <AvatarContent person={user} />
             </NavLink>
           </div>
         </div>
