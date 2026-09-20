@@ -7,9 +7,12 @@ import BootScreen from './components/BootScreen'
 import ProfileErrorScreen from './components/ProfileErrorScreen'
 import Shell from './components/Shell'
 import { useAuth } from './context/AuthContext'
+import { useTermsAcceptance } from './terms'
 import { lazyRoute } from './utils/lazyRoute'
 
-import SplashPage from './pages/SplashPage'
+import TermsDialog from './components/TermsDialog'
+import TermsDetailsPage from './pages/TermsDetailsPage'
+import WelcomePage from './pages/WelcomePage'
 import SignInPage from './pages/SignInPage'
 import SignUpPage from './pages/SignUpPage'
 import PermissionPage from './pages/PermissionPage'
@@ -54,11 +57,32 @@ const CreateActivityPage = lazyRoute(() => import('./pages/CreateActivityPage'))
 const EditActivityPage = lazyRoute(() => import('./pages/EditActivityPage'))
 
 /**
+ * The Terms & Safety agreement sits over everything, whatever the stage
+ * and whatever the address, until this device has accepted the current
+ * version: a dialog rather than a route, so nothing skips it, and the page
+ * behind it is the one that was asked for, inert until the box is ticked.
+ * See src/terms.
+ */
+export default function App() {
+  const termsAccepted = useTermsAcceptance()
+  return (
+    <>
+      {/* React 18 knows no `inert` boolean; the empty string is the
+          attribute, and undefined removes it. */}
+      <div className="app-stage" inert={termsAccepted ? undefined : ''}>
+        <Stages />
+      </div>
+      {!termsAccepted && <TermsDialog />}
+    </>
+  )
+}
+
+/**
  * Routing is gated on identity in three stages rather than protecting each
  * route individually: whole route tables swap, so there is no path through
  * the app where a signed-out visitor can reach a screen that assumes a user.
  */
-export default function App() {
+function Stages() {
   const { t } = useTranslation()
   const { status, user, profileReady, profileError, retryProfile, signOut } = useAuth()
 
@@ -69,9 +93,10 @@ export default function App() {
   if (status === 'signed-out') {
     return (
       <Routes>
-        <Route path="/" element={<SplashPage />} />
+        <Route path="/" element={<WelcomePage />} />
         <Route path="/signin" element={<SignInPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/terms" element={<TermsDetailsPage standalone />} />
         <Route path="*" element={<Navigate to="/signin" replace />} />
       </Routes>
     )
@@ -149,6 +174,7 @@ export default function App() {
         <Route path="/profile/edit" element={<EditProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
+        <Route path="/terms" element={<TermsDetailsPage />} />
         <Route path="/n/:id" element={<NotificationOpenPage />} />
         <Route path="/weights" element={<WeightsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />

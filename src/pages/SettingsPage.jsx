@@ -6,6 +6,7 @@ import {
   LogOut,
   MessageCircle,
   MessageSquareWarning,
+  ScrollText,
   ShieldAlert,
   ShieldCheck,
   ShieldOff,
@@ -119,6 +120,15 @@ export default function SettingsPage() {
           <span>
             <strong>{t('settings.notifications')}</strong>
             <small>{t('settings.notificationsHint')}</small>
+          </span>
+          <ChevronRight size={17} />
+        </button>
+        {/* What was agreed to at the door, for reading again afterwards. */}
+        <button className="setting-row" onClick={() => navigate('/terms')}>
+          <ScrollText size={18} />
+          <span>
+            <strong>{t('settings.terms')}</strong>
+            <small>{t('settings.termsHint')}</small>
           </span>
           <ChevronRight size={17} />
         </button>

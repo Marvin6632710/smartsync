@@ -250,6 +250,25 @@ three. Details in README.md; the parts worth knowing here:
   Apple touch icon). The header wordmark is ExtraBold, tracked −3%. Four
   directions and seven colourways were compared first (kept under
   `design/logo-concepts/`). ADR-020. 2 tests added.
+- **Terms & Safety, and a front door, 2026-09-20** — the first thing
+  anybody sees is now an agreement: what SmartSync is for, the eight
+  things it must never be used for, how to report and what a breach
+  costs, one checkbox, a Continue disabled until it is ticked, the full
+  text unfolding inside it. A dialog over whatever the routes show, with
+  the page beneath inert, until this device has accepted the current
+  `TERMS_VERSION` (`src/terms`, kept as `smartsync:terms`), so a change
+  of wording asks everybody again; no other way out. The full text is
+  also at `/terms` — from the front door's footer and a new Settings row.
+  Behind it, the splash is replaced by a landing page (`WelcomePage`):
+  brand bar with language, appearance and the two ways in; headline and
+  buttons on the left; on the right the app's own activity card with its
+  match score, the reasons worded by `reasonText`, and the group chat;
+  the counts read from the code; then the three steps and three safety
+  points. ADR-022. Not deployed, not committed. Verified at 1440 / 1280 /
+  768 / 375 / 320, light, dark and system, all four languages; sign-in
+  through the emulator lands on Home and the dialog does not return.
+  Tests: the module (6), the dialog (11), the front door (11), the flow
+  through `App` (8).
 - **Language in the header, 2026-09-16** — from 720px the language picker
   (the Settings control, the same stored choice) sits in the web header
   between notifications and the avatar: icon and chevron to 1279px, the

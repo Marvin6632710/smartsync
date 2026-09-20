@@ -89,7 +89,8 @@
     "blocked": "Blocked people",
     "moderation": "Moderation",
     "joined": "Joined",
-    "404": "Not found"
+    "404": "Not found",
+    "terms": "Terms & Safety"
   },
   "shell": {
     "openProfile": "Open profile",
@@ -120,18 +121,45 @@
     "body": "SmartSync closed this account for breaking the community policy. It can no longer host, join, or message anybody.",
     "why": "SmartSync exists to get people into the same room safely. An account is only closed when keeping it open would work against that."
   },
-  "splash": {
-    "headline": "Meet people by doing things.",
-    "lead": "Activities happening near you in Bangkok — and who is going to them.",
+  "welcome": {
+    "eyebrow": "Bangkok",
+    "headline": "Discover activities, meet people, and find experiences that <0>match you</0>.",
+    "lead": "Football, study groups, coffee, gaming nights and more — happening near you in Bangkok. SmartSync recommends the ones that fit your interests, tells you why, and gives everyone who joins a group chat before they meet.",
+    "signUp": "Sign up",
+    "logIn": "Log in",
+    "facts": {
+      "categories": "{{count}} categories",
+      "languages": "{{count}} languages",
+      "free": "Free to use"
+    },
+    "stage": {
+      "cardTitle": "Futsal at Lumphini Park",
+      "cardWhen": "Tonight · 19:00",
+      "cardWhere": "Lumphini Park",
+      "why": "Why it's a match",
+      "chatName": "Maya",
+      "chatA": "See you at 7! I'm bringing a ball ⚽",
+      "chatB": "On my way 🏃",
+      "chatCaption": "Group chat opens the moment you join"
+    },
+    "howEyebrow": "How it works",
+    "howTitle": "Three steps from a free evening to a plan",
     "step1Title": "Pick what you like",
     "step1Body": "Football, coffee, study, gaming — whatever you would actually turn up for.",
     "step2Title": "See what is on near you",
     "step2Body": "Real activities with real times and places, as a list or on a map.",
     "step3Title": "Join, and go",
     "step3Body": "One tap to join, then chat with everyone going before you turn up.",
-    "trust": "Free to use. Block or report anyone, and a moderator reviews every report. You can share your location rounded to the nearest kilometre — or not at all.",
-    "createAccount": "Create account",
-    "haveAccount": "I already have an account"
+    "safeEyebrow": "Meeting safely",
+    "safeTitle": "Built for meeting people you haven't met yet",
+    "safe1Title": "Block and report",
+    "safe1Body": "Anyone, from any activity or chat. A moderator reviews every report.",
+    "safe2Title": "Anonymous mode",
+    "safe2Body": "Appear under a public name instead of your own, whenever you like.",
+    "safe3Title": "Your location, rounded",
+    "safe3Body": "Share it rounded to about a kilometre — or not at all.",
+    "footer": "SmartSync · Bangkok",
+    "termsLink": "Terms & Safety"
   },
   "auth": {
     "email": "Email",
@@ -182,6 +210,58 @@
       "staySignedIn": "Stay signed in",
       "notYou": "Not you? Sign out",
       "failed": "Couldn't sign out"
+    }
+  },
+  "terms": {
+    "title": "Terms & Safety",
+    "lead": "SmartSync is for real-world activities — football, study, coffee, gaming, meeting people in person. Before you continue, please agree to the rules that keep everyone safe.",
+    "neverTitle": "Never use SmartSync for",
+    "rules": {
+      "trafficking": "Human trafficking or exploitation of any kind",
+      "sexual": "Sexual assault, sexual harassment or sexual exploitation",
+      "violence": "Threats, violence or dangerous activities",
+      "stalking": "Stalking, harassment or intimidation",
+      "scams": "Scams, fraud or pretending to be someone else",
+      "illegal": "Anything illegal",
+      "hate": "Hate or abusive behaviour",
+      "privateInfo": "Sharing someone else's private or personal information without their permission"
+    },
+    "report": "If anyone makes you feel unsafe, report them from the activity's participant list or its chat. A moderator reviews every report.",
+    "consequences": "Breaking these rules can lead to a warning, a suspension, or your account being removed.",
+    "readFull": "Read the full Terms & Conditions and Safety Guidelines",
+    "agree": "I agree to the Terms & Conditions and Safety Guidelines",
+    "version": "Version {{version}}",
+    "fullTitle": "Terms & Conditions and Safety Guidelines",
+    "hideFull": "Hide the full text",
+    "doc": {
+      "about": {
+        "title": "1. What SmartSync is",
+        "body": "SmartSync is a web app for finding activities happening near you in Bangkok and the people going to them. Activities are hosted by other users, not by SmartSync. SmartSync does not verify who anyone is, and cannot promise that an activity will happen as described."
+      },
+      "account": {
+        "title": "2. Your account",
+        "body": "Give your real name when you sign up — you can hide it behind a public name with anonymous mode, but it must be yours. One person, one account. Keep your password to yourself; what happens on your account is your responsibility. If your account is suspended or removed, do not open another one to get around it."
+      },
+      "rules": {
+        "title": "3. Community and safety rules",
+        "body": "SmartSync must never be used for:"
+      },
+      "meeting": {
+        "title": "4. Meeting in person",
+        "body": "You decide where and when you meet, and you are responsible for your own safety. Meet in public places, tell someone where you are going, and leave if something feels wrong. Hosts are responsible for what they organise; do not host anything that would break these rules or the law."
+      },
+      "reporting": {
+        "title": "5. Reporting and enforcement",
+        "body": "Report anyone who breaks these rules from the activity's participant list or its chat, and block them so they cannot reach you. A moderator reviews every report. Depending on what happened, the person may be warned, suspended for a time, or removed for good; anything a suspended or removed account was hosting comes down with it. Please only report things that actually happened."
+      },
+      "privacy": {
+        "title": "6. Your information",
+        "body": "SmartSync stores your name, email, interests and the activities you join, and — only if you turn it on — your location, which you can choose to keep rounded to about a kilometre. Other users see your public profile; your email address and your location are never shown to them. Your username starts as the first part of your email and can be changed in your profile. Turn on anonymous mode to appear under a public name instead of your own. These controls are in Settings → Privacy."
+      },
+      "changes": {
+        "title": "7. Changes to these terms",
+        "body": "If these terms change, you will be asked to read and accept the new version before you continue using SmartSync."
+      }
     }
   },
   "onboarding": {
@@ -625,6 +705,8 @@
     "messagesHint": "Chats for activities you joined",
     "notifications": "Notifications",
     "notificationsHint": "Joins, messages and activity updates",
+    "terms": "Terms & Safety",
+    "termsHint": "The rules you agreed to",
     "language": "Language",
     "theme": "Appearance",
     "moderation": "Moderation",

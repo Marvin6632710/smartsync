@@ -180,7 +180,11 @@ so separate documents are the only way to make that real rather than cosmetic.
 
 Routing is gated in stages: loading → signed out → not yet onboarded → the
 app. Whole route tables swap, so there is no path where a signed-out visitor
-reaches a screen that assumes a user.
+reaches a screen that assumes a user. Over all of it, the Terms & Safety
+agreement: not a route but a dialog `App` renders above whatever the stage
+produces, with the page beneath inert, until this device has accepted the
+current version (`src/terms`) — so no address skips it, and the page behind
+it is the one that was asked for.
 
 **Test:** sign up with a new email. You should land on interest selection, not
 home — the engine has nothing to work with until interests exist.

@@ -52,6 +52,7 @@ const ROUTE_TITLES = new Set([
   'blocked',
   'moderation',
   'joined',
+  'terms',
   '404',
 ])
 

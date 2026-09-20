@@ -1074,3 +1074,50 @@ reminders, change notices and waitlists, which are the next phases of the
 plan this came from; quiet hours; a cross-account guard on the server side
 (the worker's owner check covers the one case a sign-out's clean-up could
 not reach).
+
+## ADR-022 — The agreement is a dialog over everything, kept as a version
+
+**Context.** SmartSync puts strangers in the same place at the same time.
+Nothing said, before a person could sign up, what the app was for and what
+it must never be used for, and nothing recorded that they had been told.
+The first screen was a phone column with three steps and two buttons; on a
+monitor it was that column in an empty window.
+
+**Decision.** A Terms & Safety agreement is the first thing anybody sees:
+what the app is for, the eight things it is not for, how to report, what a
+breach costs, one checkbox and a Continue that stays disabled until it is
+ticked, with the full text unfolding inside it. It is a dialog, not a
+route: `App` renders it over whatever the routes produce — the front door,
+sign-in from a link, the app itself for somebody signed in — whenever the
+device has not accepted the current version, and marks everything beneath
+it inert, so there is no address that skips it and the page behind it is
+the one that was asked for. Unlike the confirm dialog it has no other way
+out: no backdrop tap, no Escape, no close. The acceptance is one value on
+the device (`smartsync:terms`), like the language and the theme, and it is
+the version accepted rather than a boolean: changing the words means
+changing `TERMS_VERSION`, and everybody is asked again. On the device
+rather than on the profile because it has to hold before there is a
+profile. The full text lives at `/terms` as well — from the front door's
+footer and from Settings — so what was agreed to can be read again.
+Behind the agreement, the front door is a landing page (`WelcomePage`):
+a bar with the brand, the language and appearance switches and the two
+ways in; the headline and the two buttons on the left; on the right the
+app itself, drawn with the app's own rules — an activity card with its
+match score, the reasons for the score worded by the same function that
+words them inside the app, and the group chat that opens on joining —
+rather than a photograph of people having a good time. The counts under
+the buttons (categories, languages) are read from the code. Below, the
+three steps and three lines on safety. Every activity and message on it is
+an example in its own wording.
+
+**Consequences.** Everybody who already uses SmartSync sees the agreement
+once after this ships, which is the point. A person who signs in on a new
+device accepts there too. Rewording the agreement in substance is a
+version bump; a translation fix is not. The full text is what the app can
+stand behind — no age requirement, no verification claim, no contact
+address — and gains clauses only as the app gains the features they
+describe. Sign-in, sign-up, onboarding, the profile, the rules and the
+data are untouched: the dialog sits over the three stages, it is not a
+change to any of them. React 18 has no `inert` boolean, so the wrapper
+sets the attribute as an empty string; React 19 will take `true`.
+

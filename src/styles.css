@@ -2105,30 +2105,17 @@ select:focus-visible {
 }
 
 /* =========================================================
-   ONBOARDING / SPLASH
+   ONBOARDING / ENTRY
    ========================================================= */
 
-.splash-page,
-.premium-entry {
-  text-align: center;
-  align-items: center;
-}
-.entry-copy h1,
-.splash-page h1 {
+.entry-copy h1 {
   margin: 4px 0 8px;
   font-size: var(--t-display);
 }
 .entry-copy p,
-.splash-page p,
 .onboarding-header p {
   max-width: 320px;
   font-size: var(--t-body);
-}
-.entry-highlights {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
 }
 .onboarding-page {
   justify-content: flex-start;
@@ -4459,9 +4446,11 @@ body {
 }
 
 /* =========================================================
-   THE FIRST SCREEN
+   THE THREE STEPS AND THE SAFETY LINE
    A tester signed up, reached the app, and still could not say what it was
    for. Three one-word chips read as features; a stranger needs the sequence.
+   Drawn on the front door (see WELCOME); the names date from the splash
+   screen they were written for.
    ========================================================= */
 
 /* Left-aligned inside a centred page: three steps centred under each other
@@ -4535,22 +4524,6 @@ body {
 .splash-trust svg {
   margin-top: 1px;
   color: var(--success);
-}
-
-.splash-actions {
-  display: grid;
-  gap: 4px;
-  justify-items: center;
-  width: 100%;
-  max-width: 340px;
-}
-
-/* The headline is the one line that has to land, so it gets the display
-   face at full weight rather than the body size the old copy used. */
-.splash-page h1 {
-  text-wrap: balance;
-  letter-spacing: -0.03em;
-  line-height: 1.06;
 }
 
 /* =========================================================
@@ -5000,6 +4973,570 @@ button.celebration-toast {
 }
 button.celebration-toast:hover {
   border-color: var(--line-strong);
+}
+
+/* =========================================================
+   TERMS & SAFETY
+   The agreement, as a dialog over whatever the app would show: the
+   front door on a first visit, the app itself when the words change.
+   The confirm dialog's frame, widened, with its own scrolling body so
+   the box and the button are always in reach; the full text unfolds
+   inside it. The same text again at /terms, as a page.
+   ========================================================= */
+
+.terms-backdrop {
+  z-index: 60;
+  align-items: end;
+  padding: 0;
+}
+.terms-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-width: none;
+  max-height: 92vh;
+  max-height: 92dvh;
+  padding: 0;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  border-bottom: 0;
+}
+.terms-dialog-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.terms-dialog-head > svg {
+  display: block;
+  border-radius: 12px;
+}
+.terms-dialog-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.terms-dialog-titles .eyebrow {
+  font-size: var(--t-xs);
+}
+.terms-dialog h2 {
+  margin: 0;
+  font-size: var(--t-h1);
+  font-weight: var(--w-bold);
+  outline: none;
+}
+.terms-dialog-body {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.terms-dialog-lead {
+  margin: 0;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.terms-card {
+  padding: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.terms-card h3 {
+  margin: 0 0 10px;
+  font-size: var(--t-h3);
+  font-weight: var(--w-bold);
+  color: var(--text);
+}
+.terms-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.terms-rules li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  font-size: var(--t-sm);
+  line-height: 1.45;
+  color: var(--text);
+}
+/* The mark is a struck-out thing on a danger tint: read as "not this"
+   before the words are, and the same shape on every row so the list
+   scans as one list rather than eight icons. */
+.terms-rule-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-pill);
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid var(--danger-line);
+}
+.terms-enforcement {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.terms-enforcement > svg {
+  margin-top: 2px;
+  color: var(--accent);
+}
+.terms-enforcement p {
+  margin: 0;
+  font-size: var(--t-sm);
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.terms-enforcement p + p {
+  margin-top: 6px;
+  color: var(--text);
+}
+.terms-read-link {
+  justify-self: start;
+  gap: 4px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.terms-full {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  scroll-margin-top: 8px;
+}
+.terms-full > h3 {
+  margin: 0 0 12px;
+  font-size: var(--t-h2);
+  font-weight: var(--w-bold);
+}
+.terms-consent {
+  display: grid;
+  gap: 10px;
+  padding: 12px 18px 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+/* The checkbox is the whole point of the screen, so it is a row you can
+   hit anywhere, with a box drawn at a size a thumb can see. */
+.terms-check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 13px;
+  text-align: left;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  line-height: 1.4;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+.terms-check:hover {
+  border-color: var(--line-strong);
+}
+.terms-check:has(input:checked) {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.terms-check:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.terms-check input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.terms-check input:focus-visible {
+  outline: none;
+}
+.terms-version {
+  margin: 0;
+  text-align: center;
+  color: var(--text-3);
+  font-size: var(--t-xs);
+}
+
+/* The full text: inside the dialog, and as the page at /terms. */
+.terms-text {
+  display: grid;
+  gap: 18px;
+}
+.terms-section h2,
+.terms-section h3,
+.terms-section h4 {
+  margin: 0 0 6px;
+  font-size: var(--t-h3);
+  font-weight: var(--w-bold);
+  color: var(--text);
+}
+.terms-section p {
+  margin: 0 0 8px;
+  font-size: var(--t-body);
+  line-height: 1.55;
+  color: var(--text-2);
+  max-width: 65ch;
+}
+.terms-text-rules {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 5px;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--text);
+}
+.terms-text .terms-version {
+  text-align: left;
+}
+.terms-reading {
+  justify-content: flex-start;
+  gap: 20px;
+}
+.terms-doc-bar {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+.terms-doc-bar h1 {
+  margin: 0;
+  font-size: var(--t-h1);
+}
+.terms-content .terms-text {
+  padding-bottom: 24px;
+}
+
+/* =========================================================
+   WELCOME
+   The front door. Two columns from a monitor: the words on the left, and
+   on the right the app itself — an activity card with its match score,
+   the reasons for it, and the group chat — drawn with the app's own card,
+   reason and bubble rules. On a phone the stage sits under the copy. The
+   hero stands on the same soft colour fields the sign-in page has behind
+   it, so the door and the room behind it are one place.
+   ========================================================= */
+
+.welcome-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+}
+.welcome-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px var(--gutter);
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+.welcome-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: var(--w-black);
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.welcome-brand svg {
+  display: block;
+  flex: none;
+}
+/* On a phone the bar is the mark and the two switches: the name is on
+   the tile and in the headline, and the bar has no room for it beside
+   two pills. */
+.welcome-brand span {
+  display: none;
+}
+.welcome-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+/* The appearance switch is the Settings control, its labels folded away:
+   three icons and a tick are enough in a bar. Folded, not removed — the
+   words still name the options to a screen reader. */
+.welcome-tools .segmented {
+  padding: 3px;
+  gap: 2px;
+  background: var(--surface);
+}
+.welcome-tools .segment {
+  position: relative;
+  min-height: 32px;
+  padding: 0 9px;
+}
+.welcome-tools .segment > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+.welcome-bar-login,
+.welcome-bar-signup {
+  display: none;
+}
+
+.welcome-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+  padding: 16px var(--gutter) 40px;
+}
+.welcome-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+.welcome-hero::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -80px calc(-1 * var(--gutter)) -40px;
+  background:
+    radial-gradient(55% 40% at 8% 10%, rgba(var(--accent-rgb), 0.16), transparent 62%),
+    radial-gradient(45% 36% at 96% 30%, rgba(236, 110, 173, 0.13), transparent 60%),
+    radial-gradient(50% 40% at 60% 100%, rgba(31, 196, 114, 0.11), transparent 64%);
+  pointer-events: none;
+}
+.welcome-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  max-width: 600px;
+}
+.welcome-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: var(--t-xs);
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+/* The headline is the page. Display face at full weight, sized to the
+   window between a phone and a monitor, balanced so no line is a word. */
+.welcome-headline {
+  margin: 0;
+  font-size: clamp(32px, 8.4vw, 42px);
+  font-weight: var(--w-black);
+  letter-spacing: -0.035em;
+  line-height: 1.06;
+  text-wrap: balance;
+  color: var(--text);
+}
+.welcome-accent {
+  color: var(--accent);
+}
+.welcome-lead {
+  margin: 0;
+  max-width: 34em;
+  font-size: var(--t-h3);
+  line-height: 1.55;
+  color: var(--text-2);
+}
+.welcome-actions {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 340px;
+}
+.welcome-cta {
+  min-height: 52px;
+  border-radius: var(--r-pill);
+  font-size: var(--t-h3);
+  font-weight: var(--w-bold);
+}
+.welcome-facts {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.welcome-facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  color: var(--text-2);
+}
+.welcome-facts svg {
+  color: var(--success);
+}
+
+/* --- The stage: the card, the reasons, the chat ------------------------ */
+.welcome-stage {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  max-width: 420px;
+}
+.welcome-stage-card {
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+}
+.welcome-stage-card .activity-title-block h3 {
+  font-size: var(--t-h2);
+}
+.welcome-stage-foot {
+  grid-template-columns: 1fr auto;
+}
+.welcome-stage-why {
+  padding: 12px 14px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+}
+.welcome-stage-why .eyebrow {
+  display: block;
+  font-size: var(--t-xs);
+  font-weight: var(--w-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.welcome-stage-why .reason-list {
+  margin-top: 8px;
+}
+.welcome-stage-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.welcome-stage-chat .message-bubble {
+  max-width: 88%;
+  box-shadow: var(--shadow-sm);
+}
+.welcome-stage-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+  color: var(--text-3);
+}
+
+/* --- How it works, and meeting safely ---------------------------------- */
+.welcome-how,
+.welcome-safe {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+.welcome-section-head h2 {
+  margin: 2px 0 0;
+  font-size: var(--t-h1);
+  font-weight: var(--w-bold);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.welcome-steps {
+  max-width: none;
+}
+.welcome-safe-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.welcome-safe-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  row-gap: 3px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+.welcome-safe-icon {
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-pill);
+  background: var(--success-soft);
+  color: var(--success);
+}
+.welcome-safe-list strong {
+  font-size: var(--t-body);
+  font-weight: var(--w-semibold);
+  color: var(--text);
+}
+.welcome-safe-list small {
+  font-size: var(--t-sm);
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.welcome-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 18px;
+  padding: 16px var(--gutter);
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  font-size: var(--t-xs);
+  color: var(--text-3);
+}
+.welcome-footer a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+  font-weight: var(--w-medium);
+}
+.welcome-footer a:hover {
+  color: var(--accent-strong);
 }
 
 /* =========================================================
@@ -5469,8 +6006,7 @@ button.celebration-toast:hover {
        form fills the column — and nothing needs to know it is centred. */
     padding: 56px max(24px, calc((100% - 440px) / 2));
   }
-  .standalone-page.onboarding-page,
-  .standalone-page.splash-page {
+  .standalone-page.onboarding-page {
     padding-left: max(24px, calc((100% - 640px) / 2));
     padding-right: max(24px, calc((100% - 640px) / 2));
   }
@@ -5483,12 +6019,10 @@ button.celebration-toast:hover {
     align-self: auto;
   }
   .entry-copy p,
-  .splash-page p,
   .onboarding-header p {
     max-width: 440px;
   }
   .entry-copy h1,
-  .splash-page h1,
   .auth-page .entry-copy h1,
   .onboarding-header h1,
   .luxe-header h1 {
@@ -5507,8 +6041,7 @@ button.celebration-toast:hover {
     border-radius: var(--r-lg);
     background: var(--surface);
   }
-  .splash-trust,
-  .splash-actions {
+  .splash-trust {
     max-width: 440px;
   }
   .onboarding-page .interest-grid {
@@ -5830,5 +6363,161 @@ button.celebration-toast:hover {
   .web-search {
     padding: 0 14px;
     min-width: 132px;
+  }
+}
+
+/* =========================================================
+   WELCOME AND TERMS, WIDE
+   The front door from a tablet up: the bar carries the ways in, the
+   agreement becomes a centred card instead of a sheet, and from a
+   monitor the stage stands beside the words.
+   ========================================================= */
+@media (min-width: 720px) {
+  .terms-backdrop {
+    align-items: center;
+    padding: 24px;
+  }
+  .terms-dialog {
+    max-width: 560px;
+    max-height: min(880px, 92vh);
+    max-height: min(880px, 92dvh);
+    border-radius: var(--r-xl);
+    border-bottom: 1px solid var(--line);
+  }
+  .terms-dialog-head {
+    padding: 18px 22px 14px;
+  }
+  .terms-dialog-body {
+    padding: 18px 22px;
+  }
+  .terms-consent {
+    padding: 14px 22px 18px;
+  }
+  .standalone-page.terms-reading {
+    padding-left: max(24px, calc((100% - 640px) / 2));
+    padding-right: max(24px, calc((100% - 640px) / 2));
+  }
+
+  .welcome-bar {
+    padding: 16px var(--gutter);
+    padding-top: max(16px, env(safe-area-inset-top));
+  }
+  .welcome-brand span {
+    display: inline;
+  }
+  .welcome-tools {
+    gap: 10px;
+  }
+  .welcome-bar-login {
+    display: inline-flex;
+    padding: 0 10px;
+    font-size: var(--t-body);
+    color: var(--text);
+  }
+  .welcome-bar-login:hover {
+    color: var(--accent);
+  }
+  .welcome-bar-signup {
+    display: inline-flex;
+    min-height: 40px;
+    padding: 0 18px;
+    border-radius: var(--r-pill);
+  }
+  .welcome-main {
+    gap: 64px;
+    padding: 32px var(--gutter) 56px;
+  }
+  .welcome-hero {
+    align-items: center;
+    gap: 40px;
+  }
+  .welcome-copy {
+    align-items: center;
+    text-align: center;
+    max-width: 680px;
+  }
+  .welcome-headline {
+    font-size: clamp(40px, 5.6vw, 52px);
+  }
+  .welcome-lead {
+    font-size: var(--t-h2);
+  }
+  .welcome-actions {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    max-width: 400px;
+  }
+  .welcome-facts {
+    justify-content: center;
+  }
+  .welcome-stage {
+    max-width: 460px;
+  }
+  .welcome-safe-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .welcome-safe-list li {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    row-gap: 6px;
+    padding: 16px;
+  }
+  .welcome-safe-icon {
+    grid-row: 1;
+    margin-bottom: 4px;
+  }
+}
+@media (min-width: 1024px) {
+  .welcome-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    align-items: center;
+    column-gap: 56px;
+    padding: 16px 0 24px;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .welcome-copy {
+    align-items: flex-start;
+    text-align: left;
+    max-width: 640px;
+  }
+  .welcome-headline {
+    font-size: clamp(44px, 4.2vw, 60px);
+  }
+  .welcome-facts {
+    justify-content: flex-start;
+  }
+  /* The three pieces pinned with a little disorder, the way the app's
+     screens overlap in a person's hand rather than filed in a column. */
+  .welcome-stage {
+    max-width: none;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: 0;
+  }
+  .welcome-stage-card {
+    grid-column: 1 / span 2;
+    grid-row: 1;
+    width: 80%;
+    justify-self: start;
+    transform: rotate(-1.5deg);
+  }
+  .welcome-stage-why {
+    grid-column: 1 / span 2;
+    grid-row: 2;
+    width: 70%;
+    justify-self: end;
+    margin-top: -14px;
+    transform: rotate(1.2deg);
+  }
+  .welcome-stage-chat {
+    grid-column: 1 / span 2;
+    grid-row: 3;
+    width: 72%;
+    justify-self: start;
+    margin-top: 14px;
+    margin-left: 4%;
   }
 }
