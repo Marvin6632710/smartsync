@@ -108,11 +108,14 @@ export async function recommend({
     answer = await ranker(prompt)
   } catch (error) {
     const kind = error?.kind || 'unavailable'
+    // `detail`, not `message`: the logger takes the first argument as the
+    // entry's message, and a `message` key in the fields overwrote it —
+    // the first live failure logged its own headline and lost the API's.
     log.warn?.('ai picks model call failed', {
       uid,
       kind,
       status: error?.status ?? null,
-      message: String(error?.message || error).slice(0, 300),
+      detail: String(error?.message || error).slice(0, 300),
     })
     return standard(kind)
   }
