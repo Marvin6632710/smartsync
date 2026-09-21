@@ -275,6 +275,42 @@ by the total capped the best possible match at 93%.
 reorders live. Then sign in as two different people and compare the same
 activity — 78% for one, 37% for the other.
 
+### AI Picks: Gemini as a re-ranker
+
+**Path:** `RecommendationsPage` → `useAiPicks` → `services/aiPicks.js` →
+the `recommendActivities` callable (`functions/index.js` → `lib/recommend.js`,
+`lib/picks.js`, `lib/gemini.js`) → Gemini, and back. ADR-029.
+
+```
+browser                                  Cloud Function                      Gemini
+eligible = filteredActivities − joined   auth? shape? ──refuse if not
+best 40 by matchScore + signals  ──────► cache hit (same question, <10 min)? ──► answer
+                                         hour/day counters (one transaction)
+                                         prompt: signals + facts, JSON schema ─► model
+                                         ids ∈ sent? dedupe; codes ∈ facts?  ◄── ids + codes
+picks ∩ on-screen; codes → words ◄────── {source:'gemini', picks} | {source:'standard', reason}
+```
+
+Two things to hold on to. **The model ranks what it is given** — the
+browser has already applied every visibility, blocking, availability and
+discovery-filter rule, and the Function drops any id it did not send.
+**A reason is a code the data supports**, checked on the server against
+the facts and worded in the browser from the activity's own fields; the
+model never writes text a person reads. Without a key, past the limits,
+or with the service down, the same activities appear in the engine's
+order under a line that says which it is and why.
+
+Kept in Firestore by the Function alone: `aiPicks/{uid}` (last answer,
+question signature, the hour's count) and `aiPicksUsage/{day}` (the
+day's count). Both denied to every client in the rules.
+
+**Test:** with the emulator and `scripts/fake-gemini.mjs` running (README
+§10), open AI Picks: "Ranked by Gemini · just now", each card with its
+reasons; Refresh asks again; stop the stand-in and Try again → "Standard
+picks. Gemini could not be reached…" with the same activities in score
+order. `tests/unit/picksServer.test.js`, `tests/unit/aiPicks.test.js`,
+`tests/app/recommendationsPage.test.jsx`, and the rules test "AI Picks".
+
 ### Activity search
 
 **Path:** `SearchPage` → the existing `filteredActivities` in `AppContext`.
@@ -460,6 +496,9 @@ another account. The host reads "Anonymous user".
 | Score always 0–100, never throws | pure functions + a fuzzer         | `npm run test:unit` |
 | Ranking actually works           | measured against baselines        | `npm run evaluate`  |
 | Corrupt local data               | `looksLike` in `utils/storage.js` | —                   |
+| Gemini key never in the browser  | Secret Manager + callable         | `grep` the bundle   |
+| Model cannot invent or overclaim | `parsePicks` + `resolvePicks`     | `npm run test:unit` |
+| Model calls bounded              | per-person and per-day counters   | `npm run test:unit` |
 | Render crash                     | `ErrorBoundary`                   | —                   |
 
 ```bash

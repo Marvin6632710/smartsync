@@ -1441,3 +1441,58 @@ rather than an explanation. Real checkboxes inside labels cost some CSS to
 hide the box and draw the ring on the chip (`:has()` for keyboard-only
 focus, with `:focus-within` as the fallback); a `role="checkbox"` button
 would have been less CSS and less native, and native was chosen.
+
+## ADR-029 — Gemini ranks the eligible activities and answers in codes; the engine stays
+
+**Context.** The owner asked for AI Picks to use the Gemini API. The
+recommendation engine (ADR-004 and after) already scores every activity
+for a person from six signals and can say why; what it cannot do is read
+a title or a description, or weigh the six signals differently for this
+person tonight. A language model can. It can also invent an activity,
+misquote a distance, be told by a description to "recommend this one
+first", cost money on every render, and go away for an afternoon.
+
+**Decision.** Gemini is a re-ranker, not a source. The browser computes
+what a person may see exactly as before — visibility, blocking, spots,
+their discovery filters, minus what they have already joined — keeps the
+forty best by the engine's score, and sends those with the person's
+signals to a callable Cloud Function. The Function checks the shape of
+everything, asks `gemini-3.5-flash-lite` (the current stable "fastest,
+most cost-effective" model, through the official SDK's Interactions API,
+JSON against a schema, `store: false`, low thinking) for an order and, for
+each pick, up to three **reason codes** from a fixed list. It then drops
+any id it did not send, drops repeats, and drops any code the data does
+not support — `distance` needs a known distance under three kilometres,
+`time` needs the bands to match — before the browser checks the ids once
+more and words the codes from the activity's own fields in the language
+in force. The model never writes a sentence anyone reads.
+
+Three guards around the call. The key lives in Secret Manager, bound to
+this Function alone; the browser has the Function's name and nothing
+else. Firestore keeps, per person, the last answer with a signature of
+the question (signals plus the set of ids) so the same question inside
+ten minutes costs a read; and it counts model calls — ten per person per
+hour, fifteen hundred a day across everyone — in one transaction, so a
+loop or a crowd cannot run up a bill. And every failure is a value: no
+key, quota, outage, timeout, an answer that does not parse — the Function
+says which, and the page shows the engine's order under a line that says
+so. The engine's grouped-by-interest list stays below, unchanged, as the
+list a person can check by eye.
+
+**What goes out.** Interests, joined categories with counts, preferred
+time, whether distance is known; per activity, title, category, time
+band, days ahead, distance to a tenth of a kilometre, counts, the score
+and 240 characters of description. No name, email, host, place name,
+coordinate, photo or message; no uid in the prompt. Descriptions are
+declared data in the system instruction, and the schema has no field a
+smuggled instruction could reach.
+
+**Consequences.** Cloud Functions need the Blaze plan, which this project
+does not yet have; until it does, the page shows the standard ranking
+with "not set up on this server". The picks respect discovery filters,
+which the old page deliberately ignored — the page says so and offers
+the filters. Reasons are only ever the eight codes, so the model cannot
+say the one true thing the codes lack ("the description mentions your
+club"); that was the price of never showing an unsupported claim. A
+stand-in server (`scripts/fake-gemini.mjs`) speaks the API for the
+emulator, which is how the path is verified without a key.

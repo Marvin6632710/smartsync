@@ -999,6 +999,20 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // AI Picks: the last answer Gemini gave a person and their hour's call
+    // count (aiPicks/{uid}), and the day's total across everyone
+    // (aiPicksUsage/{day}). Written and read by the Cloud Function alone,
+    // with the Admin SDK; no browser has any business here — the answer
+    // reaches the app through the callable, already checked. Denied
+    // explicitly, so the intent is on record rather than left to the
+    // catch-all below.
+    match /aiPicks/{uid} {
+      allow read, write: if false;
+    }
+    match /aiPicksUsage/{day} {
+      allow read, write: if false;
+    }
+
     // Anything not matched above is denied.
     match /{document=**} {
       allow read, write: if false;

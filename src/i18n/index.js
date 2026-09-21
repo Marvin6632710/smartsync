@@ -224,6 +224,8 @@ export function reasonText(reason) {
     // Lower-cased for the scripts that have a case, so the English reads as
     // it always did ("your preferred evening time"); the others are untouched.
     band: timeBandLabel(reason.band).toLowerCase(),
+    // "Only 2 spots left" — the one reason that counts something.
+    count: Number.isFinite(Number(reason.count)) ? Number(reason.count) : undefined,
   })
 }
 

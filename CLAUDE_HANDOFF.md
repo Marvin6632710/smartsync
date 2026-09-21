@@ -48,8 +48,11 @@ do not assume access to the previous assistant's conversation.
   Local maps still call the real Google Maps service.
 - [GOOGLE_MAPS_SETUP.md](GOOGLE_MAPS_SETUP.md) documents restrictions and setup.
   `npm run check:maps` validates production configuration without printing keys.
-- Firebase Functions/browser push remain undeployed: Firebase Blaze and VAPID
-  setup are outstanding. The separate Maps billing setup did not upgrade Firebase.
+- The project is on **Blaze** since 2026-09-21 and the AI Picks Function
+  (`recommendActivities`, us-central1) is deployed with the `GEMINI_API_KEY`
+  secret (README §10). The push Functions (`onNotificationCreated`,
+  `cleanupPushTokens`) are still undeployed — they need `VITE_FCM_VAPID_KEY`
+  and a `--only functions` deploy of their own.
 
 Use the same local folder so ignored configuration remains available. A fresh
 clone does not contain these files; transfer configuration privately if moving
@@ -90,6 +93,7 @@ this handoff. The following reflects the current source, not an assumed queue.
 | Bio below the profile picture, up to 75 words | **Done 2026-09-21.** 75 words _and_ 500 characters, in the rules (`validBio()`) and the editor (`src/utils/bio.js`, live counter, refusal with reason). Characters are the ceiling that bites for Thai/Burmese/Chinese. ADR-027. Rules must be released before hosting. |
 | Unread count on the notification bell | **Completed to the owner's spec 2026-09-21.** Its own listener (`watchUnreadCount`, unread docs only, capped at 100) instead of counting the 50-item inbox; "99+" past 99; `aria-label` "Notifications, N unread" in four languages; reset on account switch. See HANDOFF "the bell's unread badge". |
 | Multi-select discovery filters | **Done 2026-09-21, to the owner's spec.** Checkboxes-as-chips per category and time band, "All categories" / "Any time" controls, OR within a group and AND between, empty set = no restriction, draft until Apply, Reset restores the defaults and applies. One module `src/utils/filters.js` (shape, `normaliseFilters` migration of the old `category`/`timeBand` shape, `matchesFilters`, `activeFilterCount`); the feed, search and map share `filteredActivities`. Filter count on the Discover button; "Adjust filters" in the empty state. ADR-028. See HANDOFF "discovery filters as sets". |
+| AI Picks through Gemini | **Done and live 2026-09-21, to the owner's spec (Blaze, secret and Function deployed by the owner).** `functions/lib/{picks,recommend,gemini}.js` + the `recommendActivities` callable in `functions/index.js`; browser side `src/services/aiPicks.js`, `src/hooks/useAiPicks.js`, `src/firebase/functions.js`, `RecommendationsPage.jsx`. Re-ranks the eligible activities with reason codes validated against the data; cache + rate limits in Firestore (`aiPicks/{uid}`, `aiPicksUsage/{day}`, denied to clients); every failure falls back to the standard ranking, labelled. Secret `GEMINI_API_KEY`; README §10; ADR-029. Stand-in server for the emulator: `scripts/fake-gemini.mjs`. |
 | Pictures, name-only search, Google Maps | Completed and deployed, as above. |
 
 ## Files to begin with
@@ -100,6 +104,7 @@ this handoff. The following reflects the current source, not an assumed queue.
 | Pictures | `src/components/PicturePicker.jsx`, `SavedPicture.jsx`, `src/hooks/usePicture.js`, `src/utils/pictures.js`, `src/firebase/pictures.js` |
 | Profile/bio/layout | `src/pages/ProfilePage.jsx`, `EditProfilePage.jsx`, `src/firebase/users.js`, `src/styles.css`, `firestore.rules` |
 | Search / discovery filters | `src/pages/SearchPage.jsx`, `FilterPage.jsx`, `src/utils/filters.js`, `src/components/FiltersEmptyState.jsx` |
+| AI Picks (Gemini) | `src/pages/RecommendationsPage.jsx`, `src/hooks/useAiPicks.js`, `src/services/aiPicks.js`, `src/firebase/functions.js`; `functions/index.js`, `functions/lib/picks.js`, `recommend.js`, `gemini.js`; `scripts/fake-gemini.mjs` |
 | Warnings/notifications | `src/pages/SettingsPage.jsx`, `WarningsPage.jsx`, `NotificationsPage.jsx`, `src/components/Shell.jsx` |
 | Shared data/localization | `src/context/AuthContext.jsx`, `AppContext.jsx`; `src/i18n/locales/{en,th,my,zh}.json` |
 

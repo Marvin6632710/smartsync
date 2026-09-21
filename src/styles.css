@@ -4786,6 +4786,137 @@ body {
   line-height: 1.5;
 }
 
+/* --- AI Picks: who ranked them, and why each one --------------------
+   One line above the picks says whose order this is — the model's, with
+   when; or the app's own, with why — and carries the way to ask again.
+   The standard state is drawn as a notice, not an error: the list under
+   it is a good list, just not the one that was asked for. */
+.ai-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  line-height: 1.45;
+}
+.ai-source > svg {
+  flex-shrink: 0;
+}
+.ai-source > span {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.ai-source[data-state='standard'] {
+  border-color: var(--warning-line);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.ai-source[data-state='standard'] strong {
+  font-weight: var(--w-semibold);
+}
+.ai-source[data-state='asking'] > svg {
+  animation: aiPulse 1.2s ease-in-out infinite;
+}
+@keyframes aiPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-source[data-state='asking'] > svg {
+    animation: none;
+  }
+}
+.ai-refresh {
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid currentColor;
+  color: inherit;
+  font-size: var(--t-sm);
+  font-weight: var(--w-semibold);
+  gap: 6px;
+}
+.ai-refresh:hover {
+  background: rgba(var(--accent-rgb), 0.08);
+}
+/* The hero while the model is thinking: the same shape, the skeleton inside. */
+.top-pick-loading {
+  background: linear-gradient(140deg, var(--accent), var(--accent-strong));
+}
+.top-pick-loading > .category-chip {
+  justify-self: start;
+  background: rgba(0, 0, 0, 0.22);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+.top-pick-loading h3 {
+  font-size: var(--t-h2);
+}
+/* A pick: the card, then its reasons under it in one line. */
+.ai-pick {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.ai-pick-why {
+  margin: 0;
+  padding: 0 4px;
+  font-size: var(--t-sm);
+  line-height: 1.45;
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+.ai-pick-why::before {
+  content: '\2726 ';
+  color: var(--accent);
+}
+.ai-picks .quiet-note {
+  margin-top: 14px;
+}
+.ai-picks .quiet-note .text-button {
+  padding: 0;
+  min-height: 0;
+  color: var(--accent);
+  font-size: inherit;
+  font-weight: var(--w-semibold);
+}
+.how-privacy {
+  margin: -4px 0 0;
+  font-size: var(--t-xs);
+  line-height: 1.45;
+}
+/* Little to go on: the things that would help, each a row that goes there. */
+.improve-panel {
+  display: grid;
+  gap: 14px;
+}
+.improve-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+}
+.improve-list .how-action {
+  grid-template-columns: 1fr auto;
+  margin: 0;
+  padding: 10px 0;
+}
+.improve-list li:first-child .how-action {
+  border-top: 0;
+  padding-top: 0;
+}
+
 /* =========================================================
    THE THREE STEPS AND THE SAFETY LINE
    A tester signed up, reached the app, and still could not say what it was
@@ -6646,6 +6777,11 @@ button.celebration-toast:hover {
   }
   .picks-page > .how-panel {
     grid-column: 2;
+  }
+  /* With nothing to pick from, the empty state takes the hero's place. */
+  .picks-page > .picks-empty {
+    grid-column: 1;
+    max-width: none;
   }
 
   /* --- Profile: the whole of you down the left, what you joined on the right

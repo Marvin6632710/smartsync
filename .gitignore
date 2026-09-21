@@ -11,6 +11,9 @@ dist
 # Live demo account password — deliberately not in the repository
 demo-credentials.local.txt
 
+# Secrets for the functions emulator (GEMINI_API_KEY) — never committed
+.secret.local
+
 # Firebase CLI local state and emulator exports
 .firebase/
 firebase-debug.log

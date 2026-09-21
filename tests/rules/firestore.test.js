@@ -1935,3 +1935,29 @@ describe('unmatched paths', () => {
     await assertFails(addDoc(collection(asAlice(), 'anything'), { x: 1 }))
   })
 })
+
+describe('AI Picks', () => {
+  // The Function's own records: the last answer a person got and their
+  // hour's call count, and the day's total. Only the Admin SDK touches
+  // them; a browser reading its own would learn nothing it was not told
+  // through the callable, and writing would be a way round the limits.
+  test('nobody reads or writes the answer kept for them, not even its owner', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'aiPicks', ALICE), {
+        uid: ALICE,
+        signature: 'x',
+        picks: [],
+        createdAt: 1,
+        calls: { start: 1, count: 1 },
+      })
+      await setDoc(doc(context.firestore(), 'aiPicksUsage', '2026-09-21'), { count: 1 })
+    })
+    await assertFails(getDoc(doc(asAlice(), 'aiPicks', ALICE)))
+    await assertFails(setDoc(doc(asAlice(), 'aiPicks', ALICE), { calls: { start: 1, count: 0 } }))
+    await assertFails(updateDoc(doc(asAlice(), 'aiPicks', ALICE), { 'calls.count': 0 }))
+    await assertFails(deleteDoc(doc(asAlice(), 'aiPicks', ALICE)))
+    await assertFails(getDoc(doc(asAdmin(), 'aiPicks', ALICE)))
+    await assertFails(getDoc(doc(asAlice(), 'aiPicksUsage', '2026-09-21')))
+    await assertFails(setDoc(doc(asAdmin(), 'aiPicksUsage', '2026-09-21'), { count: 0 }))
+  })
+})

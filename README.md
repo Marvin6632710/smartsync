@@ -220,7 +220,8 @@ Configure Google Maps first using [the setup guide](GOOGLE_MAPS_SETUP.md).
 also runs it before deployment. It cannot verify billing, API activation or
 referrer restrictions, so test the actual maps before publishing.
 
-For a hosting-only release (the current project has no deployed Functions):
+For a hosting-only release (the usual case — the AI Picks Function is
+deployed separately, see §10; the push Functions are not deployed yet):
 
 ```bash
 npm run check:maps
@@ -432,6 +433,80 @@ you compatible with everybody.
 
 An unknown distance scores neutrally rather than as zero kilometres — no
 reward and no penalty for a fact nobody knows yet.
+
+### AI Picks: Gemini on top of the engine
+
+The AI Picks page asks Gemini to put the activities you could join in order
+and say why each one fits. The engine above still runs first and last: it
+decides what is eligible and what the match score is, and when Gemini has
+no answer the page shows the engine's own order and says so.
+
+How a request goes:
+
+1. The browser takes what you could join — upcoming, not full, inside your
+   discovery filters, hosted by nobody you blocked, not already on your
+   list — keeps the forty best-scored, and sends them to the
+   `recommendActivities` Cloud Function with your signals: interests, the
+   categories you have joined (with counts), your preferred time of day and
+   whether your distance is known. Per activity: title, category, time
+   band, days ahead, rounded distance, spots left, the app's own match
+   score and a trimmed description. **Never** your name, email, host names,
+   place names, coordinates, photos or messages. `src/services/aiPicks.js`.
+2. The Function refuses anything but a signed-in account and a request of
+   exactly that shape, checks its cache (the same question in the last ten
+   minutes is answered without a model call), counts the call against the
+   person's hour (10) and the day's total (1,500), and only then calls
+   Gemini — `gemini-3.5-flash-lite` through the official `@google/genai`
+   SDK, Interactions API, JSON output against a schema, `store: false`, one
+   retry, a 20 s timeout. `functions/lib/picks.js`, `recommend.js`,
+   `gemini.js`.
+3. The answer is a list of ids with reason **codes**, not prose. An id the
+   model was not given is dropped, a repeat is dropped, and each code is
+   kept only when the data supports it (`interest` needs the category in
+   your interests, `time` needs the band to match, `distance` needs a known
+   distance of 3 km or less, and so on). The browser checks the ids again
+   against what is on screen and words the reasons from the activity's own
+   data, in your language.
+4. Titles and descriptions are other people's text: the prompt says they
+   are data to judge, never instructions, and the schema cannot carry
+   anything but ids and codes back.
+
+**Secrets and setup (owner-only).** The Function needs a Gemini API key,
+kept in Secret Manager and never in the browser or a `VITE_` variable:
+
+```bash
+# 1. Get a key: https://aistudio.google.com/apikey (a Google Cloud project;
+#    the free tier works, and its "content may be used to improve products"
+#    terms apply — with billing on the key, it does not).
+# 2. Store it as a secret (the project must be on Blaze to run Functions;
+#    smartsync-c1f07 has been since 2026-09-21):
+npx firebase functions:secrets:set GEMINI_API_KEY --project smartsync-c1f07
+# 3. Deploy the Function (and the rules, which now name the two AI Picks
+#    collections):
+npx firebase deploy --only functions:recommendActivities,firestore:rules --project smartsync-c1f07
+```
+
+Optional tuning, in `functions/.env` (ignored by git, read at deploy):
+`GEMINI_MODEL` (default `gemini-3.5-flash-lite`), `PICKS_USER_HOURLY_CAP`
+(default 10), `PICKS_DAILY_CAP` (default 1500). Set a Cloud Billing budget
+alert; at the documented prices the daily cap bounds the model cost to a
+few dollars a day even with every request a miss.
+
+**Locally** the emulator reads the key from `functions/.secret.local`
+(`GEMINI_API_KEY=…`, ignored by git). Without one, the Function answers
+"not configured" and the page shows the standard ranking. To exercise the
+whole path without a key or a bill, run the stand-in server and point the
+SDK at it:
+
+```bash
+node scripts/fake-gemini.mjs                          # 127.0.0.1:5599
+# functions/.secret.local: GEMINI_API_KEY=fake-local-key
+# functions/.env.local:    GEMINI_BASE_URL=http://127.0.0.1:5599
+```
+
+`FAKE_GEMINI_MODE=error|quota|garbage|slow` makes it fail in each way the
+Function handles. The base URL override is honoured under the emulator
+only.
 
 ## 11. Testing
 

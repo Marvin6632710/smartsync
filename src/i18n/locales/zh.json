@@ -783,7 +783,33 @@
   "picks": {
     "eyebrow": "AI 精选",
     "title": "为你精选",
-    "lead": "只包含{{interests}}——你选择的兴趣。按匹配程度排序，而不是按时间。",
+    "lead": "根据你的兴趣、参加过的活动、偏好时段和距离，从正在举办的活动中为你排序。",
+    "asking": "正在询问 Gemini…",
+    "sourceGemini": "由 Gemini 排序",
+    "sourceStandard": "标准精选。",
+    "refresh": "刷新",
+    "alsoForYou": "也适合你",
+    "withinFilters_other": "在你的发现筛选范围内（{{count}} 项生效中）。",
+    "emptyTitle": "目前没有可推荐的活动",
+    "emptyBody": "所有即将举行的活动都已满员或已在你的列表中。发现页有全部活动。",
+    "emptyBodyFilters_other": "没有符合你发现筛选条件（{{count}} 项生效中）且你尚未参加的活动。",
+    "fallback": {
+      "unavailable": "无法连接 Gemini，因此这是应用自身的排序。",
+      "rate-limited_other": "过去一小时内询问 Gemini 的次数过多，因此这是应用自身的排序。请在 {{count}} 分钟后重试。",
+      "not-configured": "此服务器尚未设置 Gemini，因此这是应用自身的排序。",
+      "invalid": "Gemini 的回答应用无法使用，因此这是应用自身的排序。",
+      "stale": "Gemini 回答后活动已变化，因此这是应用自身的排序。",
+      "error": "无法连接推荐服务，因此这是应用自身的排序。"
+    },
+    "improveEyebrow": "了解还不多",
+    "improveTitle": "获得更好的推荐",
+    "improveLead": "应用越了解你实际的参与情况，两种排序就越准确。",
+    "improve": {
+      "join": "参加一两个活动——你的实际参与是最强的信号",
+      "interests": "再添加几项兴趣",
+      "time": "设置你偏好的时段",
+      "location": "允许定位，让距离参与计算"
+    },
     "noInterestsTitle": "先告诉它你喜欢什么",
     "noInterestsBody": "此页面只显示你选择的类别。选几项后它会立刻填满。",
     "chooseInterests": "选择你的兴趣",
@@ -794,7 +820,8 @@
     "takeALook": "去看看",
     "howEyebrow": "工作原理",
     "howTitle": "排名依据",
-    "howLead": "每个匹配分数由六个信号共同构成。",
+    "howLead": "Gemini 依据这些信号为你能参加的活动排序并说明原因。匹配分数，以及 Gemini 无法回答时的标准精选，按以下权重计算。",
+    "privacy": "用于排序的信息：你的兴趣、参加过的类别、偏好时段和取整后的距离。绝不会发送你的姓名、消息、照片或精确位置。",
     "changeWhatMatters": "调整权重",
     "becauseYouLike": "因为你喜欢",
     "nothingIn": "{{interests}}目前没有活动。一旦有人主办，就会显示在这里。",
@@ -1098,7 +1125,9 @@
     "history": "与你之前参加的活动相似",
     "behavior": "相似的用户正在加入",
     "popularity": "在社区中很受欢迎",
-    "default": "符合你当前的发现偏好"
+    "default": "符合你当前的发现偏好",
+    "soon": "一天内举行",
+    "spots_other": "仅剩 {{count}} 个名额"
   },
   "map": {
     "showMyLocation": "显示我的位置",

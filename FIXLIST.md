@@ -217,6 +217,37 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **AI Picks through Gemini, to the owner's spec, 2026-09-21** — the
+  page's top list is now ranked by Gemini, as a re-ranker over the
+  activities the person could join (upcoming, not full, inside their
+  discovery filters, nobody blocked, not already joined; the forty best
+  by the engine's score), from their interests, joined categories with
+  counts, preferred time and whether distance is known. Through an
+  authenticated callable Cloud Function (`recommendActivities`) with the
+  key in Secret Manager; the browser holds only the Function's name.
+  The model answers ids and reason codes against a JSON schema; unknown
+  ids and repeats are dropped, every code is checked against the facts
+  on the server and the ids checked again on screen, and the reasons
+  are worded from the activity's own data in four languages — the model
+  writes nothing a person reads. Cache per person in Firestore (ten
+  minutes, keyed by the signals and the set of ids), ten model calls an
+  hour per person and 1,500 a day for everyone, one transaction; no
+  key, quota, outage, timeout or an unusable answer all come back as a
+  value and the page shows the engine's own order under "Standard
+  picks" with the reason and Try again. Refresh asks past the caches; a
+  render never asks; a changed question (an interest added, the
+  eligible set changed) asks again after a pause. Thin profiles get
+  "Get better picks" with the four things that help. ADR-029; README
+  §10 has the owner-only setup (key, Blaze, secret, deploy) and the
+  stand-in server for the emulator (`scripts/fake-gemini.mjs`).
+  Live the same evening: the owner upgraded to Blaze, set the secret and
+  deployed the Function and rules; the push Functions remain undeployed.
+  Verified in the emulator against the stand-in: ranked, cached
+  (`cached: true` on the second call, one POST), refreshed, rate-limited
+  (10 forced calls → the eleventh refused with a retry time), outage →
+  standard picks, garbage → invalid; phone and laptop, light and dark.
+  Tests: `tests/unit/picksServer.test.js` (38), `tests/unit/aiPicks.test.js`
+  (13), `tests/app/recommendationsPage.test.jsx` (10), rules "AI Picks".
 - **Discovery filters as sets, to the owner's spec, 2026-09-21** — the
   category and time dropdowns are gone; in their place a checkbox per
   category and per time band, dressed as chips with a mark, in labelled

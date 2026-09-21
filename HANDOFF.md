@@ -9,6 +9,162 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest continuation — AI Picks through Gemini (2026-09-21)
+
+The owner's spec: AI Picks ranked by the Gemini API, personalised from
+interests, joined categories, preferred time and distance; real eligible
+activities only; structured answers with validated ids and data-backed
+reasons; the key server-side; minimal data out; clear loading / retry /
+empty states; graceful fallback; cost control; four languages; documented
+setup. Built and verified on localhost against a stand-in Gemini server,
+then put live the same evening: the owner upgraded `smartsync-c1f07` to
+**Blaze**, created a Gemini API key in AI Studio, stored it with
+`firebase functions:secrets:set GEMINI_API_KEY` (version 1, project
+1027577281868), and deployed `functions:recommendActivities` + the rules
+(`✔ Deploy complete!`, cleanup policy 14 days). The push Functions
+(`onNotificationCreated`, `cleanupPushTokens`) are still **not** deployed
+— that deploy was `--only functions:recommendActivities`; they also need
+`VITE_FCM_VAPID_KEY`. Committed as "AI Picks through Gemini: a re-ranker
+with reasons the data supports" and pushed; hosting deployed after.
+
+### What was built
+
+- `functions/lib/picks.js` (new, pure) — `validateRequest` (signed-in
+  app's shape only: ≤ 40 candidates, ids `[A-Za-z0-9_-]{1,64}`, titles
+  ≤ 80, descriptions ≤ 240, control characters stripped, numbers ranged,
+  time bands from the three, interests/history ≤ 12), `signatureOf`
+  (sha256 of signals + sorted ids), `buildPrompt` (system instruction +
+  `PERSON:` / `ACTIVITIES:` JSON; descriptions declared data),
+  `RESPONSE_SCHEMA` (picks ≤ 8 × {id, reasons ≤ 3 from the 8 codes}),
+  `trueReasons` (what each code needs: interest ∈ interests, history ∈
+  joined, time band equal, distance known and ≤ 3 km, similar, ≥ 60 %
+  full, ≤ 1 day ahead, 1–3 spots), `parsePicks` (unknown ids and repeats
+  dropped, codes filtered to the true ones, null when nothing usable),
+  `rateWindow` (fixed-window arithmetic).
+- `functions/lib/gemini.js` (new) — `geminiRanker({ apiKey, model,
+  baseUrl, timeoutMs })` over `@google/genai` 2.23 (`ai.interactions.create`
+  with `system_instruction`, `store: false`, `generation_config:
+  { max_output_tokens: 1024, thinking_level: 'low' }`, `response_format:
+  { type: 'text', mime_type: 'application/json', schema }`, one retry,
+  20 s timeout); `classifyError` (429 → rate-limited, 5xx/timeout →
+  unavailable, other 4xx → invalid); `DEFAULT_MODEL = 'gemini-3.5-flash-lite'`
+  (the current stable "fastest, most cost-effective" model per
+  ai.google.dev/gemini-api/docs/models; the Interactions API is GA since
+  June 2026 and recommended for new projects, `generateContent` is
+  legacy but supported).
+- `functions/lib/recommend.js` (new) — `recommend({ db, uid, signals,
+  candidates, force, ranker, now, log, caps })`: cache doc
+  `aiPicks/{uid}` (signature, picks, model, createdAt; 10-minute TTL;
+  `force` bypasses), one transaction over `aiPicks/{uid}.calls` (10 per
+  hour) and `aiPicksUsage/{day}.count` (1,500 per day), then the ranker;
+  every outcome a value — `{ source: 'gemini', picks, model, createdAt,
+  cached }` or `{ source: 'standard', reason: 'not-configured' |
+  'rate-limited' (+ retryAfterSeconds) | 'unavailable' | 'invalid' }`.
+- `functions/index.js` — `recommendActivities = onCall({ region:
+  'us-central1', secrets: [GEMINI_API_KEY], timeoutSeconds: 30, memory:
+  '256MiB', maxInstances: 5 })`: unauthenticated → `HttpsError`, bad shape
+  → `invalid-argument`, else `recommend`. Env: `GEMINI_MODEL`,
+  `PICKS_USER_HOURLY_CAP`, `PICKS_DAILY_CAP`; `GEMINI_BASE_URL` honoured
+  under the emulator only. `@google/genai` added to `functions/package.json`.
+- `firestore.rules` — `aiPicks/{uid}` and `aiPicksUsage/{day}` denied
+  explicitly (rules test "AI Picks"). **Rules must be released with the
+  Function** (they compile and pass today; nothing else changed).
+- `src/firebase/functions.js` (new) — `getFunctions(app, 'us-central1')`,
+  emulator on 5001 (`VITE_FUNCTIONS_EMULATOR_PORT` to override),
+  `recommendActivitiesCall` (35 s client timeout).
+- `src/services/aiPicks.js` (new, pure) — `signalsOf` (known interests,
+  history = profile's `historyCategories` ∪ joined list with counts,
+  preferred time, `hasLocation`), `candidateOf` (facts only; an unknown
+  distance stays null — `Number(null)` is 0, which was a real bug caught
+  in the browser), `chooseCandidates` (best 40 by score),
+  `buildPicksRequest`, `picksSignature`, `reasonFacts` (code → the
+  `reasonKeys` shape `reasonText` already words), `resolvePicks` (ids ∩
+  on screen, engine reasons when the model gave none), `standardPicks`,
+  `improveHints` / `thinProfile`.
+- `src/hooks/useAiPicks.js` (new) — module-level answer cache keyed
+  `uid|signature`; status derived, not set (React Compiler lint forbids
+  setState and `Date.now()` in render/effects: a kept answer is shown
+  even past its time while the effect re-asks); 1.2 s debounce; `refresh`
+  (force, past both caches) and `retry`; `forgetAiPicks()` for tests.
+- `src/pages/RecommendationsPage.jsx` — rebuilt: headline; `.ai-source`
+  bar (asking / "Ranked by Gemini · 2 min ago" + Refresh / "Standard
+  picks." + reason + Try again; `role="status"`); hero = pick #1 with its
+  reasons (skeleton hero while asking); "How this works" panel (lead now
+  names Gemini; privacy line `picks.privacy`); "Also for you" cards each
+  with a `.ai-pick-why` line; "Within your discovery filters (n active)"
+  note with Adjust; empty state for no eligible activities; "Get better
+  picks" panel for thin profiles (join / interests / time / location →
+  `/home`, `/interests`, `/profile/edit`, `/privacy`); then the unchanged
+  grouped-by-interest list (standard, unfiltered), the missing-interests
+  note and the people banner. Candidates exclude what you already joined.
+- `src/i18n/index.js` — `reasonText` passes `count` (for `reasons.spots`).
+- Locales (all four): `picks.lead`, `howLead` reworded; new `asking`,
+  `sourceGemini`, `sourceStandard`, `refresh`, `alsoForYou`,
+  `withinFilters_*`, `emptyTitle`, `emptyBody`, `emptyBodyFilters_*`,
+  `fallback.{unavailable, rate-limited_*, not-configured, invalid, stale,
+  error}`, `improveEyebrow`, `improveTitle`, `improveLead`,
+  `improve.{join, interests, time, location}`, `privacy`;
+  `reasons.soon`, `reasons.spots_*`.
+- `src/styles.css` — `.ai-source` (+ `[data-state]`, pulse while asking,
+  reduced-motion), `.ai-refresh`, `.top-pick-loading`, `.ai-pick`,
+  `.ai-pick-why`, `.how-privacy`, `.improve-panel`, `.improve-list`.
+- `scripts/fake-gemini.mjs` (new) — stand-in Interactions API server
+  (rank / error / quota / garbage / slow modes). `functions/.secret.local`
+  and `functions/.env.local` are ignored (`.secret.local` added to
+  `.gitignore`); the owner's copies point at the stand-in.
+- Docs: README §10 "AI Picks: Gemini on top of the engine" (flow, secrets,
+  billing, deploy, local stand-in, tunables), ADR-029, ARCHITECTURE (new
+  feature section + guard table rows), FIXLIST, CLAUDE_HANDOFF.
+- Tests: `tests/unit/picksServer.test.js` (38: validation, cleaning,
+  signature, prompt contents and absence of personal fields, schema,
+  trueReasons, parsePicks, rateWindow, classifyError, and `recommend`
+  over a Map-backed fake Firestore: ask/keep/count, cache hit and expiry,
+  force, not-configured, per-person and per-day caps, failures),
+  `tests/unit/aiPicks.test.js` (13), `tests/app/recommendationsPage.test.jsx`
+  (10: request timing and contents, answer rendering with reasons,
+  re-render is not a request, refresh forces, changed question re-asks,
+  rate-limited fallback + Try again, callable failure + retry, stale id
+  dropped, empty state, hints, Thai), rules "AI Picks".
+
+### Verified
+
+- Emulator + stand-in, from the browser as the owner's account: "Asking
+  Gemini…" → "Ranked by Gemini · Just now" with the hero and cards and
+  reasons; Refresh → asked again (`force: true`, `cached: false`); the
+  second identical request from curl → `cached: true` with a single POST
+  to the stand-in; ten forced calls as Maya → the eleventh
+  `rate-limited`, `retryAfterSeconds` ≈ 3,390; the browser account put at
+  the cap → "Standard picks. Gemini has been asked a lot… Try again in
+  60 minutes." with the engine's order; stand-in in error mode → "Gemini
+  could not be reached" (two attempts, ~400 ms); garbage mode → `invalid`
+  (unit); the bundle contains the Function's name and no Gemini string
+  (`grep` of `dist/assets`). Phone and laptop, light and dark.
+- The `.secret.local` / `.env.local` route works in the emulator (the
+  Function read the fake key and the base URL without a restart).
+
+### Setup that was done (owner-only), for the record
+
+1. `smartsync-c1f07` upgraded to **Blaze** (2026-09-21). Set a budget
+   alert if one is not there yet.
+2. Gemini API key created in Google AI Studio (free tier; its "content
+   may be used to improve products" terms apply — enabling billing on the
+   key's Cloud project changes that).
+3. `npx firebase functions:secrets:set GEMINI_API_KEY --project smartsync-c1f07`
+   → version 1. To rotate: run it again (a new version), then redeploy
+   the Function so it picks the latest up.
+4. `npx firebase deploy --only functions:recommendActivities,firestore:rules --project smartsync-c1f07`
+   — the first run failed with "no latest version of the secret" only
+   because it ran before Enter was pressed on step 3; the second run
+   created the Function. Then hosting.
+5. Optional, still open: `functions/.env` with `GEMINI_MODEL`,
+   `PICKS_USER_HOURLY_CAP`, `PICKS_DAILY_CAP` (read at deploy); App Check
+   on the callable if abuse ever matters; push Functions + VAPID.
+6. Live check: an unauthenticated POST to
+   `https://us-central1-smartsync-c1f07.cloudfunctions.net/recommendActivities`
+   answers `UNAUTHENTICATED` "Sign in to get recommendations."; signed
+   in, AI Picks reads "Ranked by Gemini"; the Functions log line
+   `ai picks ranked` carries token counts.
+
 ## Latest continuation — discovery filters as sets (2026-09-21)
 
 The owner's spec for multi-select discovery filters, implemented point by

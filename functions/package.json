@@ -1,7 +1,7 @@
 {
   "name": "smartsync-functions",
   "private": true,
-  "description": "The trusted sender: turns an inbox record into a browser push.",
+  "description": "The trusted side: turns an inbox record into a browser push, and asks Gemini to rank AI Picks with a key the browser never sees.",
   "type": "module",
   "main": "index.js",
   "engines": {
@@ -13,6 +13,7 @@
     "logs": "firebase functions:log"
   },
   "dependencies": {
+    "@google/genai": "^2.23.0",
     "firebase-admin": "^13.4.0",
     "firebase-functions": "^6.4.0",
     "i18next": "^25.5.2"

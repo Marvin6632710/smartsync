@@ -10,8 +10,22 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
+import { defaultFilters } from '../../src/utils/filters'
+
 let app = {}
-vi.mock('../../src/context/AppContext', () => ({ useApp: () => app }))
+// What the AI Picks section reads besides the list: nothing eligible, so
+// no request is made — this file is about the panel that explains the
+// weights, which shows whatever the model says.
+const quiet = {
+  filteredActivities: [],
+  joinedIds: [],
+  joinedActivities: [],
+  filters: defaultFilters,
+}
+vi.mock('../../src/context/AppContext', () => ({ useApp: () => ({ ...quiet, ...app }) }))
+vi.mock('../../src/firebase/functions', () => ({
+  recommendActivitiesCall: () => Promise.reject(new Error('not in this test')),
+}))
 vi.mock('../../src/context/AuthContext', () => ({
   useAuth: () => ({ user: { uid: 'me', interests: ['Coffee'], name: 'Me' } }),
 }))
