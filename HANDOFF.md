@@ -6,11 +6,12 @@ recorded below; the original session details remain for context.
 
 ## Latest continuation — Google Maps migration (2026-09-21)
 
-**Configured and verified locally; ready for hosting release.** Started
-from clean `main` at `78c9093`. The owner requested Google Maps instead of
-Leaflet/OpenStreetMap, then authorized completing cloud setup, testing,
-commit/push and deployment. Until the release below is recorded, the live
-site remains search release `4462773`, bundle `index-fs7oX7Ln.js`.
+**Deployed:** implementation commit `1adfa05`, hosting bundle
+`index-jHb5xmTm.js`, released and checksum-verified 2026-09-21 at
+<https://smartsync-c1f07.web.app/map>. Started from clean `main` at `78c9093`.
+The owner requested Google Maps instead of Leaflet/OpenStreetMap, then
+explicitly authorized completing cloud setup, testing, commit/push and
+deployment. Hosting now uses Google Maps.
 
 - Added the shared `services/googleMaps.js` loader, `GoogleMap` adapter,
   `ActivityMapPins` and coordinate helpers. Discovery keeps clusters, pin
@@ -64,11 +65,21 @@ image, worker and frame restrictions remained exact; map/picker rendering and
 interaction passed with no console warnings/errors. Temporary server/build
 files are under `/private/tmp/smartsync-maps-csp*`, outside the repository.
 
-**Resume release:** commit/push, deploy **hosting only**, verify the live map
-and picker with the owner's existing signed-in browser, and record the commit
-and bundle below. Restore the Vite dev server afterward. The dev emulator's
-data has been preserved. Original index/admin walkthrough items below remain
-outstanding.
+**Release verification:** committed and pushed `1adfa05`, then deployed
+**hosting only** to `smartsync-c1f07`. `/`, `/map` and `/create` return HTTP 200
+and the exact production HTML/CSP. The entry script, Google Maps chunk
+(`GoogleMap-DqPIyr81.js`) and CSS (`index-Dq8TPmeh.css`) match the local build
+by SHA-256. The owner's existing signed-in production browser loaded native
+Google tiles/controls, expanded clusters and opened the correct activity
+preview. The live edit picker retained an existing activity's coordinates;
+the live create picker accepted a new draft pin. No production activity was
+created or edited. No Google Maps errors were reported; the tab retains
+older Firestore connectivity/lease log entries from before this release.
+
+The normal Vite server is restored at <http://127.0.0.1:5173>, and the dev
+emulator's data is preserved. Browser viewport overrides were reset. The
+Google Maps implementation is complete; original production index/admin
+walkthrough items below remain outstanding.
 
 ## Latest continuation — activity search (2026-09-21)
 
@@ -155,13 +166,16 @@ state and live `/admin` walkthrough in §3 remain outstanding.
 
 |                  |                                                                                                                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live             | <https://smartsync-c1f07.web.app> — hosting bundle `index-fs7oX7Ln.js`, built from `4462773`, released and checksum-verified 2026-09-21                                                   |
-| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`; search implementation `4462773`, photo implementation `355b89f`                                                                  |
-| Deployed         | Hosting as of `4462773`; Firestore rules and indexes (including photo-field index exemptions) as of `355b89f`                                                                       |
+| Live             | <https://smartsync-c1f07.web.app> — hosting bundle `index-jHb5xmTm.js`, built from `1adfa05`, released and checksum-verified 2026-09-21                                                   |
+| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`; maps implementation `1adfa05`, search `4462773`, photos `355b89f`                                                                  |
+| Deployed         | Hosting as of `1adfa05`; Firestore rules and indexes (including photo-field index exemptions) as of `355b89f`                                                                       |
 | **Not** deployed | Cloud Functions in `functions/` (browser push). They need the Blaze plan and a `VITE_FCM_VAPID_KEY`. The live site has no push notifications, which is what README and DEMO_SCRIPT say |
 | Local state      | Firebase CLI 15.29.0 signed in as the owner on this machine. A dev emulator and Vite dev server may still be running (see §7)                                                          |
 
 Recent commits, newest first:
+
+- `1adfa05` Replace Leaflet maps with Google Maps for activity discovery and placement — configured restricted browser key/map ID, native markers, preserved saved coordinates, responsive controls, CSP and verification.
+- `78c9093` Record the verified activity-search release.
 
 - `4462773` Search activities by name only after a term is entered — empty prompt, title-only matching, no-match message, four locales and browser verification.
 - `2e9d231` Record the verified picture-upload release.

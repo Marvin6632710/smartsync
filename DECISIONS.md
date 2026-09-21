@@ -1366,6 +1366,7 @@ inline scripts and eval.
 Hosting checks for a key and a non-demo map ID before deployment. Automated
 SDK mocks test lifecycle, failures, markers and camera behavior, but cannot
 validate real tiles, cloud activation, billing or hosting CSP compatibility.
-The owner must configure the Google project and the real browser checks in
-[GOOGLE_MAPS_SETUP.md](GOOGLE_MAPS_SETUP.md) must pass before this migration
-replaces the working live release.
+The Google project must be configured and the real browser checks in
+[GOOGLE_MAPS_SETUP.md](GOOGLE_MAPS_SETUP.md) must pass before publishing a
+new environment. The first configured release was verified on 2026-09-21;
+HANDOFF.md records its deployment and browser checks.
