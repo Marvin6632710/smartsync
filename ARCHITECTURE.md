@@ -110,10 +110,21 @@ Each stage adds one thing and hides nothing:
 | `timed`              | `isPast`                         | Whether something has started is a fact about _now_, so a clock re-evaluates it every minute       |
 | `visibleActivities`  | —                                | Active ones, plus anything you joined even if cancelled or finished                                |
 | `recommendations`    | —                                | Discovery: upcoming and active only                                                                |
-| `filteredActivities` | —                                | Your filters, applied last                                                                         |
+| `filteredActivities` | —                                | Your filters, applied last (`matchesFilters` in `utils/filters.js`)                                |
 
 **Why derived and not stored:** `joinedIds` is computed from the rosters, not
 kept as a second list. Two lists can disagree; one cannot disagree with itself.
+
+**The filters** are sets: any number of categories, any number of time
+bands, a maximum distance and the available-spots switch. An empty set is
+no restriction — every category, any time — and an activity passes when it
+matches _any_ member of each chosen set and _every_ group (football or
+basketball, in the morning or evening, within 10 km, with room). They are a
+per-device preference in `localStorage` (`smartsync:filters`); one place,
+`src/utils/filters.js`, owns their shape, reads a filter saved by an older
+version as a set of one, and is the predicate the feed, the search and the
+map all share. The filter page edits a draft that reaches the feed on
+Apply; Reset clears the sets, restores the defaults and applies at once.
 
 **Check it yourself:** open the app in two windows as two accounts. Join in
 one. The other updates without a refresh — that is the listener, not a poll.
@@ -480,6 +491,6 @@ In order, on <https://smartsync-c1f07.web.app>:
 10. **Delete it** → says Delete, not Cancel, because nobody else joined
 11. **Privacy → anonymous mode on** → your name changes everywhere
 12. **Turn wifi off**, join something → offline banner, "will sync"
-13. **Set a category filter, then search for something in another category** →
+13. **Pick two categories and two times, then search for something outside them** →
     the empty state says the filters are hiding things and offers to clear
     them, rather than telling you to try another word

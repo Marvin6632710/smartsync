@@ -330,13 +330,15 @@
     "fromInterests": "来自你的兴趣",
     "aiPicks": "AI 精选",
     "soonestFirst": "最近的在前",
-    "happeningSoon": "即将开始"
+    "happeningSoon": "即将开始",
+    "filterActive_other": "筛选，{{count}} 项生效中"
   },
   "filtersEmpty": {
     "title": "没有符合筛选条件的活动",
-    "body": "试试扩大距离范围，或清除筛选条件查看附近的所有活动。",
+    "body": "试试多选几个类别或时段、扩大距离范围，或清除筛选条件查看附近的所有活动。",
     "mapBody": "没有符合筛选条件的活动，地图上没有可显示的内容。",
-    "clear": "清除筛选"
+    "clear": "清除筛选",
+    "adjust": "调整筛选"
   },
   "search": {
     "title": "搜索",
@@ -351,11 +353,14 @@
   "filters": {
     "title": "发现筛选",
     "category": "类别",
-    "all": "全部",
+    "categoryHint": "可多选。不选则显示全部类别。",
+    "allCategories": "全部类别",
     "maxDistance": "最远距离：",
     "km": "{{value}} 公里",
     "time": "时段",
-    "any": "不限",
+    "timeHint": "不选则显示所有时段。",
+    "anyTime": "不限时段",
+    "selected_other": "已选 {{count}} 项",
     "availableOnly": "只看还有名额的",
     "availableOnlyHint": "隐藏已满员的活动",
     "reset": "重置",
@@ -702,7 +707,7 @@
     "privacy": "隐私",
     "privacyHint": "匿名模式和位置控制",
     "discovery": "发现偏好",
-    "discoveryHint": "类别、距离和名额",
+    "discoveryHint": "类别、时段、距离和名额",
     "blocked": "已屏蔽的人",
     "blockedHint": "你屏蔽了谁，以及如何取消",
     "warnings": "当前警告",

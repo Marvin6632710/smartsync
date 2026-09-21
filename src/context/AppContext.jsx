@@ -51,6 +51,7 @@ import {
   watchPeers,
 } from '../firebase/users'
 import { rankActivities, recommendationWeights } from '../services/recommendationService'
+import { defaultFilters, matchesFilters, normaliseFilters } from '../utils/filters'
 import { distanceBetween } from '../utils/geo'
 import { useListenerRetry } from '../hooks/useListenerRetry'
 import { DURABLE, loadDurable, loadStorage, saveDurable, saveStorage } from '../utils/storage'
@@ -118,15 +119,6 @@ const SUPERSEDED_MESSAGE = {
  */
 export const SERVER_SILENCE_MS = 20_000
 
-// Single source of truth — previously duplicated in the initial state,
-// resetPrototype and FilterPage's own reset.
-export const defaultFilters = {
-  category: 'All',
-  maxDistance: 10,
-  timeBand: 'Any',
-  availableOnly: true,
-}
-
 export function AppProvider({ children }) {
   // The words every toast is made of, in the language in force. Toasts are
   // built in event handlers, so they read `t` at the moment they are shown.
@@ -151,8 +143,11 @@ export function AppProvider({ children }) {
 
   // Filters are a per-device view preference, not shared account data, so
   // they stay in localStorage rather than costing a Firestore write on every
-  // slider drag.
-  const [filters, setFilters] = useState(() => loadStorage('smartsync:filters', defaultFilters))
+  // slider drag. Normalised on the way in: a set saved by an older version
+  // as one choice comes back as a set of one (see utils/filters).
+  const [filters, setFilters] = useState(() =>
+    normaliseFilters(loadStorage('smartsync:filters', defaultFilters)),
+  )
 
   // Scoring weights are adjustable and kept per device, for the same reason
   // filters are: they change how *you* see the list, not what anyone else
@@ -918,21 +913,12 @@ export function AppProvider({ children }) {
     [visibleActivities, blockedIds],
   )
 
-  const filteredActivities = useMemo(() => {
-    return recommendations.filter((activity) => {
-      if (filters.category !== 'All' && activity.category !== filters.category) return false
-      // An unknown distance is never filtered out — hiding everything until
-      // the user grants location would make the app look broken.
-      if (
-        Number.isFinite(activity.distanceKm) &&
-        activity.distanceKm > Number(filters.maxDistance || 999)
-      )
-        return false
-      if (filters.timeBand !== 'Any' && activity.timeBand !== filters.timeBand) return false
-      if (filters.availableOnly && activity.participants >= activity.capacity) return false
-      return true
-    })
-  }, [recommendations, filters])
+  // One predicate for the feed, the search and the map, so they cannot
+  // disagree about what the filters mean.
+  const filteredActivities = useMemo(
+    () => recommendations.filter((activity) => matchesFilters(activity, filters)),
+    [recommendations, filters],
+  )
 
   // -------------------------------------------------------- message previews
 

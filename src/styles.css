@@ -1512,6 +1512,119 @@ select:focus-visible {
   margin-bottom: 10px;
 }
 
+/* --- Discovery filters: a group of choices ---------------------------
+   Real checkboxes dressed as chips. The input is kept in the tree, but
+   off-screen, so Space still toggles it and a screen reader still reads
+   it as a checkbox; the chip and its mark are what the eye gets. */
+.choice-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.choice-group legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  color: var(--text);
+}
+.choice-group .field-hint {
+  margin: 0;
+}
+.choice-count {
+  padding: 3px 9px;
+  font-size: var(--t-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 8px;
+}
+.form-card .choice-chip {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.form-card .choice-chip:hover {
+  border-color: var(--line-strong);
+}
+.form-card .choice-chip.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.form-card .choice-chip input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+/* The keyboard's ring, drawn on the chip since the box itself is hidden.
+   :focus-within alone would also ring a chip that was tapped; where :has
+   is understood the ring is kept for keyboard focus only. */
+.form-card .choice-chip:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.form-card .choice-chip:has(input:focus:not(:focus-visible)) {
+  outline: none;
+}
+.choice-mark {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: transparent;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.choice-chip.selected .choice-mark {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+/* "All categories" / "Any time": the same chip, but a rounder mark, so a
+   glance can tell the clear-everything control from the choices. */
+.choice-all .choice-mark {
+  border-radius: 50%;
+}
+
 /* =========================================================
    SETTINGS ROWS + SWITCH
    ========================================================= */
@@ -1644,6 +1757,13 @@ select:focus-visible {
   border: 1px solid var(--line) !important;
   border-radius: var(--r-md);
   grid-template-columns: 1fr auto;
+}
+/* The words stack here as they do in a settings row — which keys on the
+   span being second, after an icon this row does not always have. */
+.compact-row > span:first-of-type {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .switch {
   width: 40px;
@@ -2285,6 +2405,20 @@ select:focus-visible {
 .empty-state .primary-button,
 .empty-state .button-row {
   margin-top: 10px;
+}
+/* Two ways out, side by side, each as wide as its words: the empty state
+   centres its children, which leaves a stretched row nothing to stretch
+   into, and a button that wraps mid-phrase reads as a mistake. */
+.filters-empty-actions {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.empty-state .filters-empty-actions > * {
+  flex: 0 1 auto;
+  /* The row carries the gap above; a lone primary button's own margin
+     would otherwise push this one below its neighbour. */
+  margin-top: 0;
+  white-space: nowrap;
 }
 
 /* =========================================================
@@ -3446,6 +3580,26 @@ input[type='range'] {
 .discover-tools button:active {
   transform: scale(0.96);
   border-color: var(--accent);
+}
+/* With filters narrowing the feed, the button that opens them says so:
+   how many choices are in force, on an accent ground. */
+.discover-tools button[data-active='yes'] {
+  border-color: var(--accent-line);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.tool-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--t-xs);
+  font-weight: var(--w-semibold);
+  font-variant-numeric: tabular-nums;
 }
 
 /* The top pick, as the thing to do rather than a statistic about you. */

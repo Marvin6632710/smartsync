@@ -9,6 +9,85 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest continuation — discovery filters as sets (2026-09-21)
+
+The owner's spec for multi-select discovery filters, implemented point by
+point, verified on localhost against the emulator, reviewed by the owner
+there, then committed as "Discovery filters as sets: any categories, any
+times, one predicate" and pushed. **Hosting was not deployed with that
+commit** — when asked, `firebase deploy --only hosting`; no rules or index
+change (the filters never leave the device).
+
+- `src/utils/filters.js` (new) — the one place that knows the filters'
+  shape. `defaultFilters = { categories: [], maxDistance: 10, timeBands: [],
+  availableOnly: true }`; `DISTANCE_RANGE = { min: 1, max: 15 }`;
+  `normaliseFilters(stored)` reads either the new shape or the old one
+  (`category: 'All' | name`, `timeBand: 'Any' | band` → set of one, or
+  empty for All/Any), keeps only vocabulary members in vocabulary order,
+  clamps the distance to the slider and rounds it, and falls back field by
+  field; `toggleChoice(chosen, value, vocabulary)`; `matchesFilters(activity,
+  filters)` — OR within each set, AND between the four groups, an unknown
+  distance never hides anything; `activeFilterCount` / `filtersActive`
+  (each chosen category and band counts one, distance and switch count one
+  each when off their defaults). ADR-028 records the "empty means
+  everything" choice and why the storage schema version was not bumped.
+- `src/context/AppContext.jsx` — `defaultFilters` moved out (import it
+  from `utils/filters`); state initialised through `normaliseFilters`, so an
+  old stored shape is migrated on load and written back new by the existing
+  save effect; `filteredActivities` is `recommendations.filter(matchesFilters)`.
+- `src/pages/FilterPage.jsx` — `ChoiceGroup` (a `fieldset` with a legend,
+  a count chip "2 selected" when non-empty, a hint, an "all" toggle button
+  with `aria-pressed` that empties the group, and a real
+  `<input type="checkbox">` inside a `<label class="choice-chip">` per
+  option, with a `.choice-mark` check). Draft state as before; Apply →
+  `setFilters(draft)` + `/home`; Reset → defaults, applied at once.
+- `src/pages/SearchPage.jsx` — `filtersActive` now `filtersActive(filters)`
+  from the module (the old key-by-key `!==` would be true forever with
+  arrays). Title-only search and the empty-input prompt untouched.
+- `src/pages/HomePage.jsx` — the Filter button carries `data-active`, a
+  `.tool-count` with the number of choices in force and `aria-label`
+  `home.filterActive` ("Filter, {{count}} active").
+- `src/components/FiltersEmptyState.jsx` — "Adjust filters" (→ `/filters`)
+  beside "Clear filters", in `.button-row.filters-empty-actions`.
+- `src/styles.css` — `.choice-group / legend / .choice-count / .choice-grid`
+  (auto-fill, min 148px → 2 columns on a phone, 4 on the 760px page),
+  `.form-card .choice-chip` (46px tall, selected = accent-soft), the hidden
+  input, focus ring on the chip via `:focus-within` minus
+  `:has(input:focus:not(:focus-visible))`, `.choice-mark`, `.choice-all`
+  (round mark); `.discover-tools button[data-active='yes']` + `.tool-count`;
+  `.filters-empty-actions` (natural widths, the primary's own margin
+  zeroed); `.compact-row > span:first-of-type` stacks the switch row's
+  title and hint (it keyed on the span being second, after an icon this
+  row never had — a pre-existing slip on this page).
+- `src/utils/storage.js` — comment only: why `SCHEMA_VERSION` stays 3.
+- Locales (all four): `filters.category` → "Categories", `categoryHint`,
+  `allCategories`, `time` → "Time of day", `timeHint`, `anyTime`,
+  `selected_one/_other`; `filters.all` and `filters.any` removed;
+  `filtersEmpty.body` reworded, `filtersEmpty.adjust`;
+  `home.filterActive_one/_other`; `settings.discoveryHint` now names
+  categories and times in the plural.
+- Tests: `tests/unit/filters.test.js` (14), `tests/app/filterPage.test.jsx`
+  (7), `tests/app/appContext.listeners.test.jsx` "the discovery filters"
+  (3). Docs: ADR-028, FIXLIST, ARCHITECTURE (pipeline table + a paragraph),
+  CLAUDE_HANDOFF (ideas table, files table).
+- Verified in the emulator app as Maya: Football + Basketball + Morning +
+  Evening → "Filter 4" on Discover and the empty state (nothing upcoming
+  fits); Coffee + Running + Morning + Evening → exactly "Google Maps
+  verification" (Coffee, evening) and "Benjakitti Easy Run" (Running,
+  morning), not "Coffee & New Connections" (afternoon); search "connect"
+  → not found with "Clear filters and search again", which then finds it;
+  the old shape `{category:'Coffee', timeBand:'Afternoon', maxDistance:8,
+  availableOnly:false}` seeded into `localStorage` → page shows Coffee +
+  Afternoon + 8 km + switch off and storage is rewritten as sets; Reset →
+  defaults stored; map empty state with both buttons, pins back after
+  Clear; phone viewport, light and dark; keyboard focus ring on a chip,
+  none on a tapped one. (Synthetic Space from the browser tool does not
+  toggle a checkbox — a known limitation of the tool, not the page; the
+  tests cover toggling.)
+
+**Checks at the time of writing:** unit/app 838 / 838; lint, Prettier and
+the build clean. Rules unchanged, so the rules suite was not re-run.
+
 ## Latest continuation — the bell's unread badge (2026-09-21)
 
 The owner's spec for the notification badge. Most of it already existed

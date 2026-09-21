@@ -444,6 +444,116 @@ describe('the discovery cap must not lose your own commitments', () => {
   })
 })
 
+describe('the discovery filters', () => {
+  // What the feed, the search and the map all read.
+  let seen
+  function FilterProbe() {
+    const { filters, filteredActivities, setFilters, resetFilters } = useApp()
+    seen = { filters, ids: filteredActivities.map((a) => a.id).sort(), setFilters, resetFilters }
+    return null
+  }
+  const stored = () => JSON.parse(localStorage.getItem('smartsync:filters'))
+  const feed = () =>
+    act(() =>
+      emit.activities(
+        [
+          activity('foot-am', { category: 'Football', timeBand: 'Morning', hostId: 'h' }),
+          activity('foot-pm', { category: 'Football', timeBand: 'Afternoon', hostId: 'h' }),
+          activity('ball-ev', { category: 'Basketball', timeBand: 'Evening', hostId: 'h' }),
+          activity('run-am', { category: 'Running', timeBand: 'Morning', hostId: 'h' }),
+          activity('run-full', {
+            category: 'Running',
+            timeBand: 'Morning',
+            hostId: 'h',
+            participants: 10,
+          }),
+        ],
+        { fromCache: false },
+      ),
+    )
+
+  test('a filter saved by an older version — one choice per group — is read as a set of one, and written back as one', () => {
+    localStorage.setItem(
+      'smartsync:filters',
+      JSON.stringify({
+        category: 'Football',
+        maxDistance: 5,
+        timeBand: 'Morning',
+        availableOnly: false,
+      }),
+    )
+    render(
+      <AppProvider>
+        <FilterProbe />
+      </AppProvider>,
+    )
+    expect(seen.filters).toEqual({
+      categories: ['Football'],
+      maxDistance: 5,
+      timeBands: ['Morning'],
+      availableOnly: false,
+    })
+    expect(stored()).toEqual(seen.filters)
+    feed()
+    expect(seen.ids).toEqual(['foot-am'])
+  })
+
+  test("the older 'All' and 'Any' read as no restriction", () => {
+    localStorage.setItem(
+      'smartsync:filters',
+      JSON.stringify({ category: 'All', maxDistance: 10, timeBand: 'Any', availableOnly: true }),
+    )
+    render(
+      <AppProvider>
+        <FilterProbe />
+      </AppProvider>,
+    )
+    expect(seen.filters).toEqual({
+      categories: [],
+      maxDistance: 10,
+      timeBands: [],
+      availableOnly: true,
+    })
+    feed()
+    // Everything with a spot left.
+    expect(seen.ids).toEqual(['ball-ev', 'foot-am', 'foot-pm', 'run-am'])
+  })
+
+  test('any of the chosen categories, at any of the chosen times, with room — and Reset opens it all up again', () => {
+    render(
+      <AppProvider>
+        <FilterProbe />
+      </AppProvider>,
+    )
+    feed()
+    act(() =>
+      seen.setFilters({
+        categories: ['Football', 'Basketball'],
+        maxDistance: 10,
+        timeBands: ['Morning', 'Evening'],
+        availableOnly: true,
+      }),
+    )
+    // Football in the morning and basketball in the evening; not football
+    // in the afternoon, and nothing that is running.
+    expect(seen.ids).toEqual(['ball-ev', 'foot-am'])
+    expect(stored().categories).toEqual(['Football', 'Basketball'])
+    act(() => seen.setFilters({ ...seen.filters, categories: ['Running'], timeBands: [] }))
+    // The switch still hides the full one.
+    expect(seen.ids).toEqual(['run-am'])
+    act(() => seen.setFilters({ ...seen.filters, availableOnly: false }))
+    expect(seen.ids).toEqual(['run-am', 'run-full'])
+    act(() => seen.resetFilters())
+    expect(seen.filters).toEqual({
+      categories: [],
+      maxDistance: 10,
+      timeBands: [],
+      availableOnly: true,
+    })
+    expect(seen.ids).toEqual(['ball-ev', 'foot-am', 'foot-pm', 'run-am'])
+  })
+})
+
 describe('closed threads and the retry budget', () => {
   const DAY = 86_400_000
   const denial = { code: 'permission-denied' }

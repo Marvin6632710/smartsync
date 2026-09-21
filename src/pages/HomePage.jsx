@@ -11,6 +11,7 @@ import FiltersEmptyState from '../components/FiltersEmptyState'
 import ActivitiesLoading from '../components/ActivitiesLoading'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
+import { activeFilterCount } from '../utils/filters'
 import { formatActivityDate, formatClock, greetingFor, partOfDay, questionFor } from '../utils/time'
 import { categoryLabel, reasonLines } from '../i18n'
 import { pickForInterests } from '../services/interestPicks'
@@ -39,7 +40,7 @@ export default function HomePage() {
   const navigate = useNavigate()
   const morph = useMorph()
   const heroRef = useRef(null)
-  const { filteredActivities, recommendations, loading } = useApp()
+  const { filteredActivities, recommendations, loading, filters } = useApp()
   const { user } = useAuth()
   /**
    * Discover answers "what is on", AI Picks answers "what suits me".
@@ -74,6 +75,9 @@ export default function HomePage() {
   // could change it is the clock crossing an hour boundary, and a screen this
   // cheap to re-render will do that on its own long before anyone notices.
   const part = partOfDay()
+  // How many choices are narrowing the feed, on the button that opens them:
+  // a short list should look filtered, not empty.
+  const narrowing = activeFilterCount(filters)
 
   // The wide layouts are decided in the stylesheet from what is on the page:
   // with picks, the feed takes a sidebar; without, it takes the full width.
@@ -100,8 +104,17 @@ export default function HomePage() {
         <button onClick={() => navigate('/search')}>
           <Search size={16} /> {t('common.search')}
         </button>
-        <button onClick={() => navigate('/filters')}>
+        <button
+          onClick={() => navigate('/filters')}
+          data-active={narrowing > 0 ? 'yes' : 'no'}
+          aria-label={narrowing > 0 ? t('home.filterActive', { count: narrowing }) : undefined}
+        >
           <Filter size={16} /> {t('common.filter')}
+          {narrowing > 0 && (
+            <span className="tool-count" aria-hidden="true">
+              {narrowing}
+            </span>
+          )}
         </button>
       </div>
 

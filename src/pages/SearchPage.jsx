@@ -3,7 +3,8 @@ import { Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ActivityCard from '../components/ActivityCard'
 import ActivitiesLoading from '../components/ActivitiesLoading'
-import { defaultFilters, useApp } from '../context/AppContext'
+import { useApp } from '../context/AppContext'
+import { filtersActive as narrowing } from '../utils/filters'
 
 export default function SearchPage() {
   const { t } = useTranslation()
@@ -13,9 +14,7 @@ export default function SearchPage() {
 
   // Keep the existing discovery filters, with a way to clear them when a
   // name search finds nothing. An empty query never becomes a discovery feed.
-  const filtersActive = Object.keys(defaultFilters).some(
-    (key) => filters[key] !== defaultFilters[key],
-  )
+  const filtersActive = narrowing(filters)
   const results = useMemo(() => {
     if (!searchTerm) return []
     return filteredActivities.filter((a) => (a.title || '').toLowerCase().includes(searchTerm))

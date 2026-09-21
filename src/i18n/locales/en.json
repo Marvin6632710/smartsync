@@ -332,13 +332,16 @@
     "fromInterests": "From your interests",
     "aiPicks": "AI Picks",
     "soonestFirst": "Soonest first",
-    "happeningSoon": "Happening soon"
+    "happeningSoon": "Happening soon",
+    "filterActive_one": "Filter, {{count}} active",
+    "filterActive_other": "Filter, {{count}} active"
   },
   "filtersEmpty": {
     "title": "No activities match your filters",
-    "body": "Try widening the distance, or clear the filters to see everything nearby.",
+    "body": "Try picking more categories or times, widening the distance, or clear the filters to see everything nearby.",
     "mapBody": "No activities match your filters, so the map has nothing to show.",
-    "clear": "Clear filters"
+    "clear": "Clear filters",
+    "adjust": "Adjust filters"
   },
   "search": {
     "title": "Search",
@@ -352,12 +355,16 @@
   },
   "filters": {
     "title": "Discovery filters",
-    "category": "Category",
-    "all": "All",
+    "category": "Categories",
+    "categoryHint": "Pick as many as you like. With none picked, every category is shown.",
+    "allCategories": "All categories",
     "maxDistance": "Maximum distance:",
     "km": "{{value}} km",
-    "time": "Time",
-    "any": "Any",
+    "time": "Time of day",
+    "timeHint": "With none picked, any time of day is shown.",
+    "anyTime": "Any time",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
     "availableOnly": "Available spots only",
     "availableOnlyHint": "Hide activities that are already full",
     "reset": "Reset",
@@ -711,7 +718,7 @@
     "privacy": "Privacy",
     "privacyHint": "Anonymous mode and location controls",
     "discovery": "Discovery preferences",
-    "discoveryHint": "Category, distance and availability",
+    "discoveryHint": "Categories, times, distance and availability",
     "blocked": "Blocked people",
     "blockedHint": "Who you have blocked, and how to undo it",
     "warnings": "Current warnings",

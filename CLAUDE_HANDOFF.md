@@ -89,6 +89,7 @@ this handoff. The following reflects the current source, not an assumed queue.
 | More noticeable “Current Warnings” in Settings | **Done 2026-09-21, two passes.** Its own card (`.warnings-card`), titled "Current warnings", icon in a tile, live count from `useMyWarnings`. Second pass to the owner's spec: first on the page when there are warnings (under the preferences when not), badge in words ("2 warnings"), explanation line, "View warnings ›" label, whole card a native button with an inset focus ring, "Checking your record…" while loading; never claims a clean record it has not seen. See HANDOFF "Current warnings, second pass". |
 | Bio below the profile picture, up to 75 words | **Done 2026-09-21.** 75 words _and_ 500 characters, in the rules (`validBio()`) and the editor (`src/utils/bio.js`, live counter, refusal with reason). Characters are the ceiling that bites for Thai/Burmese/Chinese. ADR-027. Rules must be released before hosting. |
 | Unread count on the notification bell | **Completed to the owner's spec 2026-09-21.** Its own listener (`watchUnreadCount`, unread docs only, capped at 100) instead of counting the 50-item inbox; "99+" past 99; `aria-label` "Notifications, N unread" in four languages; reset on account switch. See HANDOFF "the bell's unread badge". |
+| Multi-select discovery filters | **Done 2026-09-21, to the owner's spec.** Checkboxes-as-chips per category and time band, "All categories" / "Any time" controls, OR within a group and AND between, empty set = no restriction, draft until Apply, Reset restores the defaults and applies. One module `src/utils/filters.js` (shape, `normaliseFilters` migration of the old `category`/`timeBand` shape, `matchesFilters`, `activeFilterCount`); the feed, search and map share `filteredActivities`. Filter count on the Discover button; "Adjust filters" in the empty state. ADR-028. See HANDOFF "discovery filters as sets". |
 | Pictures, name-only search, Google Maps | Completed and deployed, as above. |
 
 ## Files to begin with
@@ -98,7 +99,7 @@ this handoff. The following reflects the current source, not an assumed queue.
 | Maps | `src/pages/MapPage.jsx`, `src/components/LocationPicker.jsx`, `GoogleMap.jsx`, `ActivityMapPins.jsx`, `src/services/googleMaps.js`, `src/utils/maps.js` |
 | Pictures | `src/components/PicturePicker.jsx`, `SavedPicture.jsx`, `src/hooks/usePicture.js`, `src/utils/pictures.js`, `src/firebase/pictures.js` |
 | Profile/bio/layout | `src/pages/ProfilePage.jsx`, `EditProfilePage.jsx`, `src/firebase/users.js`, `src/styles.css`, `firestore.rules` |
-| Search | `src/pages/SearchPage.jsx` |
+| Search / discovery filters | `src/pages/SearchPage.jsx`, `FilterPage.jsx`, `src/utils/filters.js`, `src/components/FiltersEmptyState.jsx` |
 | Warnings/notifications | `src/pages/SettingsPage.jsx`, `WarningsPage.jsx`, `NotificationsPage.jsx`, `src/components/Shell.jsx` |
 | Shared data/localization | `src/context/AuthContext.jsx`, `AppContext.jsx`; `src/i18n/locales/{en,th,my,zh}.json` |
 

@@ -11,6 +11,9 @@ const VERSION_KEY = `${STORAGE_PREFIX}schemaVersion`
 // than defending every read of it.
 // 3 — filters lost their `date` field when weekday-name filtering was
 //     replaced by real dates.
+// (Not bumped when the filters' single category and time band became sets
+//  on 2026-09-21: a bump takes the scoring weights with it, and the old
+//  shape is worth keeping — utils/filters reads either and writes the new.)
 const SCHEMA_VERSION = 3
 
 function ensureSchemaVersion() {

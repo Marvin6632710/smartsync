@@ -1402,3 +1402,42 @@ limit is under the new ones. The count is by whitespace on purpose — no
 dictionary, no locale — so it is the same number on every device and in
 the rules, at the price of being a poor measure for the scripts that the
 character ceiling covers instead.
+
+## ADR-028 — Discovery filters as sets, where an empty set means everything
+
+**Context.** The owner asked for filters that take several categories and
+several times at once — football or basketball, in the morning or evening
+— in place of one dropdown each. Two shapes were possible: a set that can
+be empty, or a set that must hold at least one member (the old dropdowns'
+"All" and "Any" as members). And whatever the shape, a filter saved by
+the old version was sitting in `localStorage` on every device that had
+used the app.
+
+**Decision.** Two sets, `categories` and `timeBands`, either of which may
+be empty, and an empty set means _no restriction_: all categories, any
+time. "All categories" and "Any time" are controls that empty their set,
+shown as pressed whenever it is empty; they are not members of it. An
+activity passes when it matches any member of each non-empty set and every
+group — OR within, AND between — with the distance and the available-spots
+switch as the other two groups, unchanged. One module, `src/utils/filters.js`,
+owns the shape, the predicate and the migration, and the feed, the search
+and the map read one `filteredActivities`; a second reading of the filters
+anywhere would be a second opinion on what they mean. The storage schema
+version was _not_ bumped: a bump wipes every `smartsync:` key, the scoring
+weights included, and the old single choice is worth keeping — it is read
+as a set of one, 'All' and 'Any' as the empty set, and written back in the
+new shape on the first save.
+
+**Why empty means everything.** A filter page whose default hides the whole
+feed looks broken, not filtered; and a set that must not be empty needs a
+rule for what happens when the last member is unticked, which is the "All"
+member creeping back in through the side door. The count on the Discover
+button — "Filter, 4 active" — is the number of choices narrowing the feed,
+so the defaults count zero and a short list can be told from an empty one.
+
+**Cost.** A category dropped from the vocabulary silently leaves a stored
+filter (`knownOnly`), so a person who had chosen it sees the feed widen
+rather than an explanation. Real checkboxes inside labels cost some CSS to
+hide the box and draw the ring on the chip (`:has()` for keyboard-only
+focus, with `:focus-within` as the fallback); a `role="checkbox"` button
+would have been less CSS and less native, and native was chosen.

@@ -217,6 +217,33 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **Discovery filters as sets, to the owner's spec, 2026-09-21** — the
+  category and time dropdowns are gone; in their place a checkbox per
+  category and per time band, dressed as chips with a mark, in labelled
+  groups with an "All categories" / "Any time" control that empties its
+  group and shows as pressed while it is empty. Any combination: OR within
+  a group, AND between them — football or basketball, in the morning or
+  evening, within the distance, with room (ADR-028). An empty set means no
+  restriction, so nothing chosen is the old default. The page edits a
+  draft that reaches the feed on Apply; Reset empties both sets, restores
+  the distance and the switch, and applies. The feed, the search and the
+  map all read one predicate (`src/utils/filters.js`), so title-only search
+  and its empty-input prompt are as they were, narrowed by the same sets;
+  the search's "clear filters" button compares by value, since two empty
+  arrays are never `===`. A filter saved by the old version (`category`,
+  `timeBand`) is read as a set of one and 'All'/'Any' as empty, without
+  bumping the storage schema (a bump would take the weights too), and is
+  written back in the new shape. The Discover page's Filter button counts
+  the choices in force ("Filter, 4 active" to a screen reader); the empty
+  state offers "Adjust filters" beside "Clear filters". Four languages.
+  Verified in the emulator app: two categories and two times → the two
+  activities that fit and not the one at the wrong time; search inside and
+  outside the sets; the old shape seeded into storage → read, shown and
+  rewritten; Reset; phone and laptop, light and dark. Tests:
+  `tests/unit/filters.test.js` (migration, matching, counting),
+  `tests/app/filterPage.test.jsx` (checkboxes, all/any, draft vs Apply,
+  reopened, Reset, Thai), `tests/app/appContext.listeners.test.jsx`
+  (the old shape through the context, OR/AND on the feed).
 - **The bell's badge, to the owner's spec, 2026-09-21** — the unread
   count on the notification bell was there; three things were not. It
   counted the inbox, which holds the newest fifty, so it could never say
