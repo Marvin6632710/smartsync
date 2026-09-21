@@ -46,10 +46,9 @@ export const MIN_INTERESTS = 3
  * some platforms — which is why Gym is a bicep rather than a weightlifter and
  * Events is a ticket rather than a ticket-stub-with-selector.
  *
- * Keyed by the lowercased category, and every value here is a literal. The map
- * builds its markers from an HTML string that Leaflet inserts with innerHTML,
- * so nothing attacker-controlled may reach it — looking the emoji up from this
- * fixed table means nothing ever does. See the note in MapPage.
+ * Keyed by the lowercased category, and every value here is a literal. Map
+ * markers render these through React into Google Advanced Markers; category
+ * names are also checked against the fixed vocabulary before becoming CSS hooks.
  */
 export const categoryEmoji = {
   football: '\u26bd',

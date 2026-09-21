@@ -1,8 +1,74 @@
 # SmartSync — hand-off
 
 Original hand-off written 2026-09-21 after removing the moderator rank and
-shipping the admin console. Later picture-upload and search changes are
+shipping the admin console. Later picture-upload, search and map changes are
 recorded below; the original session details remain for context.
+
+## Latest continuation — Google Maps migration (2026-09-21)
+
+**Configured and verified locally; ready for hosting release.** Started
+from clean `main` at `78c9093`. The owner requested Google Maps instead of
+Leaflet/OpenStreetMap, then authorized completing cloud setup, testing,
+commit/push and deployment. Until the release below is recorded, the live
+site remains search release `4462773`, bundle `index-fs7oX7Ln.js`.
+
+- Added the shared `services/googleMaps.js` loader, `GoogleMap` adapter,
+  `ActivityMapPins` and coordinate helpers. Discovery keeps clusters, pin
+  previews, the desktop list, location control and Thailand bounds. Create/
+  Edit Activity uses the same provider and keeps its existing saved fields.
+- Maps stay stable while typing in forms and during ordinary live updates.
+  Coincident activity pins remain selectable. Loading/network/authentication
+  failures show localized status and retry controls in all four languages.
+- Removed Leaflet packages, CSS, asset chunk and OpenStreetMap tile host;
+  added Google's resource domains to hosting CSP. Script inline/eval
+  restrictions remain intact. No Firestore or permission changes.
+- Moved mobile floating actions above Google's attribution row after the
+  real browser check caught the create button overlapping it.
+- Added `npm run check:maps` to hosting's predeploy step. It rejects missing
+  production configuration or `DEMO_MAP_ID` without printing key values.
+  `.env.example`, README, architecture and ADR-026 explain the setup.
+
+**Google configuration completed:** the owner connected Google Cloud project
+`genial-airway-509303-f6` using their existing trial/billing setup. The
+`SmartSync Web Maps` browser key is restricted to Maps JavaScript API and the
+four production/local website referrers in [GOOGLE_MAPS_SETUP.md](GOOGLE_MAPS_SETUP.md).
+Created `SmartSync Web Map`, a JavaScript raster map ID, in the same project.
+Both `VITE_GOOGLE_MAPS_API_KEY` and `VITE_GOOGLE_MAPS_MAP_ID` are saved in
+ignored `.env.local` and `.env.production`; actual values are not in git.
+No billing activation, terms acceptance or Firebase plan changes were made
+by the agent. Google configuration checks pass.
+
+**Verification:** all 801 unit/rendering tests passed, including 13 additional
+checks for SDK loading/retry/auth errors, Strict Mode cleanup, marker events,
+pin selection and view stability. Lint, source formatting, `git diff --check`
+and the configured production build pass. The build retains the existing
+Firebase chunk-size and photo-module chunking warnings. Security/Functions
+suites were not rerun because their code and rules are unchanged.
+
+**Real browser checks:** Google tiles, native zoom controls, dark styling,
+markers and attribution load with no Google or CSP errors. Tested a 390 px
+mobile map/picker and a 1440 px desktop map/list; list selection focuses the
+correct pin, a separable cluster zooms into its activities, and overlapping
+pins cycle through activities. In the local emulator, created `Google Maps
+verification`, selected a pin, renamed its location without moving the pin,
+saved, reopened, replaced the pin, saved again and reloaded. The edited
+coordinates persisted at `13.7563, 100.5022`. The test activity remains in the
+dev emulator (`uxzaMJg4LtKZeQikqBcS`); no production test activity was created.
+Device GPS permission was not requested; the existing location code is
+unchanged. Real light-theme verification has not been recorded.
+
+**Hosting CSP check:** served an optimized emulator build at the existing
+local origin with the hosting headers from `firebase.json`, adding only the
+local Auth/Firestore endpoints to `connect-src`. Google's production script,
+image, worker and frame restrictions remained exact; map/picker rendering and
+interaction passed with no console warnings/errors. Temporary server/build
+files are under `/private/tmp/smartsync-maps-csp*`, outside the repository.
+
+**Resume release:** commit/push, deploy **hosting only**, verify the live map
+and picker with the owner's existing signed-in browser, and record the commit
+and bundle below. Restore the Vite dev server afterward. The dev emulator's
+data has been preserved. Original index/admin walkthrough items below remain
+outstanding.
 
 ## Latest continuation — activity search (2026-09-21)
 

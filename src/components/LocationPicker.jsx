@@ -1,34 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { LocateFixed, MapPin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import GoogleMap, { GoogleMarker, useGoogleMap, useGoogleMapEvents } from './GoogleMap'
 
-import { MIN_ZOOM, THAILAND_BOUNDS, THAILAND_CENTRE, withinThailand } from '../data/region'
+import { THAILAND_CENTRE, withinThailand } from '../data/region'
 import { getCurrentPosition } from '../utils/geo'
 
 // Bangkok. Only ever a starting view — the pin is not set until the host
 // actually places it, so an unedited map cannot be submitted as a real place.
 const DEFAULT_CENTER = { lat: 13.7563, lng: 100.5018 }
 
-/**
- * Leaflet's default marker is a PNG resolved relative to the CSS file, which
- * bundlers break. A divIcon is styled by our own CSS instead, so there is no
- * asset to lose and the pin matches the rest of the app.
- */
-const pinIcon = L.divIcon({
-  className: 'leaflet-pin',
-  html: '<span class="leaflet-pin-dot"></span>',
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-})
-
 function ClickToPlace({ onPick, onReject }) {
-  useMapEvents({
+  useGoogleMapEvents({
     click: (event) => {
-      const { lat, lng } = event.latlng
-      // `maxBounds` keeps the *view* inside the country, but at the minimum
+      if (!event.latLng) return
+      const { lat, lng } = event.latLng.toJSON()
+      // The map restriction keeps the view inside the country, but at the minimum
       // zoom the viewport is taller than the box, so the sea below Malaysia
       // and a strip of Myanmar are still on screen and still clickable. The
       // rules would reject such a pin on write; catching it here means the
@@ -44,9 +31,9 @@ function ClickToPlace({ onPick, onReject }) {
 }
 
 function Recenter({ point }) {
-  const map = useMap()
+  const { map } = useGoogleMap()
   useEffect(() => {
-    if (point) map.setView([point.lat, point.lng], map.getZoom())
+    if (point) map.setCenter(point)
   }, [point, map])
   return null
 }
@@ -73,7 +60,7 @@ export default function LocationPicker({ value, onChange }) {
   const point = useMemo(() => (lat != null && lng != null ? { lat, lng } : null), [lat, lng])
 
   // An existing pin outside the box would otherwise open the map at a centre
-  // `maxBounds` immediately drags away from, which looks like a glitch. Only
+  // the map restriction immediately drags away from, which looks like a glitch. Only
   // data predating the constraint can be in that state, and it is rare enough
   // to be worth one line rather than a migration.
   const openAt =
@@ -115,21 +102,7 @@ export default function LocationPicker({ value, onChange }) {
       </label>
 
       <div className="picker-map">
-        <MapContainer
-          center={openAt}
-          zoom={13}
-          minZoom={MIN_ZOOM}
-          maxBounds={THAILAND_BOUNDS}
-          maxBoundsViscosity={1}
-          scrollWheelZoom={false}
-          style={{ height: '100%', width: '100%' }}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            bounds={THAILAND_BOUNDS}
-            noWrap
-          />
+        <GoogleMap center={openAt} zoom={13} gestureHandling="cooperative">
           <ClickToPlace
             onPick={(next) => {
               setError('')
@@ -137,9 +110,15 @@ export default function LocationPicker({ value, onChange }) {
             }}
             onReject={() => setError('location.outsideThailand')}
           />
-          {point && <Marker position={[point.lat, point.lng]} icon={pinIcon} />}
+          {point && (
+            <GoogleMarker position={point} title={t('location.selectedPin')} anchorTop="-50%">
+              <span className="map-picker-pin">
+                <span className="map-pin-dot" />
+              </span>
+            </GoogleMarker>
+          )}
           <Recenter point={point} />
-        </MapContainer>
+        </GoogleMap>
       </div>
 
       <div className="picker-actions">

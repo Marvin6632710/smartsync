@@ -395,6 +395,31 @@ shows `push (not sent: log transport)` with the title in your language and
 no message text; the record's `delivery.push` says `sent`. Deployed, the
 same path ends at FCM (needs Blaze and a VAPID key).
 
+### Maps and activity locations
+
+**Path:** `MapPage` / `LocationPicker` → `GoogleMap` →
+`services/googleMaps.js` → Google's Maps JavaScript API.
+
+The official loader fetches the maps, core and marker libraries only when a
+map mounts. `GoogleMap` owns the imperative map and cleans up its listeners
+when unmounted. React portals render the category pins inside Google's
+Advanced Markers; activity text is not interpolated into marker HTML.
+`ActivityMapPins` groups nearby pins using Google's projection, fits changed
+coordinates, and cycles activities that occupy the same place. Clock ticks,
+roster updates and typing a location name do not reset the user's map view.
+
+The activity picker still saves only a location name and latitude/longitude
+through the existing activity write path. Clicks outside Thailand are
+rejected; map movement is constrained to the same Thailand bounds. No
+Places API, geocoding, new Firestore fields or rules changes are needed.
+
+Google Maps is external even with Firebase emulators. Missing configuration,
+loading failures and Google authentication errors show an unavailable state;
+the activity list and existing location controls remain usable. Hosting
+checks for a production key/map ID before deployment. Follow
+[GOOGLE_MAPS_SETUP.md](GOOGLE_MAPS_SETUP.md) for cloud configuration and real
+SDK verification. ADR-026 records the provider change.
+
 ### Privacy
 
 **Path:** `PrivacyPage` → `users.js:setAnonymousMode` → both profile halves

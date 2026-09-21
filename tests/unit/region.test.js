@@ -40,13 +40,13 @@ describe('the box itself', () => {
     }
   })
 
-  test('Leaflet gets [[south, west], [north, east]]', () => {
-    // Leaflet takes the corners in that order and silently misbehaves if you
-    // hand it lng/lat pairs.
-    expect(THAILAND_BOUNDS).toEqual([
-      [THAILAND.south, THAILAND.west],
-      [THAILAND.north, THAILAND.east],
-    ])
+  test('Google Maps receives the named north, south, east and west limits', () => {
+    expect(THAILAND_BOUNDS).toEqual({
+      south: THAILAND.south,
+      west: THAILAND.west,
+      north: THAILAND.north,
+      east: THAILAND.east,
+    })
   })
 
   test('the fallback centre is inside the box it centres', () => {

@@ -73,8 +73,12 @@ Cloud Firestore) on the back end.
 
 ## 2. Running it locally without a Firebase account
 
-The Firebase Emulator Suite runs the entire backend on your machine. No
-Firebase project, no credit card, nothing leaves your computer.
+The Firebase Emulator Suite runs the app's backend on your machine without
+a Firebase account. Map screens use Google's external service, including
+during emulator development, and need a billing-enabled Google Cloud project,
+a browser API key and a JavaScript map ID. Follow
+[Google Maps setup](GOOGLE_MAPS_SETUP.md). Without that configuration, the
+rest of the app works and maps show an unavailable message.
 
 **Requirements:** Node.js 18+, npm, and Java 11+ (the Firestore emulator is a
 Java program — check with `java -version`).
@@ -137,8 +141,8 @@ creating an account and are not something the code can do for itself.
    Function in `functions/`, and Cloud Functions need the **Blaze** plan
    (pay as you go, with the same free allowance — expected to cost nothing
    at this size; set a budget alert when you upgrade). Without Blaze
-   everything works as before and the app simply offers no browser
-   notifications.
+   the Firebase features work without browser notifications. Google Maps
+   has its own billing requirement; see [Google Maps setup](GOOGLE_MAPS_SETUP.md).
 2. In **Build → Authentication → Sign-in method**, enable **Email/Password**.
 3. In **Build → Firestore Database**, click **Create database**. Choose a
    region near your users (`asia-southeast1` for Bangkok). Start in
@@ -210,6 +214,21 @@ has: the same eighteen activities rank completely differently. Football Night
 is Min Khant's top match at 84% and sits at 39% for Maya.
 
 ## 5. Deploying
+
+Configure Google Maps first using [the setup guide](GOOGLE_MAPS_SETUP.md).
+`npm run check:maps` checks that production has a key and a map ID; hosting
+also runs it before deployment. It cannot verify billing, API activation or
+referrer restrictions, so test the actual maps before publishing.
+
+For a hosting-only release (the current project has no deployed Functions):
+
+```bash
+npm run check:maps
+npm run build
+npx firebase deploy --only hosting
+```
+
+When intentionally deploying all configured Firebase services:
 
 ```bash
 npm run deploy

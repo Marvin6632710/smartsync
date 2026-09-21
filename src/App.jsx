@@ -40,9 +40,8 @@ import PrivacyPage from './pages/PrivacyPage'
 import JoinedActivitiesPage from './pages/JoinedActivitiesPage'
 import NotFoundPage from './pages/NotFoundPage'
 
-// The three map-bearing screens are loaded on demand. Leaflet plus its CSS is
-// a large dependency that most sessions never touch, and making everyone pay
-// for it on first paint is the wrong trade on a phone.
+// The three map-bearing screens and the Google Maps SDK load on demand, so
+// sessions that never open a map do not download or initialise one.
 //
 // Loaded through `lazyRoute`, because the first visit to one of these after
 // a deploy fails: the tab still holds the old index.html, the chunk it names

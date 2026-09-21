@@ -305,7 +305,8 @@
     "tapToPlace": "点击地图来标记活动地点。",
     "useMyLocation": "使用我的位置",
     "locating": "正在定位…",
-    "couldNotShow": "无法显示你的位置"
+    "couldNotShow": "无法显示你的位置",
+    "selectedPin": "已选择的活动位置"
   },
   "home": {
     "anonymousMode": "匿名模式",
@@ -1088,7 +1089,11 @@
     "seeAsList": "以列表查看活动",
     "listTitle": "地图上的活动",
     "listCount_other": "{{count}} 个活动",
-    "listHint": "选择一个活动查看它的位置"
+    "listHint": "选择一个活动查看它的位置",
+    "loading": "正在加载地图…",
+    "unavailable": "地图暂不可用",
+    "loadHelp": "请重试。你仍可使用定位或活动列表按钮。",
+    "yourLocation": "你的位置"
   },
   "console": {
     "admin": {

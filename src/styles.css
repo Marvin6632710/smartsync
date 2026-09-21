@@ -82,7 +82,7 @@
   --on-accent: #ffffff;
 
   /* --- Map ------------------------------------------------
-     One colour: the ground Leaflet's tiles sit on while they load.
+     One colour: the backdrop while the map loads.
      The other five here described a hand-drawn map that was
      replaced by real tiles, and had outlived it. */
   --map-land: #ece5da;
@@ -2057,7 +2057,7 @@ select:focus-visible {
   position: absolute;
   z-index: 25;
   left: 50%;
-  bottom: 14px;
+  bottom: 34px;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
@@ -2313,6 +2313,13 @@ select:focus-visible {
   .fab-create {
     bottom: calc(80px + env(safe-area-inset-bottom));
   }
+  /* Keep Google's attribution row clear beneath the map's floating actions. */
+  .page-scroll[data-view='map'] ~ .fab-create {
+    bottom: calc(116px + env(safe-area-inset-bottom));
+  }
+  .map-location-button {
+    bottom: 124px;
+  }
 }
 
 /* Narrow content, whatever the shell: a form row or a facts grid has no
@@ -2479,35 +2486,64 @@ select:focus-visible {
 }
 
 /* ==========================================================================
-   Maps (Leaflet)
+   Maps (Google Maps)
    ========================================================================== */
 
-/* Leaflet's own panes sit at z-index 400-700, which would paint the map over
-   the bottom navigation and the toast layer. Containing it to its own stacking
-   context keeps the app chrome on top without touching Leaflet's internals. */
-.smart-map .leaflet-container,
-.picker-map .leaflet-container {
+.google-map-frame {
   position: relative;
+  width: 100%;
+  height: 100%;
   z-index: 0;
   isolation: isolate;
-  font: inherit;
   background: var(--map-land);
 }
-
-.leaflet-container a {
-  color: var(--accent);
+.google-map-canvas {
+  width: 100%;
+  height: 100%;
 }
-
-.smart-map .leaflet-control-attribution {
-  font-size: 9px;
-  background: rgba(var(--bg-rgb), 0.82);
-  color: var(--ink-soft);
+.map-load-state {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  background: var(--map-land);
+  color: var(--text);
+}
+.map-load-state p {
+  margin: 0;
+  max-width: 320px;
+  font-size: var(--t-sm);
+}
+.map-activity-pin {
+  display: block;
+  width: 36px;
+  height: 44px;
+}
+.map-activity-pin.cluster {
+  width: 40px;
+  height: 48px;
+}
+.map-me-pin {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+.map-picker-pin {
+  display: block;
+  width: 22px;
+  height: 22px;
 }
 
 /* A teardrop in the category's colour, with the activity's emoji in it.
    A coloured dot says something is here; the emoji says what, with no legend
    to consult — which is the point of a map you choose from at a glance. */
-.leaflet-activity-pin .pin-body {
+.map-activity-pin .pin-body {
   position: relative;
   display: grid;
   place-items: center;
@@ -2531,7 +2567,7 @@ select:focus-visible {
     box-shadow 0.18s ease;
 }
 /* The emoji is rotated back so it sits upright in a pin that is not. */
-.leaflet-activity-pin .pin-body i {
+.map-activity-pin .pin-body i {
   display: block;
   transform: rotate(45deg);
   font-size: 17px;
@@ -2547,7 +2583,7 @@ select:focus-visible {
 
 /* A group. Same teardrop, wearing the colour of whatever it holds most of,
    with a count where the emoji goes. */
-.leaflet-activity-pin.cluster .pin-body {
+.map-activity-pin.cluster .pin-body {
   width: 38px;
   height: 38px;
   /* Unlike a single pin, this one carries a white number rather than an
@@ -2558,7 +2594,7 @@ select:focus-visible {
     var(--cat-deep, var(--accent-strong))
   );
 }
-.leaflet-activity-pin.cluster .pin-body i {
+.map-activity-pin.cluster .pin-body i {
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: var(--w-black);
@@ -2567,7 +2603,7 @@ select:focus-visible {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-.leaflet-activity-pin.selected .pin-body {
+.map-activity-pin.selected .pin-body {
   /* Lifts and grows, keeping the 45° that makes it a teardrop. */
   transform: rotate(-45deg) scale(1.22) translate(3px, -3px);
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.45);
@@ -2577,7 +2613,7 @@ select:focus-visible {
 
 /* Pins land as they are placed rather than appearing all at once. */
 @media (prefers-reduced-motion: no-preference) {
-  .leaflet-activity-pin .pin-body {
+  .map-activity-pin .pin-body {
     animation: pinDrop 0.34s cubic-bezier(0.22, 1, 0.3, 1) backwards;
   }
   @keyframes pinDrop {
@@ -2588,7 +2624,7 @@ select:focus-visible {
   }
 }
 
-.leaflet-me-pin span {
+.map-me-pin span {
   display: block;
   width: 14px;
   height: 14px;
@@ -2599,7 +2635,7 @@ select:focus-visible {
   box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.22);
 }
 
-.leaflet-pin .leaflet-pin-dot {
+.map-picker-pin .map-pin-dot {
   display: block;
   width: 16px;
   height: 16px;
@@ -2620,7 +2656,7 @@ select:focus-visible {
 }
 
 .picker-map {
-  height: 190px;
+  height: 220px;
   overflow: hidden;
   border-radius: var(--r-md);
   border: 1px solid var(--line);
@@ -4819,18 +4855,6 @@ body {
   .segment {
     padding: 0 8px;
   }
-}
-
-/* The map's tiles are drawn by OpenStreetMap in daylight colours and
-   cannot be re-themed; in the dark set they are inverted and turned
-   back through the hue wheel, which leaves roads and water where they
-   were at a fraction of the brightness. Pins live in another pane and
-   keep their own colours. */
-:root[data-theme='dark'] .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.9) saturate(0.7);
-}
-:root[data-theme='dark'] .leaflet-control-attribution a {
-  color: var(--accent);
 }
 
 /* =========================================================

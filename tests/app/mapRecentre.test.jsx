@@ -5,29 +5,63 @@
  * Both used to move it on every render: Discover's map re-fitted to the pins
  * each time the minute clock rebuilt the activity list, snapping the view
  * back while somebody was panning; the picker recentred on its pin on every
- * keystroke in the title field. react-leaflet is replaced by a fake that
+ * keystroke in the title field. The Google Maps component is replaced by a fake that
  * records what the map was told to do.
  */
 import React from 'react'
-import { cleanup, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 
+const projection = {
+  fromLatLngToPoint: (point) => ({
+    x: (point.lat() * 1000) / 4096,
+    y: (point.lng() * 1000) / 4096,
+  }),
+  fromPointToLatLng: (point) => ({
+    lat: () => (point.x * 4096) / 1000,
+    lng: () => (point.y * 4096) / 1000,
+  }),
+}
 const map = {
-  setView: vi.fn(),
+  setCenter: vi.fn(),
+  setZoom: vi.fn(),
   fitBounds: vi.fn(),
   getZoom: () => 12,
-  project: (latlng) => ({ x: latlng[0] * 1000, y: latlng[1] * 1000 }),
-  unproject: (p) => ({ lat: p[0] / 1000, lng: p[1] / 1000 }),
+  getProjection: () => projection,
 }
-vi.mock('react-leaflet', () => ({
-  MapContainer: ({ children }) => <div>{children}</div>,
-  TileLayer: () => null,
-  Marker: () => null,
-  useMap: () => map,
-  useMapEvents: () => map,
+const api = {
+  LatLng: class {
+    constructor(point) {
+      this.point = point
+    }
+    lat() {
+      return this.point.lat
+    }
+    lng() {
+      return this.point.lng
+    }
+  },
+  Point: class {
+    constructor(x, y) {
+      this.x = x
+      this.y = y
+    }
+  },
+  LatLngBounds: class {
+    extend() {
+      return this
+    }
+  },
+  event: { addListenerOnce: () => ({ remove: vi.fn() }) },
+}
+let handlers = {}
+vi.mock('../../src/components/GoogleMap', () => ({
+  default: ({ children }) => <div>{children}</div>,
+  GoogleMarker: ({ title, onClick }) => <button aria-label={title} onClick={onClick} />,
+  useGoogleMap: () => ({ map, api }),
+  useGoogleMapEvents: (events) => Object.assign(handlers, events),
 }))
-vi.mock('leaflet/dist/leaflet.css', () => ({}))
 
 let app = {}
 vi.mock('../../src/context/AppContext', () => ({ useApp: () => app }))
@@ -57,8 +91,11 @@ const place = (id, lat, lng, extra = {}) => ({
 })
 
 beforeEach(() => {
-  map.setView.mockClear()
+  map.setCenter.mockClear()
+  map.setZoom.mockClear()
   map.fitBounds.mockClear()
+  handlers = {}
+  Element.prototype.scrollIntoView = vi.fn()
   locationError = ''
 })
 afterEach(cleanup)
@@ -118,8 +155,9 @@ describe("Discover's map", () => {
     const { rerender } = render(view())
     app = { ...app, filteredActivities: [place('a', 13.7, 100.5)] }
     rerender(view())
-    // One pin gets a setView rather than a fit — that contract is unchanged.
-    expect(map.setView).toHaveBeenCalledWith([13.7, 100.5], 14)
+    // One pin gets a centre and zoom rather than bounds fitting.
+    expect(map.setCenter).toHaveBeenCalledWith({ lat: 13.7, lng: 100.5 })
+    expect(map.setZoom).toHaveBeenCalledWith(14)
     app = { ...app, filteredActivities: [place('a', 13.7, 100.5), place('c', 18.7, 98.9)] }
     rerender(view())
     expect(map.fitBounds).toHaveBeenCalledTimes(2)
@@ -131,21 +169,52 @@ describe('the location picker', () => {
     const onChange = vi.fn()
     const value = { title: '', locationName: 'Park', lat: 13.7, lng: 100.5 }
     const { rerender } = render(<LocationPicker value={value} onChange={onChange} />)
-    expect(map.setView).toHaveBeenCalledTimes(1)
+    expect(map.setCenter).toHaveBeenCalledTimes(1)
 
     // Typing the title: a new form object, same pin.
     rerender(<LocationPicker value={{ ...value, title: 'Satur' }} onChange={onChange} />)
     rerender(<LocationPicker value={{ ...value, title: 'Saturday' }} onChange={onChange} />)
-    expect(map.setView).toHaveBeenCalledTimes(1)
+    expect(map.setCenter).toHaveBeenCalledTimes(1)
 
     // Moving the pin.
     rerender(<LocationPicker value={{ ...value, lat: 13.75, lng: 100.52 }} onChange={onChange} />)
-    expect(map.setView).toHaveBeenCalledTimes(2)
-    expect(map.setView).toHaveBeenLastCalledWith([13.75, 100.52], 12)
+    expect(map.setCenter).toHaveBeenCalledTimes(2)
+    expect(map.setCenter).toHaveBeenLastCalledWith({ lat: 13.75, lng: 100.52 })
   })
 
   test('does nothing until a pin exists', () => {
     render(<LocationPicker value={{ title: '', lat: null, lng: null }} onChange={vi.fn()} />)
-    expect(map.setView).not.toHaveBeenCalled()
+    expect(map.setCenter).not.toHaveBeenCalled()
   })
+
+  test('map clicks preserve form fields and reject coordinates outside Thailand', () => {
+    const onChange = vi.fn()
+    render(
+      <LocationPicker value={{ title: 'Keep this', locationName: 'Park' }} onChange={onChange} />,
+    )
+    act(() => handlers.click({ latLng: { toJSON: () => ({ lat: 13.7, lng: 100.5 }) } }))
+    expect(onChange).toHaveBeenCalledWith({
+      title: 'Keep this',
+      locationName: 'Park',
+      lat: 13.7,
+      lng: 100.5,
+    })
+    onChange.mockClear()
+    act(() => handlers.click({ latLng: { toJSON: () => ({ lat: 0, lng: 0 }) } }))
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toBeTruthy()
+  })
+})
+
+test('a cluster at one location cycles through every activity', () => {
+  app = { filteredActivities: [place('a', 13.7, 100.5), place('b', 13.7, 100.5)], loading: false }
+  render(
+    <MemoryRouter>
+      <MapPage />
+    </MemoryRouter>,
+  )
+  fireEvent.click(screen.getByRole('button', { name: '2 activities' }))
+  expect(document.querySelector('.map-activity-preview strong').textContent).toBe('a')
+  fireEvent.click(screen.getByRole('button', { name: '2 activities' }))
+  expect(document.querySelector('.map-activity-preview strong').textContent).toBe('b')
 })

@@ -306,7 +306,8 @@
     "tapToPlace": "Tap the map to place the activity.",
     "useMyLocation": "Use my location",
     "locating": "Locating…",
-    "couldNotShow": "Couldn't show your location"
+    "couldNotShow": "Couldn't show your location",
+    "selectedPin": "Selected activity location"
   },
   "home": {
     "anonymousMode": "Anonymous mode",
@@ -1101,7 +1102,11 @@
     "listTitle": "On the map",
     "listCount_one": "{{count}} activity",
     "listCount_other": "{{count}} activities",
-    "listHint": "Choose one to see where it is."
+    "listHint": "Choose one to see where it is.",
+    "loading": "Loading map…",
+    "unavailable": "Map unavailable",
+    "loadHelp": "Please try again. You can still use the location or activity list controls.",
+    "yourLocation": "Your location"
   },
   "console": {
     "admin": {

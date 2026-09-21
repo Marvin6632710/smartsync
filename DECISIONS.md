@@ -41,6 +41,9 @@ story).
 
 ## ADR-002 — Leaflet with OpenStreetMap rather than Google Maps
 
+> **Superseded by ADR-026 (2026-09-21).** The owner chose Google Maps. The
+> original reasoning below records why the earlier release used Leaflet.
+
 **Context.** Activities need to be placed at real coordinates and shown on a
 map.
 
@@ -898,6 +901,10 @@ per profile, for the same reason as the language. What this does not do:
 re-theme the category gradients (they are saturated grounds that already
 read in the dark) or the OpenStreetMap tiles beyond a filter.
 
+> **Map styling amended by ADR-026 (2026-09-21).** Google Maps now uses its
+> native color scheme, selected when the map mounts. The former OpenStreetMap
+> tile filter has been removed; the app's theme tokens remain in use.
+
 ## ADR-019 — A phone under 720px, a web application above it
 
 **Context.** On a desktop browser the app was a phone: a 420px frame with
@@ -1326,3 +1333,39 @@ photo bytes to object storage and keep the same optional parent markers and
 ownership rules. Deploy the new rules and the two `dataUrl` index exemptions
 before hosting this version. No Functions, new service credentials or
 billing changes are required for this implementation.
+
+---
+
+## ADR-026 — Google Maps for discovery and activity placement
+
+**Context.** The owner requested Google Maps instead of Leaflet and
+OpenStreetMap. This supersedes ADR-002; it does not change how activity
+coordinates are stored or who may edit them.
+
+**Decision.** Use the official `@googlemaps/js-api-loader` with a restricted
+browser key and a JavaScript raster map ID. Load the maps, core and marker
+libraries lazily through a shared service. A small React adapter owns each
+Google map; Advanced Markers display React-rendered category pins. Existing
+pixel-distance clustering, activity selection, coordinate-only refitting,
+location buttons and Thailand constraints are retained. Native Google color
+schemes replace the OpenStreetMap tile filter from ADR-018.
+
+The location picker continues to write the entered place name and selected
+latitude/longitude. No Places or Geocoding API integration is included.
+Firestore documents, permission rules, filters and distance calculations
+are unchanged. Leaflet packages, styles and the OSM tile host are removed.
+
+**Consequences.** Maps require external Google configuration and billing
+even during Firebase emulator development. The browser key is visible in
+the built client and must be restricted by website and API. Missing keys,
+SDK load failures and authentication failures show a localized unavailable
+state; existing list and location controls remain accessible. Hosting's CSP
+allows the Google SDK and map resources while retaining the prohibition on
+inline scripts and eval.
+
+Hosting checks for a key and a non-demo map ID before deployment. Automated
+SDK mocks test lifecycle, failures, markers and camera behavior, but cannot
+validate real tiles, cloud activation, billing or hosting CSP compatibility.
+The owner must configure the Google project and the real browser checks in
+[GOOGLE_MAPS_SETUP.md](GOOGLE_MAPS_SETUP.md) must pass before this migration
+replaces the working live release.

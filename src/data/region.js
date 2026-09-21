@@ -28,11 +28,8 @@ export const THAILAND = {
   east: 105.7,
 }
 
-/** Leaflet wants [[south, west], [north, east]]. */
-export const THAILAND_BOUNDS = [
-  [THAILAND.south, THAILAND.west],
-  [THAILAND.north, THAILAND.east],
-]
+/** Google's LatLngBoundsLiteral uses the same named edges as the rules. */
+export const THAILAND_BOUNDS = THAILAND
 
 /** Roughly the middle of the country, for a map with nothing else to show. */
 export const THAILAND_CENTRE = [15.0, 101.5]
