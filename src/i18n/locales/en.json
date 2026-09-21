@@ -72,6 +72,7 @@
     "create": "Create"
   },
   "titles": {
+    "404": "Not found",
     "home": "Discover",
     "search": "Search",
     "map": "Map",
@@ -89,7 +90,6 @@
     "blocked": "Blocked people",
     "moderation": "Moderation",
     "joined": "Joined",
-    "404": "Not found",
     "terms": "Terms & Safety"
   },
   "shell": {
@@ -334,22 +334,18 @@
   "filtersEmpty": {
     "title": "No activities match your filters",
     "body": "Try widening the distance, or clear the filters to see everything nearby.",
-    "searchBody": "Your filters are hiding every activity, so there is nothing to search.",
     "mapBody": "No activities match your filters, so the map has nothing to show.",
     "clear": "Clear filters"
   },
   "search": {
     "title": "Search",
-    "lead": "Find activities fast.",
-    "placeholder": "Search activity or place",
-    "label": "Search activities",
-    "noResults": "No results",
-    "noMatchFiltered": "Nothing matches “{{query}}” among the {{count}} {{noun}} your filters allow{{hidden}}.",
-    "activity_one": "activity",
-    "activity_other": "activities",
-    "withHidden": ", with {{count}} hidden",
-    "clearAndSearch": "Clear filters and search everything",
-    "noMatch": "Nothing matches “{{query}}”. Try another word."
+    "lead": "Find activities by name.",
+    "placeholder": "Search activity names",
+    "label": "Search activities by name",
+    "noResults": "No activities found",
+    "clearAndSearch": "Clear filters and search again",
+    "noMatch": "Try another activity name.",
+    "emptyPrompt": "Enter an activity name to search."
   },
   "filters": {
     "title": "Discovery filters",

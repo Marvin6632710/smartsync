@@ -263,6 +263,22 @@ by the total capped the best possible match at 93%.
 reorders live. Then sign in as two different people and compare the same
 activity — 78% for one, 37% for the other.
 
+### Activity search
+
+**Path:** `SearchPage` → the existing `filteredActivities` in `AppContext`.
+
+Opening Search, entering only spaces, or clearing the field shows an
+instruction to enter an activity name, with no activity cards. Once the
+trimmed term is nonempty, results match only `title`, using a case-insensitive
+substring comparison on every input change. Descriptions, categories,
+locations and host names do not contribute matches. Existing discovery
+filters still apply; an empty result offers another name and, when filters
+are active, a button to clear them and repeat the same name search.
+
+**Check it yourself:** search a fragment with mixed case and surrounding
+spaces, then change the text and clear it. A location or category that is
+absent from every title must show “No activities found.”
+
 ### Joining
 
 **Path:** `ActivityDetailsPage` → `AppContext.joinActivity` →

@@ -4,6 +4,27 @@ Original hand-off written 2026-09-21 after removing the moderator rank and
 shipping the admin console. The continuation below records the later local
 picture-upload work; the original session details remain for context.
 
+## Latest continuation — activity search (2026-09-21)
+
+Changed `SearchPage` to show no cards until a trimmed, nonempty search term
+exists. Matches are partial, case-insensitive and based only on activity
+titles. Clearing the input restores “Enter an activity name to search.” No
+matches shows “No activities found” and “Try another activity name.” Existing
+discovery filters remain in effect, with a clear-filters action after an
+unsuccessful search. Updated placeholders, labels and messages in all four
+languages, and removed the unused location-search and filter-empty wording.
+
+**Verified locally:** the signed-in browser shows no cards for initial or
+space-only input; `  nIgHt  ` finds Bangkok Night Gamers; `Gaming` (category)
+and `Siam Square` (location) find nothing; `cof` changes the result to Coffee
+& New Connections; clearing removes it and restores the prompt. The empty
+screen was visually checked. All 788 existing unit/rendering tests, lint,
+formatting and the build pass. No backend/rules changes are needed. The build
+retains the existing Firebase chunk-size warning.
+
+Following the owner's commit/deploy workflow for review on the live domain.
+Release status will be recorded here after hosting verification.
+
 ## 0. Latest continuation — picture uploads (2026-09-21)
 
 **Release requested by the owner.** Started from clean `main` at `feae71b`,
