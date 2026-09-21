@@ -4,6 +4,11 @@ Original hand-off written 2026-09-21 after removing the moderator rank and
 shipping the admin console. Later picture-upload, search and map changes are
 recorded below; the original session details remain for context.
 
+**Continuing in Claude Code?** Start with [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md)
+for the current release, local setup, feature status and continuation steps.
+Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
+update is documentation only. The application has no half-finished changes.
+
 ## Latest continuation — Google Maps migration (2026-09-21)
 
 **Deployed:** implementation commit `1adfa05`, hosting bundle
@@ -174,6 +179,7 @@ state and live `/admin` walkthrough in §3 remain outstanding.
 
 Recent commits, newest first:
 
+- `622ed9c` Record the configured and verified Google Maps release.
 - `1adfa05` Replace Leaflet maps with Google Maps for activity discovery and placement — configured restricted browser key/map ID, native markers, preserved saved coordinates, responsive controls, CSP and verification.
 - `78c9093` Record the verified activity-search release.
 
@@ -302,14 +308,18 @@ firestore:indexes` returns when the indexes are _submitted_; they build
   the moderator" (the paragraph under it is current) and its list of old
   attacks on the moderator rank (history, intentional); DEMO_SCRIPT.md does
   not show the console at all.
-- **Pre-existing, untouched:** FIXLIST notes a `react-router-dom` v6 → v7
-  upgrade for two moderate CVEs; Functions undeployed (Blaze + VAPID).
-- Nothing else known. Browser checks in the emulator app found no console
+- **Historical FIXLIST entry:** the v6 → v7 router upgrade note is stale;
+  `package.json` now specifies `react-router-dom ^7.18.3`. Functions remain
+  undeployed (Blaze + VAPID).
+- Original console browser checks in the emulator app found no console
   errors, including at 375px and in Thai.
 
-## 5. Tests run and results
+## 5. Original console test results
 
-All run after the last code change (`0ba6e0b`), all green:
+Historical baseline for `0ba6e0b`, all green. See the continuation sections
+above for the newer results: 801 unit/render tests at the Maps release,
+382 rules tests and 8 integration tests at the picture-upload release.
+Individual suite timing for the original baseline is noted below:
 
 | Command                                                        | Result                                                                                  |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -352,16 +362,22 @@ themselves and approved.
   any admin acting on another or on themselves, and the Firebase console.
 - Commit messages use a sentence-case title and a body that says what
   changed and why. Earlier Claude sessions used a Claude co-author trailer;
-  attribute new work to its actual contributor. Commit and deploy only when
-  the owner asks; they normally review on localhost first. The owner explicitly
-  chose deployment before their walkthrough for the picture-upload release.
+  attribute new work to its actual contributor. Follow the owner's current
+  release scope. Recent picture, search and Maps work was committed, pushed
+  and deployed for live review; do not repeat approval questions for steps
+  already authorized. This documentation handoff needs no hosting deployment.
 
 ## 7. Running it locally — what only the conversation knew
+
+At the Claude handoff on 2026-09-21, Vite at `127.0.0.1:5173`, Auth `9099`,
+Firestore `8181` and Emulator UI `4000` were confirmed running. Recheck before
+starting anything; preserve the running emulator's data. These commands are
+for a fresh local start, not instructions to restart or reseed existing services:
 
 ```bash
 npm run emulators      # project demo-smartsync: auth 9099, firestore 8181, UI http://localhost:4000, functions 5001
 npm run seed           # creates the five demo people + activities; prints "email -> uid"
-npm run dev            # http://localhost:5173 (binds IPv6 localhost — curl 127.0.0.1 fails, localhost works)
+npm run dev -- --host 127.0.0.1  # http://127.0.0.1:5173; allowed by the Maps key's referrer restrictions
 ```
 
 - `.env.local` has `VITE_USE_EMULATORS=true`; `.env.production` sets it
@@ -382,7 +398,7 @@ npm run dev            # http://localhost:5173 (binds IPv6 localhost — curl 12
 - To fill the queue, sign in as another seed user and file reports from a
   participant list, a chat or an activity page — that exercises the real
   `fileReport` path.
-- Emulator state when I left it (if it is still running): `you@` = admin,
+- Original console-session emulator snapshot (not reverified at this handoff): `you@` = admin,
   Alex = `{role:'user', suspended:false}`, Narin suspended with one open
   report, Maya with one open report and one warning, all activities active,
   nine log entries.
@@ -408,19 +424,35 @@ ensure_ascii=False)`) to keep the diff to the keys you touched — JS
 
 ## 8. Deploying
 
+For an authorized application release, build and check configuration first:
+
 ```bash
+npm run check:maps
 npm run build
-npx firebase deploy --only firestore:rules --project smartsync-c1f07
-npx firebase deploy --only firestore:indexes --project smartsync-c1f07
-npx firebase deploy --only hosting --project smartsync-c1f07
 ```
 
-In that order — rules before code that relies on them, indexes before code
-that queries them — and always with `--only` (see §4 on Functions). Verify
+When rules or indexes changed, deploy the relevant targets before dependent
+frontend code:
+
+```bash
+npx firebase deploy --only firestore:rules --project smartsync-c1f07
+npx firebase deploy --only firestore:indexes --project smartsync-c1f07
+```
+
+Then deploy hosting (the only target needed for frontend-only changes):
+
+```bash
+npx firebase deploy --only hosting --project smartsync-c1f07 --non-interactive
+```
+
+Always use `--only` (see §4 on Functions). Verify
 with `curl -s https://smartsync-c1f07.web.app/ | grep -o 'assets/index-[^"]*\.js'`
 against `dist/index.html`.
 
-## 9. Recommended next steps, in order
+## 9. Original follow-up suggestions
+
+These are historical console/exhibition suggestions. Follow the owner's next
+feature request; current feature status is in CLAUDE_HANDOFF.md.
 
 1. Check the two new indexes are _Enabled_ in the Firebase console, then have
    the owner open `/admin` live and walk the five sections once with real
