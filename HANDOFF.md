@@ -180,19 +180,29 @@ with reasons the data supports" and pushed; hosting deployed after.
    API answers "Your prepayment credits are depleted. Please go to AI
    Studio at https://ai.studio/projects to manage your project and
    billing": the AI Studio project is on **Prepay** with no balance.
-   **Open at the time of writing — owner's choice:** buy prepay credits
-   (AI Studio → Billing → Buy credits, minimum $5; flash-lite at
-   $0.30 / $2.50 per million tokens makes that tens of thousands of
-   requests) **or** create a key in a *new AI Studio project without
-   billing* (the Free Tier is for projects without billing; its "content
-   may be used to improve products" terms apply), then
-   `functions:secrets:set GEMINI_API_KEY` again and answer Yes to the
-   redeploy. Nothing in the code needs to change for either. The key
-   was also pasted into the shell once, in the clear, on the owner's
-   own screen — regenerate it in AI Studio if that ever matters.
+   The owner bought **$5 of prepay credits** (AI Studio → Billing); the
+   API answered from then on. Prepay credits expire after 12 months and
+   run down at flash-lite's $0.30 / $2.50 per million tokens — a live
+   request is ~1,100 tokens, so $5 is tens of thousands of them; when
+   the balance hits zero every key in that billing account answers 402
+   again and the page shows the standard picks. The key was also pasted
+   into the shell once, in the clear, on the owner's own screen —
+   regenerate it in AI Studio if that ever matters.
 9. The Function's `log.warn` used a `message` field that overwrote the
    entry's message (the API's wording was lost); now `detail`. Function
    redeployed (`f3f2d22`).
+10. With credits, the first live answer was `{"picks": []}` — the demo
+    account's interests matched none of the five activities and the
+    model read "fit this person best" as "only what fits well"; the
+    page fell back with "gave an answer the app could not use". The
+    system instruction now says to rank the supplied activities by
+    whatever fits when nothing matches interests or history (an empty
+    reasons list is fine, an empty picks list is not) and the schema has
+    `minItems: 1`; reproduced and then verified against the live model
+    (`43463df`, Function redeployed). **Live and working since 14:55
+    UTC on 2026-09-21:** "Ranked by Gemini · Just now", hero + four
+    picks with reasons, log line `ai picks ranked … candidates 5, picks
+    5, tokens 1112`.
 
 ## Latest continuation — discovery filters as sets (2026-09-21)
 
