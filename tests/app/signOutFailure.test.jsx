@@ -19,11 +19,12 @@ vi.mock('../../src/context/AuthContext', () => ({
     user: {
       uid: 'me',
       email: 'me@x.y',
-            privacy: { notifications: true },
+      privacy: { notifications: true },
     },
   }),
 }))
 vi.mock('../../src/firebase/users', () => ({ setNotificationsEnabled: vi.fn() }))
+vi.mock('../../src/firebase/moderation', () => ({ watchMyWarnings: () => () => {} }))
 
 const { default: SettingsPage } = await import('../../src/pages/SettingsPage')
 const { default: SignOutLink } = await import('../../src/components/SignOutLink')

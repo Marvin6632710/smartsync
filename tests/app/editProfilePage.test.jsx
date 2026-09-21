@@ -90,6 +90,33 @@ test('an empty username is refused before the round trip', async () => {
   expect(updateDisplayName).not.toHaveBeenCalled()
 })
 
+test('the bio is counted in words as it is typed, and 76 are refused before the round trip', async () => {
+  render(page())
+  const counter = () => document.getElementById('bio-count')
+  expect(counter().textContent).toMatch(/^1 of 75 words/)
+  expect(counter().classList.contains('over')).toBe(false)
+
+  const words = (n) => Array.from({ length: n }, () => 'about').join(' ')
+  fireEvent.change(screen.getByLabelText('Bio'), { target: { value: words(75) } })
+  expect(counter().textContent).toMatch(/^75 of 75 words/)
+  expect(counter().classList.contains('over')).toBe(false)
+
+  // Line breaks and doubled spaces separate words; they do not add any.
+  fireEvent.change(screen.getByLabelText('Bio'), {
+    target: { value: words(38) + '\n\n' + words(38) },
+  })
+  expect(counter().textContent).toMatch(/^76 of 75 words/)
+  expect(counter().classList.contains('over')).toBe(true)
+  fireEvent.click(screen.getByText('Save profile'))
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'Your bio can be up to 75 words. Trim it a little.',
+  )
+  expect(updateDisplayName).not.toHaveBeenCalled()
+
+  // The character ceiling is the box's own: it cannot be typed past.
+  expect(screen.getByLabelText('Bio').getAttribute('maxlength')).toBe('500')
+})
+
 test('a refused save stays on the page and says so', async () => {
   updateDisplayName.mockRejectedValue({ code: 'permission-denied' })
   render(page())

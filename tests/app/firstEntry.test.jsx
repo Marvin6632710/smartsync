@@ -30,7 +30,7 @@ const member = {
   email: 'uma@example.com',
   onboarded: true,
   banned: false,
-    isAdmin: false,
+  isAdmin: false,
 }
 const signedIn = { ...signedOut, status: 'ready', user: member, profileReady: true }
 let auth = signedOut
@@ -55,6 +55,11 @@ vi.mock('../../src/firebase/config', () => ({ db: {}, auth: {}, usingEmulators: 
 vi.mock('firebase/firestore', async (importActual) => ({
   ...(await importActual()),
   collection: () => ({}),
+}))
+// Settings watches the warnings on your record; there is no record here.
+vi.mock('../../src/firebase/moderation', async (importActual) => ({
+  ...(await importActual()),
+  watchMyWarnings: () => () => {},
 }))
 vi.mock('../../src/components/CelebrationToast', () => ({ default: () => null }))
 vi.mock('../../src/components/JoinBurst', () => ({ default: () => null }))

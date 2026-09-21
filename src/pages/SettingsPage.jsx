@@ -18,6 +18,7 @@ import LanguageMenu from '../components/LanguageMenu'
 import ThemeChoice from '../components/ThemeChoice'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
+import { useMyWarnings } from '../hooks/useMyWarnings'
 
 export default function SettingsPage() {
   const { t } = useTranslation()
@@ -25,6 +26,15 @@ export default function SettingsPage() {
   const { user, signOut } = useAuth()
   const { pushCelebration } = useApp()
   const [signOutOpen, setSignOutOpen] = useState(false)
+  // The record itself, so the row can say how much is on it. Until the
+  // first answer, and if the read failed, it says only what the row is for:
+  // "nothing on your record" is a claim, and it is made only when true.
+  const { warnings, loading, error } = useMyWarnings(user.uid)
+  const warningsHint = (() => {
+    if (loading || error) return t('settings.warningsHint')
+    if (warnings.length === 0) return t('warnings.nothing')
+    return t('settings.warningsCount', { count: warnings.length })
+  })()
 
   // A sign-out that fails leaves the person signed in; that used to be an
   // unhandled rejection and a screen that did not change.
@@ -85,16 +95,6 @@ export default function SettingsPage() {
           </span>
           <ChevronRight size={17} />
         </button>
-        {/* Always here, not only when there is something on it. A row that
-            appears the moment you are warned tells you off twice. */}
-        <button className="setting-row" onClick={() => navigate('/warnings')}>
-          <MessageSquareWarning size={18} />
-          <span>
-            <strong>{t('settings.warnings')}</strong>
-            <small>{t('settings.warningsHint')}</small>
-          </span>
-          <ChevronRight size={17} />
-        </button>
         <button className="setting-row" onClick={() => navigate('/weights')}>
           <SlidersHorizontal size={18} />
           <span>
@@ -121,6 +121,28 @@ export default function SettingsPage() {
             <small>{t('settings.termsHint')}</small>
           </span>
           <ChevronRight size={17} />
+        </button>
+      </div>
+
+      {/* The record, in its own card so it cannot be mistaken for a
+          preference. Always here, not only when there is something on it —
+          a card that appears the moment you are warned tells you off twice —
+          but when there is, the whole card takes the warning tone and the
+          count sits where the chevron was. */}
+      <div className={`settings-card warnings-card${warnings.length ? ' has-warnings' : ''}`}>
+        <button className="setting-row warnings-row" onClick={() => navigate('/warnings')}>
+          <span className="warnings-icon" aria-hidden="true">
+            <MessageSquareWarning size={18} />
+          </span>
+          <span>
+            <strong>{t('settings.warnings')}</strong>
+            <small>{warningsHint}</small>
+          </span>
+          {warnings.length ? (
+            <span className="warnings-count">{warnings.length}</span>
+          ) : (
+            <ChevronRight size={17} />
+          )}
         </button>
       </div>
 

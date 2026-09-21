@@ -116,6 +116,17 @@
      on it still reads. */
   --accent-deep: #4f46e5;
 
+  /* The profile card: the mark's colourway at a middle depth. The mark is
+     cream and lilac on ink; the card's ground is that lilac carried down
+     into that ink — a dusky indigo, neither the tile's near-black nor the
+     accent at full brightness — with cream on it and the lilac itself as
+     a light in one corner. Two tones make the gradient; the dark set
+     deepens them a step so the card sits on a dark page rather than
+     floating off it. */
+  --profile-ink: #2b2749;
+  --profile-ink-2: #453e70;
+  --profile-line: transparent;
+
   /* --- Layout ---------------------------------------------
      The shell's measurements. The gutter widens with the screen (see WIDE
      SCREENS at the end); the three widths are what a page is allowed on a
@@ -226,6 +237,9 @@
   --accent-line: #464380;
   --on-accent: #14111c;
   --accent-deep: #4f46e5;
+  --profile-ink: #262240;
+  --profile-ink-2: #3e3866;
+  --profile-line: #4a4478;
 
   --map-land: #1d1a16;
 
@@ -1543,6 +1557,48 @@ select:focus-visible {
   color: var(--text-2);
   font-size: var(--t-sm);
 }
+/* The warnings row: its icon in a tile, and when there is anything on the
+   record the card turns the warning colour, its title with it, and the
+   count takes the chevron's place. Quiet when the record is clean — the
+   tile alone marks it as a different kind of row from the preferences. */
+.warnings-row .warnings-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  color: var(--text-2);
+}
+.warnings-card.has-warnings {
+  border-color: var(--warning-line);
+  background: var(--warning-soft);
+}
+.warnings-card.has-warnings .setting-row:hover {
+  background: color-mix(in srgb, var(--warning-soft) 88%, var(--warning));
+}
+.warnings-card.has-warnings .warnings-icon {
+  background: var(--warning);
+  color: var(--surface);
+}
+.warnings-card.has-warnings strong {
+  color: var(--warning);
+}
+.warnings-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: var(--r-pill);
+  background: var(--warning);
+  color: var(--surface);
+  font-size: var(--t-sm);
+  font-weight: var(--w-bold);
+  font-variant-numeric: tabular-nums;
+}
 .compact-row {
   border: 1px solid var(--line) !important;
   border-radius: var(--r-md);
@@ -1585,6 +1641,18 @@ select:focus-visible {
   flex-direction: column;
   gap: 12px;
 }
+/* The card and the overview share a wrapper for the laptop layout; here it
+   is nothing, and they stack in the page like every other section. Below
+   the laptop layout, "Recent activities" shows the first two of the six it
+   renders. */
+.profile-column {
+  display: contents;
+}
+@media (max-width: 1023px) {
+  .profile-recent .card-grid > .activity-card:nth-child(n + 3) {
+    display: none;
+  }
+}
 .profile-actions-top .mini-actions {
   display: flex;
   gap: 8px;
@@ -1597,12 +1665,57 @@ select:focus-visible {
   gap: 4px;
 }
 .profile-center h2 {
-  margin: 8px 0 0;
+  margin: 10px 0 2px;
   font-size: var(--t-h1);
 }
 .profile-center p {
-  margin: 2px 0 6px;
-  font-size: var(--t-sm);
+  margin: 8px 0 2px;
+  max-width: 44ch;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  /* Up to 75 words: a paragraph, so the line breaks somebody typed stay. */
+  white-space: pre-line;
+}
+.profile-center p:empty {
+  display: none;
+}
+/* The interests, centred under the words. */
+.profile-interests {
+  justify-content: center;
+  margin-top: 2px;
+}
+/* Editing the profile is the one thing most people come here to do, so it
+   is a real button on the card — white on the gradient, under everything it
+   changes — and not a small word beside a heading. */
+.profile-edit {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 200px;
+  margin-top: 6px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: #f3ede4;
+  color: var(--accent-deep);
+  font-size: var(--t-body);
+  font-weight: var(--w-semibold);
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.45);
+  transition:
+    transform var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+.profile-edit:hover {
+  background: #ffffff;
+}
+.profile-edit:active {
+  transform: scale(0.97);
+}
+.profile-stats-grid.three {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 /* =========================================================
@@ -2446,6 +2559,13 @@ select:focus-visible {
   margin: -4px 0 2px;
   font-size: var(--t-tiny);
   color: var(--ink-soft);
+}
+.bio-count {
+  font-variant-numeric: tabular-nums;
+}
+.bio-count.over {
+  color: var(--danger);
+  font-weight: var(--w-semibold);
 }
 
 /* ==========================================================================
@@ -3494,55 +3614,69 @@ input[type='range'] {
    PROFILE HEADER
    It was a white card with a pale circle floating in it — the
    emptiest screen in the app, and the one people open to see
-   themselves. A person has no category, so it takes the brand
-   colours instead.
+   themselves. A person has no category, so it takes the mark's own
+   colourway instead — cream and lilac on ink, the ground a dusky
+   indigo between the two — with a lilac light in one corner, not the
+   gradient of purples that belonged to no other part of the app.
    ========================================================= */
 
 .profile-showcase {
   position: relative;
-  border: 0;
   overflow: hidden;
-  color: #fff;
+  color: #f3ede4;
   isolation: isolate;
-  background: linear-gradient(150deg, var(--accent-deep), #7c5cf5 55%, #b06ef0);
-  box-shadow: 0 14px 30px -12px rgba(var(--accent-rgb), 0.55);
+  border: 1px solid var(--profile-line);
+  background: linear-gradient(165deg, var(--profile-ink-2), var(--profile-ink) 62%);
+  box-shadow: 0 16px 32px -16px rgba(43, 39, 73, 0.6);
 }
 .profile-showcase::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: radial-gradient(120% 80% at 80% -20%, rgba(255, 255, 255, 0.3), transparent 60%);
+  background: radial-gradient(90% 60% at 88% -12%, rgba(139, 132, 243, 0.5), transparent 62%);
 }
 .profile-showcase h2,
 .profile-showcase h3 {
-  color: #fff;
+  color: #f3ede4;
 }
 .profile-showcase p {
-  /* 0.85 over the header gradient measured 3.76:1 — this is the one line of
-     text a profile actually says about a person, so it reads at full strength. */
-  color: #fff;
+  /* The one paragraph a profile says about a person: cream on ink, a
+     touch under full strength so the name stays the loudest thing. */
+  color: rgba(243, 237, 228, 0.86);
 }
 .profile-showcase .avatar,
 .profile-showcase .avatar.large {
-  background: rgba(255, 255, 255, 0.95);
-  color: var(--accent);
+  background: #f3ede4;
+  color: var(--accent-deep);
   border: 0;
   font-weight: var(--w-black);
-  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 0 0 4px rgba(139, 132, 243, 0.55),
+    0 10px 24px -8px rgba(0, 0, 0, 0.45);
+}
+.profile-showcase .avatar.xl {
+  width: 96px;
+  height: 96px;
+  min-width: 96px;
+  font-size: 34px;
 }
 .profile-showcase .floating-pill,
-.profile-showcase .tiny-chip {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.28);
-  color: #fff;
+.profile-showcase .tiny-chip,
+.profile-showcase .profile-handle {
+  background: rgba(243, 237, 228, 0.12);
+  border-color: rgba(243, 237, 228, 0.2);
+  color: #f3ede4;
 }
 /* The small round controls in the corners — settings, share, privacy. */
 .profile-showcase .icon-button,
 .profile-showcase .ghost-button {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.28);
-  color: #fff;
+  background: rgba(243, 237, 228, 0.1);
+  border-color: rgba(243, 237, 228, 0.22);
+  color: #f3ede4;
+}
+.profile-showcase .icon-button:hover {
+  background: rgba(243, 237, 228, 0.18);
 }
 
 /* =========================================================
@@ -6319,22 +6453,101 @@ button.celebration-toast:hover {
     grid-column: 2;
   }
 
-  /* --- Profile: who you are beside what you do --------------------------- */
+  /* --- Profile: the whole of you down the left, what you joined on the right
+     One tall panel in the brand gradient — the card's controls, picture,
+     name, bio and handle, then the overview's figures and interests under
+     a hairline — filling the left side top to bottom, and the activities
+     you have joined laid out in cards on the right. The panel is at least
+     the height of the window and grows with the cards beside it. */
   .profile-page {
     display: grid;
-    grid-template-columns: 360px minmax(0, 1fr);
+    grid-template-columns: 380px minmax(0, 1fr);
     column-gap: 32px;
-    row-gap: 20px;
-    align-items: start;
+    align-items: stretch;
   }
-  .profile-page > .profile-showcase {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    position: sticky;
-    top: 24px;
+  .profile-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-height: calc(100vh - var(--header-h) - 32px - 64px);
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid var(--profile-line);
+    border-radius: var(--r-lg);
+    color: #f3ede4;
+    background: linear-gradient(172deg, var(--profile-ink-2), var(--profile-ink) 55%);
+    box-shadow: 0 16px 32px -16px rgba(43, 39, 73, 0.6);
   }
-  .profile-page > .section-block {
-    grid-column: 2;
+  .profile-column::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(90% 34% at 85% -6%, rgba(139, 132, 243, 0.5), transparent 62%);
+  }
+  .profile-column > .profile-showcase {
+    padding: 20px 24px 8px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .profile-column > .profile-showcase::after {
+    display: none;
+  }
+  .profile-column .profile-center {
+    padding-top: 8px;
+    gap: 6px;
+  }
+  .profile-column .profile-center .avatar.xl {
+    width: 112px;
+    height: 112px;
+    min-width: 112px;
+    font-size: 40px;
+  }
+  .profile-column .profile-center h2 {
+    margin-top: 14px;
+    font-size: 28px;
+    line-height: 1.15;
+  }
+  .profile-column .profile-edit {
+    margin-top: 10px;
+  }
+  .profile-column > .profile-life {
+    margin: 20px 24px 0;
+    padding: 20px 0 24px;
+    border-top: 1px solid rgba(243, 237, 228, 0.18);
+  }
+  .profile-column .eyebrow {
+    color: rgba(243, 237, 228, 0.72);
+  }
+  .profile-column .section-heading h2 {
+    color: #f3ede4;
+  }
+  .profile-column .text-button {
+    color: #f3ede4;
+  }
+  .profile-column .text-button:hover {
+    color: rgba(243, 237, 228, 0.8);
+  }
+  .profile-column .stat-card {
+    background: rgba(243, 237, 228, 0.08);
+    border-color: rgba(243, 237, 228, 0.16);
+  }
+  .profile-column .stat-card span,
+  .profile-column .stat-card small {
+    color: rgba(243, 237, 228, 0.72);
+  }
+  .profile-column .stat-card strong {
+    color: #f3ede4;
+  }
+  .profile-column .tiny-chip {
+    background: rgba(243, 237, 228, 0.12);
+    border-color: rgba(243, 237, 228, 0.2);
+    color: #f3ede4;
+  }
+  .profile-page > .profile-recent {
     min-width: 0;
   }
 }

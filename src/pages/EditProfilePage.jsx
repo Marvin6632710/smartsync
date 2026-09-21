@@ -9,6 +9,7 @@ import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { updateDisplayName } from '../firebase/users'
 import { categoryLabel, timeBandLabel } from '../i18n'
+import { BIO_MAX_CHARS, BIO_MAX_WORDS, bioTooLong, countWords } from '../utils/bio'
 import { awaitWrite, QUEUED } from '../utils/writes'
 
 export default function EditProfilePage() {
@@ -65,6 +66,12 @@ export default function EditProfilePage() {
     // "could not save" after a round trip.
     if (!form.username.trim()) {
       setError('editProfile.usernameRequired')
+      return
+    }
+    // The rules count the same way; refusing here saves the round trip and
+    // says which limit it is, instead of a "could not save" afterwards.
+    if (bioTooLong(form.bio)) {
+      setError('editProfile.bioTooLong')
       return
     }
     setError('')
@@ -173,12 +180,24 @@ export default function EditProfilePage() {
         <label>
           {t('editProfile.bio')}
           <textarea
-            rows="3"
+            rows="5"
             value={form.bio}
             onChange={(e) => set('bio', e.target.value)}
-            maxLength={300}
+            maxLength={BIO_MAX_CHARS}
+            aria-describedby="bio-count"
           />
         </label>
+        {/* Counted live, in words, the unit the limit is written in. The
+            character ceiling is the textarea's own maxLength, so it can never
+            be crossed; the word count can, and turns the counter red. */}
+        <small
+          id="bio-count"
+          className={`field-hint bio-count${bioTooLong(form.bio) ? ' over' : ''}`}
+        >
+          {t('editProfile.bioCount', { words: countWords(form.bio), max: BIO_MAX_WORDS })}
+          {' · '}
+          {t('editProfile.bioHint', { chars: BIO_MAX_CHARS })}
+        </small>
         <label>
           {t('editProfile.preferredTime')}
           <select value={form.preferredTime} onChange={(e) => set('preferredTime', e.target.value)}>
@@ -216,7 +235,7 @@ export default function EditProfilePage() {
         </div>
         {error && (
           <p className="form-error" role="alert">
-            {t(error, { count: MIN_INTERESTS })}
+            {t(error, { count: MIN_INTERESTS, words: BIO_MAX_WORDS, chars: BIO_MAX_CHARS })}
           </p>
         )}
         <button

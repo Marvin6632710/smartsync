@@ -9,6 +9,53 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest continuation — profile banner, warnings card, 75-word bio (2026-09-21)
+
+Three features the owner had listed, built one after another in Claude
+Code and reviewed on localhost before release. Details in FIXLIST ("The
+profile across the top…") and ADR-027; the CLAUDE_HANDOFF table marks
+them done.
+
+- **Profile on laptops** — from 1024px one tall gradient panel down the
+  left (card + overview; the owner rejected a horizontal banner and a
+  full-width stacked card, and asked for "vertically full profile at the
+  left side and joined activities on the right side"), joined activities
+  in cards on the right. `ProfilePage.jsx` wraps the card and overview in
+  `.profile-column` (`display: contents` on phones) and renders six recent
+  cards (phones show two via CSS); the layout is in the DESKTOP block of
+  `src/styles.css`. The card was then reworked at the owner's request
+  ("better UI", "edit profile somewhere the user can see"): ring on the
+  picture, handle under the name, interests as chips on the card, a white
+  **Edit profile** button on the card (`.profile-edit`), three stats
+  (joined / hosting / top match — `profile.hosting`), and an empty state
+  for no joined activities (`profile.findActivities`). Then recoloured at
+  the owner's request ("the purple doesn't suit"): the card and the
+  laptop panel are a dusky indigo — the mark's lilac carried down into
+  its ink, cream text, lilac light and ring — settled after the owner
+  found the icon's near-black too dark and a blue-indigo too bright
+  ("match the logo colourway, not too dark, not too bright"); tokens
+  `--profile-ink` / `--profile-ink-2` / `--profile-line` in both theme
+  sets.
+- **Current warnings** — `src/hooks/useMyWarnings.js` (shared with
+  `WarningsPage`), a `.warnings-card` in `SettingsPage.jsx`, strings
+  `settings.warnings` (now "Current warnings") and `settings.warningsCount`
+  (plural) in four languages. Tests that render Settings mock
+  `watchMyWarnings`; `tests/app/settingsWarnings.test.jsx` covers the
+  states.
+- **Bio** — `firestore.rules` `validBio()` (75 words by `\s+`, 500
+  characters), `src/utils/bio.js`, the editor's counter/refusal, strings
+  `editProfile.bioHint/bioCount/bioTooLong`. `.profile-center p` keeps
+  line breaks. **Release order: rules before hosting** — a build that
+  allows 500 characters against rules that allow 300 refuses saves.
+
+**Verification:** unit/app suite, rules suite (382, including the new bio
+case), lint, Prettier and the build — figures in the commit message. In
+the emulator app: a 72-word / 400+-character bio saved through the new
+rules and renders on the phone and the banner; 82 words was refused
+before the round trip with the reason; a warning placed on the signed-in
+account turned the Settings card amber with a count of 1, live, and its
+row opened the record; the card is quiet with nothing on the record.
+
 ## Latest continuation — Google Maps migration (2026-09-21)
 
 **Deployed:** implementation commit `1adfa05`, hosting bundle

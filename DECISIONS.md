@@ -1370,3 +1370,35 @@ The Google project must be configured and the real browser checks in
 [GOOGLE_MAPS_SETUP.md](GOOGLE_MAPS_SETUP.md) must pass before publishing a
 new environment. The first configured release was verified on 2026-09-21;
 HANDOFF.md records its deployment and browser checks.
+
+---
+
+## ADR-027 — A bio of 75 words, with a ceiling in characters for the languages that do not count them
+
+**Context.** The owner asked for a bio of up to 75 words below the profile
+picture. The editor and the rules limited it to 300 characters — the wrong
+unit for the request, and any single unit is the wrong unit for the
+languages the app speaks: 75 English words are about 450 characters, while
+Thai, Burmese and Chinese put few or no spaces in a sentence, so a count of
+words there is a count of paragraphs, and a Chinese bio the length of a
+novel would have one.
+
+**Decision.** Two ceilings, both in the rules and both in the editor: 75
+words and 500 characters, whichever comes first. A word is a run of
+anything but whitespace — `validBio()` splits on `\s+` and counts, the
+editor counts the same way (`src/utils/bio.js`) and trims before writing,
+so a leading space never costs a word. For English the word count is the
+one that bites; for the three scripts without spaces it is the character
+ceiling, set so that 75 English words fit under it. The editor shows the
+count live in the unit the limit is written in, turns it red past 75, and
+refuses the save with the reason; the character ceiling is the box's own
+`maxLength` and cannot be typed past. On the profile the bio keeps the line
+breaks that were typed, since 75 words is a paragraph rather than a line.
+
+**Consequences.** The rules changed (`validPublicProfile` → `validBio`) and
+must be released before a build that lets people write past 300
+characters. A bio saved before this is unaffected: everything under the old
+limit is under the new ones. The count is by whitespace on purpose — no
+dictionary, no locale — so it is the same number on every device and in
+the rules, at the price of being a poor measure for the scripts that the
+character ceiling covers instead.

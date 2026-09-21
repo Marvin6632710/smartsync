@@ -183,6 +183,15 @@ service cloud.firestore {
       return value is list && value.size() <= maxItems;
     }
 
+    // A bio is up to 75 words. A word is a run of anything but whitespace —
+    // the one definition that also holds for Thai, Burmese and Chinese, where
+    // a sentence has few or no spaces; there it is the character ceiling that
+    // bites, set so that 75 English words fit under it. The editor counts the
+    // same way and trims before writing, so a leading space never costs a word.
+    function validBio(value) {
+      return value is string && value.size() <= 500 && value.split('\\s+').size() <= 75;
+    }
+
     function validPictureVersion(data) {
       return !('pictureVersion' in data)
         || (data.pictureVersion is string
@@ -237,7 +246,7 @@ service cloud.firestore {
       return isString(data.name, 60)
         && validPictureVersion(data)
         && isString(data.username, 40)
-        && data.bio is string && data.bio.size() <= 300
+        && validBio(data.bio)
         && isTagList(data.interests, 20)
         && isTagList(data.historyCategories, 40)
         && data.preferredTime is string

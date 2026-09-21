@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { MessageSquareWarning } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { watchMyWarnings } from '../firebase/moderation'
+import { useMyWarnings } from '../hooks/useMyWarnings'
 import { formatRelativeTime } from '../utils/time'
 
 /**
@@ -18,37 +18,11 @@ import { formatRelativeTime } from '../utils/time'
 export default function WarningsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const [warnings, setWarnings] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  // Bumped by Try again: the listener is dead once it has reported an
-  // error, so trying again means making it again.
-  const [attempt, setAttempt] = useState(0)
-
-  useEffect(() => {
-    if (!user?.uid) return undefined
-    return watchMyWarnings(
-      user.uid,
-      (rows) => {
-        setWarnings(rows)
-        setError(null)
-        setLoading(false)
-      },
-      // A read that failed used to fall through to "Nothing on your record",
-      // which on this page of all pages is the one thing it must not say
-      // unless it is true.
-      (watchError) => {
-        setError(watchError)
-        setLoading(false)
-      },
-    )
-  }, [user?.uid, attempt])
-
-  const retry = () => {
-    setError(null)
-    setLoading(true)
-    setAttempt((current) => current + 1)
-  }
+  // A read that failed used to fall through to "Nothing on your record",
+  // which on this page of all pages is the one thing it must not say unless
+  // it is true; `error` keeps it honest, and Try again makes the listener
+  // again. The same record feeds the row in Settings.
+  const { warnings, loading, error, retry } = useMyWarnings(user?.uid)
 
   return (
     <div className="page-content">

@@ -217,6 +217,45 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **The profile across the top, the record in its own card, a bio of 75
+  words, 2026-09-21** — three things the owner had asked for. On a laptop
+  (from 1024px) the profile is one tall panel down the left in the brand
+  gradient — the card's controls, picture, name, bio and handle, then the
+  overview's figures and interests under a hairline — at least the height
+  of the window and growing with what stands beside it, which is the
+  activities you have joined, laid out in cards on the right (six there,
+  two on a phone). The card and the overview share a wrapper that is
+  `display: contents` below 1024px, so the phone layout keeps its order.
+  The card itself was reworked on both: the picture has a ring, the
+  handle sits under the name and the bio under that at a readable
+  measure, the interests moved onto the card as its chips, and **Edit
+  profile is a white button on the card** — it had been a small "Edit"
+  beside the "Your activity life" heading, which nobody found. That
+  section is now three figures — joined, hosting, top match — and
+  "Recent activities" has an empty state with a way to Discover. And the
+  card lost its purple: it is in the mark's own colourway — cream and
+  lilac on ink — with the ground a dusky indigo between the two, the
+  lilac carried down into the ink (`--profile-ink` / `--profile-ink-2`,
+  a step deeper in the dark set). The tile's own near-black was tried
+  and read as too dark, the accent at full brightness as too bright;
+  this is the middle. A lilac light in one corner, a lilac ring on the
+  picture, cream text, the Edit profile button cream with indigo. The
+  one screen that had colours belonging to no other part of the app
+  now has the brand's. In Settings the warnings row
+  leaves the list of preferences for a card of its own, "Current
+  warnings", whose icon sits in a tile; it watches the record
+  (`useMyWarnings`, shared with the warnings page) and says how much is on
+  it — "Nothing on your record" once it knows, and only then — and when
+  there is anything, the whole card takes the warning tone and the count
+  takes the chevron's place. The bio's limit is 75 words, and 500
+  characters for the languages that do not put spaces between words
+  (ADR-027): `validBio()` in the rules splits on whitespace and counts,
+  the editor counts the same way live ("72 of 75 words"), goes red past
+  the limit and refuses the save with the reason; the profile keeps the
+  line breaks that were typed. Four languages. Tests: the rules case for
+  the two ceilings, the editor's counter and refusal, the helper, and five
+  for the Settings card (its claim about a clean record is made only once
+  the listener has answered, never on an error).
 - **Web layout, 2026-09-16** — the phone frame is gone: under 720px the app
   is the phone it was; from 720px a web header (brand, four tabs, search,
   create, notifications, avatar → profile) replaces the bar, the tabs and

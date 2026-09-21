@@ -194,8 +194,21 @@ describe('profile privacy', () => {
     expect(after.historyCategories).toEqual(['Coffee', 'Gym'])
   })
 
-  test('over-long bios are rejected', async () => {
-    await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), { bio: 'x'.repeat(301) }))
+  test('a bio is up to 75 words, under a ceiling of 500 characters', async () => {
+    // Five-letter words: 75 of them are 449 characters, under the ceiling.
+    const words = (n) => Array.from({ length: n }, () => 'about').join(' ')
+    // 75 words of English run well past the old 300-character limit.
+    expect(words(75).length).toBeGreaterThan(300)
+    await assertSucceeds(updateDoc(doc(asAlice(), 'users', ALICE), { bio: words(75) }))
+    await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), { bio: words(76) }))
+    // Newlines and tabs separate words like spaces do.
+    await assertFails(
+      updateDoc(doc(asAlice(), 'users', ALICE), { bio: words(38) + '\n' + words(38) }),
+    )
+    // A script without spaces is bounded by characters alone.
+    await assertSucceeds(updateDoc(doc(asAlice(), 'users', ALICE), { bio: '好'.repeat(500) }))
+    await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), { bio: '好'.repeat(501) }))
+    await assertSucceeds(updateDoc(doc(asAlice(), 'users', ALICE), { bio: '' }))
   })
 })
 
