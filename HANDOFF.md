@@ -1,8 +1,8 @@
 # SmartSync — hand-off
 
 Original hand-off written 2026-09-21 after removing the moderator rank and
-shipping the admin console. The continuation below records the later local
-picture-upload work; the original session details remain for context.
+shipping the admin console. Later picture-upload and search changes are
+recorded below; the original session details remain for context.
 
 ## Latest continuation — activity search (2026-09-21)
 
@@ -22,8 +22,11 @@ screen was visually checked. All 788 existing unit/rendering tests, lint,
 formatting and the build pass. No backend/rules changes are needed. The build
 retains the existing Firebase chunk-size warning.
 
-Following the owner's commit/deploy workflow for review on the live domain.
-Release status will be recorded here after hosting verification.
+**Deployed:** implementation commit `4462773`, following the owner's
+commit/deploy workflow. Hosting release `index-fs7oX7Ln.js` is live at
+<https://smartsync-c1f07.web.app/search>. `/`, `/search` and the JavaScript
+bundle return HTTP 200 and match the production build by SHA-256. This release
+only deployed hosting; the existing photo rules/indexes remain unchanged.
 
 ## 0. Latest continuation — picture uploads (2026-09-21)
 
@@ -86,14 +89,16 @@ state and live `/admin` walkthrough in §3 remain outstanding.
 
 |                  |                                                                                                                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live             | <https://smartsync-c1f07.web.app> — hosting bundle `index-BYPnDSKM.js`, built from `355b89f`, released and checksum-verified 2026-09-21                                                   |
-| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`; photo implementation `355b89f`, followed by this release-record update                                                            |
-| Deployed         | Firestore rules, indexes (including photo-field index exemptions) and hosting as of `355b89f`                                                                                       |
+| Live             | <https://smartsync-c1f07.web.app> — hosting bundle `index-fs7oX7Ln.js`, built from `4462773`, released and checksum-verified 2026-09-21                                                   |
+| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`; search implementation `4462773`, photo implementation `355b89f`                                                                  |
+| Deployed         | Hosting as of `4462773`; Firestore rules and indexes (including photo-field index exemptions) as of `355b89f`                                                                       |
 | **Not** deployed | Cloud Functions in `functions/` (browser push). They need the Blaze plan and a `VITE_FCM_VAPID_KEY`. The live site has no push notifications, which is what README and DEMO_SCRIPT say |
 | Local state      | Firebase CLI 15.29.0 signed in as the owner on this machine. A dev emulator and Vite dev server may still be running (see §7)                                                          |
 
 Recent commits, newest first:
 
+- `4462773` Search activities by name only after a term is entered — empty prompt, title-only matching, no-match message, four locales and browser verification.
+- `2e9d231` Record the verified picture-upload release.
 - `355b89f` Add profile and activity picture uploads — previews, bounded Firestore storage, owner/host rules, privacy, offline recovery and tests (see §0).
 - `feae71b` HANDOFF.md for the next assistant — original hand-off after the console release.
 - `0ba6e0b` Rules without the moderator's ban guard — removed the dead `willBeBanned()` helper the rules compiler flagged on release. No behaviour change.
