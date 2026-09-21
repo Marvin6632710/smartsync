@@ -67,6 +67,7 @@ const reportError = vi.fn()
 vi.mock('../../src/utils/reportError', () => ({ reportError }))
 vi.mock('../../src/firebase/notifications', () => ({
   watchNotifications: (uid, cb) => channel('notifications')(uid, cb),
+  watchUnreadCount: (uid, cb) => channel('unread')(uid, cb),
   watchFollowing: (uid, cb) => channel('following')(uid, cb),
   followUser,
   unfollowUser,
@@ -193,28 +194,54 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-describe('the five data listeners', () => {
-  test('all five open for a signed-in user', () => {
+describe('the data listeners', () => {
+  const names = ['activities', 'blocked', 'following', 'mine', 'notifications', 'peers', 'unread']
+
+  test('all of them open for a signed-in user', () => {
     render(
       <AppProvider>
         <Probe />
       </AppProvider>,
     )
-    expect(Object.keys(emit).sort()).toEqual(
-      ['activities', 'blocked', 'following', 'mine', 'notifications', 'peers'].sort(),
-    )
+    expect(Object.keys(emit).sort()).toEqual([...names].sort())
   })
 
-  test('all five are closed on unmount — none is left running', () => {
+  test('all of them are closed on unmount — none is left running', () => {
     const view = render(
       <AppProvider>
         <Probe />
       </AppProvider>,
     )
     view.unmount()
-    for (const name of ['activities', 'mine', 'peers', 'notifications', 'following', 'blocked']) {
+    for (const name of names) {
       expect(stops[name], `${name} was never stopped`).toBeGreaterThanOrEqual(1)
     }
+  })
+
+  test('the unread count is the badge listener’s number, and a new account starts at nought', () => {
+    let seen
+    function Count() {
+      seen = useApp().unreadCount
+      return null
+    }
+    const view = render(
+      <AppProvider>
+        <Count />
+      </AppProvider>,
+    )
+    expect(seen).toBe(0)
+    act(() => emit.unread(3))
+    expect(seen).toBe(3)
+    act(() => emit.unread(100))
+    expect(seen).toBe(100)
+    // Somebody else signs in: their badge does not inherit the last count.
+    currentUser = { uid: 'other', interests: [], historyCategories: [] }
+    view.rerender(
+      <AppProvider>
+        <Count />
+      </AppProvider>,
+    )
+    expect(seen).toBe(0)
   })
 
   test('a late snapshot from a stopped listener is ignored', () => {

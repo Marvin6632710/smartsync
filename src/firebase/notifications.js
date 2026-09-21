@@ -49,6 +49,13 @@ export const CHAT_NOTIFY_WINDOW_MS = 10 * 60_000
 /** Firestore's ceiling on operations in one batch. */
 const BATCH_LIMIT = 500
 
+/**
+ * How many unread notifications the badge can count. Ninety-nine is the
+ * last number it shows; one more is enough to know to say "99+", and the
+ * listener stops there rather than carrying an inbox nobody has read.
+ */
+export const UNREAD_CAP = 100
+
 const notificationsRef = (uid) => collection(db, 'users', uid, 'notifications')
 
 const rowOf = (d) => {
@@ -102,6 +109,24 @@ export function watchNotifications(uid, callback, onError) {
     stopLatest()
     stopSafety()
   }
+}
+
+/**
+ * How many are unread, for the badge on the bell.
+ *
+ * Not derived from the inbox above: that holds the newest fifty, so a count
+ * taken from it would stop at fifty and lie past it. This is its own
+ * listener over the unread documents alone, capped at one past the last
+ * number the badge shows, and — being a listener — it moves the moment
+ * one arrives or is marked read, including a mark-all-read that reaches
+ * notifications too old for the inbox to have loaded.
+ */
+export function watchUnreadCount(uid, callback, onError) {
+  return onSnapshot(
+    query(notificationsRef(uid), where('read', '==', false), limit(UNREAD_CAP)),
+    (snap) => callback(snap.size),
+    onError,
+  )
 }
 
 /**

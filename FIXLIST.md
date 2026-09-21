@@ -217,6 +217,24 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **The bell's badge, to the owner's spec, 2026-09-21** — the unread
+  count on the notification bell was there; three things were not. It
+  counted the inbox, which holds the newest fifty, so it could never say
+  more than fifty and lied past it: now it has a listener of its own over
+  the unread documents alone (`watchUnreadCount`, capped at a hundred),
+  so it moves the moment one arrives or is marked read — including a
+  mark-all-read that reaches notifications too old for the inbox to have
+  loaded — and reads "99+" past ninety-nine. It said "Notifications" to a
+  screen reader whatever the number: the button's name is now
+  "Notifications, 3 unread" (four languages) and the badge itself is
+  decoration. And a new account inherits nothing: the count is reset with
+  the rest of the state when the signed-in user changes. Nothing changed
+  about when a notification becomes read — opening the inbox does not,
+  tapping one does, Mark all read does. Verified in the emulator app with
+  0, 1, 2, 3, 100+, an arrival, one tapped, and Mark all read; phone and
+  web headers, both themes. Tests: the shell's cases (0, 1, 3, 99, 100,
+  Burmese), the context's listener and its reset, the rules for the
+  query.
 - **Current warnings, the second pass, 2026-09-21** — the owner's spec
   for the card in Settings, point by point. With anything on the record
   the card is the first thing on the page, above the preferences; with

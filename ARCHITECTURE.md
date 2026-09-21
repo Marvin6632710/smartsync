@@ -72,7 +72,8 @@ Firestore                    AppContext                        screen
 ---------                    ----------                        ------
 activities  --onSnapshot-->  activities[]
 users       --onSnapshot-->  peers[]
-notifications -onSnapshot->  notifications[]
+notifications -onSnapshot->  notifications[]      (the newest 50, + moderation notices)
+notifications -onSnapshot->  unreadCount           (unread only, capped at 100 — the bell's badge)
 following   --onSnapshot-->  followedUserIds[]
                                   |
                                   v

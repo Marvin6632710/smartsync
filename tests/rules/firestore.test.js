@@ -22,9 +22,12 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from 'firebase/firestore'
 
@@ -674,6 +677,13 @@ describe('notifications', () => {
 
   test('nobody else can read it', async () => {
     await assertFails(getDocs(collection(asBob(), 'users', ALICE, 'notifications')))
+  })
+
+  test('the badge may count the unread ones — for the owner, and nobody else', async () => {
+    const unread = (db) =>
+      query(collection(db, 'users', ALICE, 'notifications'), where('read', '==', false), limit(100))
+    await assertSucceeds(getDocs(unread(asAlice())))
+    await assertFails(getDocs(unread(asBob())))
   })
 
   // Puts Bob on Alice's roster, which is what every legitimate notification

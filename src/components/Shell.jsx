@@ -83,9 +83,17 @@ export default function Shell() {
   usePushNavigation()
   const navigate = useNavigate()
   const location = useLocation()
-  const { notifications, celebration, dataError, offline, browserOffline, serverSilent } = useApp()
+  const { unreadCount, celebration, dataError, offline, browserOffline, serverSilent } = useApp()
   const { user } = useAuth()
-  const unread = notifications.filter((n) => !n.read).length
+  // The badge: the exact number up to ninety-nine, then "99+"; nothing at
+  // zero. The button's name carries the count too, since a screen reader
+  // does not read a badge — "Notifications, 3 unread".
+  const unread = unreadCount
+  const badgeText = unread > 99 ? '99+' : String(unread)
+  const bellLabel =
+    unread > 0
+      ? t('shell.notificationsUnread', { count: unread, shown: badgeText })
+      : t('shell.notifications')
   const simpleTitle = location.pathname.split('/')[1] || 'home'
   // The create button belongs on the five screens you browse from, where
   // starting something yourself is a reasonable next thought. Everywhere else
@@ -185,10 +193,14 @@ export default function Shell() {
           <button
             className="icon-button notification-button"
             onClick={() => navigate('/notifications')}
-            aria-label={t('shell.notifications')}
+            aria-label={bellLabel}
           >
             <Bell size={20} />
-            {unread > 0 && <span className="badge">{unread}</span>}
+            {unread > 0 && (
+              <span className="badge" aria-hidden="true">
+                {badgeText}
+              </span>
+            )}
           </button>
         </div>
       </header>
@@ -237,11 +249,15 @@ export default function Shell() {
             <button
               className="icon-button notification-button"
               onClick={() => navigate('/notifications')}
-              aria-label={t('shell.notifications')}
-              title={t('shell.notifications')}
+              aria-label={bellLabel}
+              title={bellLabel}
             >
               <Bell size={20} />
-              {unread > 0 && <span className="badge">{unread}</span>}
+              {unread > 0 && (
+                <span className="badge" aria-hidden="true">
+                  {badgeText}
+                </span>
+              )}
             </button>
             {/* The desk, for the admin: the console is its own room, and
                 this is its door from the app. */}

@@ -22,6 +22,7 @@ import {
   followUser,
   markAllNotificationsRead as markAllReadDoc,
   markNotificationRead as markReadDoc,
+  watchUnreadCount,
   notifyFollowers,
   pushChatNotification,
   pushNotification,
@@ -140,6 +141,8 @@ export function AppProvider({ children }) {
   const [myActivities, setMyActivities] = useState([])
   const [peers, setPeers] = useState([])
   const [notifications, setNotifications] = useState([])
+  // For the badge on the bell — its own listener, see `watchUnreadCount`.
+  const [unreadCount, setUnreadCount] = useState(0)
   const [followedUserIds, setFollowedUserIds] = useState([])
   const [blocked, setBlocked] = useState([])
   const [threadPreviews, setThreadPreviews] = useState({})
@@ -469,6 +472,7 @@ export function AppProvider({ children }) {
     setMyActivities([])
     setPeers([])
     setNotifications([])
+    setUnreadCount(0)
     setFollowedUserIds([])
     setThreadPreviews({})
     setBlocked([])
@@ -553,6 +557,13 @@ export function AppProvider({ children }) {
       watchMyActivities(uid, onlyWhileLive(setMyActivities), report),
       watchPeers(uid, onlyWhileLive(setPeers), report),
       watchNotifications(uid, onlyWhileLive(setNotifications), report),
+      // A denial here is never new information — the inbox listener above
+      // reads the same collection under the same rule and reports it — so
+      // this one stays quiet about it and records only anything else.
+      watchUnreadCount(uid, onlyWhileLive(setUnreadCount), (error) => {
+        if (error?.code === 'permission-denied') return
+        reportError('notifications.unread', error, { uid })
+      }),
       watchFollowing(uid, onlyWhileLive(setFollowedUserIds), report),
       watchBlocked(uid, onlyWhileLive(setBlocked), report),
     ]
@@ -1576,6 +1587,7 @@ export function AppProvider({ children }) {
     recordFailed,
 
     notifications,
+    unreadCount,
     markNotificationRead: (id) => markReadDoc(uid, id),
     markAllNotificationsRead: () => markAllReadDoc(uid),
 

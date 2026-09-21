@@ -15,9 +15,12 @@ import { afterEach, expect, test, vi } from 'vitest'
 import i18n, { LANGUAGE_KEY } from '../../src/i18n'
 import my from '../../src/i18n/locales/my.json'
 
+// The badge reads the context's own unread count (its own listener, not
+// the inbox), so the tests set it directly.
+let unreadCount = 2
 vi.mock('../../src/context/AppContext', () => ({
   useApp: () => ({
-    notifications: [{ read: false }, { read: false }, { read: true }],
+    unreadCount,
     celebration: null,
     dataError: null,
     offline: false,
@@ -48,15 +51,63 @@ const mount = (path) =>
 afterEach(async () => {
   cleanup()
   localStorage.clear()
+  unreadCount = 2
   await i18n.changeLanguage('en')
 })
+
+const badges = () => [...document.querySelectorAll('.notification-button .badge')]
+const bells = () => [...document.querySelectorAll('.notification-button')]
 
 test('both headers are rendered, and each carries the unread count', () => {
   mount('/home')
   expect(document.querySelector('.topbar')).not.toBeNull()
   expect(document.querySelector('.web-header')).not.toBeNull()
-  const badges = [...document.querySelectorAll('.notification-button .badge')]
-  expect(badges.map((b) => b.textContent)).toEqual(['2', '2'])
+  expect(badges().map((b) => b.textContent)).toEqual(['2', '2'])
+})
+
+test('the bell says how many are unread, and nothing at all when none are', () => {
+  unreadCount = 0
+  mount('/home')
+  expect(badges()).toEqual([])
+  expect(bells().map((b) => b.getAttribute('aria-label'))).toEqual([
+    'Notifications',
+    'Notifications',
+  ])
+  cleanup()
+
+  unreadCount = 1
+  mount('/home')
+  expect(badges().map((b) => b.textContent)).toEqual(['1', '1'])
+  expect(bells()[0].getAttribute('aria-label')).toBe('Notifications, 1 unread')
+  cleanup()
+
+  unreadCount = 3
+  mount('/home')
+  expect(bells()[0].getAttribute('aria-label')).toBe('Notifications, 3 unread')
+  // The badge is decoration to a screen reader; the name carries the count.
+  expect(badges()[0].getAttribute('aria-hidden')).toBe('true')
+})
+
+test('ninety-nine is the last number; past it the badge says 99+', () => {
+  unreadCount = 99
+  mount('/home')
+  expect(badges().map((b) => b.textContent)).toEqual(['99', '99'])
+  cleanup()
+
+  unreadCount = 100
+  mount('/home')
+  expect(badges().map((b) => b.textContent)).toEqual(['99+', '99+'])
+  expect(bells()[1].getAttribute('aria-label')).toBe('Notifications, 99+ unread')
+  expect(bells()[1].getAttribute('title')).toBe('Notifications, 99+ unread')
+})
+
+test('the count reads in Burmese', async () => {
+  await i18n.changeLanguage('my')
+  unreadCount = 4
+  mount('/home')
+  expect(bells()[0].getAttribute('aria-label')).toBe(
+    my.shell.notificationsUnread_other.replace('{{shown}}', '4'),
+  )
 })
 
 test('the web header has the four tabs and reaches the profile through the avatar', () => {

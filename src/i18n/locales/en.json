@@ -95,6 +95,8 @@
   "shell": {
     "openProfile": "Open profile",
     "notifications": "Notifications",
+    "notificationsUnread_one": "Notifications, {{shown}} unread",
+    "notificationsUnread_other": "Notifications, {{shown}} unread",
     "createActivity": "Create activity",
     "suspended": "Your account is suspended. You can still read, but cannot create, join or message.",
     "offline": "Offline — changes will sync when you reconnect.",

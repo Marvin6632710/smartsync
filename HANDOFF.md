@@ -9,6 +9,52 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest continuation — the bell's unread badge (2026-09-21)
+
+The owner's spec for the notification badge. Most of it already existed
+(badge top-right of the bell, hidden at zero, live via the inbox
+listener, cleared on account switch); this pass closed the gaps.
+**State at the time of writing: built, tested and reviewed on localhost;
+not yet committed or deployed — the owner commits and deploys after their
+own localhost check.** If you are picking this up: `git status` shows
+the files below modified; run the checks, commit, then
+`firebase deploy --only hosting` — no rules or index changes (the new
+query is a single-field equality on the owner's own subcollection, which
+the existing `allow read: if isSelf(uid)` covers; a rules test proves it).
+
+- `src/firebase/notifications.js` — `UNREAD_CAP = 100`,
+  `watchUnreadCount(uid, cb, onError)`: `onSnapshot` over
+  `where('read', '==', false)`, `limit(100)`, callback gets `snap.size`.
+  Its own listener because the inbox holds only the newest 50 (+20
+  moderation notices), so a count taken from it stopped at fifty.
+- `src/context/AppContext.jsx` — `unreadCount` state, reset to 0 in the
+  uid-change block with the rest, subscribed beside the inbox listener
+  (quiet on permission-denied, which the inbox listener already reports),
+  exposed on the context value.
+- `src/components/Shell.jsx` — both bells read `unreadCount`; badge text
+  is the number to 99 then "99+"; `aria-label` (and the web header's
+  `title`) is `shell.notificationsUnread` ("Notifications, {{shown}}
+  unread", plural-keyed) when > 0, else `shell.notifications`; the badge
+  span is `aria-hidden`.
+- Tests: `tests/app/shellLayout.test.jsx` (0 / 1 / 3 / 99 / 100 / Burmese,
+  labels, aria-hidden), `tests/app/appContext.listeners.test.jsx` (the
+  seventh listener opens and closes; count follows the listener; a new
+  account starts at 0 — the "five listeners" describe is now "the data
+  listeners"), `tests/rules/firestore.test.js` (owner may run the unread
+  query, another account may not).
+- Verified in the emulator app through real documents written with the
+  owner token: 2 → an arrival → 3 → 100 more → "99+" (label
+  "Notifications, 99+ unread") → Mark all read on the inbox page → no
+  badge (opening the inbox did not clear it; the button did) → two set
+  unread outside the inbox window → badge 2 while the list shows none
+  unread (the case the dedicated listener exists for) → one tapped in
+  the list → 3 → 2. Phone and web headers, light and dark. The test
+  documents were deleted afterwards and the two originally-unread chat
+  notifications restored.
+
+**Checks at the time of writing:** unit/app 814 / 814, rules 383 / 383,
+integration 8 / 8; lint, Prettier and the build clean.
+
 ## Latest continuation — Current warnings, second pass (2026-09-21)
 
 The owner's written spec for the Settings card, implemented point by

@@ -95,6 +95,7 @@
   "shell": {
     "openProfile": "打开个人资料",
     "notifications": "通知",
+    "notificationsUnread_other": "通知，{{shown}} 条未读",
     "createActivity": "创建活动",
     "suspended": "你的账号已被暂停。你仍可以浏览，但无法创建、加入或发送消息。",
     "offline": "离线——重新联网后更改会自动同步。",
