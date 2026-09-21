@@ -164,6 +164,13 @@ with reasons the data supports" and pushed; hosting deployed after.
    answers `UNAUTHENTICATED` "Sign in to get recommendations."; signed
    in, AI Picks reads "Ranked by Gemini"; the Functions log line
    `ai picks ranked` carries token counts.
+7. The first live open showed "The recommendation service could not be
+   reached" — the hosting **Content-Security-Policy** in `firebase.json`
+   had no Cloud Functions host in `connect-src`, so the browser refused
+   the fetch before it left (console: "violates the following Content
+   Security Policy directive"). `https://us-central1-smartsync-c1f07.cloudfunctions.net`
+   added and hosting redeployed. A Function in another region would need
+   its own host there.
 
 ## Latest continuation — discovery filters as sets (2026-09-21)
 
