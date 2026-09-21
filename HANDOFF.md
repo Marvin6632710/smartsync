@@ -14,8 +14,8 @@ update is documentation only. The application has no half-finished changes.
 The owner's spec for multi-select discovery filters, implemented point by
 point, verified on localhost against the emulator, reviewed by the owner
 there, then committed as "Discovery filters as sets: any categories, any
-times, one predicate" and pushed. **Hosting was not deployed with that
-commit** — when asked, `firebase deploy --only hosting`; no rules or index
+times, one predicate" and pushed. Hosting was then deployed (bundle
+`index-DYVFHfV6.js`, carrying the bell's badge as well); no rules or index
 change (the filters never leave the device).
 
 - `src/utils/filters.js` (new) — the one place that knows the filters'
@@ -95,11 +95,11 @@ The owner's spec for the notification badge. Most of it already existed
 listener, cleared on account switch); this pass closed the gaps.
 Reviewed by the owner on localhost (with 100 test notifications dropped
 into the emulator inbox and removed afterwards), then committed as
-`9026377` and pushed. **Hosting was not deployed with that commit** —
-when asked, `firebase deploy --only hosting`; no rules or index changes
-(the new query is a single-field equality on the owner's own
-subcollection, which the existing `allow read: if isSelf(uid)` covers; a
-rules test proves it).
+`9026377` and pushed. Hosting was deployed later the same day, together
+with the discovery filters (bundle `index-DYVFHfV6.js`); no rules or
+index changes (the new query is a single-field equality on the owner's
+own subcollection, which the existing `allow read: if isSelf(uid)` covers;
+a rules test proves it).
 
 - `src/firebase/notifications.js` — `UNREAD_CAP = 100`,
   `watchUnreadCount(uid, cb, onError)`: `onSnapshot` over
