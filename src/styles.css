@@ -1557,10 +1557,22 @@ select:focus-visible {
   color: var(--text-2);
   font-size: var(--t-sm);
 }
-/* The warnings row: its icon in a tile, and when there is anything on the
-   record the card turns the warning colour, its title with it, and the
-   count takes the chevron's place. Quiet when the record is clean — the
-   tile alone marks it as a different kind of row from the preferences. */
+/* The warnings card: the icon in a tile, the heading with a count beside
+   it, one line saying what to do, and a labelled way in — the whole card
+   is the button, and the ring it shows on focus stays inside the card,
+   whose corners clip anything outside. With something on the record the
+   card turns the warning colour, heading and tile with it; with nothing
+   on it the tile alone marks it as a different kind of row from the
+   preferences, and there is no badge to read as an alert. */
+.warnings-row {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  padding: 16px;
+}
+.warnings-row:focus-visible {
+  outline-offset: -3px;
+  border-radius: var(--r-lg);
+}
 .warnings-row .warnings-icon {
   display: inline-flex;
   align-items: center;
@@ -1570,6 +1582,30 @@ select:focus-visible {
   border-radius: var(--r-md);
   background: var(--bg-sunken);
   color: var(--text-2);
+}
+.warnings-row .warnings-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.warnings-row strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.warnings-row small {
+  line-height: 1.45;
+}
+.warnings-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+  font-size: var(--t-sm);
+  font-weight: var(--w-semibold);
+  color: var(--accent);
 }
 .warnings-card.has-warnings {
   border-color: var(--warning-line);
@@ -1582,21 +1618,26 @@ select:focus-visible {
   background: var(--warning);
   color: var(--surface);
 }
-.warnings-card.has-warnings strong {
+.warnings-card.has-warnings strong,
+.warnings-card.has-warnings .warnings-link {
   color: var(--warning);
+}
+.warnings-card.has-warnings small {
+  color: var(--text);
 }
 .warnings-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 26px;
-  height: 26px;
-  padding: 0 9px;
+  min-height: 24px;
+  padding: 0 10px;
   border-radius: var(--r-pill);
   background: var(--warning);
   color: var(--surface);
-  font-size: var(--t-sm);
+  font-size: var(--t-xs);
   font-weight: var(--w-bold);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .compact-row {

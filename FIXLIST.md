@@ -217,6 +217,22 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **Current warnings, the second pass, 2026-09-21** — the owner's spec
+  for the card in Settings, point by point. With anything on the record
+  the card is the first thing on the page, above the preferences; with
+  nothing on it, it waits under them in a quiet state, so a clean record
+  is not an alert and a card does not appear the moment you are warned.
+  The count is a badge in words ("1 warning", "2 warnings"; th/my/zh
+  have one form) beside the heading, the line under it says what to do
+  ("You have an active account warning. Review it for details."), and a
+  labelled "View warnings ›" is the way in — though the whole card is
+  the button, a real one, so Enter and Space work and the focus ring
+  draws inside the card's corners rather than being clipped by them.
+  Until the listener answers the card says "Checking your record…", a
+  failed read says so, and only a real answer of nothing says "No
+  active warnings" — a warning never lapses in this system (the rules
+  refuse every edit and delete), so every one on the record is active.
+  Six tests, including the placement, the words, the keyboard and Thai.
 - **The profile across the top, the record in its own card, a bio of 75
   words, 2026-09-21** — three things the owner had asked for. On a laptop
   (from 1024px) the profile is one tall panel down the left in the brand

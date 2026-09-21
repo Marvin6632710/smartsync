@@ -26,15 +26,50 @@ export default function SettingsPage() {
   const { user, signOut } = useAuth()
   const { pushCelebration } = useApp()
   const [signOutOpen, setSignOutOpen] = useState(false)
-  // The record itself, so the row can say how much is on it. Until the
-  // first answer, and if the read failed, it says only what the row is for:
-  // "nothing on your record" is a claim, and it is made only when true.
+  // The record itself, so the card can say how much is on it. A warning
+  // never lapses — the rules refuse every edit and delete — so every one on
+  // the record is active. Until the first answer, and if the read failed,
+  // the card says that and nothing more: "no active warnings" is a claim,
+  // and it is made only when true.
   const { warnings, loading, error } = useMyWarnings(user.uid)
-  const warningsHint = (() => {
-    if (loading || error) return t('settings.warningsHint')
-    if (warnings.length === 0) return t('warnings.nothing')
-    return t('settings.warningsCount', { count: warnings.length })
+  const active = loading || error ? 0 : warnings.length
+  const warningsBody = (() => {
+    if (loading) return t('settings.warningsChecking')
+    if (error) return t('warnings.loadFailed')
+    if (active === 0) return t('settings.warningsNone')
+    return t('settings.warningsActive', { count: active })
   })()
+  // One card, in one of two places: the moment there is something on the
+  // record it is the first thing on the page, and the whole card takes the
+  // warning tone; with nothing on it, it waits under the preferences in a
+  // quiet state, so a clean record is not an alert.
+  const warningsCard = (
+    <div className={`settings-card warnings-card${active > 0 ? ' has-warnings' : ''}`}>
+      <button
+        className="setting-row warnings-row"
+        onClick={() => navigate('/warnings')}
+        aria-describedby="warnings-body"
+      >
+        <span className="warnings-icon" aria-hidden="true">
+          <MessageSquareWarning size={18} />
+        </span>
+        <span className="warnings-text">
+          <strong>
+            {t('settings.warnings')}
+            {active > 0 && (
+              <span className="warnings-count">
+                {t('settings.warningsBadge', { count: active })}
+              </span>
+            )}
+          </strong>
+          <small id="warnings-body">{warningsBody}</small>
+          <span className="warnings-link">
+            {t('settings.viewWarnings')} <ChevronRight size={15} aria-hidden="true" />
+          </span>
+        </span>
+      </button>
+    </div>
+  )
 
   // A sign-out that fails leaves the person signed in; that used to be an
   // unhandled rejection and a screen that did not change.
@@ -51,6 +86,8 @@ export default function SettingsPage() {
   return (
     <div className="page-content">
       <h2>{t('settings.title')}</h2>
+
+      {active > 0 && warningsCard}
 
       <div className="settings-card">
         {/* The language first: it is the one row somebody who cannot read
@@ -124,27 +161,7 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* The record, in its own card so it cannot be mistaken for a
-          preference. Always here, not only when there is something on it —
-          a card that appears the moment you are warned tells you off twice —
-          but when there is, the whole card takes the warning tone and the
-          count sits where the chevron was. */}
-      <div className={`settings-card warnings-card${warnings.length ? ' has-warnings' : ''}`}>
-        <button className="setting-row warnings-row" onClick={() => navigate('/warnings')}>
-          <span className="warnings-icon" aria-hidden="true">
-            <MessageSquareWarning size={18} />
-          </span>
-          <span>
-            <strong>{t('settings.warnings')}</strong>
-            <small>{warningsHint}</small>
-          </span>
-          {warnings.length ? (
-            <span className="warnings-count">{warnings.length}</span>
-          ) : (
-            <ChevronRight size={17} />
-          )}
-        </button>
-      </div>
+      {active === 0 && warningsCard}
 
       {/* The desk: the admin console is its own room, and this is its
           door from Settings. */}

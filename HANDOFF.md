@@ -9,6 +9,50 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest continuation — Current warnings, second pass (2026-09-21)
+
+The owner's written spec for the Settings card, implemented point by
+point on top of the first pass below. Reviewed by the owner on localhost,
+then committed ("Current warnings: first on the page when there are
+any, and said in words") and deployed to hosting the same day (no rules
+or index changes in this pass).
+
+- `src/pages/SettingsPage.jsx` — one `warningsCard` element rendered in
+  one of two slots: first on the page when `active > 0`, under the
+  preferences card otherwise. `active` is 0 while loading or after an
+  error, so the card never claims a clean record it has not seen. The
+  card is a single `<button class="setting-row warnings-row">` with
+  `aria-describedby="warnings-body"`; inside: icon tile, heading with a
+  `.warnings-count` badge in words, the explanation, and a
+  `.warnings-link` "View warnings ›" label (a span — the button is the
+  control).
+- `src/styles.css` — `.warnings-row` (two columns, focus ring with
+  `outline-offset: -3px` because `.settings-card` clips overflow),
+  `.warnings-link`, `.warnings-count`, `.warnings-card.has-warnings`
+  (amber tokens `--warning*`, both themes).
+- Strings, four languages, under `settings`: `warningsChecking`,
+  `warningsNone`, `warningsActive_one/_other`, `warningsBadge_one/_other`,
+  `viewWarnings`; removed `warningsHint`, `warningsCount_*`. th/my/zh
+  carry `_other` only (the parity test folds plurals).
+- `tests/app/settingsWarnings.test.jsx` — six tests: checking state,
+  quiet state and placement, active state (first on the page, badge
+  words, explanation, `aria-describedby`), failed read, keyboard
+  (real button, focusable, opens `/warnings`), Thai.
+- Not applicable: "resolved or expired" warnings — the data model has no
+  status or expiry; a warning is a permanent record by design (rules
+  refuse edits and deletes), so the count is every warning on the
+  record.
+- Verified in the emulator app: a warning placed on the signed-in
+  account moved the card to the top and turned it amber live, removing
+  it moved it back down to "No active warnings"; Tab reaches the card
+  and the ring draws inside it; both themes; 375px and 1280px. The
+  browser tool's synthetic Enter does not activate buttons, so Enter/
+  Space activation rests on the element being a native `<button>`.
+
+**Checks at the time of writing:** unit/app 810 / 810 (71 files), lint,
+Prettier and build clean; rules/integration untouched by this pass (last
+run 382 / 382 and 8 / 8 on `ecc2101`).
+
 ## Latest continuation — profile banner, warnings card, 75-word bio (2026-09-21)
 
 Three features the owner had listed, built one after another in Claude
