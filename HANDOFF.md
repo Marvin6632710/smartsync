@@ -171,6 +171,28 @@ with reasons the data supports" and pushed; hosting deployed after.
    Security Policy directive"). `https://us-central1-smartsync-c1f07.cloudfunctions.net`
    added and hosting redeployed. A Function in another region would need
    its own host there.
+8. Then "Gemini gave an answer the app could not use" twice, for two
+   different reasons, both read from the Function log (`kind: invalid`):
+   **401** — the first secret was the key pasted twice (106 characters;
+   current AI Studio keys are 53 characters starting with `AQ.`, not
+   `AIza…`); re-set as version 2 and the CLI's "re-deploy and destroy
+   the stale version" answered Yes. **402** — the key is valid but the
+   API answers "Your prepayment credits are depleted. Please go to AI
+   Studio at https://ai.studio/projects to manage your project and
+   billing": the AI Studio project is on **Prepay** with no balance.
+   **Open at the time of writing — owner's choice:** buy prepay credits
+   (AI Studio → Billing → Buy credits, minimum $5; flash-lite at
+   $0.30 / $2.50 per million tokens makes that tens of thousands of
+   requests) **or** create a key in a *new AI Studio project without
+   billing* (the Free Tier is for projects without billing; its "content
+   may be used to improve products" terms apply), then
+   `functions:secrets:set GEMINI_API_KEY` again and answer Yes to the
+   redeploy. Nothing in the code needs to change for either. The key
+   was also pasted into the shell once, in the clear, on the owner's
+   own screen — regenerate it in AI Studio if that ever matters.
+9. The Function's `log.warn` used a `message` field that overwrote the
+   entry's message (the API's wording was lost); now `detail`. Function
+   redeployed (`f3f2d22`).
 
 ## Latest continuation — discovery filters as sets (2026-09-21)
 
