@@ -132,14 +132,6 @@ export default function SettingsPage() {
           </span>
           <ChevronRight size={17} />
         </button>
-        <button className="setting-row" onClick={() => navigate('/weights')}>
-          <SlidersHorizontal size={18} />
-          <span>
-            <strong>{t('settings.weights')}</strong>
-            <small>{t('settings.weightsHint')}</small>
-          </span>
-          <ChevronRight size={17} />
-        </button>
         {/* The inbox switch, browser notifications and the devices they
             reach live on their own page: three things, not a toggle. */}
         <button className="setting-row" onClick={() => navigate('/settings/notifications')}>

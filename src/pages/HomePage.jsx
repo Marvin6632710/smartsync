@@ -3,7 +3,6 @@ import React, { useMemo, useRef } from 'react'
 import { ArrowRight, Filter, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useCountUp } from '../hooks/useCountUp'
 import { useMorph } from '../hooks/useMorph'
 import ActivityCard from '../components/ActivityCard'
 import CategoryIcon from '../components/CategoryIcon'
@@ -13,7 +12,7 @@ import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { activeFilterCount } from '../utils/filters'
 import { formatActivityDate, formatClock, greetingFor, partOfDay, questionFor } from '../utils/time'
-import { categoryLabel, reasonLines } from '../i18n'
+import { categoryLabel } from '../i18n'
 import { pickForInterests } from '../services/interestPicks'
 
 /**
@@ -22,18 +21,12 @@ import { pickForInterests } from '../services/interestPicks'
  * Rebuilt around one measurement: the old version spent about seven hundred
  * pixels on a greeting, a stats trio and an interests card before the first
  * activity, so on a phone you reached the point of the app only by scrolling.
- * It also printed the same match percentage four times on one screen.
  *
- * Now the top pick *is* the hero — a real, tappable thing to do tonight rather
- * than a dashboard about you — and the first ordinary card lands within the
- * first screen. Stats about your own account moved to Profile, where somebody
- * who wants them will go looking.
+ * Now the next thing on *is* the hero — a real, tappable thing to do tonight
+ * rather than a dashboard about you — and the first ordinary card lands
+ * within the first screen. Stats about your own account moved to Profile,
+ * where somebody who wants them will go looking.
  */
-/** Its own component so the counter's re-renders stop at this element. */
-function HeroScore({ value }) {
-  const shown = useCountUp(value)
-  return <span className="hero-score">{shown}%</span>
-}
 
 export default function HomePage() {
   const { t } = useTranslation()
@@ -45,11 +38,11 @@ export default function HomePage() {
   /**
    * Discover answers "what is on", AI Picks answers "what suits me".
    *
-   * Both pages used to read the same match-ranked array, so they were one
-   * list under two names. This page is now ordered by *when*: the hero is
-   * the next thing you could still join, and the list below runs soonest
-   * first. Ranking by fit is the other page's job, and it does it properly
-   * — only your chosen interests, grouped, with its working shown.
+   * Both pages used to read the same ranked array, so they were one list
+   * under two names. This page is ordered by *when*: the hero is the next
+   * thing you could still join, and the list below runs soonest first.
+   * Ranking by fit is the other page's job — Gemini's order, with the
+   * reasons, and only your chosen interests underneath.
    */
   const soonest = useMemo(
     () => [...filteredActivities].sort((a, b) => (a.startsAt || 0) - (b.startsAt || 0)),
@@ -131,14 +124,12 @@ export default function HomePage() {
               <CategoryIcon category={heroPick.category} size={12} />
               {categoryLabel(heroPick.category)}
             </span>
-            <HeroScore value={heroPick.matchScore} />
           </div>
           <h2>{heroPick.title}</h2>
           <p className="hero-when">
             {formatActivityDate(heroPick.date)} · {formatClock(heroPick.time)} ·{' '}
             {heroPick.locationName}
           </p>
-          <p className="hero-why">{reasonLines(heroPick).slice(0, 2).join(' • ')}</p>
           {/* Room for it on a wide screen, where the hero is a banner rather
               than a card; a phone shows it on the activity's own page. */}
           {heroPick.description && <p className="hero-desc">{heroPick.description}</p>}

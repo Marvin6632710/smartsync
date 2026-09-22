@@ -10,6 +10,7 @@ import {
   MapPinned,
   MessageCircle,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Trans, useTranslation } from 'react-i18next'
@@ -27,9 +28,9 @@ import { LANGUAGES, categoryLabel, reasonText } from '../i18n'
  * Two columns: the words on the left, and on the right the app itself —
  * not a photograph of people having a good time, but the three things a
  * person gets that no listing site gives them, drawn the way the app draws
- * them. An activity card with its match score; the reasons the score was
- * given, worded by the same function that words them inside the app; and
- * the group chat that opens the moment you join. Every figure on the card
+ * them. An activity card as Gemini's top pick; the reasons it was picked,
+ * worded by the same function that words them inside the app; and the
+ * group chat that opens the moment you join. Every figure on the card
  * is an example and says so in its wording; the counts under the buttons
  * (categories, languages) are read from the code, so they cannot drift.
  *
@@ -42,7 +43,7 @@ import { LANGUAGES, categoryLabel, reasonText } from '../i18n'
 const STEPS = [1, 2, 3]
 
 // The example activity on the stage. One category, chosen for its colour.
-const STAGE = { category: 'Football', match: 92, going: 4, capacity: 10, distanceKm: 1.2 }
+const STAGE = { category: 'Football', going: 4, capacity: 10, distanceKm: 1.2 }
 
 const SAFETY = [
   { n: 1, icon: ShieldCheck },
@@ -72,7 +73,9 @@ function Stage() {
               <CategoryIcon category={category} size={12} />
               {categoryLabel(category)}
             </span>
-            <span className="match-pill">{t('common.match', { value: STAGE.match })}</span>
+            <span className="match-pill">
+              <Sparkles size={12} aria-hidden="true" /> {t('picks.topPick')}
+            </span>
           </div>
           <div className="activity-title-block">
             <h3>{t('welcome.stage.cardTitle')}</h3>

@@ -22,7 +22,6 @@ import SearchPage from './pages/SearchPage'
 import ActivityDetailsPage from './pages/ActivityDetailsPage'
 import FilterPage from './pages/FilterPage'
 import RecommendationsPage from './pages/RecommendationsPage'
-import RecommendationDetailsPage from './pages/RecommendationDetailsPage'
 import UserMatchingPage from './pages/UserMatchingPage'
 import ParticipantsPage from './pages/ParticipantsPage'
 import ChatPage from './pages/ChatPage'
@@ -35,7 +34,6 @@ import WarningsPage from './pages/WarningsPage'
 import SettingsPage from './pages/SettingsPage'
 import NotificationSettingsPage from './pages/NotificationSettingsPage'
 import NotificationOpenPage from './pages/NotificationOpenPage'
-import WeightsPage from './pages/WeightsPage'
 import PrivacyPage from './pages/PrivacyPage'
 import JoinedActivitiesPage from './pages/JoinedActivitiesPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -127,8 +125,8 @@ function Stages() {
   // Signed in, but the profile documents have not arrived yet.
   if (!profileReady) return <BootScreen label={t('app.loadingProfile')} />
 
-  // Stage 3 — signed in but not set up. The recommendation engine has nothing
-  // to work with until interests exist, so setup is not skippable.
+  // Stage 3 — signed in but not set up. AI Picks has nothing to work with
+  // until interests exist, so setup is not skippable.
   // A closed account gets one screen and nothing else. Placed above every
   // other route decision — including onboarding — because whatever state the
   // account was in, this outranks it.
@@ -182,7 +180,6 @@ function Stages() {
         />
         <Route path="/filters" element={<FilterPage />} />
         <Route path="/recommendations" element={<RecommendationsPage />} />
-        <Route path="/recommendations/:id" element={<RecommendationDetailsPage />} />
         <Route path="/matching" element={<UserMatchingPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
@@ -192,7 +189,6 @@ function Stages() {
         <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
         <Route path="/terms" element={<TermsDetailsPage />} />
         <Route path="/n/:id" element={<NotificationOpenPage />} />
-        <Route path="/weights" element={<WeightsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/blocked" element={<BlockedPage />} />
         <Route path="/warnings" element={<WarningsPage />} />

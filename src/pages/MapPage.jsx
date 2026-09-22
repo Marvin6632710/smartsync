@@ -72,9 +72,6 @@ function MapSide({ activities, selectedId, onChoose, t }) {
                     : activity.locationName}
                 </small>
               </span>
-              <span className="match-pill">
-                {t('common.match', { value: activity.matchScore ?? '--' })}
-              </span>
             </button>
           )
         })}
@@ -210,9 +207,6 @@ export default function MapPage() {
               <CategoryIcon category={selectedActivity.category} size={18} />
             </div>
             <div className="preview-copy">
-              <span className="preview-match">
-                {t('common.match', { value: selectedActivity.matchScore })}
-              </span>
               <strong>{selectedActivity.title}</strong>
               <small>
                 {selectedActivity.distanceKm != null

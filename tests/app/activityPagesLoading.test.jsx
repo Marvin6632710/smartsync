@@ -24,8 +24,6 @@ vi.mock('../../src/components/GoingStack', () => ({ default: () => null }))
 const { default: ActivityDetailsPage } = await import('../../src/pages/ActivityDetailsPage')
 const { default: EditActivityPage } = await import('../../src/pages/EditActivityPage')
 const { default: ParticipantsPage } = await import('../../src/pages/ParticipantsPage')
-const { default: RecommendationDetailsPage } =
-  await import('../../src/pages/RecommendationDetailsPage')
 
 afterEach(cleanup)
 
@@ -36,7 +34,6 @@ const base = (loading, activities = [], syncing = false) => ({
   recommendations: activities.filter((a) => a.status === 'active' && !a.isPast),
   joinedIds: activities.filter((a) => a.participantUids.includes('me')).map((a) => a.id),
   peers: [],
-  weights: {},
   loading,
   joinActivity: vi.fn(),
   leaveActivity: vi.fn(),
@@ -65,13 +62,6 @@ const screens = [
     <ParticipantsPage />,
     'Activity not found',
   ],
-  [
-    'recommendation',
-    '/recommendations/a1',
-    '/recommendations/:id',
-    <RecommendationDetailsPage />,
-    'Recommendation not found',
-  ],
 ]
 
 describe.each(screens)('%s', (_name, path, pattern, element, notFound) => {
@@ -97,25 +87,4 @@ describe.each(screens)('%s', (_name, path, pattern, element, notFound) => {
     expect(screen.queryByText(notFound)).toBeNull()
     expect(screen.getByText(/Loading/)).toBeTruthy()
   })
-})
-
-test('the recommendation breakdown opens for anything scored, not only current picks', () => {
-  // The details page offers "More" on a past activity you joined; that
-  // used to land on "Recommendation not found".
-  const past = {
-    id: 'a1',
-    title: 'Last week',
-    status: 'active',
-    isPast: true,
-    matchScore: 64,
-    reasons: ['Matches your Coffee interest'],
-    participantUids: ['me'],
-    participants: 1,
-    capacity: 5,
-    hostId: 'h',
-  }
-  app = base(false, [past])
-  at('/recommendations/a1', '/recommendations/:id', <RecommendationDetailsPage />)
-  expect(screen.getByText('64%')).toBeTruthy()
-  expect(screen.getByText('Last week')).toBeTruthy()
 })

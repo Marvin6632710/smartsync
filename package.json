@@ -19,7 +19,6 @@
     "test:unit": "npm run sync-locales && vitest run tests/unit tests/app",
     "test:rules": "firebase emulators:exec --project demo-smartsync --only firestore --config firebase.test.json \"vitest run tests/rules --no-file-parallelism\"",
     "test:integration": "firebase emulators:exec --project demo-smartsync --only auth,firestore --config firebase.test.json \"vitest run tests/integration\"",
-    "evaluate": "node scripts/evaluate.mjs",
     "seed:production": "node scripts/seed-production.mjs",
     "sync-locales": "node functions/scripts/sync-locales.mjs",
     "test:push": "npm run sync-locales && firebase emulators:exec --project demo-smartsync --only firestore --config firebase.test.json \"vitest run tests/push/deliver.integration.test.js\"",

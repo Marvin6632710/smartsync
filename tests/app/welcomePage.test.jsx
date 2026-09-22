@@ -94,13 +94,13 @@ describe('the welcome page', () => {
     expect(LANGUAGES.length).toBe(4)
   })
 
-  test('the stage is the app: a card with its score, the reasons for it, the chat', () => {
+  test('the stage is the app: a card as the top pick, the reasons for it, the chat', () => {
     mount()
     const stage = document.querySelector('.welcome-stage')
     expect(stage.getAttribute('aria-hidden')).toBe('true')
     const card = stage.querySelector('.activity-card')
     expect(card.getAttribute('data-category')).toBe('football')
-    expect(card.querySelector('.match-pill').textContent).toBe('92% match')
+    expect(card.querySelector('.match-pill').textContent.trim()).toBe(en.picks.topPick)
     expect(card.querySelector('h3').textContent).toBe(en.welcome.stage.cardTitle)
     expect(card.querySelector('.going-count').textContent).toBe('4 of 10 going')
     expect(card.querySelector('.urgency-pill').textContent).toBe('6 spots left')

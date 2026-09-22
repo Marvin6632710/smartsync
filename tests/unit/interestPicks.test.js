@@ -18,16 +18,17 @@ import {
   pickForInterests,
 } from '../../src/services/interestPicks'
 
-const act = (id, category, matchScore = 50) => ({ id, category, matchScore })
+// The list arrives soonest first; `startsAt` is that order made visible.
+const act = (id, category, startsAt = 50) => ({ id, category, startsAt })
 const INTERESTS = ['Football', 'Coffee', 'Study']
 
 const SAMPLE = [
-  act('a', 'Football', 82),
-  act('b', 'Gaming', 79),
-  act('c', 'Coffee', 61),
-  act('d', 'Football', 58),
-  act('e', 'Movies', 55),
-  act('f', 'Coffee', 40),
+  act('a', 'Football', 10),
+  act('b', 'Gaming', 20),
+  act('c', 'Coffee', 30),
+  act('d', 'Football', 40),
+  act('e', 'Movies', 50),
+  act('f', 'Coffee', 60),
 ]
 
 describe('matchesInterests', () => {
@@ -63,11 +64,11 @@ describe('pickForInterests', () => {
     expect(picks.every((a) => INTERESTS.includes(a.category))).toBe(true)
   })
 
-  test('leaves the incoming ranking untouched', () => {
-    // The list arrives sorted by match score; filtering must not reorder it.
+  test('leaves the incoming order untouched', () => {
+    // The list arrives soonest first; filtering must not reorder it.
     const picks = pickForInterests(SAMPLE, INTERESTS)
-    const scores = picks.map((a) => a.matchScore)
-    expect(scores).toEqual([...scores].sort((x, y) => y - x))
+    const starts = picks.map((a) => a.startsAt)
+    expect(starts).toEqual([...starts].sort((x, y) => x - y))
   })
 
   test('with no interests it returns nothing, not everything', () => {
@@ -95,14 +96,14 @@ describe('groupByInterest', () => {
     expect(groups[1].items.map((a) => a.id)).toEqual(['c', 'f'])
   })
 
-  test('the group holding the strongest match leads', () => {
-    // Coffee's best is 95 here, so Coffee should come first despite Football
-    // having more items.
+  test('the group with something on soonest leads', () => {
+    // Coffee's activity is the soonest here, so Coffee comes first despite
+    // Football having more items.
     const groups = groupByInterest(
-      [act('a', 'Football', 60), act('b', 'Football', 55), act('c', 'Coffee', 95)],
+      [act('c', 'Coffee', 5), act('a', 'Football', 60), act('b', 'Football', 55)],
       INTERESTS,
     )
-    expect(groups[0].label).toBe('Coffee')
+    expect(groups.map((g) => g.label)).toEqual(['Coffee', 'Football'])
   })
 
   test('an interest with nothing on produces no empty heading', () => {

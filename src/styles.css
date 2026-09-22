@@ -937,7 +937,6 @@ select:focus-visible {
 .message-thread,
 .notification-card,
 .panel,
-.score-card,
 .form-card,
 .settings-card,
 .empty-state,
@@ -957,7 +956,6 @@ select:focus-visible {
   padding: 14px;
 }
 .panel,
-.score-card,
 .form-card,
 .settings-card,
 .empty-state,
@@ -1062,7 +1060,6 @@ select:focus-visible {
   overflow-x: auto;
 }
 .profile-stats-grid,
-.weight-grid,
 .form-row,
 .interest-grid {
   display: grid;
@@ -1309,12 +1306,6 @@ select:focus-visible {
   border-color: rgba(255, 255, 255, 0.3);
   color: #fff;
 }
-.detail-hero .match-pill {
-  background: rgba(255, 255, 255, 0.95);
-  color: var(--cat, var(--accent));
-  border-color: transparent;
-  font-weight: var(--w-bold);
-}
 .detail-hero > p {
   color: rgba(255, 255, 255, 0.88);
 }
@@ -1377,41 +1368,6 @@ select:focus-visible {
 .reason-list svg {
   color: var(--success);
   flex-shrink: 0;
-}
-
-.score-card {
-  text-align: center;
-}
-/* Sits below the icon rather than hanging off its baseline. */
-.score-card .eyebrow {
-  display: block;
-  margin-top: 6px;
-}
-.score-card > strong {
-  display: block;
-  margin: 8px 0 4px;
-  font-size: var(--t-display);
-  font-weight: var(--w-semibold);
-  letter-spacing: -0.02em;
-  color: var(--accent);
-}
-.weight-grid {
-  grid-template-columns: repeat(2, 1fr);
-}
-.weight-grid > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  font-size: var(--t-sm);
-  text-transform: capitalize;
-  color: var(--text-2);
-}
-.weight-grid strong {
-  color: var(--text);
 }
 
 /* =========================================================
@@ -1875,10 +1831,6 @@ select:focus-visible {
 .profile-edit:active {
   transform: scale(0.97);
 }
-.profile-stats-grid.three {
-  grid-template-columns: repeat(3, 1fr);
-}
-
 /* =========================================================
    CHAT
    ========================================================= */
@@ -2299,12 +2251,6 @@ select:focus-visible {
   color: var(--text-3);
   font-size: var(--t-xs);
 }
-.preview-match {
-  width: fit-content;
-  color: var(--accent);
-  font-size: var(--t-xs);
-  font-weight: var(--w-semibold);
-}
 .activity-map-marker.selected {
   z-index: 18;
   width: 42px;
@@ -2614,7 +2560,6 @@ select:focus-visible {
    room for two columns under 520px. */
 @media (max-width: 520px) {
   .detail-facts,
-  .weight-grid,
   .form-row {
     grid-template-columns: 1fr;
   }
@@ -3180,66 +3125,8 @@ select:focus-visible {
 }
 
 /* ==========================================================================
-   Signal weights
+   Range inputs (the distance slider in the discovery filters)
    ========================================================================== */
-
-.weight-row {
-  display: grid;
-  gap: 6px;
-}
-
-.weight-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.weight-head strong {
-  font-size: var(--t-sm);
-  font-weight: var(--w-medium);
-}
-
-.weight-preview-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--line);
-  background: var(--surface);
-}
-
-/* The 1fr track defaults to min-width:auto, so a long title would push the
-   score pill out of the card instead of wrapping. */
-.weight-preview-row > div {
-  min-width: 0;
-}
-
-.weight-preview-row strong {
-  display: block;
-  font-size: var(--t-sm);
-  overflow-wrap: anywhere;
-}
-
-.weight-preview-row p {
-  margin: 0;
-  font-size: var(--t-tiny);
-  color: var(--ink-soft);
-}
-
-.weight-preview-row .rank {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(var(--accent-rgb), 0.1);
-  color: var(--accent);
-  font-size: var(--t-tiny);
-  font-weight: var(--w-semibold);
-}
 
 /* Range inputs default to the platform's own blue, which is the one control
    in the app that ignores the palette. `accent-color` recolours the native
@@ -3644,13 +3531,6 @@ input[type='range'] {
   border-color: rgba(255, 255, 255, 0.3);
   color: #fff;
 }
-.hero-score {
-  font-family: var(--font-display);
-  font-size: var(--t-display);
-  font-weight: var(--w-black);
-  letter-spacing: -0.04em;
-  line-height: 1;
-}
 .hero-pick h2 {
   margin: 12px 0 6px;
   font-family: var(--font-display);
@@ -3665,13 +3545,6 @@ input[type='range'] {
   font-size: var(--t-sm);
   font-weight: var(--w-semibold);
   color: rgba(255, 255, 255, 0.92);
-}
-.hero-why {
-  margin: 6px 0 0;
-  font-size: var(--t-sm);
-  /* 0.82 landed on 4.49:1, a hair under. This line is the app explaining why
-     it picked this activity, which is the sentence that earns the trust. */
-  color: rgba(255, 255, 255, 0.95);
 }
 .hero-cta {
   display: inline-flex;
@@ -4232,11 +4105,6 @@ body {
   background: radial-gradient(70% 60% at 50% 0%, rgba(99, 102, 241, 0.28), transparent 70%);
 }
 
-/* The counter must not reflow the line as it climbs through 9 to 10 to 100. */
-.hero-score {
-  font-variant-numeric: tabular-nums;
-}
-
 /* The burst. Fixed to the viewport centre so it is never clipped by a card,
    and untouchable so it cannot swallow the tap that follows it. */
 .join-burst {
@@ -4556,8 +4424,8 @@ body {
    than just listing things.
    ========================================================= */
 
-/* The strongest match, in its category's colour, with the reasons the
-   scorer actually gave. */
+/* The model's first pick, in its category's colour, with the reasons it
+   gave and the app checked. */
 .top-pick {
   display: grid;
   gap: 12px;
@@ -4583,14 +4451,14 @@ body {
   border-color: rgba(255, 255, 255, 0.28);
   color: #fff;
 }
-.top-pick-score {
+.top-pick-badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-family: var(--font-display);
-  font-size: var(--t-h2);
-  font-weight: var(--w-black);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--t-sm);
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.95);
 }
 .top-pick h3 {
   margin: 0;
@@ -4637,20 +4505,8 @@ body {
   background: #fff;
 }
 
-/* An app that ranks what a person sees should be able to say how.
-
-   The six weights are shares of one whole, so they are drawn as one thing:
-   a strip split six ways in a single hue at falling strength, and a ranked
-   list beneath it in the same order and the same tones. Six little bars
-   next to six labels asked the eye to compare lengths across rows; one
-   strip shows the proportions at a glance, and the rows are left to be
-   read — label on the left, number on the right, nothing between them.
-   Each row and its segment share a `--tone` (an opacity of the accent, set
-   inline by rank), which is the only thing that ties the two together. */
-.how-panel {
-  display: grid;
-  gap: 14px;
-}
+/* Little to go on: the panel that says what would help. Its heading and
+   its rows share the shape of every other panel that leads somewhere. */
 .how-head {
   display: grid;
   gap: 3px;
@@ -4664,74 +4520,8 @@ body {
   line-height: 1.45;
   text-wrap: pretty;
 }
-.how-strip {
-  display: flex;
-  gap: 3px;
-  height: 10px;
-  border-radius: var(--r-pill);
-  background: var(--bg-sunken);
-  overflow: hidden;
-}
-.how-strip > span {
-  /* Widths come from flex-grow set inline to the share, so the segments
-     always fill the strip exactly, whatever rounding did to the sum. */
-  flex: 0 1 0;
-  min-width: 3px;
-  background: rgba(var(--accent-rgb), var(--tone, 1));
-}
-.how-list {
-  /* Pulled up so the first row sits as close under the strip as the rows
-     sit under each other; the row's own padding provides the rest. */
-  margin: -6px 0 0;
-  padding: 0;
-  list-style: none;
-}
-.how-list li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  min-height: 40px;
-  padding: 8px 0;
-  color: var(--ink);
-}
-.how-list li + li {
-  border-top: 1px solid var(--line);
-}
-.how-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  background: rgba(var(--accent-rgb), var(--tone, 1));
-  /* A faint ring so the palest tones keep an edge on white. */
-  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.16);
-}
-.how-label {
-  font-size: var(--t-body);
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-/* At zero the signal is off: the row stays, so the six are always the six,
-   but it steps back and its swatch is an outline with nothing in it. */
-.how-list li[data-off] .how-label,
-.how-list li[data-off] .how-share {
-  color: var(--text-3);
-}
-.how-list li[data-off] .how-swatch {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-}
-.how-share {
-  min-width: 3.4ch;
-  text-align: right;
-  font-size: var(--t-body);
-  font-weight: var(--w-semibold);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-/* The way to the sliders is the panel's last row, not a link left under
-   it: a row that leads somewhere, drawn the way the app's other such rows
-   are, with the hairline the list rows already share. */
+/* A row that leads somewhere, drawn the way the app's other such rows are,
+   with a hairline between neighbours. */
 .how-action {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -4788,9 +4578,9 @@ body {
 
 /* --- AI Picks: who ranked them, and why each one --------------------
    One line above the picks says whose order this is — the model's, with
-   when; or the app's own, with why — and carries the way to ask again.
-   The standard state is drawn as a notice, not an error: the list under
-   it is a good list, just not the one that was asked for. */
+   when; or nobody's, with why — and carries the way to ask again. The
+   unranked state is drawn as a notice, not an error: the list under it is
+   what is on, soonest first, just not the ranking that was asked for. */
 .ai-source {
   display: flex;
   flex-wrap: wrap;
@@ -4812,12 +4602,12 @@ body {
   flex: 1 1 200px;
   min-width: 0;
 }
-.ai-source[data-state='standard'] {
+.ai-source[data-state='none'] {
   border-color: var(--warning-line);
   background: var(--warning-soft);
   color: var(--warning);
 }
-.ai-source[data-state='standard'] strong {
+.ai-source[data-state='none'] strong {
   font-weight: var(--w-semibold);
 }
 .ai-source[data-state='asking'] > svg {
@@ -4891,10 +4681,13 @@ body {
   font-size: inherit;
   font-weight: var(--w-semibold);
 }
+/* What leaves the device, under the page's lead: a quieter second line
+   with a breath between the two, so it reads as a note, not a run-on. */
 .how-privacy {
-  margin: -4px 0 0;
+  margin: 4px 0 0;
   font-size: var(--t-xs);
   line-height: 1.45;
+  color: var(--text-3);
 }
 /* Little to go on: the things that would help, each a row that goes there. */
 .improve-panel {
@@ -6388,7 +6181,6 @@ button.celebration-toast:hover {
     max-width: 26ch;
   }
   .hero-when,
-  .hero-why,
   .hero-desc {
     max-width: 72ch;
   }
@@ -6743,21 +6535,8 @@ button.celebration-toast:hover {
     column-gap: 16px;
   }
 
-  /* --- AI Picks: the strongest match beside how it was chosen ------------- */
-  .picks-page {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 380px;
-    column-gap: 32px;
-    row-gap: 24px;
-    align-items: stretch;
-  }
-  .picks-page > * {
-    grid-column: 1 / -1;
-    min-width: 0;
-  }
+  /* --- AI Picks: the top pick as a banner --------------------------------- */
   .picks-page > .top-pick {
-    grid-column: 1;
-    grid-template-rows: auto auto auto 1fr auto;
     padding: 28px;
   }
   .picks-page > .top-pick h3 {
@@ -6775,12 +6554,8 @@ button.celebration-toast:hover {
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .picks-page > .how-panel {
-    grid-column: 2;
-  }
   /* With nothing to pick from, the empty state takes the hero's place. */
   .picks-page > .picks-empty {
-    grid-column: 1;
     max-width: none;
   }
 

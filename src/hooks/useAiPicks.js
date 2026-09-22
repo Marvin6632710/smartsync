@@ -28,7 +28,7 @@ export function forgetAiPicks() {
  * The model's ranking of `activities` for `user`, or the reason there is
  * none. `status` is 'idle' (nothing to ask about), 'loading', 'ready' or
  * 'error'; `result` is the Function's answer when ready — `source`
- * 'gemini' with `picks`, or 'standard' with a `reason`. A new question
+ * 'gemini' with `picks`, or 'none' with a `reason`. A new question
  * (the signals or the eligible set changed) is asked on its own after a
  * short pause; `refresh` asks again past every cache; `retry` asks again
  * after an error.

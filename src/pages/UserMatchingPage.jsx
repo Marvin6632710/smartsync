@@ -8,7 +8,7 @@ import ReportDialog from '../components/ReportDialog'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { categoryLabel, timeBandLabel, personName } from '../i18n'
-import { calculateUserCompatibility } from '../services/recommendationService'
+import { calculateUserCompatibility } from '../services/compatibility'
 
 export default function UserMatchingPage() {
   const { t } = useTranslation()

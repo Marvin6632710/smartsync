@@ -44,13 +44,14 @@ of failure, because it looks like success. They now go through
 `useSaveProfile`, which reports the failure and disables the control while a
 write is in flight.
 
-Either way, the point of the layering holds: the recommendation engine is
+Either way, the point of the layering holds: what decides the picks is
 testable without a browser and the security rules are testable without the
 app, because each layer can be exercised alone.
 
-`src/services/recommendationService.js` sits outside this stack entirely. It is
-pure: data in, numbers out, no imports from Firebase, no state. That is why
-`npm run evaluate` can score 400 simulated people without a database.
+`src/services/compatibility.js` and `src/services/aiPicks.js` sit outside
+this stack entirely. They are pure: data in, values out, no imports from
+Firebase, no state — the compatibility score, the "somebody like you is
+going" fact, and what is sent to the model and made of its answer.
 
 **Check it yourself** — screens should reference `firebase/*` only for their
 own profile, for pure helpers, or for auth error text, never to read shared
@@ -83,7 +84,7 @@ following   --onSnapshot-->  followedUserIds[]
                              located         + distanceKm, live host name
                                   |
                                   v
-                             scored          + matchScore, reasons   <- the engine
+                             enriched        + similarUsersJoined, soonest first
                                   |
                                   v
                              timed           + isPast
@@ -102,15 +103,15 @@ following   --onSnapshot-->  followedUserIds[]
 
 Each stage adds one thing and hides nothing:
 
-| Stage                | Adds                             | Why it is separate                                                                                 |
-| -------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `directory`          | uid → profile lookup             | Host names are copied onto activities and can go stale; the live profile wins                      |
-| `located`            | `distanceKm`, live host identity | Distance is _yours_ — the same activity is 600 m from you and 8 km from someone else               |
-| `scored`             | `matchScore`, `reasons`          | Runs the pure engine over everything, including cancelled ones so your own history keeps its score |
-| `timed`              | `isPast`                         | Whether something has started is a fact about _now_, so a clock re-evaluates it every minute       |
-| `visibleActivities`  | —                                | Active ones, plus anything you joined even if cancelled or finished                                |
-| `recommendations`    | —                                | Discovery: upcoming and active only                                                                |
-| `filteredActivities` | —                                | Your filters, applied last (`matchesFilters` in `utils/filters.js`)                                |
+| Stage                | Adds                             | Why it is separate                                                                             |
+| -------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `directory`          | uid → profile lookup             | Host names are copied onto activities and can go stale; the live profile wins                  |
+| `located`            | `distanceKm`, live host identity | Distance is _yours_ — the same activity is 600 m from you and 8 km from someone else           |
+| `enriched`           | `similarUsersJoined`, the order  | The one fact only this side can compute, and the one order it imposes: soonest first (ADR-030) |
+| `timed`              | `isPast`                         | Whether something has started is a fact about _now_, so a clock re-evaluates it every minute   |
+| `visibleActivities`  | —                                | Active ones, plus anything you joined even if cancelled or finished                            |
+| `recommendations`    | —                                | Discovery: upcoming and active only                                                            |
+| `filteredActivities` | —                                | Your filters, applied last (`matchesFilters` in `utils/filters.js`)                            |
 
 **Why derived and not stored:** `joinedIds` is computed from the rosters, not
 kept as a second list. Two lists can disagree; one cannot disagree with itself.
@@ -200,7 +201,7 @@ current version (`src/terms`) — so no address skips it, and the page behind
 it is the one that was asked for.
 
 **Test:** sign up with a new email. You should land on interest selection, not
-home — the engine has nothing to work with until interests exist.
+home — AI Picks has nothing to work with until interests exist.
 
 ### Profile and activity pictures
 
@@ -240,42 +241,24 @@ then replace it. Save another edit without choosing a file and verify the
 photo stays. Try an unsupported or oversized file, and toggle anonymous mode
 while viewing from a second account. See ADR-025 for the storage tradeoff.
 
-### Discovery and ranking
+### Discovery order
 
-**Path:** `recommendationService.js`, called from `AppContext`
+**Path:** `compatibility.js:enrichActivities`, called from `AppContext`
 
-Six signals, each scored 0–1, then weighted:
+Nothing in the browser scores an activity (ADR-030). The context attaches
+one fact to every activity — `similarUsersJoined`, true when the most
+compatible person already going scores 50 or more against you — and puts
+the list soonest first. Discover, Search and the map read that order; AI
+Picks asks Gemini for a better one. Compatibility itself is a Jaccard
+index over interests (70) plus a shared preferred time (15) and shared
+history (15), so listing every interest going does not make you
+compatible with everybody; it is the same number the People match screen
+shows.
 
-| Signal     | Weight | 1.0 when                                                             | Neutral fallback          |
-| ---------- | ------ | -------------------------------------------------------------------- | ------------------------- |
-| Interest   | 35     | category is one of your interests (0.75 for a tag match)             | 0.2                       |
-| Distance   | 20     | it is on top of you, decaying to 0 by ~13 km                         | 0.5 if location unknown   |
-| Time       | 15     | its time band matches your preferred time                            | 0.55                      |
-| History    | 15     | you have joined this category **and did not list it** as an interest | 0.5                       |
-| Popularity | 10     | it is full                                                           | —                         |
-| Behaviour  | 5      | the most compatible person going is a perfect match for you          | 0.45 if nobody has joined |
+**Test:** Discover lists tonight's activity above tomorrow's whatever your
+interests; AI Picks is where the order changes with who you are.
 
-Two of those are less obvious than they look:
-
-**History only counts what interests do not say.** 59% of people's history
-categories are already among their stated interests, so counting both scored
-the same fact twice — and measurement showed it made the ranking _worse_. It
-now means revealed preference: what you keep doing that you never claimed to
-like.
-
-**Unknown is not zero.** No location gives distance 0.5, not 0. Treating "we
-don't know where you are" as "it is right here" handed every activity full
-marks on 20% of the score for a fact nobody knew.
-
-The score is normalised by the best score actually obtainable, not by the
-weight total — interest and history can no longer both be maximal, so dividing
-by the total capped the best possible match at 93%.
-
-**Test:** Settings → Matching weights. Drag a slider; the list under it
-reorders live. Then sign in as two different people and compare the same
-activity — 78% for one, 37% for the other.
-
-### AI Picks: Gemini as a re-ranker
+### AI Picks: Gemini ranks
 
 **Path:** `RecommendationsPage` → `useAiPicks` → `services/aiPicks.js` →
 the `recommendActivities` callable (`functions/index.js` → `lib/recommend.js`,
@@ -284,11 +267,11 @@ the `recommendActivities` callable (`functions/index.js` → `lib/recommend.js`,
 ```
 browser                                  Cloud Function                      Gemini
 eligible = filteredActivities − joined   auth? shape? ──refuse if not
-best 40 by matchScore + signals  ──────► cache hit (same question, <10 min)? ──► answer
+soonest 40 + signals  ─────────────────► cache hit (same question, <10 min)? ──► answer
                                          hour/day counters (one transaction)
                                          prompt: signals + facts, JSON schema ─► model
                                          ids ∈ sent? dedupe; codes ∈ facts?  ◄── ids + codes
-picks ∩ on-screen; codes → words ◄────── {source:'gemini', picks} | {source:'standard', reason}
+picks ∩ on-screen; codes → words ◄────── {source:'gemini', picks} | {source:'none', reason}
 ```
 
 Two things to hold on to. **The model ranks what it is given** — the
@@ -297,8 +280,9 @@ discovery-filter rule, and the Function drops any id it did not send.
 **A reason is a code the data supports**, checked on the server against
 the facts and worded in the browser from the activity's own fields; the
 model never writes text a person reads. Without a key, past the limits,
-or with the service down, the same activities appear in the engine's
-order under a line that says which it is and why.
+or with the service down, nothing ranks: the same activities appear
+soonest first under a line that says they are not ranked and why, with
+the way to ask again.
 
 Kept in Firestore by the Function alone: `aiPicks/{uid}` (last answer,
 question signature, the hour's count) and `aiPicksUsage/{day}` (the
@@ -306,9 +290,9 @@ day's count). Both denied to every client in the rules.
 
 **Test:** with the emulator and `scripts/fake-gemini.mjs` running (README
 §10), open AI Picks: "Ranked by Gemini · just now", each card with its
-reasons; Refresh asks again; stop the stand-in and Try again → "Standard
-picks. Gemini could not be reached…" with the same activities in score
-order. `tests/unit/picksServer.test.js`, `tests/unit/aiPicks.test.js`,
+reasons; Refresh asks again; stop the stand-in and Try again → "Not
+ranked. Gemini could not be reached…" with no top pick and the same
+activities soonest first. `tests/unit/picksServer.test.js`, `tests/unit/aiPicks.test.js`,
 `tests/app/recommendationsPage.test.jsx`, and the rules test "AI Picks".
 
 ### Activity search
@@ -493,8 +477,7 @@ another account. The host reads "Anonymous user".
 | Capacity cannot be exceeded      | rules + `arrayUnion`              | `npm test`          |
 | Only you can edit your profile   | rules                             | `npm test`          |
 | Private profile unreadable       | separate document + rules         | `npm test`          |
-| Score always 0–100, never throws | pure functions + a fuzzer         | `npm run test:unit` |
-| Ranking actually works           | measured against baselines        | `npm run evaluate`  |
+| Compatibility 0–100, symmetric   | pure functions + a fuzzer         | `npm run test:unit` |
 | Corrupt local data               | `looksLike` in `utils/storage.js` | —                   |
 | Gemini key never in the browser  | Secret Manager + callable         | `grep` the bundle   |
 | Model cannot invent or overclaim | `parsePicks` + `resolvePicks`     | `npm run test:unit` |
@@ -502,8 +485,7 @@ another account. The host reads "Anonymous user".
 | Render crash                     | `ErrorBoundary`                   | —                   |
 
 ```bash
-npm test           # 81 unit tests + 286 security rule tests
-npm run evaluate   # does the ranking beat the baselines
+npm test           # the unit, rendering and security rule suites
 npm run lint
 ```
 
@@ -519,10 +501,12 @@ were before the fix, which is the only way to know a regression test is one.
 In order, on <https://smartsync-c1f07.web.app>:
 
 1. **Sign up** with a new email → lands on interests, not home
-2. **Pick 3 interests** → permissions → home shows ranked activities
-3. **Open the top match** → reasons explain why it is top
-4. **Settings → Matching weights** → drag interest to zero, list reorders
-5. **Reset to defaults** → button disables itself
+2. **Pick 3 interests** → permissions → home shows what is on, soonest first
+3. **AI Picks** → "Ranked by Gemini", the top pick with its reasons
+4. **Refresh** → asked again; **change an interest** and come back → asked
+   again on its own
+5. **Discovery filters** that exclude everything → "Nothing to pick from"
+   with Adjust filters, and no request made
 6. **Join an activity** → count rises, button becomes Leave
 7. **Open chat**, send a message
 8. **Second window, second account** → its count and bell update untouched

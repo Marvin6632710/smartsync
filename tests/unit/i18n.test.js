@@ -19,7 +19,6 @@ import i18n, {
   listInWords,
   matchLanguage,
   personName,
-  reasonLines,
   reasonText,
   setLanguage,
   takedownReasonText,
@@ -224,22 +223,19 @@ describe('numbers and lists', () => {
   })
 })
 
-describe('recommendation reasons', () => {
-  test('are worded from the scorer’s facts in the language in force', async () => {
-    const activity = {
-      reasons: ['Matches your interest in Football'],
-      reasonKeys: [{ key: 'interest', category: 'Football' }],
-    }
-    expect(reasonLines(activity)).toEqual([i18n.t('reasons.interest', { category: 'Football' })])
+describe('pick reasons', () => {
+  test('are worded from the facts in the language in force', async () => {
+    const reason = { key: 'interest', category: 'Football' }
+    expect(reasonText(reason)).toBe(i18n.t('reasons.interest', { category: 'Football' }))
     await setLanguage('th')
-    expect(reasonLines(activity)).toEqual([
+    expect(reasonText(reason)).toBe(
       th.reasons.interest.replace('{{category}}', th.categories.football),
-    ])
+    )
   })
 
-  test('fall back to the English sentences of an activity without facts', () => {
-    expect(reasonLines({ reasons: ['Close to you'] })).toEqual(['Close to you'])
-    expect(reasonLines({})).toEqual([])
+  test('a code without a wording is nothing, and a plain string is itself', () => {
+    expect(reasonText({ key: 'made-up' })).toBe('')
+    expect(reasonText(null)).toBe('')
     expect(reasonText('plain')).toBe('plain')
   })
 })

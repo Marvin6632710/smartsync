@@ -85,7 +85,6 @@ const place = (id, lat, lng, extra = {}) => ({
   lng,
   participants: 1,
   capacity: 5,
-  matchScore: 50,
   locationName: 'x',
   ...extra,
 })

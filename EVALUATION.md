@@ -1,7 +1,15 @@
 # Does the recommendation engine work?
 
+> **Historical.** The engine this report measures was removed on
+> 2026-09-22 (DECISIONS.md, ADR-030): Gemini ranks AI Picks now, and no
+> code in the app scores an activity. The report is kept because the
+> measurement was real and may be cited; nothing in it describes the
+> current product. The harness lives in git history:
+> `git show 8df38bd:scripts/evaluate.mjs`, run against the engine at
+> `git show 8df38bd:src/services/recommendationService.js`.
+
 ```bash
-npm run evaluate
+npm run evaluate   # at commit 8df38bd or earlier; the script is gone since
 ```
 
 About 75 seconds. Seeded, so the numbers reproduce exactly. `EVAL_SEED=<n>`
@@ -156,8 +164,8 @@ against my own generator, and adopting its answer would tune the product to a
 simulation rather than to people. What it supports is narrower: distance is
 probably underweighted, and popularity — which the search cuts to 3 and the
 ablation says is worthless — is probably not worth its 10. The settings screen
-exposes all six as sliders, so the claim can be tested live rather than taken
-on trust.
+exposed all six as sliders while the engine existed, so the claim could be
+tested live rather than taken on trust.
 
 ## 6. What this does not establish
 

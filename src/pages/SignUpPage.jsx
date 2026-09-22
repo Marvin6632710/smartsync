@@ -41,8 +41,8 @@ export default function SignUpPage() {
     setBusy(true)
     try {
       await signUp({ email, password, name })
-      // New accounts go through interest selection — the recommendation
-      // engine has nothing to work with until then.
+      // New accounts go through interest selection — AI Picks has nothing
+      // to work with until then.
       navigate('/interests', { replace: true })
     } catch (submitError) {
       setError(authErrorKey(submitError))

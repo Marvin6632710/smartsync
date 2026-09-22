@@ -14,11 +14,13 @@ import {
   improveHints,
   PICK_CAP,
   picksSignature,
+  placesBefore,
   reasonFacts,
   resolvePicks,
   signalsOf,
-  standardPicks,
+  soonestFirst,
   thinProfile,
+  unrankedPicks,
 } from '../../src/services/aiPicks'
 
 const NOW = Date.UTC(2026, 8, 21, 12, 0, 0)
@@ -43,8 +45,6 @@ const activity = (id, extra = {}) => ({
   lat: 13.73,
   lng: 100.54,
   participantUids: ['u1', 'u2'],
-  matchScore: 61,
-  reasonKeys: [{ key: 'interest', category: 'Football' }],
   similarUsersJoined: false,
   ...extra,
 })
@@ -60,7 +60,7 @@ const user = (extra = {}) => ({
 })
 
 describe('candidateOf', () => {
-  test('is the facts about the activity, and none of the people', () => {
+  test('is the facts about the activity — the place by name — and none of the people', () => {
     const c = candidateOf(activity('a1'), NOW)
     expect(c).toEqual({
       id: 'a1',
@@ -72,19 +72,19 @@ describe('candidateOf', () => {
       capacity: 10,
       participants: 4,
       similar: false,
-      matchScore: 61,
+      place: 'Lumpini Park',
       description: 'A thing to do.',
     })
-    for (const field of [
-      'hostId',
-      'hostName',
-      'hostAvatar',
-      'locationName',
-      'lat',
-      'lng',
-      'participantUids',
-    ])
+    for (const field of ['hostId', 'hostName', 'hostAvatar', 'lat', 'lng', 'participantUids'])
       expect(c).not.toHaveProperty(field)
+    // The name as written, tidied and cut; none is none.
+    expect(candidateOf(activity('a1', { locationName: '  Siam   Square ' }), NOW).place).toBe(
+      'Siam Square',
+    )
+    expect(candidateOf(activity('a1', { locationName: 'p'.repeat(90) }), NOW).place).toHaveLength(
+      60,
+    )
+    expect(candidateOf(activity('a1', { locationName: undefined }), NOW).place).toBe('')
   })
 
   test('an unknown distance stays unknown — never nought', () => {
@@ -104,11 +104,11 @@ describe('candidateOf', () => {
 })
 
 describe('signalsOf', () => {
-  test('known interests once each, joined categories with counts, the time, whether distance is known', () => {
+  test('known interests once each, joined categories with counts, the time, whether distance is known, the places', () => {
     const joined = [
       activity('j1', { category: 'Running' }),
-      activity('j2', { category: 'Running' }),
-      activity('j3', { category: 'Gym' }),
+      activity('j2', { category: 'Running', locationName: 'Benjakitti Park' }),
+      activity('j3', { category: 'Gym', locationName: 'lumpini park' }),
     ]
     expect(signalsOf(user(), joined)).toEqual({
       interests: ['Football', 'Coffee'],
@@ -119,7 +119,23 @@ describe('signalsOf', () => {
         { category: 'Gym', joined: 1 },
       ],
       hasLocation: true,
+      placesBefore: ['Lumpini Park', 'Benjakitti Park'],
     })
+  })
+
+  test('the places are names once each whatever the casing, at most twelve, never a coordinate', () => {
+    const joined = [
+      activity('j1', { locationName: 'A' }),
+      activity('j2', { locationName: 'a' }),
+      activity('j3', { locationName: '' }),
+      activity('j4', { locationName: null }),
+      ...Array.from({ length: 20 }, (_, i) => activity(`k${i}`, { locationName: `Place ${i}` })),
+    ]
+    const places = placesBefore(joined)
+    expect(places).toHaveLength(12)
+    expect(places.slice(0, 3)).toEqual(['A', 'Place 0', 'Place 1'])
+    expect(JSON.stringify(places)).not.toMatch(/13\.7|100\.5/)
+    expect(placesBefore(undefined)).toEqual([])
   })
 
   test('nothing known reads as nothing known', () => {
@@ -128,6 +144,7 @@ describe('signalsOf', () => {
       preferredTime: '',
       history: [],
       hasLocation: false,
+      placesBefore: [],
     })
     expect(
       signalsOf(user({ preferredTime: 'Night', location: { lat: 'x' } }), []).preferredTime,
@@ -138,12 +155,25 @@ describe('signalsOf', () => {
 })
 
 describe('chooseCandidates and the request', () => {
-  test('best-scored first, at most forty, only things with an id, a title and a category', () => {
-    const many = Array.from({ length: 50 }, (_, i) => activity(`c${i}`, { matchScore: i }))
-    const chosen = chooseCandidates([...many, { id: 'broken' }])
+  test('soonest first, at most forty, only things with an id, a title and a category', () => {
+    // Nothing scores them: when the cap bites, the nearest in time stay.
+    const many = Array.from({ length: 50 }, (_, i) =>
+      activity(`c${i}`, { startsAt: NOW + (50 - i) * DAY }),
+    )
+    const chosen = chooseCandidates([...many, { id: 'broken', startsAt: NOW }])
     expect(chosen).toHaveLength(CANDIDATE_CAP)
     expect(chosen[0].id).toBe('c49')
     expect(chosen.at(-1).id).toBe('c10')
+  })
+
+  test('soonestFirst puts an unknown start last and leaves the input alone', () => {
+    const list = [
+      activity('late', { startsAt: NOW + 5 * DAY }),
+      activity('never', { startsAt: undefined }),
+      activity('soon', { startsAt: NOW + DAY }),
+    ]
+    expect(soonestFirst(list).map((a) => a.id)).toEqual(['soon', 'late', 'never'])
+    expect(list.map((a) => a.id)).toEqual(['late', 'never', 'soon'])
   })
 
   test('the request is the signals and the candidates, with force only when asked', () => {
@@ -155,7 +185,9 @@ describe('chooseCandidates and the request', () => {
     })
     expect(Object.keys(req).sort()).toEqual(['candidates', 'signals'])
     expect(req.candidates[0].id).toBe('a1')
-    expect(JSON.stringify(req)).not.toMatch(/me@example|Somebody|Lumpini|u1|13\.7/)
+    // The place goes by name (ADR-031); nobody's name, uid or coordinates do.
+    expect(req.candidates[0].place).toBe('Lumpini Park')
+    expect(JSON.stringify(req)).not.toMatch(/me@example|Somebody|"u1"|13\.7|100\.5/)
     expect(
       buildPicksRequest({ user: user(), activities: [], joinedActivities: [], force: true }).force,
     ).toBe(true)
@@ -182,6 +214,14 @@ describe('chooseCandidates and the request', () => {
       now: NOW,
     })
     expect(picksSignature(c)).not.toBe(picksSignature(a))
+    // A place joined since is a new question.
+    const e = buildPicksRequest({
+      user: user(),
+      activities: [activity('a1'), activity('b2')],
+      joinedActivities: [activity('j1', { locationName: 'Siam Square' })],
+      now: NOW,
+    })
+    expect(picksSignature(e)).not.toBe(picksSignature(a))
     const d = buildPicksRequest({
       user: user(),
       activities: [activity('a1')],
@@ -203,10 +243,13 @@ describe('reasons', () => {
     expect(reasonFacts('made-up', a)).toBeNull()
     // No distance, no distance reason — whatever the model said.
     expect(reasonFacts('distance', activity('a1', { distanceKm: null }))).toBeNull()
+    // The place by its name; no name, no place reason.
+    expect(reasonFacts('place', a)).toEqual({ key: 'place', place: 'Lumpini Park' })
+    expect(reasonFacts('place', activity('a1', { locationName: '' }))).toBeNull()
   })
 
   test('picks are joined back to what is on screen; the rest is dropped', () => {
-    const shown = [activity('a1'), activity('b2', { reasonKeys: [{ key: 'popularity' }] })]
+    const shown = [activity('a1'), activity('b2')]
     const out = resolvePicks(
       [
         { id: 'b2', reasons: ['made-up'] },
@@ -217,8 +260,8 @@ describe('reasons', () => {
       shown,
     )
     expect(out.map((p) => p.activity.id)).toEqual(['b2', 'a1'])
-    // A pick with no usable reason wears the engine's own.
-    expect(out[0].reasons).toEqual([{ key: 'popularity' }])
+    // A pick with no usable reason has none — nothing is made up for it.
+    expect(out[0].reasons).toEqual([])
     expect(out[1].reasons).toEqual([
       { key: 'interest', category: 'Football' },
       { key: 'time', band: 'Evening' },
@@ -231,13 +274,16 @@ describe('reasons', () => {
     ).toHaveLength(PICK_CAP)
   })
 
-  test('the standard picks are the same shape, from the engine', () => {
-    const out = standardPicks([
-      activity('a1', { matchScore: 10 }),
-      activity('b2', { matchScore: 90 }),
+  test('with no ranking, what is on soonest first, and no reasons claimed', () => {
+    const out = unrankedPicks([
+      activity('a1', { startsAt: NOW + 4 * DAY }),
+      activity('b2', { startsAt: NOW + DAY }),
     ])
-    expect(out.map((p) => p.activity.id)).toEqual(['b2', 'a1'])
-    expect(out[0].reasons).toEqual([{ key: 'interest', category: 'Football' }])
+    expect(out.map((a) => a.id)).toEqual(['b2', 'a1'])
+    expect(out[0]).not.toHaveProperty('reasons')
+    expect(unrankedPicks(Array.from({ length: 12 }, (_, i) => activity(`c${i}`)))).toHaveLength(
+      PICK_CAP,
+    )
   })
 })
 

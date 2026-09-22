@@ -13,9 +13,10 @@
  *   it says is still checked by `parsePicks`.
  * - A low thinking level: ordering forty short records is not a hard
  *   problem, and thought tokens are billed as output.
- * - One retry at most, and a timeout: the browser is waiting, and the
- *   standard list is a fine answer if this one is slow. The SDK would
- *   otherwise try five times with growing pauses.
+ * - One retry at most, and a timeout: the browser is waiting, and "not
+ *   ranked, try again" said promptly beats a ranking that arrives after
+ *   the person has left. The SDK would otherwise try five times with
+ *   growing pauses.
  */
 import { GoogleGenAI } from '@google/genai'
 
@@ -41,7 +42,12 @@ export function classifyError(error) {
   return 'invalid'
 }
 
-export function geminiRanker({ apiKey, model = DEFAULT_MODEL, baseUrl, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+export function geminiRanker({
+  apiKey,
+  model = DEFAULT_MODEL,
+  baseUrl,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+}) {
   const ai = new GoogleGenAI({
     apiKey,
     ...(baseUrl ? { httpOptions: { baseUrl } } : {}),

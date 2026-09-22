@@ -10,12 +10,11 @@ import { categoryLabel, personName } from '../i18n'
 
 export default function ProfilePage() {
   const { t } = useTranslation()
-  const { activities, joinedActivities: joined, recommendations, pushCelebration } = useApp()
+  const { activities, joinedActivities: joined, pushCelebration } = useApp()
   const { user } = useAuth()
   const navigate = useNavigate()
-  // Ordered upcoming-first, so "recent" below means the next things you are
-  // going to, then what you went to last.
-  const best = recommendations[0]
+  // `joined` is ordered upcoming-first, so "recent" below means the next
+  // things you are going to, then what you went to last.
   // What you are running, not only what you are going to: the activities
   // you host that have not happened yet.
   const hosting = activities.filter(
@@ -121,7 +120,7 @@ export default function ProfilePage() {
               <h2>{t('profile.activityLife')}</h2>
             </div>
           </div>
-          <div className="profile-stats-grid compact-stats three">
+          <div className="profile-stats-grid compact-stats">
             <div className="stat-card">
               <span>{t('profile.joined')}</span>
               <strong>{joined.length}</strong>
@@ -131,11 +130,6 @@ export default function ProfilePage() {
               <span>{t('profile.hosting')}</span>
               <strong>{hosting}</strong>
               <small>{t('profile.activities')}</small>
-            </div>
-            <div className="stat-card">
-              <span>{t('profile.topMatch')}</span>
-              <strong>{t('common.percent', { value: best?.matchScore || '--' })}</strong>
-              <small>{best?.category ? categoryLabel(best.category) : t('profile.activity')}</small>
             </div>
           </div>
         </section>

@@ -81,7 +81,7 @@ export const cleanupPushTokens = onSchedule(
 // The key never leaves the server: a secret, bound to this one function,
 // read at call time. Locally, the emulator takes it from
 // functions/.secret.local (ignored by git); without one the function
-// answers "not configured" and the app shows its standard ranking.
+// answers "not configured" and the app shows what is on, unranked.
 const geminiKey = defineSecret('GEMINI_API_KEY')
 
 // Tunable without a code change, through functions/.env (also ignored):

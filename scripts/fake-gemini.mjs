@@ -4,10 +4,11 @@
  *
  * Speaks just enough of the Interactions API for the AI Picks Function:
  * it takes the request the real SDK sends, reads the candidate activities
- * out of the prompt, and answers with a schema-shaped ranking — the
- * standard match score, best first, with the reasons the facts support —
- * so the whole path (browser → Function → SDK → parsing → cache → screen)
- * runs without a key or a bill. It does not think; that is the point.
+ * out of the prompt, and answers with a schema-shaped ranking — the ones
+ * that fit the person's interests and history first, then the soonest,
+ * each with the reasons the facts support — so the whole path (browser →
+ * Function → SDK → parsing → cache → screen) runs without a key or a
+ * bill. It does not think; that is the point.
  *
  *   node scripts/fake-gemini.mjs            # listens on 127.0.0.1:5599
  *   FAKE_GEMINI_MODE=error node …           # every call fails with 503
@@ -31,6 +32,10 @@ const reasonsFor = (activity, person) => {
   if ((person.interests || []).some((i) => same(i, activity.category))) codes.push('interest')
   if ((person.joinedBefore || []).some((h) => same(h.category, activity.category)))
     codes.push('history')
+  // A place they have been to before time and distance: rarer, and the
+  // more telling when it holds — three codes is all a pick gets.
+  if (activity.place && (person.placesBefore || []).some((p) => same(p, activity.place)))
+    codes.push('place')
   if (person.preferredTime && same(person.preferredTime, activity.timeBand)) codes.push('time')
   if (Number.isFinite(activity.distanceKm) && activity.distanceKm <= 3) codes.push('distance')
   if (activity.similar) codes.push('behavior')
@@ -44,8 +49,19 @@ function rank(body) {
   const input = typeof body.input === 'string' ? body.input : ''
   const person = JSON.parse(/PERSON: (\{.*\})\nACTIVITIES:/s.exec(input)?.[1] || '{}')
   const activities = JSON.parse(/ACTIVITIES: (\[.*\])\s*$/s.exec(input)?.[1] || '[]')
+  // Fit first — an interest is worth two, a joined category or a place
+  // they have been to one each — then the soonest; a stand-in for
+  // judgement, not judgement.
+  const fit = (a) => {
+    const codes = reasonsFor(a, person)
+    return (
+      (codes.includes('interest') ? 2 : 0) +
+      (codes.includes('history') ? 1 : 0) +
+      (codes.includes('place') ? 1 : 0)
+    )
+  }
   const picks = [...activities]
-    .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
+    .sort((a, b) => fit(b) - fit(a) || (a.daysAhead || 0) - (b.daysAhead || 0))
     .slice(0, 8)
     .map((a) => ({ id: a.id, reasons: reasonsFor(a, person) }))
   return JSON.stringify({ picks })
@@ -74,7 +90,9 @@ const server = http.createServer((req, res) => {
     }
     if (MODE === 'error') return answer(res, 503, { error: { code: 503, message: 'down' } })
     if (MODE === 'quota')
-      return answer(res, 429, { error: { code: 429, message: 'quota', status: 'RESOURCE_EXHAUSTED' } })
+      return answer(res, 429, {
+        error: { code: 429, message: 'quota', status: 'RESOURCE_EXHAUSTED' },
+      })
     const text = MODE === 'garbage' ? '{"picks": "nope"' : rank(body)
     const reply = () =>
       answer(res, 200, {

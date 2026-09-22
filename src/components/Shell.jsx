@@ -49,7 +49,6 @@ const ROUTE_TITLES = new Set([
   'profile',
   'settings',
   'privacy',
-  'weights',
   'blocked',
   'moderation',
   'joined',
@@ -69,7 +68,6 @@ function viewOf(pathname) {
   const [, first = 'home', second, third] = pathname.split('/')
   if (first === 'activity') return third ? `activity-${third}` : 'activity'
   if (first === 'profile') return second === 'edit' ? 'profile-edit' : 'profile'
-  if (first === 'recommendations') return second ? 'recommendations-details' : 'recommendations'
   return first
 }
 

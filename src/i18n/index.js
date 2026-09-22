@@ -153,7 +153,6 @@ const labelFor = (group) => (value) => {
 export const categoryLabel = labelFor('categories')
 export const timeBandLabel = labelFor('timeBands')
 export const reportReasonLabel = labelFor('reportReasons')
-export const signalLabel = labelFor('signals')
 
 /**
  * "Football", "Football and Coffee", "Football, Coffee and Study" — joined
@@ -208,17 +207,19 @@ export function formatPercent(value) {
 export default i18n
 
 /**
- * A recommendation reason, worded for the language in force.
+ * A reason an activity was picked, worded for the language in force.
  *
- * The scorer attaches reasons as facts (`reasonKeys`: a code and the value
- * the wording needs) next to the English sentences it always produced
- * (`reasons`). The facts are worded here; an activity from before the facts
- * existed — a cached one, a test fixture — falls back to its sentences.
+ * AI Picks turns the model's reason codes into facts (a code and the value
+ * the wording needs — see services/aiPicks `reasonFacts`); the facts are
+ * worded here, one wording per language. A code without a wording is
+ * nothing rather than a placeholder, so a caller can drop it.
  */
 export function reasonText(reason) {
   if (!reason || typeof reason !== 'object') return String(reason ?? '')
+  // Checked rather than defaulted: i18next reads an empty default as no
+  // default and hands back the key itself.
+  if (!i18n.exists(`reasons.${reason.key}`)) return ''
   return i18n.t(`reasons.${reason.key}`, {
-    defaultValue: i18n.t('reasons.default'),
     category: categoryLabel(reason.category),
     distance: distanceLabel(reason.distanceKm),
     // Lower-cased for the scripts that have a case, so the English reads as
@@ -226,12 +227,10 @@ export function reasonText(reason) {
     band: timeBandLabel(reason.band).toLowerCase(),
     // "Only 2 spots left" — the one reason that counts something.
     count: Number.isFinite(Number(reason.count)) ? Number(reason.count) : undefined,
+    // "At Lumphini Park, where you have been before" — the place's name as
+    // its host wrote it, in whatever language that was.
+    place: reason.place,
   })
-}
-
-export function reasonLines(activity) {
-  if (Array.isArray(activity?.reasonKeys)) return activity.reasonKeys.map(reasonText)
-  return Array.isArray(activity?.reasons) ? activity.reasons.map(String) : []
 }
 
 /**

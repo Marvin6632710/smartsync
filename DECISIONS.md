@@ -167,6 +167,10 @@ load the whole directory.
 
 ## ADR-006 — Recommendation scoring runs on the client
 
+_Superseded by ADR-030 on 2026-09-22: the scoring was removed and Gemini
+ranks. What survives of this record is the people-compatibility score in
+`compatibility.js`, still pure, still in the browser._
+
 **Context.** Every activity is scored out of 100 for the current user.
 
 **Decision.** `recommendationService.js` is a pure module in the browser. It
@@ -439,24 +443,32 @@ It now sweeps those too. Say this before they find it.
 
 ### "How do you know your recommendations are any good?"
 
-Measured, not asserted. Against a synthetic population of 400 people whose
-true preferences are known, over seven independent populations: **39.3%
-precision@5, against 18.0% for the best single signal and 5.2% for random.**
+Be careful here: the honest answer changed on 2026-09-22 (ADR-030). Gemini
+ranks now, and **Gemini's ranking has not been measured against ground
+truth** — there is no synthetic-population score for it. What the app
+guarantees instead is checkable by anyone with the page open: every pick
+is a real activity the person could join right now, every reason under a
+pick is a fact the app verified before wording it (a category really is
+in your interests, a distance really is under three kilometres), and when
+Gemini has no answer the page says "Not ranked" rather than pretending.
 
-Then say the uncomfortable half: **three of the six signals earn nothing.**
-History was scoring the same fact as interest — 59% overlap — so it was
-changed to measure only what interests do not say. Popularity is still in the
-model and the evidence says it is not paying for itself.
-
-If asked why you did not simply retune the weights: because the search ran
-against our own simulation, and adopting its answer would tune the product to
-a generator rather than to people. EVALUATION.md §5.
+The engine that came before it _was_ measured — 39.3% precision@5 against
+18.0% for the best single signal and 5.2% for random, over seven synthetic
+populations, with an ablation showing three of its six signals earned
+nothing — and `EVALUATION.md` keeps that report as history. If the panel
+asks why it was removed anyway: because once Gemini ranked the page, the
+engine's only visible outputs were a "% match" number Gemini did not
+produce and sliders that changed that number without changing the picks —
+two things on screen that contradicted the headline feature. The owner
+chose one story over two.
 
 ### "Can I see the algorithm?"
 
-Settings → Matching weights. Six sliders, ranking reorders live. It is the
-same mechanism the evaluation harness uses to ablate each signal, so what they
-can try is exactly what was measured.
+AI Picks, and the code. The page shows Gemini's order with a reason under
+each pick, and one line saying exactly what leaves the device. The prompt
+is in `functions/lib/picks.js` — eight reason codes with the condition
+each must satisfy — and `parsePicks` and `resolvePicks` are what stop the
+model inventing an activity or overclaiming a reason.
 
 ### "Who can read the chat?"
 
@@ -1444,6 +1456,10 @@ would have been less CSS and less native, and native was chosen.
 
 ## ADR-029 — Gemini ranks the eligible activities and answers in codes; the engine stays
 
+_Amended by ADR-030 on 2026-09-22: the engine no longer stays. Everything
+here about the request, the codes, the checks, the cache and the limits
+still holds; the parts about the score and the standard fallback do not._
+
 **Context.** The owner asked for AI Picks to use the Gemini API. The
 recommendation engine (ADR-004 and after) already scores every activity
 for a person from six signals and can say why; what it cannot do is read
@@ -1485,7 +1501,8 @@ band, days ahead, distance to a tenth of a kilometre, counts, the score
 and 240 characters of description. No name, email, host, place name,
 coordinate, photo or message; no uid in the prompt. Descriptions are
 declared data in the system instruction, and the schema has no field a
-smuggled instruction could reach.
+smuggled instruction could reach. _(Since ADR-030 the score no longer
+goes; since ADR-031 place names do, by name only.)_
 
 **Consequences.** Cloud Functions need the Blaze plan, which this project
 does not yet have; until it does, the page shows the standard ranking
@@ -1496,3 +1513,105 @@ say the one true thing the codes lack ("the description mentions your
 club"); that was the price of never showing an unsupported claim. A
 stand-in server (`scripts/fake-gemini.mjs`) speaks the API for the
 emulator, which is how the path is verified without a key.
+
+---
+
+## ADR-030 — The scoring engine goes; Gemini ranks, and nothing else does
+
+**Context.** ADR-029 put Gemini on top of the six-signal engine: the
+engine chose the forty candidates, its score went to the model as a hint,
+its order was the fallback, and its "% match" number and its six sliders
+stayed on every screen. Once the picks were Gemini's, the owner asked
+whether the weights were still needed. They were not needed for the
+picks — the model gets the raw facts and decides — and the sliders had
+become misleading: moving one changed the match percentages and the
+standard order but not what Gemini returned, since the request signature
+does not include the score and a cached answer is served unchanged.
+
+The trade-offs were put to the owner before anything was cut: the engine
+was also the candidate pre-cut, the fallback when Gemini cannot answer,
+the number on six screens, and the thing `EVALUATION.md` measured — the
+"measured, not asserted" claim in the exhibition notes. Gemini cannot
+take those over cheaply: every Home load would be a paid call under a
+ten-an-hour cap, and the feed would go dark whenever Gemini did. The
+owner heard that and chose to remove the engine anyway: "just let the
+gemini decides, i think i don't need the engine anymore, so delete it
+out."
+
+**Decision.** Delete the engine. `recommendationService.js` is gone, and
+with it the score, the reasons it attached, the six weights, the sliders
+page, the "How this works" panel, the recommendation-details page, every
+"% match" pill, and `scripts/evaluate.mjs`. What remains is
+`compatibility.js`: the people-compatibility score behind People match,
+and the one fact the browser attaches to each activity — that somebody
+genuinely like you has joined — which the AI Picks request carries as
+`similar` and the model may cite. The browser imposes one order, soonest
+first, and asks Gemini for a better one. The candidate cap keeps the
+forty soonest, a cost limit rather than a ranking. When Gemini has no
+answer the page shows the eligible activities soonest first under "Not
+ranked" with the reason and a way to ask again — no hero, no reasons
+claimed, because there is no first pick and nothing to claim. The score
+left the prompt too: the model is told the order is its own to decide.
+
+**What it costs.** Without Gemini there is no ranking at all, only time
+order — the exact state ADR-029 kept the engine to avoid. The "measured,
+not asserted" answer in the exhibition notes is now history, and Gemini's
+ranking is unmeasured; the honest claim is about checkability, not
+precision (see the Q&A above). Three pieces of the wide layout were
+built around the panel beside the hero and are simpler for its absence.
+`EVALUATION.md` is kept, marked historical, because the measurement was
+real and the report may still be cited; the harness it describes is in
+git history (`git show 8df38bd:scripts/evaluate.mjs`).
+
+**Rejected.** Keeping the engine hidden as plumbing (the recommendation
+made to the owner, declined); keeping the sliders and only fixing the
+panel's wording (cheapest, but a feature that contradicted the headline
+one); replacing the fallback with a second, simpler scorer (the same
+contradiction in a smaller font).
+
+---
+
+## ADR-031 — Place names go to the model, by name only; coordinates never
+
+**Context.** With Gemini ranking (ADR-030), the owner asked whether it
+should know place names, so it could learn which places a person likes.
+The app stores no place preference; the only source is the venues of the
+activities a person has joined. Distance — the strongest place factor —
+was already sent. And the page promised, in so many words, that place
+names were not.
+
+**Decision.** Two additions to the request, both names as hosts wrote
+them, cleaned and cut to sixty characters: each candidate's
+`locationName` as `place`, and the person's `placesBefore` — the venues
+of their joined activities, once each whatever the casing, at most
+twelve. A ninth reason code, `place`, with its condition checked on the
+server like the others: the activity's place is one of `placesBefore`,
+case-insensitively; an activity with no place named never earns it. The
+model is told to weigh places with time and distance, below interests
+and history, and that place names are other people's text — data, never
+instructions. Coordinates never go, and the on-page privacy line now
+says place names do: "…rounded distances and the names of places you
+have been to. Never your name, messages, photos or exact location."
+`placesBefore` is part of the cache signature, so joining somewhere new
+is a new question.
+
+**Why by name.** A name is what a person would recognise in the reason
+("At Lumphini Park, where you've been before") and what a model can
+read the kind of place from; a coordinate is neither, and is the one
+thing the privacy promise was really about. Venue names are already
+public on every card — what is new is *which* venues this person has
+joined, which is why the promise was reworded rather than quietly kept.
+
+**Cost.** A small, real loosening of what leaves the device, on the
+person's own screen for them to read. The gain is modest: most people
+have joined a handful of things, so the code fires rarely; the model's
+reading of a venue's kind mostly repeats what the category says. Tokens:
+a few per activity. The stand-in ranks the code above time and distance
+so it is visible locally when it holds; the real model chooses its own
+three.
+
+**Rejected.** A derived district or area instead of the venue (needs
+reverse geocoding — a Maps call per activity for a coarser signal);
+sending coordinates (refused outright); leaving it out (the owner's
+call, made knowing the gain was modest).
+

@@ -50,7 +50,7 @@ import {
   saveReadingLocale,
   watchPeers,
 } from '../firebase/users'
-import { rankActivities, recommendationWeights } from '../services/recommendationService'
+import { enrichActivities } from '../services/compatibility'
 import { defaultFilters, matchesFilters, normaliseFilters } from '../utils/filters'
 import { distanceBetween } from '../utils/geo'
 import { useListenerRetry } from '../hooks/useListenerRetry'
@@ -143,18 +143,10 @@ export function AppProvider({ children }) {
 
   // Filters are a per-device view preference, not shared account data, so
   // they stay in localStorage rather than costing a Firestore write on every
-  // slider drag. Normalised on the way in: a set saved by an older version
-  // as one choice comes back as a set of one (see utils/filters).
+  // tap. Normalised on the way in: a set saved by an older version as one
+  // choice comes back as a set of one (see utils/filters).
   const [filters, setFilters] = useState(() =>
     normaliseFilters(loadStorage('smartsync:filters', defaultFilters)),
-  )
-
-  // Scoring weights are adjustable and kept per device, for the same reason
-  // filters are: they change how *you* see the list, not what anyone else
-  // sees. Any missing key falls back to the shipped default, so a stored set
-  // written by an older version cannot silently zero a signal.
-  const [weights, setWeights] = useState(() =>
-    loadStorage('smartsync:weights', recommendationWeights),
   )
   const [celebration, setCelebration] = useState(null)
   // An offer to turn browser notifications on, made once per session at
@@ -448,10 +440,6 @@ export function AppProvider({ children }) {
   useEffect(() => {
     saveStorage('smartsync:filters', filters)
   }, [filters])
-
-  useEffect(() => {
-    saveStorage('smartsync:weights', weights)
-  }, [weights])
 
   // ---------------------------------------------------------------- live data
 
@@ -835,12 +823,13 @@ export function AppProvider({ children }) {
     })
   }, [allKnownActivities, directory, user?.location])
 
-  // Scored once, over everything. Previously only active activities were
-  // ranked, so an activity you had joined and the host then cancelled lost its
-  // match score and rendered as "--%" in your own list.
-  const scored = useMemo(
-    () => rankActivities(user, located, visiblePeers, weights),
-    [user, located, visiblePeers, weights],
+  // Every activity with the one fact only this side can compute — whether
+  // somebody like you is going — in the one order the browser imposes,
+  // soonest first. Nothing is scored here: the ranking is Gemini's, asked
+  // for on AI Picks (ADR-030), and every other screen reads by time.
+  const enriched = useMemo(
+    () => enrichActivities(user, located, visiblePeers),
+    [user, located, visiblePeers],
   )
 
   // Activities are fetched from a day ago onwards so that ones you joined stay
@@ -862,12 +851,12 @@ export function AppProvider({ children }) {
   // this client sent and is still waiting on.
   const timed = useMemo(
     () =>
-      scored.map((a) => ({
+      enriched.map((a) => ({
         ...a,
         isPast: Number.isFinite(a.startsAt) && a.startsAt < now,
         rosterPending: (a.pendingWrite && a.createdAt === null) || pendingJoins.has(a.id),
       })),
-    [scored, now, pendingJoins],
+    [enriched, now, pendingJoins],
   )
 
   const visibleActivities = useMemo(
@@ -1147,8 +1136,8 @@ export function AppProvider({ children }) {
     // like football is a side effect of joining, not part of it. A rejection
     // here must not become an unhandled promise, and must not tell the user
     // their join went wrong when it did not.
-    // Feeds 15% of the ranking. Failing quietly meant recommendations could
-    // degrade for a user with nothing anywhere to say why.
+    // One of the signals AI Picks sends. Failing quietly meant the picks
+    // could degrade for a user with nothing anywhere to say why.
     recordCategoryHistory(uid, user.historyCategories, activity.category).catch((error) =>
       reportError('users.recordCategoryHistory', error, { uid }),
     )
@@ -1591,10 +1580,6 @@ export function AppProvider({ children }) {
     filters,
     setFilters,
     resetFilters: () => setFilters(defaultFilters),
-
-    weights,
-    setWeights,
-    resetWeights: () => setWeights(recommendationWeights),
 
     celebration,
     pushCelebration,

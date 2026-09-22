@@ -12,12 +12,18 @@ const VERSION_KEY = `${STORAGE_PREFIX}schemaVersion`
 // 3 — filters lost their `date` field when weekday-name filtering was
 //     replaced by real dates.
 // (Not bumped when the filters' single category and time band became sets
-//  on 2026-09-21: a bump takes the scoring weights with it, and the old
-//  shape is worth keeping — utils/filters reads either and writes the new.)
+//  on 2026-09-21: the old shape is worth keeping — utils/filters reads
+//  either and writes the new.)
 const SCHEMA_VERSION = 3
+
+// Keys a past version wrote that nothing reads any more, swept on load so
+// they do not sit in a person's browser for ever: the scoring weights went
+// with the engine they tuned (ADR-030).
+const RETIRED_KEYS = [`${STORAGE_PREFIX}weights`]
 
 function ensureSchemaVersion() {
   try {
+    RETIRED_KEYS.forEach((key) => localStorage.removeItem(key))
     if (localStorage.getItem(VERSION_KEY) === String(SCHEMA_VERSION)) return
     Object.keys(localStorage)
       .filter((key) => key.startsWith(STORAGE_PREFIX))

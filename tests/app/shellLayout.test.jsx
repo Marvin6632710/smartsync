@@ -143,7 +143,6 @@ test.each([
   ['/profile', 'profile'],
   ['/profile/edit', 'profile-edit'],
   ['/recommendations', 'recommendations'],
-  ['/recommendations/abc', 'recommendations-details'],
   ['/moderation/people', 'moderation'],
   ['/settings', 'settings'],
 ])('%s is the %s view', (path, view) => {

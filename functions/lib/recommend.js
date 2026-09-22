@@ -3,10 +3,11 @@
  * can show — through the cache, the rate limits and the model, in that
  * order, so the cheap answers come first.
  *
- * Every outcome is a value, not an exception: the browser always has the
- * standard ranking to fall back on, and this says which of the two it is
- * getting and why. Only a request that is not the app's (wrong shape, no
- * account) is refused outright, and that happens before this is reached.
+ * Every outcome is a value, not an exception: when there is no ranking the
+ * browser shows what is coming up soonest and says so, and this says
+ * whether it is getting a ranking and, if not, why. Only a request that is
+ * not the app's (wrong shape, no account) is refused outright, and that
+ * happens before this is reached.
  *
  * Kept in Firestore, per person, in `aiPicks/{uid}` (readable by nobody
  * but this code): the last answer with the signature of the request it
@@ -31,7 +32,7 @@ const secondsToNextDay = (now) => {
   return Math.max(1, Math.ceil((next - now) / 1000))
 }
 
-const standard = (reason, extra = {}) => ({ source: 'standard', reason, ...extra })
+const none = (reason, extra = {}) => ({ source: 'none', reason, ...extra })
 
 /**
  * Takes the call, or says when to come back. One transaction over the
@@ -94,12 +95,12 @@ export async function recommend({
     }
   }
 
-  if (!ranker) return standard('not-configured')
+  if (!ranker) return none('not-configured')
 
   const turn = await takeCall({ db, uid, now, caps: limits })
   if (!turn.allowed) {
     log.info?.('ai picks rate-limited', { uid, scope: turn.scope })
-    return standard('rate-limited', { retryAfterSeconds: turn.retryAfterSeconds })
+    return none('rate-limited', { retryAfterSeconds: turn.retryAfterSeconds })
   }
 
   const prompt = buildPrompt({ signals, candidates })
@@ -117,13 +118,13 @@ export async function recommend({
       status: error?.status ?? null,
       detail: String(error?.message || error).slice(0, 300),
     })
-    return standard(kind)
+    return none(kind)
   }
 
   const picks = parsePicks(answer.text, candidates, signals)
   if (!picks) {
     log.warn?.('ai picks answer unusable', { uid, sample: String(answer.text).slice(0, 200) })
-    return standard('invalid')
+    return none('invalid')
   }
 
   await ref.set(

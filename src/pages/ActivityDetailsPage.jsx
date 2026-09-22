@@ -1,15 +1,6 @@
 import { ActivityPicture, AvatarContent } from '../components/SavedPicture'
 import React, { useState } from 'react'
-import {
-  CalendarDays,
-  Check,
-  Clock3,
-  Edit3,
-  Flag,
-  MapPin,
-  MessageCircle,
-  Users,
-} from 'lucide-react'
+import { CalendarDays, Clock3, Edit3, Flag, MapPin, MessageCircle, Users } from 'lucide-react'
 import BootScreen from '../components/BootScreen'
 import CategoryIcon from '../components/CategoryIcon'
 import GoingStack from '../components/GoingStack'
@@ -24,7 +15,7 @@ import { useTranslation } from 'react-i18next'
 import { storedContext } from '../i18n/reportContext'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-import { categoryLabel, distanceLabel, reasonLines, takedownReasonText, personName } from '../i18n'
+import { categoryLabel, distanceLabel, takedownReasonText, personName } from '../i18n'
 import { formatActivityDate, formatClock } from '../utils/time'
 import { activityBadge } from '../utils/urgency'
 
@@ -175,7 +166,6 @@ export default function ActivityDetailsPage() {
               <CategoryIcon category={a.category} size={12} />
               {categoryLabel(a.category)}
             </span>
-            <span className="match-pill">{t('common.match', { value: a.matchScore })}</span>
           </div>
           <h2>{a.title}</h2>
           {/* The same badge the card carried, so opening it does not quietly
@@ -220,26 +210,6 @@ export default function ActivityDetailsPage() {
           <div className="capacity-meter large-meter">
             <span style={{ width: `${fill}%` }} />
           </div>
-        </section>
-
-        <section className="panel">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">{t('activity.whyThis')}</span>
-              <h2>{t('activity.matchReasons')}</h2>
-            </div>
-            <button className="text-button" onClick={() => navigate(`/recommendations/${id}`)}>
-              {t('common.more')}
-            </button>
-          </div>
-          <ul className="reason-list">
-            {reasonLines(a).map((r) => (
-              <li key={r}>
-                <Check size={15} />
-                {r}
-              </li>
-            ))}
-          </ul>
         </section>
 
         <section className="panel">
@@ -315,8 +285,8 @@ export default function ActivityDetailsPage() {
 
         {/* The primary action sticks to the bottom of the scroller. Joining is
           the point of this screen and it used to sit below three panels, so
-          on a phone you had to scroll past the reasons and the host before
-          you could act on any of it. */}
+          on a phone you had to scroll past the description and the host
+          before you could act on any of it. */}
         <div className="detail-actions">
           {isCancelled || isRemoved || isPast ? (
             <button

@@ -4,9 +4,10 @@
  * The Function ranks; this decides what it is given and what to make of
  * what comes back. What it is given is deliberately thin: the person's
  * interests, the categories they have joined and how often, their
- * preferred time of day, whether distance is known — and, per activity,
- * the facts that bear on fit. No name, no email, no host, no place name,
- * no coordinates, no message. What comes back is a list of ids with
+ * preferred time of day, whether distance is known, the names of places
+ * they have joined activities at — and, per activity, the facts that
+ * bear on fit, the place's name among them (ADR-031). No name, no email,
+ * no host, no coordinates, no message. What comes back is a list of ids with
  * reason codes, and both are checked again here against the activities
  * on screen before anything is rendered: an id that has since dropped
  * out of the eligible set is not shown, and a reason is worded from the
@@ -17,6 +18,8 @@ import { categories, timeBands } from '../data/categories'
 export const CANDIDATE_CAP = 40
 export const PICK_CAP = 8
 const MAX_DESCRIPTION = 240
+const MAX_PLACE = 60
+const MAX_PLACES = 12
 const DAY_MS = 86_400_000
 
 const key = (value) =>
@@ -30,6 +33,29 @@ function knownCategories(list) {
   for (const item of Array.isArray(list) ? list : []) {
     const match = categories.find((c) => key(c) === key(item))
     if (match && !out.includes(match)) out.push(match)
+  }
+  return out
+}
+
+/** A place's name as the host wrote it, tidied and cut to length. */
+const placeName = (activity) =>
+  String(activity?.locationName || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_PLACE)
+
+/**
+ * The names of the places the person has joined activities at, once each
+ * whatever the casing, in the order of the joined list (next first, then
+ * most recent). Names, never coordinates: the venue as its host wrote
+ * it, which is what a person would recognise.
+ */
+export function placesBefore(joinedActivities = []) {
+  const out = []
+  for (const activity of Array.isArray(joinedActivities) ? joinedActivities : []) {
+    const place = placeName(activity)
+    if (place && !out.some((seen) => key(seen) === key(place))) out.push(place)
+    if (out.length === MAX_PLACES) break
   }
   return out
 }
@@ -62,6 +88,7 @@ export function signalsOf(user, joinedActivities = []) {
     preferredTime: timeBands.includes(user?.preferredTime) ? user.preferredTime : '',
     history,
     hasLocation: hasUsableLocation(user?.location),
+    placesBefore: placesBefore(joinedActivities),
   }
 }
 
@@ -83,7 +110,7 @@ export function candidateOf(activity, now = Date.now()) {
     capacity,
     participants: Math.min(participants, 10_000),
     similar: activity?.similarUsersJoined === true,
-    matchScore: Math.max(0, Math.min(100, Math.round(Number(activity?.matchScore) || 0))),
+    place: placeName(activity),
     description: String(activity?.description || '')
       .replace(/\s+/g, ' ')
       .trim()
@@ -91,16 +118,21 @@ export function candidateOf(activity, now = Date.now()) {
   }
 }
 
+/** Soonest first, anything without a start time last; the input untouched. */
+export function soonestFirst(activities) {
+  const at = (a) => (Number.isFinite(a?.startsAt) ? a.startsAt : Number.POSITIVE_INFINITY)
+  return (Array.isArray(activities) ? activities : []).slice().sort((a, b) => at(a) - at(b))
+}
+
 /**
- * The activities worth sending: the eligible ones, best-scored first, up
- * to the cap. The list arrives already ranked by the standard engine, so
- * the cap keeps the strongest forty rather than an arbitrary forty.
+ * The activities worth sending: the eligible ones, soonest first, up to
+ * the cap. Nothing ranks them before the model does — the cap is there
+ * so a very full feed cannot run up the bill, and when it bites, what is
+ * nearest in time is the least arbitrary forty to keep.
  */
 export function chooseCandidates(activities) {
-  return (Array.isArray(activities) ? activities : [])
+  return soonestFirst(activities)
     .filter((a) => a && a.id && a.title && a.category)
-    .slice()
-    .sort((a, b) => (Number(b.matchScore) || 0) - (Number(a.matchScore) || 0))
     .slice(0, CANDIDATE_CAP)
 }
 
@@ -125,14 +157,14 @@ export function picksSignature(request) {
     t: signals.preferredTime,
     h: [...signals.history].sort((a, b) => a.category.localeCompare(b.category)),
     l: signals.hasLocation,
+    p: [...signals.placesBefore].sort(),
     c: candidates.map((c) => c.id).sort(),
   })
 }
 
 /**
- * A reason code, as the facts the wording needs — the same shape the
- * standard engine attaches (`reasonKeys`), so both speak through
- * `reasonText` and read alike in every language.
+ * A reason code, as the facts the wording needs: a key and the value
+ * the sentence carries, so `reasonText` can word it in every language.
  */
 export function reasonFacts(code, activity) {
   switch (code) {
@@ -149,6 +181,10 @@ export function reasonFacts(code, activity) {
         key: 'spots',
         count: Math.max(0, (Number(activity.capacity) || 0) - (Number(activity.participants) || 0)),
       }
+    case 'place': {
+      const place = placeName(activity)
+      return place ? { key: 'place', place } : null
+    }
     case 'history':
     case 'behavior':
     case 'popularity':
@@ -162,8 +198,8 @@ export function reasonFacts(code, activity) {
 /**
  * The model's picks joined back to the activities on screen. An id the
  * screen no longer has (left the eligible set since the request) is
- * dropped; a pick with no supported reason falls back to the engine's own
- * reasons for that activity, which are always facts.
+ * dropped, and so is any reason the activity's own data does not support;
+ * a pick may end up with no reasons at all, which is shown as none.
  */
 export function resolvePicks(picks, activities) {
   const byId = new Map((Array.isArray(activities) ? activities : []).map((a) => [String(a.id), a]))
@@ -176,20 +212,18 @@ export function resolvePicks(picks, activities) {
     const reasons = (Array.isArray(pick.reasons) ? pick.reasons : [])
       .map((code) => reasonFacts(code, activity))
       .filter(Boolean)
-    out.push({
-      activity,
-      reasons: reasons.length ? reasons : (activity.reasonKeys || []).slice(0, 3),
-    })
+    out.push({ activity, reasons })
     if (out.length === PICK_CAP) break
   }
   return out
 }
 
-/** The standard ranking in the same shape, for when the model has no answer. */
-export function standardPicks(activities) {
-  return chooseCandidates(activities)
-    .slice(0, PICK_CAP)
-    .map((activity) => ({ activity, reasons: (activity.reasonKeys || []).slice(0, 3) }))
+/**
+ * When the model has no answer, nothing ranks: what a person sees instead
+ * is what is coming up soonest, said to be exactly that.
+ */
+export function unrankedPicks(activities) {
+  return chooseCandidates(activities).slice(0, PICK_CAP)
 }
 
 /**

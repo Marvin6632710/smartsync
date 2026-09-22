@@ -31,8 +31,8 @@ const HISTORY_WINDOW_MS = 24 * 60 * 60 * 1000
 /**
  * Time band is derived from the actual start time rather than being a separate
  * field the host picks. Previously the two could contradict each other — a
- * 7 AM activity tagged "Evening" — and the recommendation engine trusted the
- * tag, so a typo silently corrupted 15% of every score.
+ * 7 AM activity tagged "Evening" — and the ranking trusted the tag, so a
+ * typo silently misdescribed the activity to everything that read it.
  */
 export function deriveTimeBand(time) {
   // The shape is checked before the number is: `Number('')` is 0, not NaN,

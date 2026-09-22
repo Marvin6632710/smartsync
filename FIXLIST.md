@@ -217,6 +217,52 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **Place names go to Gemini, by name only, 2026-09-22** — at the owner's
+  request after the trade-off was laid out (ADR-031). Each candidate
+  carries its `locationName` as `place` (cleaned, 60 chars) and the
+  person's signals carry `placesBefore` — the venues of their joined
+  activities, once each, at most twelve — both in the cache signature. A
+  ninth reason code `place`, checked on the server (the activity's place
+  is one of `placesBefore`, case-insensitively; no place named, no code),
+  worded "At {{place}}, where you've been before" in four languages. The
+  prompt weighs places with time and distance and declares place names
+  data, not instructions. Coordinates never go; the on-page privacy line
+  now says the names of places you have been to are sent. Verified in
+  the emulator against the stand-in with an added Gaming activity at
+  Siam Square (`activities/place-test-1`, where the demo admin had
+  joined before): top pick with "At Siam Square, where you've been
+  before", the Function's answer carrying `place`. Tests: +3 (server,
+  client, page); 854 unit/app.
+- **The scoring engine removed; Gemini ranks and nothing else does,
+  2026-09-22** — at the owner's decision, after the trade-offs were put
+  to them (ADR-030). `recommendationService.js` is gone: the six-signal
+  score, its reasons, the weights, the sliders page (`/weights`), the
+  "How this works" panel, the recommendation-details page
+  (`/recommendations/:id`), every "% match" pill (cards, Home hero, map,
+  activity page, profile's "Top match"), the count-up hook, and
+  `scripts/evaluate.mjs` with its `npm run evaluate`. What stays is
+  `services/compatibility.js`: the people-compatibility score behind
+  People match and the "somebody like you is going" fact that the AI
+  Picks request carries as `similar`. The context now enriches and
+  orders (soonest first) instead of scoring; the candidate cap keeps
+  the forty soonest; the score left the request and the prompt (the
+  model is told the order is its to decide); and with no answer from
+  Gemini the page shows the eligible activities soonest first under
+  "Not ranked" with the reason and Try again — no hero and no reasons,
+  because nothing ranked. The wire value for no answer is `source:
+  'none'` (was `'standard'`), which the deployed Function still sends as
+  `'standard'` until it is redeployed — the page treats anything but
+  `'gemini'` the same, so either works. A retired `smartsync:weights`
+  key is swept from localStorage on load. Four languages; `EVALUATION.md`
+  kept as history with a banner; README §10, ARCHITECTURE and the
+  exhibition Q&A rewritten (the "measured, not asserted" answer is now
+  about checkability, since Gemini's ranking is unmeasured). Verified in
+  the emulator against the stand-in: ranked with reasons, the fallback
+  with the stand-in stopped, Try again back to ranked, Home/card/map/
+  activity/profile/settings without the score, `/weights` → 404; phone
+  width. Tests: −73 (the engine's, the sliders', the counter's), +25
+  `tests/unit/compatibility.test.js`, page and service tests updated;
+  851 unit/app tests pass.
 - **AI Picks through Gemini, to the owner's spec, 2026-09-21** — the
   page's top list is now ranked by Gemini, as a re-ranker over the
   activities the person could join (upcoming, not full, inside their

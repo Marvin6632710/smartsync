@@ -1,13 +1,5 @@
 import React, { useMemo } from 'react'
-import {
-  ChevronRight,
-  Compass,
-  RefreshCw,
-  SlidersHorizontal,
-  Sparkles,
-  TriangleAlert,
-  UsersRound,
-} from 'lucide-react'
+import { ChevronRight, Compass, RefreshCw, Sparkles, TriangleAlert, UsersRound } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -17,9 +9,8 @@ import CategoryIcon from '../components/CategoryIcon'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { useAiPicks } from '../hooks/useAiPicks'
-import { categoryLabel, listInWords, reasonLines, reasonText, signalLabel } from '../i18n'
-import { improveHints, resolvePicks, standardPicks, thinProfile } from '../services/aiPicks'
-import { weightShares } from '../services/recommendationService'
+import { categoryLabel, listInWords, reasonText } from '../i18n'
+import { improveHints, resolvePicks, thinProfile, unrankedPicks } from '../services/aiPicks'
 import { groupByInterest, interestsWithNothing, pickForInterests } from '../services/interestPicks'
 import { activeFilterCount } from '../utils/filters'
 import { formatRelativeTime } from '../utils/time'
@@ -33,23 +24,17 @@ import { formatRelativeTime } from '../utils/time'
  * Gemini from your interests, what you have joined, your preferred time
  * and how far away things are, each with the reasons it fits. The model
  * ranks activities it was handed; it cannot invent one, and every reason
- * it gives is a fact the app checked before wording it. When the model
- * has no answer — no key on the server, a quota, an outage, an answer
- * the app could not use — the same activities appear in the standard
- * engine's order, and the page says so plainly.
+ * it gives is a fact the app checked before wording it. Nothing ranks in
+ * the browser (ADR-030): when the model has no answer — no key on the
+ * server, a quota, an outage, an answer the app could not use — the same
+ * activities appear soonest first, and the page says plainly that they
+ * are not ranked and offers to ask again.
  *
  * Below, "what is on in my interests?": everything in the categories you
- * chose, grouped under the interest that earned it, ranked by the standard
- * score. Nothing outside your interests appears there, ever — that is what
- * makes it checkable by the person reading it.
+ * chose, grouped under the interest that earned it, soonest first. Nothing
+ * outside your interests appears there, ever — that is what makes it
+ * checkable by the person reading it.
  */
-/**
- * How strongly each rank is drawn, strongest first: one accent at falling
- * opacity, so the six signals read as one scale rather than six colours.
- * Six entries for six signals; a seventh signal would need a seventh tone.
- */
-const RANK_TONES = [1, 0.8, 0.62, 0.46, 0.33, 0.22]
-
 const HINT_ROUTES = {
   join: '/home',
   interests: '/interests',
@@ -70,15 +55,8 @@ function Pick({ pick }) {
 
 export default function RecommendationsPage() {
   const { t } = useTranslation()
-  const {
-    recommendations,
-    filteredActivities,
-    joinedIds,
-    joinedActivities,
-    loading,
-    weights,
-    filters,
-  } = useApp()
+  const { recommendations, filteredActivities, joinedIds, joinedActivities, loading, filters } =
+    useApp()
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -97,24 +75,25 @@ export default function RecommendationsPage() {
     enabled: !loading && interests.length > 0,
   })
 
-  // The list to show: the model's, joined back to the activities on screen,
-  // or the standard ranking of the same activities with the reason the
-  // model's is missing.
+  // The list to show: the model's, joined back to the activities on screen
+  // — or, with no ranking, the same activities soonest first and the reason
+  // the ranking is missing.
   const shown = useMemo(() => {
     if (ai.result?.source === 'gemini') {
-      const items = resolvePicks(ai.result.picks, eligible)
-      if (items.length) return { source: 'gemini', items, createdAt: ai.result.createdAt }
-      return { source: 'standard', items: standardPicks(eligible), reason: 'stale' }
+      const picks = resolvePicks(ai.result.picks, eligible)
+      if (picks.length) return { source: 'gemini', picks, createdAt: ai.result.createdAt }
+      return { source: 'none', unranked: unrankedPicks(eligible), reason: 'stale' }
     }
     return {
-      source: 'standard',
-      items: standardPicks(eligible),
+      source: 'none',
+      unranked: unrankedPicks(eligible),
       reason: ai.result?.reason || (ai.status === 'error' ? 'error' : null),
       retryAfterSeconds: ai.result?.retryAfterSeconds,
     }
   }, [ai.result, ai.status, eligible])
-  const top = shown.items[0]
-  const rest = shown.items.slice(1)
+  const ranked = shown.source === 'gemini'
+  const top = ranked ? shown.picks[0] : null
+  const rest = ranked ? shown.picks.slice(1) : []
   const asking = ai.status === 'loading'
   const narrowing = activeFilterCount(filters)
   const hints = useMemo(
@@ -125,28 +104,14 @@ export default function RecommendationsPage() {
     [ai.request.signals, interests.length],
   )
 
-  const standardAll = useMemo(
+  const inInterests = useMemo(
     () => pickForInterests(recommendations, interests),
     [recommendations, interests],
   )
-  const groups = useMemo(() => groupByInterest(standardAll, interests), [standardAll, interests])
+  const groups = useMemo(() => groupByInterest(inInterests, interests), [inInterests, interests])
   const missing = useMemo(
-    () => interestsWithNothing(standardAll, interests),
-    [standardAll, interests],
-  )
-
-  // Ordered strongest first, so the explanation reads in the order the
-  // scoring actually applies rather than the order the object was typed.
-  // The weights in force, not the shipped ones: this page ranks with what
-  // the sliders say, so it has to describe the same thing.
-  const signals = useMemo(
-    () =>
-      Object.entries(weightShares(weights))
-        .map(([id, weight]) => ({ id, weight, label: signalLabel(id) }))
-        .sort((a, b) => b.weight - a.weight),
-    // The labels follow the language, which `t` changes with.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [weights, t],
+    () => interestsWithNothing(inInterests, interests),
+    [inInterests, interests],
   )
 
   if (loading) {
@@ -182,8 +147,8 @@ export default function RecommendationsPage() {
     )
   }
 
-  // The line above the picks: who ranked them and when, or why it is the
-  // standard ranking — with the way to ask again beside it.
+  // The line above the picks: who ranked them and when, or why nothing did
+  // — with the way to ask again beside it.
   const sourceBar = (() => {
     if (asking) {
       return (
@@ -193,7 +158,7 @@ export default function RecommendationsPage() {
         </div>
       )
     }
-    if (shown.source === 'gemini') {
+    if (ranked) {
       return (
         <div className="ai-source" data-state="gemini" role="status" aria-live="polite">
           <Sparkles size={15} aria-hidden="true" />
@@ -209,10 +174,10 @@ export default function RecommendationsPage() {
     }
     const minutes = Math.max(1, Math.ceil((shown.retryAfterSeconds || 0) / 60))
     return (
-      <div className="ai-source" data-state="standard" role="status" aria-live="polite">
+      <div className="ai-source" data-state="none" role="status" aria-live="polite">
         <TriangleAlert size={15} aria-hidden="true" />
         <span>
-          <strong>{t('picks.sourceStandard')}</strong>{' '}
+          <strong>{t('picks.sourceNone')}</strong>{' '}
           {t(`picks.fallback.${shown.reason || 'unavailable'}`, {
             defaultValue: t('picks.fallback.unavailable'),
             count: minutes,
@@ -235,6 +200,9 @@ export default function RecommendationsPage() {
         <span className="eyebrow">{t('picks.eyebrow')}</span>
         <h2>{t('picks.title')}</h2>
         <p className="helper-text">{t('picks.lead')}</p>
+        {/* What leaves the device to be ranked, said where the ranking is
+            asked for — and what never does. */}
+        <p className="helper-text how-privacy">{t('picks.privacy')}</p>
       </section>
 
       {eligible.length > 0 && sourceBar}
@@ -261,7 +229,7 @@ export default function RecommendationsPage() {
             )}
           </div>
         </div>
-      ) : asking || !top ? (
+      ) : asking ? (
         <section className="top-pick top-pick-loading" aria-busy="true">
           <span className="category-chip">
             <Sparkles size={12} aria-hidden="true" />
@@ -271,114 +239,66 @@ export default function RecommendationsPage() {
           <ActivitiesLoading rows={1} />
         </section>
       ) : (
-        /* THE STRONGEST MATCH, WITH ITS WORKING SHOWN
-           A number on its own asks to be trusted. The reasons underneath
-           are facts the app checked, so the claim is checkable rather
-           than decorative. */
-        <section
-          className="top-pick"
-          data-category={(top.activity.category || '').toLowerCase()}
-          aria-labelledby="top-pick-title"
-        >
-          <div className="top-pick-head">
-            <span className="category-chip">
-              <CategoryIcon category={top.activity.category} size={12} />
-              {categoryLabel(top.activity.category)}
-            </span>
-            <span className="top-pick-score">
-              <Sparkles size={14} aria-hidden="true" />
-              {t('common.percent', { value: top.activity.matchScore })}
-            </span>
-          </div>
-          <h3 id="top-pick-title">{top.activity.title}</h3>
-          <ul className="top-pick-reasons">
-            {(top.reasons.length ? top.reasons.map(reasonText) : reasonLines(top.activity))
-              .slice(0, 3)
-              .map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-          </ul>
-          {/* Room for it on a wide screen, where this card sits beside the
-              weights and has the height; a phone keeps it to the activity
-              page. */}
-          {top.activity.description && <p className="top-pick-desc">{top.activity.description}</p>}
-          <button
-            className="primary-button wide"
-            onClick={() => navigate(`/activity/${top.activity.id}`)}
+        top && (
+          /* THE MODEL'S FIRST PICK, WITH ITS WORKING SHOWN
+             A top pick on its own asks to be trusted. The reasons underneath
+             are facts the app checked, so the claim is checkable rather
+             than decorative. Only a ranking gets a hero: with none, there
+             is no first. */
+          <section
+            className="top-pick"
+            data-category={(top.activity.category || '').toLowerCase()}
+            aria-labelledby="top-pick-title"
           >
-            {t('picks.takeALook')}
-          </button>
-        </section>
-      )}
-
-      {/* HOW THIS WORKS
-          The model, and then the six signals with real weights, in the
-          order they actually carry. An app that ranks what a person sees
-          should be able to say how, and this is the screen where saying
-          it belongs.
-
-          The weights are shares of one whole, so they are drawn as one:
-          a single strip split six ways, strongest first, in one colour
-          at falling strength. The list underneath carries the numbers,
-          in the same order and the same tones, and is what a screen
-          reader gets; the strip is a picture of it. */}
-      <section className="panel how-panel" aria-labelledby="how-title">
-        <div className="how-head">
-          <span className="eyebrow">{t('picks.howEyebrow')}</span>
-          <h3 id="how-title">{t('picks.howTitle')}</h3>
-          <p className="helper-text">{t('picks.howLead')}</p>
-        </div>
-        <div className="how-strip" aria-hidden="true">
-          {signals.map(
-            (signal, rank) =>
-              signal.weight > 0 && (
-                <span
-                  key={signal.id}
-                  style={{ flexGrow: signal.weight, '--tone': RANK_TONES[rank] }}
-                />
-              ),
-          )}
-        </div>
-        <ol className="how-list">
-          {signals.map((signal, rank) => (
-            // A signal turned down to nothing is listed — the six are the
-            // six — but drawn as switched off rather than merely last.
-            <li
-              key={signal.id}
-              style={{ '--tone': RANK_TONES[rank] }}
-              data-off={signal.weight === 0 ? 'true' : undefined}
+            <div className="top-pick-head">
+              <span className="category-chip">
+                <CategoryIcon category={top.activity.category} size={12} />
+                {categoryLabel(top.activity.category)}
+              </span>
+              <span className="top-pick-badge">
+                <Sparkles size={14} aria-hidden="true" />
+                {t('picks.topPick')}
+              </span>
+            </div>
+            <h3 id="top-pick-title">{top.activity.title}</h3>
+            <ul className="top-pick-reasons">
+              {top.reasons
+                .map(reasonText)
+                .filter(Boolean)
+                .slice(0, 3)
+                .map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+            </ul>
+            {/* Room for it on a wide screen, where this card is a banner and
+                has the width; a phone keeps it to the activity page. */}
+            {top.activity.description && (
+              <p className="top-pick-desc">{top.activity.description}</p>
+            )}
+            <button
+              className="primary-button wide"
+              onClick={() => navigate(`/activity/${top.activity.id}`)}
             >
-              <span className="how-swatch" aria-hidden="true" />
-              <span className="how-label">{signal.label}</span>
-              <span className="how-share">{t('common.percent', { value: signal.weight })}</span>
-            </li>
-          ))}
-        </ol>
-        <p className="helper-text how-privacy">{t('picks.privacy')}</p>
-        <button type="button" className="how-action" onClick={() => navigate('/weights')}>
-          <SlidersHorizontal size={16} aria-hidden="true" />
-          <span>{t('picks.changeWhatMatters')}</span>
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
-      </section>
+              {t('picks.takeALook')}
+            </button>
+          </section>
+        )
+      )}
 
       {eligible.length > 0 && (
         <>
-          {/* THE REST OF THE PICKS, EACH WITH ITS REASONS */}
+          {/* THE REST OF THE PICKS, EACH WITH ITS REASONS — OR, WITH NO
+              RANKING, WHAT IS COMING UP SOONEST, SAID TO BE JUST THAT */}
           {asking ? (
             <section className="section-block ai-picks" aria-busy="true">
               <ActivitiesLoading rows={2} />
             </section>
-          ) : (
+          ) : ranked ? (
             rest.length > 0 && (
               <section className="section-block ai-picks" aria-labelledby="ai-picks-title">
                 <div className="section-heading">
                   <div>
-                    <span className="eyebrow">
-                      {shown.source === 'gemini'
-                        ? t('picks.sourceGemini')
-                        : t('picks.sourceStandard')}
-                    </span>
+                    <span className="eyebrow">{t('picks.sourceGemini')}</span>
                     <h2 id="ai-picks-title">{t('picks.alsoForYou')}</h2>
                   </div>
                   <span className="count-chip">{rest.length}</span>
@@ -388,20 +308,25 @@ export default function RecommendationsPage() {
                     <Pick key={pick.activity.id} pick={pick} />
                   ))}
                 </div>
-                {narrowing > 0 && (
-                  <p className="helper-text quiet-note">
-                    {t('picks.withinFilters', { count: narrowing })}{' '}
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={() => navigate('/filters')}
-                    >
-                      {t('filtersEmpty.adjust')}
-                    </button>
-                  </p>
-                )}
+                {narrowing > 0 && <WithinFilters count={narrowing} />}
               </section>
             )
+          ) : (
+            <section className="section-block ai-picks" aria-labelledby="ai-picks-title">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">{t('picks.unrankedEyebrow')}</span>
+                  <h2 id="ai-picks-title">{t('picks.unrankedTitle')}</h2>
+                </div>
+                <span className="count-chip">{shown.unranked.length}</span>
+              </div>
+              <div className="stack card-grid">
+                {shown.unranked.map((activity) => (
+                  <ActivityCard key={activity.id} activity={activity} />
+                ))}
+              </div>
+              {narrowing > 0 && <WithinFilters count={narrowing} />}
+            </section>
           )}
 
           {/* LITTLE HISTORY: WHAT WOULD MAKE THE PICKS BETTER */}
@@ -432,7 +357,7 @@ export default function RecommendationsPage() {
       )}
 
       {/* EVERYTHING IN YOUR INTERESTS, GROUPED UNDER THE INTEREST THAT EARNED IT */}
-      {standardAll.length === 0 ? (
+      {inInterests.length === 0 ? (
         <div className="empty-state">
           <Sparkles size={28} />
           <h3>{t('picks.nothingTitle')}</h3>
@@ -486,5 +411,19 @@ export default function RecommendationsPage() {
         <ChevronRight size={18} />
       </button>
     </div>
+  )
+}
+
+/** The picks are only from inside your filters; say so, with the way out. */
+function WithinFilters({ count }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  return (
+    <p className="helper-text quiet-note">
+      {t('picks.withinFilters', { count })}{' '}
+      <button type="button" className="text-button" onClick={() => navigate('/filters')}>
+        {t('filtersEmpty.adjust')}
+      </button>
+    </p>
   )
 }

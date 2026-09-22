@@ -9,6 +9,163 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest continuation — the scoring engine removed (2026-09-22)
+
+**State: built and verified on localhost; NOT committed, NOT deployed.**
+The owner is testing it first; nothing goes to git or the live site
+until they say so. `git status` shows the whole change as a working-tree
+diff on top of `8df38bd` (together with the place-names addition below:
+49 modified, 8 deleted, 2 new). The live site is still the `8df38bd`
+build with the engine.
+
+**The owner's decision.** With AI Picks ranked by Gemini, they asked
+whether the signal weights were still needed. I laid out that the weights
+were the parameters of the engine that still chose the forty candidates,
+was the fallback, put "% match" on six screens and was what
+`EVALUATION.md` measured; recommended keeping the engine hidden and only
+retiring the sliders and the panel. They chose to remove the engine
+outright: "just let the gemini decides, i think i don't need the engine
+anymore, so delete it out." ADR-030 records the trade-offs and the
+choice.
+
+### What was done
+
+- **Deleted:** `src/services/recommendationService.js` (score, reasons,
+  weights), `src/pages/WeightsPage.jsx` and the `/weights` route,
+  `src/pages/RecommendationDetailsPage.jsx` and `/recommendations/:id`,
+  `src/hooks/useCountUp.js` (the hero's counting score),
+  `scripts/evaluate.mjs` and `npm run evaluate`; their tests
+  (`recommendation.test.js`, `weightsShown.test.jsx`, `countup.test.js`).
+- **New:** `src/services/compatibility.js` — `calculateUserCompatibility`
+  and `jaccardIndex` (People match), `computeSimilarUsersJoined` /
+  `computeParticipantSimilarity` (the `similar` fact), and
+  `enrichActivities(user, activities, peers)` which attaches
+  `similarUsersJoined` and orders soonest first (unknown start last). Its
+  tests: `tests/unit/compatibility.test.js` (25).
+- **Context:** the `scored` stage is now `enriched`; `weights`,
+  `setWeights`, `resetWeights` and the `smartsync:weights` storage are
+  gone (the key is swept from localStorage on load — `RETIRED_KEYS` in
+  `utils/storage.js`). `recommendations` / `filteredActivities` are
+  soonest first.
+- **AI Picks page:** the how-panel (strip, percentages, "Change what
+  matters") is gone; the privacy sentence sits under the page lead as a
+  quiet line. The hero shows "Gemini's top pick" instead of a percentage,
+  its reasons only when the model gave any. With no ranking (`source !==
+  'gemini'`): the bar reads "Not ranked. <reason>" with Try again, there
+  is **no hero**, and a "Not ranked / Happening soon" section lists the
+  eligible activities soonest first without reasons (`unrankedPicks`).
+  The grouped-by-interest list orders groups by first appearance
+  (soonest) instead of best score.
+- **Request/prompt:** `matchScore` removed from `candidateOf`,
+  `cleanCandidate` and `buildPrompt`; candidates are the forty soonest
+  (`chooseCandidates` → `soonestFirst`); `resolvePicks` no longer falls
+  back to engine reasons (a pick can have none). The system instruction
+  now says the order is the model's to decide. `scripts/fake-gemini.mjs`
+  ranks by fit (interest 2, history 1) then soonest.
+- **Wire:** the Function answers `{ source: 'none', reason }` where it
+  said `'standard'`. **The deployed Function still says `'standard'`**;
+  the page treats anything but `'gemini'` as no ranking, so both work.
+  Redeploy with the usual command when the owner says deploy.
+- **Other screens:** `ActivityCard` keeps only the "Ended" pill; Home
+  hero has no score and no reasons line; `MapPage` list and preview have
+  no pills; `ActivityDetailsPage` lost the pill and the "Why this / Match
+  reasons" panel (and its More link); `ProfilePage` has two stats
+  (Joined, Hosting); `SettingsPage` lost the Matching weights row;
+  `WelcomePage`'s stage card shows "Gemini's top pick" instead of "92%
+  match"; `Shell.jsx` lost the `weights` title and the
+  `recommendations-details` view word.
+- **i18n:** groups `weights`, `pickDetails`, `signals` removed; keys
+  `settings.weights/weightsHint`, `titles.weights`, `reasons.default`,
+  `activity.whyThis/matchReasons`, `common.match/noScore`,
+  `profile.topMatch/activity`, `picks.howEyebrow/howTitle/howLead/
+  changeWhatMatters` removed; `picks.sourceStandard` → `picks.sourceNone`;
+  added `picks.topPick`, `picks.unrankedEyebrow`, `picks.unrankedTitle`;
+  `picks.fallback.*`, `picks.improveLead`, `welcome.stage.why` reworded —
+  all four languages, `json.dumps` formatting. `reasonText` returns `''`
+  for a code with no wording (`i18n.exists`), so callers drop it.
+- **CSS:** rules for `.weight-*`, `.score-card`, `.how-strip/list/
+  swatch/label/share`, `.hero-score`, `.hero-why`, `.preview-match`,
+  `.detail-hero .match-pill` removed; `.top-pick-score` → `.top-pick-badge`
+  (a label, not a number); `.ai-source[data-state='none']`; the wide AI
+  Picks layout is no longer two columns (nothing sits beside the hero);
+  `.how-privacy` has a little air under the lead.
+- **Docs:** README §10 rewritten, project structure updated;
+  ARCHITECTURE (data-flow stage, "Discovery order", the Gemini diagram,
+  guard table, ten-minute test pass); DECISIONS ADR-030, ADR-006/029
+  marked superseded/amended, the two exhibition answers rewritten — the
+  "measured, not asserted" answer is now about checkability, since
+  Gemini's ranking is unmeasured; EVALUATION.md kept with a historical
+  banner; FIXLIST; CLAUDE_HANDOFF.
+
+### Verified
+
+- `npm run test:unit`: 74 files, 851 tests pass (was 899: −73 engine/
+  sliders/counter, +25 compatibility, +1 picks). `npm run lint` clean,
+  `npm run build` clean. Functions' own suite: 38 pass.
+- Localhost (Vite + emulators + `scripts/fake-gemini.mjs`): AI Picks
+  "Ranked by Gemini · Just now", hero "Gemini's top pick" with three
+  reasons, four cards with reasons where the model gave them; stand-in
+  stopped + Refresh → "Not ranked. Gemini could not be reached, so here
+  is what is on, soonest first." with no hero and five cards in time
+  order; stand-in restarted + Try again → ranked again; Home, the
+  activity page, the map list, the profile and Settings without the
+  score or the weights row; `/weights` → Page not found; phone width;
+  no console errors.
+- Not run: the rules suite (rules unchanged) and the live site (nothing
+  deployed).
+
+### Also in this working tree — place names to Gemini (ADR-031)
+
+Asked for after the engine removal, built on top of it, same state (NOT
+committed, NOT deployed). The owner asked whether Gemini should know
+place names; I said the gain was modest and the privacy line would have
+to change; they chose to build it.
+
+- `functions/lib/picks.js`: `placesBefore` in `cleanSignals` (via
+  `cleanList` with a 60-char cap; `same()` moved up), `place` on the
+  candidate, both in `signatureOf`, `place` in `REASON_CODES` and
+  `trueReasons` (activity's place ∈ placesBefore, case-insensitive; an
+  empty place never matches), the instruction lists the code and treats
+  place names as data; `buildPrompt` sends `placesBefore` and `place`.
+- `src/services/aiPicks.js`: `placeName()` (fold whitespace, 60 chars),
+  `placesBefore(joinedActivities)` (once each whatever the casing, ≤12,
+  order of the joined list), in `signalsOf`; `candidateOf.place`;
+  `picksSignature` includes `p`; `reasonFacts('place')` →
+  `{ key: 'place', place }` or null when no name.
+- `src/i18n/index.js` passes `place`; locales: `reasons.place` (after
+  `distance`) and `picks.privacy` reworded, four languages.
+- `scripts/fake-gemini.mjs`: `place` code (ranked above time/distance so
+  it shows locally), fit = interest 2 + history 1 + place 1.
+- Tests: `picksServer` (+1: cleaning/caps/refusal; signature; prompt;
+  trueReasons), `aiPicks` (+1: `placesBefore`; candidate `place`;
+  request carries the name but no coords/uids), `recommendationsPage`
+  (+1: worded in English and Thai; a pick with `place` on an activity
+  with no name shows no reason). 854 unit/app.
+- Verified in the emulator: I added `activities/place-test-1` ("Board
+  Games at Siam Square", Gaming, 2026-09-24 19:00, host June Park) by
+  the REST owner token because the demo admin had joined Bangkok Night
+  Gamers at Siam Square; AI Picks then made it the top pick with "At
+  Siam Square, where you've been before", and the Function's answer
+  carried `["interest","history","place"]`. The document is still in
+  the dev emulator — delete it if unwanted:
+  `curl -X DELETE -H "Authorization: Bearer owner"
+  "http://127.0.0.1:8181/v1/projects/demo-smartsync/databases/(default)/documents/activities/place-test-1"`.
+- Docs: README §10 (what goes out, the codes), ADR-029 amendment note,
+  ADR-031, FIXLIST, CLAUDE_HANDOFF.
+
+### To finish, when the owner says so
+
+1. `git add -A && git commit` (one commit, or two: the engine removal
+   and "Place names to Gemini, by name only"; co-author line on each),
+   `git push`.
+2. `npx firebase deploy --only functions:recommendActivities --project
+   smartsync-c1f07` (the `'none'` wire value and the prompt without the
+   score) and `npx firebase deploy --only hosting --project
+   smartsync-c1f07 --non-interactive`.
+3. Two untracked directories, `output/` and `tmp/` (word-break files
+   from 2026-09-21 23:05–00:04), are not SmartSync's and were not
+   touched; do not `git add` them.
+
 ## Latest continuation — AI Picks through Gemini (2026-09-21)
 
 The owner's spec: AI Picks ranked by the Gemini API, personalised from

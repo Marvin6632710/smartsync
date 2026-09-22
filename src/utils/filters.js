@@ -57,8 +57,8 @@ function storedDistance(value) {
  * Field by field: a value that is missing or unrecognised falls back to
  * that field's default alone, so one stale field does not cost the others.
  * The storage schema version was deliberately not bumped for the move to
- * sets — a bump wipes every `smartsync:` key, the scoring weights included,
- * and a saved single choice is worth keeping as a set of one.
+ * sets — a bump wipes every `smartsync:` key, and a saved single choice is
+ * worth keeping as a set of one.
  */
 export function normaliseFilters(stored) {
   const source = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {}

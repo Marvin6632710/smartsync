@@ -34,7 +34,7 @@ export default function InterestSelectionPage() {
     )
     setBusy(false)
     // Only move on if it saved. Advancing regardless would drop the answers
-    // silently and leave the engine with nothing to rank on.
+    // silently and leave AI Picks with nothing to rank on.
     if (ok) navigate(user.onboarded ? '/profile' : '/permissions', { replace: true })
   }
 

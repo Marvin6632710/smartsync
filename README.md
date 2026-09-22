@@ -307,7 +307,9 @@ src/
     AppContext.jsx     live application data and every write action
   hooks/               useThread, useDeviceLocation, usePicture
   services/
-    recommendationService.js   pure scoring and matching logic
+    compatibility.js   people compatibility; "somebody like you is going"
+    aiPicks.js         what goes to Gemini, and what is made of its answer
+    interestPicks.js   the AI Picks page's by-interest grouping
   utils/               geo (haversine, formatting), time, storage
   pages/               one file per screen
   components/          shared UI
@@ -318,8 +320,8 @@ firestore.rules        the security rules themselves
 
 Shared writes go through `AppContext`; profile forms call the profile data
 module directly, and reads use contexts or shared hooks (ARCHITECTURE §1).
-`recommendationService.js` is deliberately pure: it takes data and
-returns numbers, so it can be tested without a database.
+The `services/` modules are deliberately pure: they take data and return
+values, so they can be tested without a database.
 
 ## 8. Data model
 
@@ -409,49 +411,41 @@ All of this is covered by tests — see below.
 
 ## 10. How recommendations work
 
-Measured, not asserted: `EVALUATION.md` reports precision@5, MRR and NDCG
-against random, popularity, distance and interest-only baselines, plus a
-per-signal ablation. Run it with `npm run evaluate`. The weights are also
-adjustable in the app under Settings → Matching weights, with the ranking
-reordering live.
+Gemini ranks; the app checks. The AI Picks page asks Gemini to put the
+activities you could join in order and say why each one fits, from your
+interests, what you have joined, your preferred time and how far away
+things are. Nothing in the app scores an activity any more: the weighted
+six-signal engine that used to rank the feed was removed on 2026-09-22
+(ADR-030, with its measurement kept in `EVALUATION.md` as history). What
+the browser still does is decide what is _eligible_ — upcoming, not full,
+inside your discovery filters, hosted by nobody you blocked, not already on
+your list — and attach the one fact only it can compute: whether somebody
+genuinely like you has joined (a peer at compatibility 50 or above; see
+`src/services/compatibility.js`, which is also what the People match
+screen ranks with). Every other screen lists activities soonest first.
 
-Each activity is scored out of 100 for the current user:
+When Gemini has no answer — no key on the server, the hourly or daily cap,
+an outage, an answer that does not parse — the page shows the same
+activities soonest first under a line that says they are **not ranked**,
+with a way to ask again. There is no second ranking to fall back on, and
+the page does not pretend there is.
 
-| Signal     | Weight | Meaning                                                       |
-| ---------- | ------ | ------------------------------------------------------------- |
-| Interest   | 35     | Category matches a stated interest (tag match scores partial) |
-| Distance   | 20     | How near it actually is, from real coordinates                |
-| Time       | 15     | Its time band matches your preferred time                     |
-| History    | 15     | You have joined this category before                          |
-| Popularity | 10     | How full it is                                                |
-| Behaviour  | 5      | Whether genuinely similar users joined it                     |
-
-The behaviour signal is derived, not stored: a peer counts as similar when
-their compatibility score is at or above 50. Compatibility itself uses a
-Jaccard index over interests, so listing every interest going does not make
-you compatible with everybody.
-
-An unknown distance scores neutrally rather than as zero kilometres — no
-reward and no penalty for a fact nobody knows yet.
-
-### AI Picks: Gemini on top of the engine
-
-The AI Picks page asks Gemini to put the activities you could join in order
-and say why each one fits. The engine above still runs first and last: it
-decides what is eligible and what the match score is, and when Gemini has
-no answer the page shows the engine's own order and says so.
+### AI Picks: what goes to Gemini and what comes back
 
 How a request goes:
 
 1. The browser takes what you could join — upcoming, not full, inside your
    discovery filters, hosted by nobody you blocked, not already on your
-   list — keeps the forty best-scored, and sends them to the
-   `recommendActivities` Cloud Function with your signals: interests, the
-   categories you have joined (with counts), your preferred time of day and
-   whether your distance is known. Per activity: title, category, time
-   band, days ahead, rounded distance, spots left, the app's own match
-   score and a trimmed description. **Never** your name, email, host names,
-   place names, coordinates, photos or messages. `src/services/aiPicks.js`.
+   list — keeps the forty soonest (a cost cap, not a ranking), and sends
+   them to the `recommendActivities` Cloud Function with your signals:
+   interests, the categories you have joined (with counts), your preferred
+   time of day, whether your distance is known, and the names of the
+   places you have joined activities at. Per activity: title, category,
+   time band, days ahead, rounded distance, the place's name as its host
+   wrote it, spots left, whether similar people are going, and a trimmed
+   description. **Never** your name, email, host names, coordinates,
+   photos or messages (place names go by name only — ADR-031).
+   `src/services/aiPicks.js`.
 2. The Function refuses anything but a signed-in account and a request of
    exactly that shape, checks its cache (the same question in the last ten
    minutes is answered without a model call), counts the call against the
@@ -464,7 +458,8 @@ How a request goes:
    model was not given is dropped, a repeat is dropped, and each code is
    kept only when the data supports it (`interest` needs the category in
    your interests, `time` needs the band to match, `distance` needs a known
-   distance of 3 km or less, and so on). The browser checks the ids again
+   distance of 3 km or less, `place` needs the activity's place to be one
+   you have joined at, and so on). The browser checks the ids again
    against what is on screen and words the reasons from the activity's own
    data, in your language.
 4. Titles and descriptions are other people's text: the prompt says they
@@ -494,7 +489,7 @@ few dollars a day even with every request a miss.
 
 **Locally** the emulator reads the key from `functions/.secret.local`
 (`GEMINI_API_KEY=…`, ignored by git). Without one, the Function answers
-"not configured" and the page shows the standard ranking. To exercise the
+"not configured" and the page shows what is on, unranked. To exercise the
 whole path without a key or a bill, run the stand-in server and point the
 SDK at it:
 

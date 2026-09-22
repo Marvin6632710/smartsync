@@ -13,9 +13,8 @@
  * Coffee, so everything here is Football or Coffee, and when something
  * unexpected appears they are right to stop believing the rest.
  *
- * Ranking is left alone. The list arriving here is already sorted by match
- * score, and these functions only ever filter and group, never reorder within
- * a group.
+ * Order is left alone. The list arriving here is already soonest first, and
+ * these functions only ever filter and group, never reorder within a group.
  */
 
 const key = (value) =>
@@ -57,10 +56,10 @@ export function pickForInterests(activities, interests) {
 /**
  * The picks grouped under the interest that earned them.
  *
- * Groups lead with whichever holds the strongest single match, so the most
- * relevant heading is first rather than whatever order the interests were
- * tapped in months ago. Within a group the incoming order is preserved, which
- * is the match ranking.
+ * Groups lead with whichever has something on soonest, so the heading with
+ * tonight's plan under it is first rather than whatever order the interests
+ * were tapped in months ago. Within a group the incoming order is preserved,
+ * which is soonest first — so that is also the order the groups appear in.
  */
 export function groupByInterest(activities, interests) {
   const set = interestSet(interests)
@@ -74,10 +73,7 @@ export function groupByInterest(activities, interests) {
     groups.get(k).items.push(activity)
   }
 
-  const best = (group) =>
-    group.items.reduce((top, a) => Math.max(top, Number(a.matchScore) || 0), 0)
-
-  return [...groups.values()].sort((a, b) => best(b) - best(a))
+  return [...groups.values()]
 }
 
 /**

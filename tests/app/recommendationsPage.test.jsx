@@ -40,8 +40,6 @@ const activity = (id, extra = {}) => ({
   capacity: 10,
   participants: 3,
   hostId: 'h',
-  matchScore: 60,
-  reasonKeys: [{ key: 'interest', category: 'Football' }],
   ...extra,
 })
 let app
@@ -85,19 +83,20 @@ beforeEach(() => {
     historyCategories: ['Running'],
     location: null,
   }
+  // Soonest first, as the context hands it over: c3 tonight, b2 tomorrow,
+  // a1 the day after.
   const feed = [
-    activity('a1', { matchScore: 80 }),
-    activity('b2', { category: 'Coffee', timeBand: 'Morning', matchScore: 70 }),
-    activity('c3', { category: 'Running', matchScore: 40, reasonKeys: [{ key: 'history' }] }),
-    activity('joined', { matchScore: 99 }),
+    activity('c3', { category: 'Running', startsAt: NOW + 6 * 3_600_000 }),
+    activity('b2', { category: 'Coffee', timeBand: 'Morning', startsAt: NOW + DAY }),
+    activity('a1', { startsAt: NOW + 2 * DAY }),
+    activity('joined', { startsAt: NOW + 3 * DAY, locationName: 'The Commons' }),
   ]
   app = {
     recommendations: feed,
     filteredActivities: feed,
     joinedIds: ['joined'],
-    joinedActivities: [activity('joined')],
+    joinedActivities: [activity('joined', { locationName: 'The Commons' })],
     loading: false,
-    weights: undefined,
     filters: defaultFilters,
   }
 })
@@ -136,6 +135,8 @@ test('asks once the feed settles — with the eligible activities and the signal
       { category: 'Running', joined: 1 },
     ],
     hasLocation: false,
+    // The places you have joined, by name — the one you are going to.
+    placesBefore: ['The Commons'],
   })
   expect(JSON.stringify(request)).not.toMatch(/"uid"|"hostId"|:"me"|:"h"/)
   // The answer, in the model's order: the first as the hero, the rest as cards.
@@ -156,6 +157,10 @@ test('a re-render is not a request; a refresh is, past the cache', async () => {
   const view = mount()
   await settle()
   expect(calls).toHaveLength(1)
+  // A pick with no reasons claims none: the hero is the title, no list.
+  expect(screen.getByText('Activity a1', { selector: '#top-pick-title' })).toBeTruthy()
+  expect(document.querySelectorAll('.top-pick-reasons li')).toHaveLength(0)
+  expect(JSON.stringify(calls[0])).not.toMatch(/matchScore/)
   view.rerender(
     <MemoryRouter initialEntries={['/recommendations']}>
       <Routes>
@@ -200,16 +205,19 @@ test('a changed question — an interest added — is asked again on its own', a
   expect(calls[1].signals.interests).toEqual(['Football', 'Coffee', 'Running'])
 })
 
-test('no answer from the model: the same activities in the app’s own order, said plainly, with a way to try again', async () => {
-  answer = () => ({ data: { source: 'standard', reason: 'rate-limited', retryAfterSeconds: 1500 } })
+test('no answer from the model: nothing is ranked — what is on, soonest first, said plainly, with a way to try again', async () => {
+  answer = () => ({ data: { source: 'none', reason: 'rate-limited', retryAfterSeconds: 1500 } })
   mount()
   await settle()
-  expect(bar().dataset.state).toBe('standard')
-  expect(bar().textContent).toContain('Standard picks.')
+  expect(bar().dataset.state).toBe('none')
+  expect(bar().textContent).toContain('Not ranked.')
   expect(bar().textContent).toContain('Try again in 25 minutes')
-  // Best-scored first, with the engine's reasons.
-  expect(screen.getByText('Activity a1', { selector: '#top-pick-title' })).toBeTruthy()
-  expect(cardTitles()).toEqual(['Activity b2', 'Activity c3'])
+  // No first pick without a ranking: no hero, and the cards in time order
+  // with no reasons claimed for any of them.
+  expect(document.querySelector('#top-pick-title')).toBeNull()
+  expect(screen.getByText('Happening soon')).toBeTruthy()
+  expect(cardTitles()).toEqual(['Activity c3', 'Activity b2', 'Activity a1'])
+  expect(whys()).toEqual([])
   answer = () => ({
     data: { source: 'gemini', picks: [{ id: 'c3', reasons: ['history'] }], createdAt: NOW },
   })
@@ -223,8 +231,9 @@ test('the Function failing outright is said too, and Try again asks again', asyn
   answer = () => Promise.reject(new Error('functions/internal'))
   mount()
   await settle()
-  expect(bar().dataset.state).toBe('standard')
+  expect(bar().dataset.state).toBe('none')
   expect(bar().textContent).toContain('could not be reached')
+  expect(bar().textContent).toContain('soonest first')
   answer = () => ({
     data: { source: 'gemini', picks: [{ id: 'a1', reasons: ['time'] }], createdAt: NOW },
   })
@@ -281,6 +290,32 @@ test('little to go on: the hints say what would help, each going where it is don
   ])
   fireEvent.click(screen.getByRole('button', { name: 'Add a few more interests' }))
   expect(screen.getByText('the interests')).toBeTruthy()
+})
+
+test('a pick at a place you have been is worded with the place, in your language', async () => {
+  app = {
+    ...app,
+    filteredActivities: app.filteredActivities.map((a) =>
+      a.id === 'b2' ? { ...a, locationName: 'The Commons' } : a,
+    ),
+  }
+  answer = () => ({
+    data: {
+      source: 'gemini',
+      picks: [
+        { id: 'a1', reasons: [] },
+        { id: 'b2', reasons: ['place'] },
+        // No place named on c3, so the claim is dropped: no reason line at all.
+        { id: 'c3', reasons: ['place'] },
+      ],
+      createdAt: NOW,
+    },
+  })
+  mount()
+  await settle()
+  expect(whys()).toEqual(["At The Commons, where you've been before"])
+  await act(() => i18n.changeLanguage('th'))
+  expect(whys()).toEqual([th.reasons.place.replace('{{place}}', 'The Commons')])
 })
 
 test('a well-known person gets no hints', async () => {
