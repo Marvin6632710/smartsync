@@ -1148,13 +1148,27 @@ select:focus-visible {
   padding: 0;
   text-align: left;
   color: inherit;
-  border-color: transparent;
+  /* The edge in the card's own category colour, toned down to a line:
+     the coloured header alone left the dark body melting into a dark
+     page, and two neighbouring cards read as one slab. A tinted edge
+     makes each card an object and says its category once more, at the
+     boundary where the eye is deciding where one ends. */
+  border-color: color-mix(in srgb, var(--cat, var(--accent)) 45%, var(--line));
   transition:
     transform var(--dur-fast) var(--ease),
     box-shadow var(--dur) var(--ease);
 }
 .activity-card:hover {
   box-shadow: var(--shadow-lg);
+  border-color: color-mix(in srgb, var(--cat, var(--accent)) 72%, var(--line));
+}
+/* On the dark ground the base hue is too dark to draw a line with; the
+   category's light partner (the one the gradients lighten towards) is. */
+:root[data-theme='dark'] .activity-card {
+  border-color: color-mix(in srgb, var(--cat-2, var(--accent)) 40%, var(--line));
+}
+:root[data-theme='dark'] .activity-card:hover {
+  border-color: color-mix(in srgb, var(--cat-2, var(--accent)) 62%, var(--line));
 }
 /* Answers the finger. Scale rather than colour, because a colour change on
    a coloured card is invisible on half of them. */
@@ -6339,6 +6353,61 @@ button.celebration-toast:hover {
   .discover-page[data-picks='no'] {
     row-gap: 24px;
   }
+  /* THE SEAM BETWEEN TWO COLUMNS
+     Where a wide screen sets two different things side by side — the feed
+     and the picks, the list and the map, who you are and what you joined —
+     the eye has to be told where one stops and the other starts. A hairline
+     down the gutter says it once, quietly.
+
+     Drawn as a grid item placed in the left column's own cell, pushed half
+     the gap outwards: it is then exactly between the two columns whatever
+     their widths, and exactly as tall as the row, with no element to wrap
+     it in and nothing for a screen reader to read. It fades out at both
+     ends so it reads as a seam rather than a line cropped short. */
+  .discover-page[data-picks='yes']::after,
+  .smart-map-page::after,
+  .profile-page::after {
+    content: '';
+    width: 1px;
+    justify-self: end;
+    align-self: stretch;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      var(--line-strong) 5%,
+      var(--line-strong) 95%,
+      transparent
+    );
+  }
+  /* Half of this page's own column gap, in each case. */
+  .discover-page[data-picks='yes']::after {
+    grid-area: soon;
+    margin-right: -16px;
+  }
+  /* Both columns are placed by hand on these two, so the seam can share
+     the first cell without displacing anything: a grid item with a
+     definite position is placed before the automatic ones, and an
+     auto-placed column would otherwise be pushed into the next cell —
+     which put the map's list where the map goes. */
+  .smart-map-page::after,
+  .smart-map-page > .map-side,
+  .profile-page::after,
+  .profile-page > .profile-column {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .smart-map-page > .smart-map,
+  .profile-page > .profile-recent {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .smart-map-page::after {
+    margin-right: -8px;
+  }
+  .profile-page::after {
+    margin-right: -16px;
+  }
+
   .discover-page[data-picks='yes'] .picks-block {
     position: sticky;
     top: 24px;
