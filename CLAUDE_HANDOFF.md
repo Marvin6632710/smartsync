@@ -3,6 +3,26 @@
 Prepared 2026-09-21. Use the existing local folder:
 `/Users/marvin/Downloads/SmartSync 2`.
 
+## ⚠ Read this before any deploy (open at 2026-09-23)
+
+**Chat moderation is committed and pushed (`f825c92`) but deliberately
+NOT deployed, and must not be until the OpenAI account has credits.**
+The live site still has the old rules, so chat there works normally —
+that stays true only while nobody deploys.
+
+The `OPENAI_API_KEY` secret is set and the key is valid, but the account
+has no credit balance, so `/v1/moderations` answers a bare `429`. Deploy
+in that state and every chat message is refused — and the sender is told
+"you have sent a lot in a short time", which is not the reason.
+`npm run deploy` pushes rules and Functions together, so it is the
+command to avoid.
+
+**The owner's plan: top up close to the exhibition — Friday 25 September
+2026 — to keep the spend minimal.** HANDOFF.md opens with the full
+six-step checklist for that day, including calibrating the floors
+against the real model before trusting them. If a session starts on or
+after 24 September and this notice is still here, raise it.
+
 ## Start here
 
 1. Read this file, then the latest sections of [HANDOFF.md](HANDOFF.md).

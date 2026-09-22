@@ -9,6 +9,85 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## ⚠ OPEN ITEM — do not deploy chat moderation yet (owner's decision, 2026-09-23)
+
+**Chat moderation is committed and pushed (`f825c92`) but deliberately
+NOT deployed. The live site is unaffected and chat there works
+normally.** Keep it that way until the step below is done.
+
+**Why.** The `OPENAI_API_KEY` secret is set (version 1, valid — it
+authenticates), but the OpenAI account has no credit balance. Measured
+against the live API on 2026-09-23:
+
+| call | answer |
+| --- | --- |
+| `GET /v1/models` | 200 — the key is good |
+| `POST /v1/moderations` | bare `429 "Too Many Requests"`, no rate-limit headers |
+| `POST /v1/responses` | `429 insufficient_quota` / `credit_balance_exhausted` |
+
+Free of per-token charge is **not** the same as usable on an empty
+account. OpenAI gates API access on having credits, and the moderation
+endpoint reports that gate only as an unexplained 429.
+
+**So deploying now would break chat completely** — every message
+refused, and because a 429 currently classifies as `rate-limited` the
+sender would be told "You have sent a lot in a short time, try again in
+60 minutes", which is not the reason. `npm run deploy` pushes rules and
+Functions together, so it is the command to avoid.
+
+**The owner's plan: top up close to the exhibition, to keep the spend
+minimal.** Noted as their call. **The exhibition is Friday 25 September
+2026** (the SP1 defence is the separate, earlier date in ROADMAP.md).
+So "close to it" is two days out from 2026-09-23, and the window allows
+for about one attempt. Leave time for step 3 (calibration — the floors
+have never been measured and some will move) and step 6 (one real
+message on the live site). Topping up on the morning itself leaves
+neither. One fact for that decision, since it
+cuts the other way: moderation has no per-token charge, so the balance
+is not consumed by it — with `CHAT_IMAGE_OCR=off` already set, nothing
+spends the credit at all. Topping up early therefore costs the same as
+topping up late; the only thing that argues for waiting is credit
+expiry (historically a year from purchase).
+
+### When the time comes — the whole checklist
+
+1. Add credits: <https://platform.openai.com/settings/organization/billing>
+   (one-off, minimum normally $5 — not a subscription).
+2. Confirm it cleared, without printing the key:
+   ```bash
+   KEY=$(npx firebase functions:secrets:access OPENAI_API_KEY --project smartsync-c1f07)
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.openai.com/v1/moderations \
+     -H "authorization: Bearer $KEY" -H 'content-type: application/json' \
+     -d '{"model":"omni-moderation-latest","input":"hello"}'
+   ```
+   `200` means it is ready. `429` means it is not.
+3. **Calibrate the floors against the real model before trusting them.**
+   They have never been measured — they were chosen from the docs and
+   from reasoning. Ask Claude to run the calibration probe: ten
+   realistic messages (ordinary, heated-about-football, swearing, blunt
+   criticism, an insult, a threat, somebody saying they are struggling,
+   film violence) printed as category and score against each floor in
+   `functions/lib/moderation.js`. Expect some to need moving.
+4. Deploy rules **and** Functions in one command — rules alone stops
+   chat working, Functions alone leaves the bypass open:
+   ```bash
+   npx firebase deploy \
+     --only functions:sendChatMessageCall,functions:requestChatReview,functions:resolveChatBlock,firestore:rules \
+     --project smartsync-c1f07
+   ```
+5. `npm run deploy` for hosting.
+6. Send one real message on the live site and confirm it arrives.
+
+### Also pending, small
+
+Make a quota 429 read honestly. `classify()` in
+`functions/lib/openai.js` maps every 429 to `rate-limited`, which blames
+the sender for an empty account. A 429 whose body carries
+`insufficient_quota` or `credit_balance_exhausted` should classify as
+`refused` — the wording AI Picks already uses for a key problem that is
+ours, not theirs. Not done because it was not asked for; worth doing
+before any deploy on a tight balance.
+
 ## Latest continuation — chat is moderated before delivery (2026-09-23)
 
 **Not committed, not deployed.** Working tree only, for the owner to
