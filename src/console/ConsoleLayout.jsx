@@ -26,7 +26,7 @@ import './console.css'
 export default function ConsoleLayout({ nav, title }) {
   const { t } = useTranslation()
   const location = useLocation()
-  const { user, app, referenceError, errors, openReports, statusOf } = useConsole()
+  const { user, app, referenceError, errors, openReports, statusOf, blocks } = useConsole()
 
   const current =
     [...nav].reverse().find((item) => {
@@ -34,9 +34,12 @@ export default function ConsoleLayout({ nav, title }) {
       return item.end ? location.pathname === path : location.pathname.startsWith(path)
     }) || nav[0]
 
-  // The two figures worth having in the sidebar at all times.
+  // The figures worth having in the sidebar at all times: reports
+  // waiting, reports I am holding, and refused messages somebody has
+  // asked a person to look at.
   const open = openReports.length
   const mine = openReports.filter((r) => statusOf(r) === 'mine').length
+  const appeals = blocks.filter((row) => row.appealed && row.status === 'blocked').length
 
   return (
     <div className="console" data-console="admin">
@@ -50,7 +53,14 @@ export default function ConsoleLayout({ nav, title }) {
         </div>
         <nav className="console-nav" aria-label={title}>
           {nav.map(({ to, end, label, icon: Icon, count }) => {
-            const badge = count === 'open' ? open : count === 'mine' ? mine : null
+            const badge =
+              count === 'open'
+                ? open
+                : count === 'mine'
+                  ? mine
+                  : count === 'appeals'
+                    ? appeals
+                    : null
             return (
               <NavLink
                 key={to}

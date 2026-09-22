@@ -12,11 +12,8 @@ import {
   watchActivities,
   watchMyActivities,
 } from '../firebase/activities'
-import {
-  isChatClosed,
-  sendMessage as sendMessageDoc,
-  watchLatestMessage,
-} from '../firebase/messages'
+import { isChatClosed, watchLatestMessage } from '../firebase/messages'
+import { requestChatReview, sendChatMessage as sendChatMessageCall } from '../firebase/chat'
 import {
   ensureFollowerMirror,
   followUser,
@@ -24,7 +21,6 @@ import {
   markNotificationRead as markReadDoc,
   watchUnreadCount,
   notifyFollowers,
-  pushChatNotification,
   pushNotification,
   unfollowUser,
   watchFollowing,
@@ -155,6 +151,17 @@ export function AppProvider({ children }) {
   // Joins this client has sent that the server has not yet answered. See
   // `rosterPending` below for why that has to be known.
   const [pendingJoins, setPendingJoins] = useState(() => new Set())
+  // Chat messages this client has handed to moderation: checking, blocked
+  // or failed. Never written to storage — an unsent message is the
+  // author's own text and a pending picture, and neither belongs in
+  // localStorage for the next person on the laptop to find.
+  const [chatPending, setChatPending] = useState([])
+  const chatBusyRef = React.useRef(new Set())
+  // The same rows, for the two callbacks that must read the current list
+  // without being rebuilt every time it changes: Retry, and the handler
+  // that fires when the device comes back online. Written in an effect,
+  // never during render.
+  const chatPendingRef = React.useRef(chatPending)
 
   // ---------------------------------------------------------------- unsent
   //
@@ -436,6 +443,10 @@ export function AppProvider({ children }) {
     user?.avatar,
     user?.pictureVersion,
   ])
+
+  useEffect(() => {
+    chatPendingRef.current = chatPending
+  }, [chatPending])
 
   useEffect(() => {
     saveStorage('smartsync:filters', filters)
@@ -1360,52 +1371,140 @@ export function AppProvider({ children }) {
    * it was refused — the chat screen restores the text on `null` so a
    * message the rules turned away is not simply gone.
    */
-  async function sendMessage(activityId, text) {
-    // Nothing to send is nothing to announce: the data layer resolves an
-    // empty message without writing, and that used to look like a success
-    // here and notify the whole thread about a message that did not exist.
-    if (!String(text || '').trim()) return null
-    const activity = allKnownActivities.find((item) => item.id === activityId)
-    if (blockedBySuspension('toasts.whatMessage')) return null
-    const ok = await attempt(() => sendMessageDoc(activityId, user, text), {
-      failure: t('toasts.sendFailed'),
-      // The bubble is already on screen; a toast per message would be noise.
-      queued: null,
-      // The composer has already let the text go, so a refusal — now or
-      // later — keeps it in the thread's unsent list to retry from.
-      keep: (write) => ({
-        kind: 'message',
-        key: activityId,
-        payload: { text: String(text).trim(), id: write?.id ?? null },
-        onRefusal: true,
-      }),
-    })
-    if (ok === null || !activity) return ok
-    // Bounded: one notification per person per thread per ten minutes,
-    // however many messages there are and whoever sends them. See
-    // pushChatNotification for how the bucket makes that hold across
-    // senders without anybody coordinating.
-    for (const participantId of activity.participantUids || []) {
-      if (!participantId || participantId === uid) continue
-      const recipient = peers.find((peer) => peer.uid === participantId)
-      if (recipient?.notificationsEnabled === false) continue
-      pushChatNotification(participantId, {
+  /**
+   * A chat message, through moderation.
+   *
+   * Nothing is written from here any more. The message goes to a Cloud
+   * Function that checks it — the roster, the retention window, the
+   * account, then OpenAI's Moderation API on the text, the picture, and
+   * the words inside the picture — and writes it to the thread, and the
+   * notifications for it, only if it passes (ADR-033). The thread's own
+   * listener is what puts an approved message on screen, so there is no
+   * optimistic bubble to roll back and no moment where a message exists
+   * unchecked.
+   *
+   * While it is in flight it is here, as a pending row the chat screen
+   * shows to its author and to nobody else: "Checking message…", then
+   * gone, or blocked with a reason, or failed with a retry. Its `id` is
+   * the message's id as well as the row's, so a retry after a timeout
+   * lands on the same document instead of posting twice.
+   */
+  const patchPending = React.useCallback((id, patch) => {
+    setChatPending((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)))
+  }, [])
+
+  const discardChatMessage = React.useCallback((id) => {
+    setChatPending((rows) => rows.filter((row) => row.id !== id))
+  }, [])
+
+  const runChatSend = React.useCallback(
+    async (row) => {
+      if (chatBusyRef.current.has(row.id)) return
+      chatBusyRef.current.add(row.id)
+      patchPending(row.id, { status: 'checking', reason: null })
+      try {
+        const answer = await sendChatMessageCall({
+          activityId: row.activityId,
+          clientMsgId: row.id,
+          text: row.text,
+          ...(row.image ? { image: row.image } : {}),
+        })
+        if (answer?.status === 'sent') {
+          discardChatMessage(row.id)
+          return
+        }
+        if (answer?.status === 'blocked') {
+          patchPending(row.id, {
+            status: 'blocked',
+            reason: answer.reason || 'blocked',
+            severe: answer.severe === true,
+            appeal: null,
+          })
+          return
+        }
+        patchPending(row.id, {
+          status: 'failed',
+          reason: answer?.status || 'unavailable',
+          retryAfterSeconds: answer?.retryAfterSeconds || null,
+        })
+      } catch (error) {
+        // A callable that could not be reached at all — offline, or the
+        // Function itself down. The message stays here, unsent and
+        // unmoderated, which is the only safe place for it.
+        patchPending(row.id, {
+          status: 'failed',
+          reason: navigator.onLine === false ? 'offline' : 'error',
+        })
+        if (navigator.onLine !== false) {
+          reportError('chat.send', error, { activityId: row.activityId })
+        }
+      } finally {
+        chatBusyRef.current.delete(row.id)
+      }
+    },
+    [discardChatMessage, patchPending],
+  )
+
+  const sendMessage = React.useCallback(
+    (activityId, text, image = null) => {
+      const trimmed = String(text || '').trim()
+      if (!trimmed && !image) return null
+      if (blockedBySuspension('toasts.whatMessage')) return null
+      const row = {
+        id: crypto.randomUUID().replace(/-/g, '').slice(0, 24),
         activityId,
-        ...storedText('newMessage', {
-          title: activity.title,
-          name: user.name,
-          text: String(text).slice(0, 80),
-        }),
-      }).catch((error) => {
-        // A refusal is expected: the bucket already has a notification, or
-        // they turned notifications off, or they blocked the sender. None of
-        // those is a failure of anything.
-        if (error?.code === 'permission-denied') return
-        reportError('notifications.chat', error, { recipientId: participantId })
-      })
+        text: trimmed,
+        image: image || null,
+        status: 'checking',
+        reason: null,
+        at: Date.now(),
+      }
+      setChatPending((rows) => [...rows, row])
+      runChatSend(row)
+      return row.id
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [runChatSend],
+  )
+
+  const retryChatMessage = React.useCallback(
+    (id) => {
+      const row = chatPendingRef.current.find((entry) => entry.id === id)
+      if (row) runChatSend(row)
+    },
+    [runChatSend],
+  )
+
+  /**
+   * A message that never left the device because the device was offline
+   * goes as soon as it is not — and goes through moderation then, like
+   * every other message. One automatic attempt per reconnection; after
+   * that it is the person's Retry.
+   */
+  useEffect(() => {
+    const onBack = () => {
+      chatPendingRef.current
+        .filter((row) => row.status === 'failed' && row.reason === 'offline')
+        .forEach((row) => runChatSend(row))
     }
-    return ok
-  }
+    window.addEventListener('online', onBack)
+    return () => window.removeEventListener('online', onBack)
+  }, [runChatSend])
+
+  /** "Please have a person look at this." Only ever your own message. */
+  const reviewChatMessage = React.useCallback(
+    async (id) => {
+      patchPending(id, { appeal: 'sending' })
+      try {
+        const answer = await requestChatReview(id)
+        patchPending(id, { appeal: answer?.status === 'appealed' ? 'sent' : 'failed' })
+      } catch (error) {
+        patchPending(id, { appeal: 'failed' })
+        reportError('chat.review', error, {})
+      }
+    },
+    [patchPending],
+  )
 
   // Awaited through `attempt`, like every other write. This one was fired
   // and forgotten, so a refused follow was an unhandled rejection in the
@@ -1543,6 +1642,12 @@ export function AppProvider({ children }) {
 
     joinedIds,
     joinedActivities,
+    // Chat sends in flight, blocked or failed — the author's own view of
+    // what has not reached the thread. See `sendMessage` above.
+    chatPending,
+    retryChatMessage,
+    discardChatMessage,
+    reviewChatMessage,
     joinActivity,
     leaveActivity,
     cancelActivity,

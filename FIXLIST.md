@@ -217,6 +217,43 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **Chat is moderated before delivery, 2026-09-23** — to the owner's
+  12-point specification. The database now refuses every client-written
+  message (`allow create: if false` on `activities/*/messages`, and on
+  `chatPictures`), so the only writer is `sendChatMessageCall`, a
+  callable that re-checks membership, suspension, closure and the 30-day
+  window itself and then moderates. Text goes to OpenAI's Moderation API
+  (`omni-moderation-latest`); a picture goes as an image *and* is
+  transcribed by a small vision model so the words inside a meme are
+  read as text, because the API applies `hate` and `harassment` to text
+  only. Nine categories block, each only when the API's boolean is true
+  **and** its score clears a floor kept in `functions/lib/moderation.js`
+  — `violence` without `graphic`, `illicit`, `self-harm` and
+  `self-harm/intent` deliberately do not, the last two because blocking
+  somebody who says they are struggling takes the message away from the
+  people who might help. A refusal never reaches the thread: it stays in
+  the sender's own composer as an unsent bubble with a general reason
+  (never the category, never a score) and Edit / Discard / Ask for a
+  review; an appeal reaches `/admin/chat`, where **Overturn and post**
+  posts the message the person actually wrote from the held copy and
+  deletes that copy in the same write. Sexual content involving minors
+  is blocked with nothing retained and no appeal — the provider's own
+  guidance forbids sending suspected CSAM to the API, and the real
+  obligation is a report to an authority, not a click (README §11). An
+  outage, a quota refusal or a revoked key never becomes delivery: the
+  message is kept and Retry is offered. Also: a rate limit of 60 sends
+  an hour per person and a daily call budget, chat pictures at a 1024px
+  edge with their metadata stripped in the browser, and chat
+  notifications removed from what a client may write. ADR-033. 71 tests
+  added plus rules coverage; verified end to end in the emulator against
+  the stand-in in `scripts/fake-openai.mjs` — clean message delivered,
+  refusal present in no thread, picture or notification, appeal,
+  overturn, outage and successful retry, picture sent and rendered, a
+  meme blocked by its words and not its caption, a flagged-but-under-floor
+  message delivered, the rate limit, and ten bypass attempts all
+  refused. **Not** verified against the real API: no `OPENAI_API_KEY`
+  exists for this project yet, and the floors are what a real key would
+  most likely retune.
 - **Cards and columns get an edge, 2026-09-22 (`ead3537`, deployed)** —
   the owner, looking at Discover, Map and Profile on a wide dark screen,
   asked for the boundaries between categories to be visible. Each
@@ -673,8 +710,11 @@ in the entire project.
   enforceable rather than cosmetic.
 - Score floor is ~40% because every signal has a non-zero fallback. Be ready
   to justify the fallbacks as priors, or lower them.
-- The security rules are worth demoing. `npm test` runs 61 tests that behave
-  like a hostile client; two of them describe holes that existed and were
-  closed by redesign, which is a better story than "we wrote rules".
+- The security rules are worth demoing. `npm run test:rules` runs 390 tests
+  that behave like a hostile client; two of them describe holes that existed
+  and were closed by redesign, which is a better story than "we wrote rules".
+  The strongest of them now is chat: the rules refuse the write outright and
+  hand it to a Function that moderates first, so "how do you stop somebody
+  bypassing your moderation" has a one-line answer (ADR-033).
 - Known limitations are a strength if disclosed first, a weakness if
   discovered. README.md ends with an honest list.

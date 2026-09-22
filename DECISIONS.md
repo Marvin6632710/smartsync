@@ -1683,3 +1683,121 @@ block that started this was a payments review); attaching billing to the
 new project, which would restore the two-second behaviour and was the
 recommendation — the owner chose to stay free.
 
+
+---
+
+## ADR-033 — Chat is moderated before delivery, and the database refuses every client-written message
+
+**Context.** Activity chat was the one place in SmartSync where a person
+could put words on somebody else's screen with nothing between them. The
+rules checked who could write and where, never what. Everything else the
+app moderates — reports, warnings, suspensions — happens after the fact,
+which is the right shape for a title or a bio and the wrong shape for a
+message, because by the time a report is filed the message has already
+been read by everyone it was aimed at.
+
+The obvious implementation is a check in the client before `addDoc`. It
+is also worthless. Anybody who can open the network tab can call
+Firestore directly with their own token and skip it, and the whole
+feature becomes a courtesy that stops exactly the people who were not
+going to abuse anything.
+
+**Decision.** Four parts, and the first one is the feature.
+
+**1. `allow create: if false` on `activities/{id}/messages`.** No client
+writes a chat message any more. The only writer is
+`sendChatMessageCall`, a callable Function using the Admin SDK, which
+bypasses rules because it *is* the rule now: it re-checks membership, the
+activity's existence, suspension, closure and the 30-day retention window
+itself, in `gate()`, before it moderates anything. Moderation cannot be
+skipped because there is no request that reaches a thread without going
+through it. Same for `chatPictures/{messageId}` — participants read,
+nobody writes.
+
+**2. OpenAI's Moderation API (`omni-moderation-latest`), with our own
+floors on top.** The API answers with thirteen categories, a boolean and
+a score each. A category blocks only when the boolean is true **and** the
+score clears a floor kept in `functions/lib/moderation.js`. The booleans
+alone fire on mild cases — a heated argument about a football match reads
+as harassment at 0.12 — and a moderator that blocks that teaches people
+to stop using the chat. The floors are a product decision, they live in
+one pure function with no network and no database, and every one of them
+can be argued with in a test.
+
+Nine categories block. Four deliberately do not: `violence` without
+`graphic` is how people talk about a film or a tackle; `illicit` without
+violence was not on the list; and `self-harm` and `self-harm/intent` are
+how somebody says they are struggling. Blocking that last pair would take
+the message away from the one person in the thread who might have helped,
+and hide it from the Report button as well. It was the closest call here
+and it is the one this project is most confident about.
+
+**3. A picture is checked three ways, because two are not enough.** The
+API applies only six of its thirteen categories to images, and `hate`,
+`harassment` and threats are not among them. A slur typed onto a meme is
+invisible to image moderation. So a picture is moderated as an image,
+then transcribed by a small vision model and the transcription moderated
+as text. That second model is a real dependency with its own failure
+modes, and a transcription failure is logged and does **not** block the
+message — a model that cannot read a photograph of a beach is not
+evidence of anything.
+
+**4. A refusal keeps the words and offers a way out.** The message stays
+in the sender's own composer area as an unsent bubble with a general
+reason — never the category, never a score, because a refusal that reads
+like a scorecard is an invitation to tune a message until it passes — and
+three choices: edit, discard, or ask a human. An appeal goes to
+`/admin/chat` with the held copy; **Overturn and post** posts the message
+the person actually wrote and deletes the held copy in the same write.
+Putting right a false positive is the message appearing in the thread,
+not an apology and a request to type it again.
+
+**One category is handled differently on purpose.** Sexual content
+involving minors is blocked, **nothing is retained**, there is no appeal
+and no console view. OpenAI's guidance is explicit that its Moderation
+API must not be sent known or suspected CSAM; treating that flag as a
+signal to *store* the content would be the opposite of what any operator
+should do. The obligation it actually creates — reporting to NCMEC or a
+national authority — is not a button in a student project, and README
+§11 says so rather than implying the console covers it.
+
+**Failure is never delivery.** An outage, a quota refusal, a revoked key:
+the message is not sent, the screen says the check could not be
+completed, and **Retry** is offered. The alternative — deliver it and
+check later — is the one thing this feature exists to prevent, and it is
+also what most "fail open" advice would have recommended.
+
+**Cost.** The Moderation API is free, for text and images both. The only
+paid part is transcribing pictures: about $0.0007 each at `gpt-5.6-luna`
+prices, bounded by `CHAT_DAILY_CAP`. The real costs are elsewhere. It
+adds a wait to sending — a second for text, a few for a picture — where
+before there was none, and the screen now says "Checking…" where a
+message used to simply appear. It adds a second external dependency that
+can be withdrawn, after ADR-032 made exactly that point about the first.
+And it moves a write from the client to a Function, which means chat now
+needs the Blaze plan to work at all.
+
+**Rejected.** A client-side check before `addDoc` (walked around by
+anyone who wants to, which is the population that matters). Writing the
+message and deleting it if the check fails (it is on screens and in
+notifications before the delete lands — "message removed" is still
+"somebody said something about you"). A word list instead of a model (a
+list catches `sh1t` never, and catches Scunthorpe always). Blocking every
+category the API returns (it would refuse a person asking for help).
+Holding refused messages forever (thirty days is the same window the
+thread itself gets). Telling the sender the category and the score (a
+tuning aid). Letting a severe flag be appealed (there is no version of
+that review anybody should be asked to do in a console).
+
+**Verified in the emulator, not against the real API.** The whole path
+was driven through the running app against the stand-in in
+`scripts/fake-openai.mjs`: a clean message delivered; a refusal that
+appears in no thread, no picture document and no notification; an appeal;
+an overturn that posts the original; an outage that keeps the message and
+retries successfully once the service returns; a picture sent and
+rendered; a meme blocked by the words inside it and not by its caption; a
+flagged-but-under-floor message delivered; the rate limit; and ten
+unauthorized or bypass attempts, every one refused. What is **not**
+verified is the real model's scores against these floors — no
+`OPENAI_API_KEY` exists for this project yet, and the floors are the part
+most likely to need tuning when one does.

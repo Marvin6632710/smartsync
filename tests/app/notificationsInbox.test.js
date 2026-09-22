@@ -43,12 +43,8 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('../../src/firebase/config', () => ({ db: {} }))
 vi.mock('../../src/utils/reportError', () => ({ reportError: vi.fn() }))
 
-const {
-  CHAT_NOTIFY_WINDOW_MS,
-  markAllNotificationsRead,
-  pushChatNotification,
-  watchNotifications,
-} = await import('../../src/firebase/notifications')
+const { markAllNotificationsRead, watchNotifications } =
+  await import('../../src/firebase/notifications')
 
 beforeEach(() => {
   setDoc.mockClear()
@@ -58,44 +54,10 @@ beforeEach(() => {
   listeners.length = 0
 })
 
-describe('pushChatNotification', () => {
-  test('two messages in the same window address the same document', async () => {
-    const now = 1_700_000_000_000
-    await pushChatNotification('u', { activityId: 'act', title: 'T', body: 'B', now })
-    await pushChatNotification('u', {
-      activityId: 'act',
-      title: 'T',
-      body: 'B2',
-      now: now + 60_000,
-    })
-    const ids = setDoc.mock.calls.map(([ref]) => ref.path)
-    expect(ids[0]).toBe(ids[1])
-    expect(ids[0]).toMatch(/^users\/u\/notifications\/chat-act-\d+$/)
-  })
-
-  test('the next window is a new document', async () => {
-    const now = 1_700_000_000_000
-    await pushChatNotification('u', { activityId: 'act', title: 'T', body: 'B', now })
-    await pushChatNotification('u', {
-      activityId: 'act',
-      title: 'T',
-      body: 'B',
-      now: now + CHAT_NOTIFY_WINDOW_MS,
-    })
-    const [a, b] = setDoc.mock.calls.map(([ref]) => ref.path)
-    expect(a).not.toBe(b)
-  })
-
-  test('writes the shape the rules accept', async () => {
-    await pushChatNotification('u', { activityId: 'act', title: 't'.repeat(200), body: 'b' })
-    const [, data] = setDoc.mock.calls[0]
-    expect(Object.keys(data).sort()).toEqual(
-      ['activityId', 'body', 'createdAt', 'read', 'title', 'type'].sort(),
-    )
-    expect(data.type).toBe('chat')
-    expect(data.title.length).toBe(120)
-  })
-})
+// Chat notifications are written by the moderation Function now, with the
+// same ten-minute bucket in its own document id — a notice about a message
+// may only exist once that message has been approved (ADR-033). Covered in
+// tests/unit/chatServer.test.js.
 
 describe('markAllNotificationsRead', () => {
   const unread = (n) => ({

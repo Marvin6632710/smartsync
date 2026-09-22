@@ -107,12 +107,15 @@ describe('the door', () => {
 })
 
 describe('what the console offers', () => {
-  test('five sections, and its own identity', () => {
+  test('six sections, and its own identity', () => {
     at('/admin')
     act(() => settle(registry.feeds))
     expect(navLabels()).toEqual([
       en.console.nav.overview,
       en.console.nav.reports,
+      // The appeals queue, beside the reports one: both are things a
+      // person is waiting on an admin for (ADR-033).
+      en.console.nav.blocks,
       en.console.nav.accounts,
       en.console.nav.activities,
       en.console.nav.history,

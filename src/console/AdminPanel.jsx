@@ -1,5 +1,5 @@
 import React from 'react'
-import { CalendarRange, Flag, Gauge, ScrollText, Users } from 'lucide-react'
+import { CalendarRange, Flag, Gauge, MessageSquareWarning, ScrollText, Users } from 'lucide-react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -9,6 +9,7 @@ import { ConsoleProvider } from './ConsoleContext'
 import ConsoleLayout from './ConsoleLayout'
 import AccountsPage from './pages/AccountsPage'
 import ActivitiesPage from './pages/ActivitiesPage'
+import ChatBlocksPage from './pages/ChatBlocksPage'
 import HistoryPage from './pages/HistoryPage'
 import Overview from './pages/Overview'
 import ReportsPage from './pages/ReportsPage'
@@ -24,6 +25,13 @@ export const ADMIN_NAV = [
     icon: Flag,
     count: 'open',
   },
+  {
+    key: 'blocks',
+    to: `${BASE}/chat`,
+    label: 'console.nav.blocks',
+    icon: MessageSquareWarning,
+    count: 'appeals',
+  },
   { key: 'accounts', to: `${BASE}/accounts`, label: 'console.nav.accounts', icon: Users },
   {
     key: 'activities',
@@ -37,7 +45,8 @@ export const ADMIN_NAV = [
 /**
  * The admin console: five sections, mounted at /admin, outside the
  * consumer shell so it is its own room. The overview in figures; the
- * report queue, worked under a claim; every account with its record and
+ * report queue, worked under a claim; the chat messages moderation
+ * refused and the appeals against them; every account with its record and
  * the actions on it — warn, suspend and lift, close and reopen; every
  * activity, with a takedown or a restore a click away; and the history of
  * everything that was done, in order.
@@ -63,6 +72,8 @@ export default function AdminPanel() {
           <Route index element={<Overview base={BASE} />} />
           <Route path="reports" element={<ReportsPage base={BASE} />} />
           <Route path="reports/:id" element={<ReportsPage base={BASE} />} />
+          <Route path="chat" element={<ChatBlocksPage base={`${BASE}/chat`} />} />
+          <Route path="chat/:id" element={<ChatBlocksPage base={`${BASE}/chat`} />} />
           <Route path="accounts" element={<AccountsPage base={BASE} />} />
           <Route path="accounts/:uid" element={<AccountsPage base={BASE} />} />
           <Route path="activities" element={<ActivitiesPage base={BASE} />} />

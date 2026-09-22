@@ -5,7 +5,7 @@ import app, { usingEmulators } from './config'
 // first use rather than at import: a screen that never asks pays nothing,
 // and a test that never asks needs no Firebase app behind the module.
 let functions = null
-function client() {
+export function client() {
   if (functions) return functions
   functions = getFunctions(app, 'us-central1')
   // Under the emulator they answer from the functions emulator on its

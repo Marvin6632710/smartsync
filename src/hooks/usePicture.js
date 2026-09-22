@@ -25,7 +25,14 @@ export function usePicture(viewer, kind, id, version) {
             entry.stop = watchPicture(
               kind,
               id,
-              (picture) => deliver(picture?.version === version ? picture.dataUrl : null),
+              (picture) =>
+                deliver(
+                  kind === 'chat'
+                    ? picture?.dataUrl || null
+                    : picture?.version === version
+                      ? picture.dataUrl
+                      : null,
+                ),
               () => deliver(null),
             )
           })

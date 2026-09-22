@@ -23,8 +23,9 @@ Cloud Firestore) on the back end.
 8. [Data model](#8-data-model)
 9. [Security model](#9-security-model)
 10. [How recommendations work](#10-how-recommendations-work)
-11. [Testing](#11-testing)
-12. [Known limits](#12-known-limits)
+11. [How chat moderation works](#11-how-chat-moderation-works)
+12. [Testing](#12-testing)
+13. [Known limits](#13-known-limits)
 
 ---
 
@@ -343,7 +344,24 @@ activities/{id}
   capacity, participantUids[],
   hostId, hostName, hostAvatar, hostPictureVersion?, status, pictureVersion?
 
-  messages/{id}                   participants only
+  messages/{id}                   participants read; NOBODY writes but the
+                                  moderating Function — see section 11
+
+chatPictures/{messageId}          participants read, within retention;
+  activityId, senderId, dataUrl,  written only by that same Function
+  createdAt
+
+moderationBlocks/{clientMsgId}    admins read; written only by the Function
+  uid, senderName, activityId,    — the held copy of a refused message,
+  reason, source, categories[],   kept so a false positive can be undone
+  severe, status, appealed?,
+  text?, dataUrl?, hasImage
+
+chatModeration/{uid}              nobody reads or writes but the Function
+  sends{start,count}              — one person's hourly send allowance
+
+chatModerationUsage/{YYYY-MM-DD}  nobody reads or writes but the Function
+  count, updatedAt                — the app's daily moderation-call budget
 
 profilePictures/{uid}             owner writes; anonymous photos are owner-only
   dataUrl, version, updatedAt
@@ -391,9 +409,15 @@ determined user can call Firestore directly without going through the UI:
 - You can only add or remove _yourself_ from a roster, only once (duplicates
   are rejected, or one person could take every seat), and only if there is
   room and the activity is still active.
-- Activity chat is readable and writable only by participants, messages
-  cannot claim another sender, and the thread is append-only — no silent
-  edits, no deleting evidence.
+- Activity chat is readable only by participants, and **writable by nobody**.
+  `allow create: if false` — the only writer is the moderating Cloud
+  Function, which re-checks membership, suspension and the retention window
+  itself before it writes anything. That is what makes the check in section
+  11 impossible to skip: there is no request a client can make, with or
+  without the app, that puts words in a thread unchecked. The thread is
+  still append-only — no silent edits, no deleting evidence — and a message
+  still cannot claim another sender, because the sender is taken from the
+  caller's token and never from the request.
 - Chat closes 30 days after the activity. This is enforced by the rules, not
   filtered in the app, so it holds against anyone querying the database
   directly. It expires _access_, not the documents — see ADR-010.
@@ -507,7 +531,218 @@ node scripts/fake-gemini.mjs                          # 127.0.0.1:5599
 Function handles. The base URL override is honoured under the emulator
 only.
 
-## 11. Testing
+## 11. How chat moderation works
+
+Every message and every picture in an activity chat is checked before
+anybody else can see it. Not flagged after the fact, not reported by a
+person who already read it — checked first, and only then written.
+
+**The database refuses every client-written message.** `firestore.rules`
+now says `allow create: if false` on `activities/{id}/messages`. The only
+writer is a Cloud Function using the Admin SDK, which bypasses rules
+because it *is* the rule for a chat message: it re-checks everything the
+old rules checked (a participant, of an activity that exists, inside the
+retention window, not suspended, thread not closed) and then moderates.
+There is no path around it. Turning off JavaScript, calling Firestore
+directly, replaying the app's own request — none of them reach the
+thread, because the thread is not writable by anyone holding a user's
+credentials. That is the whole design in one sentence.
+
+### What gets checked
+
+`sendChatMessageCall` checks up to three things, and stops at the first
+refusal:
+
+1. **The text**, through OpenAI's Moderation API (`omni-moderation-latest`).
+2. **The picture**, through the same call — the API takes images as well.
+3. **The words inside the picture.** The Moderation API applies only six
+   of its thirteen categories to images; `hate` and `harassment` are not
+   among them. A slur typed onto a meme is therefore invisible to image
+   moderation and visible to text moderation, so the picture is
+   transcribed by a small vision model and the transcription is moderated
+   as text. Turn this off with `CHAT_IMAGE_OCR=off` and that gap is open.
+
+A category blocks only when the API's own boolean is true **and** its
+score clears a floor kept in `functions/lib/moderation.js`. The booleans
+are tuned for a general audience and fire on mild cases; the floors are
+what keep a heated argument about a football match out of the blocked
+pile. Blocked: targeted harassment (0.5), threats (0.35/0.3), hateful
+abuse (0.45), sexual content (0.5), graphic violence (0.5), violent
+wrongdoing (0.5), instructions for self-harm (0.4).
+
+Deliberately **not** blocked: `violence` without `graphic` (that is how
+people talk about a film or a tackle), `illicit` without violence, and —
+this one matters — `self-harm` and `self-harm/intent`. Somebody telling
+the group they are struggling is not abuse, and blocking it would take
+the message away from the one person in the thread who might have
+helped, and from the Report button too.
+
+Ordinary swearing is allowed. `CHAT_PROFANITY_POLICY=block` makes it a
+refusal instead, and `CHAT_PROFANITY_WORDS` extends the list without a
+code change.
+
+### What the person who wrote it sees
+
+The message never appears in the thread, so nothing has to be taken back.
+It stays in their own composer area as an unsent bubble with a plain
+reason — "This reads as targeting someone. Rewrite it and it can go
+through." — and three choices: **Edit** (the words go back into the
+composer, picture and all), **Discard**, or **Ask for a review**. The
+reason is general on purpose. It never names the category or shows a
+score, because a refusal that reads like a scorecard is an invitation to
+tune a message until it passes.
+
+A failure that is not a refusal says so honestly and keeps the message:
+"The check could not be completed, so nothing was sent," with **Retry**.
+Nothing is ever delivered unchecked because the checker was down.
+
+### Human review
+
+**Ask for a review** puts the message in front of an admin at
+`/admin/chat`, with the held copy of the text and picture. Two answers:
+**Uphold**, which closes it, or **Overturn and post**, which posts the
+message the person actually wrote, from the copy the Function kept, and
+deletes that copy in the same write. Putting right a false positive is
+the message appearing in the thread — not an apology and a request to
+type it again.
+
+One kind of block has no held copy and no buttons: sexual content
+involving minors. Nothing is kept at all, it cannot be appealed, and what
+to do about it is not a click in a console. See the limitation below.
+
+### Account setup and secrets
+
+The Function needs an OpenAI API key, kept in Secret Manager and never in
+the browser or a `VITE_` variable:
+
+```bash
+# 1. Make an account at https://platform.openai.com and create a key
+#    (API keys → Create new secret key). A key is shown once.
+# 2. Store it as a secret (the project must be on Blaze to run Functions):
+npx firebase functions:secrets:set OPENAI_API_KEY --project smartsync-c1f07
+# 3. Deploy the three callables and the rules that go with them:
+npx firebase deploy \
+  --only functions:sendChatMessageCall,functions:requestChatReview,functions:resolveChatBlock,firestore:rules \
+  --project smartsync-c1f07
+```
+
+Deploy the rules and the Functions **together**, in that one command. The
+rules stop clients writing messages; the Functions are what writes them
+instead. Rules alone and chat stops working; Functions alone and the
+moderation can still be walked around.
+
+Optional tuning, in `functions/.env` (ignored by git, read at deploy):
+
+| variable | default | what it does |
+| --- | --- | --- |
+| `CHAT_USER_HOURLY_CAP` | 60 | messages one person may send in an hour |
+| `CHAT_DAILY_CAP` | 5000 | moderation calls the whole app may make in a day |
+| `CHAT_IMAGE_OCR` | on | `off` skips reading the words inside pictures |
+| `CHAT_PROFANITY_POLICY` | allow | `block` refuses ordinary swearing too |
+| `CHAT_PROFANITY_WORDS` | — | comma-separated additions to the word list |
+| `OPENAI_VISION_MODEL` | `gpt-5.6-luna` | the model that transcribes pictures |
+
+### What it costs
+
+**The Moderation API is free** — no per-token charge for text or images.
+That is the whole of the text path.
+
+**But the account needs a credit balance anyway.** Free of per-token
+charge is not the same as usable on an empty account: OpenAI gates API
+access on having credits, and an account with none answers
+`/v1/moderations` with a bare `429 "Too Many Requests"` and no
+rate-limit headers — the same gate the paid endpoints report properly as
+`insufficient_quota` / `credit_balance_exhausted`. Verified against this
+project's own key on 2026-09-23: `/v1/models` answered 200, both other
+endpoints 429. The minimum top-up is a one-off, and because moderation
+itself is not charged per token, it is spent only on transcription.
+
+The only paid part is reading the words inside a picture, and only when
+`CHAT_IMAGE_OCR` is on. At `gpt-5.6-luna` prices ($0.20 per million input
+tokens, $1.20 per million output), a chat picture is roughly 1,000 input
+tokens and the transcription is capped at 400 output, so an upper bound
+is about **$0.0007 a picture** — a thousand pictures is well under a
+dollar. `CHAT_DAILY_CAP` bounds the worst case for the whole app.
+
+The rest is Firebase, on the same Blaze plan AI Picks already needs: one
+Function invocation per message, a handful of Firestore reads and writes,
+and the held copy of a blocked message. Set a Cloud Billing budget alert
+anyway.
+
+### Running it locally
+
+The emulator reads the key from `functions/.secret.local`
+(`OPENAI_API_KEY=…`, ignored by git). Without one the Function answers
+"not configured" and every message comes back as "could not be checked" —
+deliberately, because the alternative is delivering unchecked messages.
+
+To exercise the whole path without a key or a bill, run the stand-in and
+point the adapter at it:
+
+```bash
+node scripts/fake-openai.mjs                          # 127.0.0.1:5699
+# functions/.secret.local: OPENAI_API_KEY=fake-local-key
+# functions/.env.local:    OPENAI_BASE_URL=http://127.0.0.1:5699/v1
+```
+
+It speaks both endpoints and answers by looking for marker words, so
+every fixture is plainly safe to write down and read out at an
+exhibition: `xharassx`, `xthreatx`, `xhatex`, `xsexualx`, `xviolentx`,
+`xselfharmx`, `xminorsx`, and `xmildx` for the case that is flagged but
+under the floor. `FAKE_OPENAI_MODE=error|quota|slow` makes it fail in
+each way the Function handles, and `OPENAI_FAKE_IMAGE_TEXT='xhatex'`
+makes every picture "contain" those words. The base URL override is
+honoured under the emulator only.
+
+### Known limitations
+
+- **No real-API verification yet.** The key exists (Secret Manager,
+  `OPENAI_API_KEY` version 1, set 2026-09-23) and authenticates, but the
+  account has no credit balance, so every moderation call is refused
+  with a 429 before it reaches the model. Everything below in
+  [Testing](#12-testing) — 50 unit tests, 21 screen tests, the rules
+  suite, and a full pass through the emulator — runs against the stand-in
+  in `scripts/fake-openai.mjs`, not against OpenAI. No `OPENAI_API_KEY`
+  exists for this project yet. What that proves is that SmartSync handles
+  every documented response correctly; what it does not prove is that the
+  real model's scores land where the floors expect on real messages. The
+  floors are the part most likely to need tuning once a real key is in.
+- **Image moderation covers six categories, not thirteen.** `hate`,
+  `harassment`, threats and `sexual/minors` are applied to text only. The
+  transcription step is what closes most of that gap, and it is a second
+  model with its own failure modes — it can misread, and it can miss
+  words in a script it handles poorly. A picture with no legible words
+  and no sexual, violent or self-harm content is effectively unchecked
+  for hate.
+- **Sexual content involving minors is not detected here, and must not
+  be.** OpenAI's own guidance is explicit: do not send known or suspected
+  CSAM to the Moderation API. SmartSync therefore treats the
+  `sexual/minors` category as a refusal signal only — the message is
+  blocked, **nothing is retained**, there is no appeal and no console
+  view. It is not a detector, and it is not a substitute for reporting to
+  NCMEC or the relevant national authority, which is what an operator of
+  a real service would be obliged to do.
+- **A blocked message is kept for 30 days so it can be appealed.** Held
+  copies live in `moderationBlocks`, readable by admins only, and are
+  deleted when an appeal is overturned. An upheld one stays for the
+  retention window. Deleting them on a schedule needs a Cloud Scheduler
+  job that is not written yet.
+- **It adds a wait to sending.** Three API calls when a picture is
+  attached, on an 8-second timeout each, inside a Function with a 60
+  second budget. Text alone is usually well under a second; a picture
+  with OCR on is a few seconds. The screen says "Checking…" rather than
+  pretending the message has gone.
+- **Moderation is English-first.** The refusal wording is translated into
+  all four languages, but the model's own accuracy is best in English and
+  the transcription step has not been measured on Burmese or Thai script.
+- **A determined person can still test the boundary.** Floors mean a
+  message just under one gets through, and a refusal tells you that
+  something was refused. The rate limit — 60 messages an hour — is what
+  bounds the tuning, along with Report and the admin console, which are
+  unchanged and still the path for everything moderation is not meant to
+  catch.
+
+## 12. Testing
 
 ```bash
 npm test
@@ -515,7 +750,14 @@ npm test
 
 This runs five suites. The unit and rendering tests (`npm run test:unit`)
 cover the pure functions, the screens, the push policy and wording, and the
-service worker against a stand-in for the worker's globals. The rules tests
+service worker against a stand-in for the worker's globals. Chat moderation
+has 71 of those — `chatModeration.test.js` argues with the policy itself
+(which categories block, at what floor, which are deliberately left alone),
+`chatServer.test.js` drives the whole send path against a stand-in adapter,
+and `chatPage.test.jsx` covers what the person who wrote a refused message
+sees and can do about it. All of them use harmless marker fixtures rather
+than real abusive text, because what the policy actually reads is a set of
+booleans and scores. The rules tests
 (`npm run test:rules`) behave like a hostile client and check the rules
 refuse them — `roles-matrix.test.js` checks who may do what to whom at every
 combination of rank and relationship. The integration tests
@@ -530,7 +772,7 @@ npm run lint
 npm run format:check
 ```
 
-## 12. Known limits
+## 13. Known limits
 
 Honest about what is not there:
 
@@ -554,12 +796,20 @@ Honest about what is not there:
   Firebase means Cloud Functions and the paid plan.
 - **Anonymity is not retroactive for chat.** It covers your profile and the
   activities you host, but messages keep the name they were sent under.
-- **Moderation is manual, and every admin is made by hand.** Nothing is
-  detected or actioned automatically — a human reads every report. An admin
-  has to be created in the Firebase console, because there is deliberately no
-  in-app path to that rank and no lesser rank to hand out; everything after
-  that happens in the app. A suspended admin is lifted in the console too,
-  since no admin may act on another.
+- **Only chat is moderated automatically; every admin is still made by
+  hand.** Messages and pictures are checked before they are delivered
+  (section 11). Everything else — activity titles and descriptions,
+  profiles, bios, usernames, reports — is read by a human and always has
+  been. An admin has to be created in the Firebase console, because there is
+  deliberately no in-app path to that rank and no lesser rank to hand out;
+  everything after that happens in the app. A suspended admin is lifted in
+  the console too, since no admin may act on another.
+- **Chat moderation has never been run against the real API.** Every test
+  and every emulator pass uses the stand-in in `scripts/fake-openai.mjs`.
+  The handling is proved; the floors are not. Section 11 lists the rest of
+  what that feature does not cover — image categories the API applies to
+  text only, the CSAM restriction, and the languages the transcription step
+  has not been measured on.
 - **An admin can see a report filed about themselves.** They cannot act on
   it — the rules refuse that — but they can read it, and so learn who filed
   it. Firestore has no field-level read rules and refuses a whole query if any

@@ -415,6 +415,35 @@ function recordAction(tx, { kind, by, subjectId, activityId, reportId, reason })
 export const REPORT_PAGE = 100
 export const WARNING_PAGE = 200
 
+/** How many refused messages the appeals queue carries. */
+export const BLOCKS_PAGE = 100
+
+/**
+ * Chat messages the moderator refused, newest first — the appeals queue.
+ *
+ * Read-only for everybody, admins included: the decision was made by the
+ * Cloud Function and only that Function may write here (see
+ * firestore.rules). An admin's answer goes back through a callable, not
+ * through this listener's collection.
+ */
+export function watchModerationBlocks(callback, onError) {
+  return onSnapshot(
+    query(collection(db, 'moderationBlocks'), orderBy('createdAt', 'desc'), limit(BLOCKS_PAGE)),
+    (snap) =>
+      callback(
+        snap.docs.map((d) => {
+          const data = d.data()
+          return {
+            id: d.id,
+            ...data,
+            createdAt: data.createdAt?.toMillis?.() ?? data.blockedAt ?? Date.now(),
+          }
+        }),
+      ),
+    onError,
+  )
+}
+
 /** The queue an admin works from: everything still open, newest first. */
 export function watchOpenReports(callback, onError) {
   return onSnapshot(

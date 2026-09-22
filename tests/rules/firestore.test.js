@@ -576,6 +576,13 @@ describe('activity chat', () => {
     await assertFails(getDocs(collection(asBob(), 'activities', 'act1', 'messages')))
   })
 
+  // MODERATION BEFORE DELIVERY (ADR-033)
+  //
+  // No client writes a message any more — not a stranger, not a
+  // participant, not the host, not an admin. The only way in is the
+  // moderation Function, which writes with the Admin SDK past these
+  // rules. These four tests are the whole enforcement: if any of them
+  // starts passing, moderation has become optional.
   test('a non-participant cannot post', async () => {
     await assertFails(
       addDoc(collection(asBob(), 'activities', 'act1', 'messages'), {
@@ -586,8 +593,8 @@ describe('activity chat', () => {
     )
   })
 
-  test('a participant can post', async () => {
-    await assertSucceeds(
+  test('a participant cannot post directly either — moderation is not optional', async () => {
+    await assertFails(
       addDoc(collection(asAlice(), 'activities', 'act1', 'messages'), {
         senderId: ALICE,
         senderName: 'Alice',
@@ -596,10 +603,10 @@ describe('activity chat', () => {
     )
   })
 
-  test('a joined user can read and post', async () => {
+  test('a joined user can read, and still cannot post', async () => {
     await joinBob()
     await assertSucceeds(getDocs(collection(asBob(), 'activities', 'act1', 'messages')))
-    await assertSucceeds(
+    await assertFails(
       addDoc(collection(asBob(), 'activities', 'act1', 'messages'), {
         senderId: BOB,
         senderName: 'Bob',
@@ -608,22 +615,14 @@ describe('activity chat', () => {
     )
   })
 
-  test('a participant cannot post as someone else', async () => {
+  test('an admin cannot post one either', async () => {
+    // There is no privileged way around the check: an approved message is
+    // one the Function approved, whoever is asking.
     await assertFails(
-      addDoc(collection(asAlice(), 'activities', 'act1', 'messages'), {
-        senderId: BOB,
-        senderName: 'Bob',
-        text: 'I am Bob',
-      }),
-    )
-  })
-
-  test('empty messages are rejected', async () => {
-    await assertFails(
-      addDoc(collection(asAlice(), 'activities', 'act1', 'messages'), {
-        senderId: ALICE,
-        senderName: 'Alice',
-        text: '',
+      addDoc(collection(asAdmin(), 'activities', 'act1', 'messages'), {
+        senderId: ADMIN,
+        senderName: 'Admin',
+        text: 'official notice',
       }),
     )
   })
@@ -631,6 +630,8 @@ describe('activity chat', () => {
   test('a thread closes thirty days after the activity', async () => {
     // Retention is enforced by the database rather than filtered in the
     // client, so it holds against someone querying Firestore directly.
+    // (Reading is the half a client still does; writing is refused
+    // everywhere now.)
     await testEnv.withSecurityRulesDisabled(async (context) => {
       const longAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000)
       await setDoc(doc(context.firestore(), 'activities', 'act1'), {
@@ -713,9 +714,13 @@ describe('notifications', () => {
     await assertSucceeds(addDoc(collection(asBob(), 'users', ALICE, 'notifications'), note()))
   })
 
-  test('a participant can notify another participant about the chat', async () => {
+  test('a participant can no longer announce a chat message', async () => {
+    // It used to be theirs to write, and that was the hole moderation
+    // had to close: a notification is a copy of a message in somebody
+    // else's inbox, unread count and lock screen. Since ADR-033 only the
+    // Function that approved the message writes the notice for it.
     await bobJoins()
-    await assertSucceeds(
+    await assertFails(
       addDoc(
         collection(asAlice(), 'users', BOB, 'notifications'),
         note({ type: 'chat', title: 'New message in Football Night', body: 'Alice: hi' }),
@@ -826,11 +831,12 @@ describe('notifications', () => {
     )
   })
 
-  test('a chat bucket is written once, whoever writes second', async () => {
-    // Chat notifications carry a per-thread, per-window id. The first
-    // message in the window creates it; every later one is a write to a
-    // document that exists, which is an update — and only the owner may
-    // update, and only the read flag. That refusal is the bound.
+  test('knowing the bucket id does not let a client write one', async () => {
+    // The per-thread, per-window id is derivable by anybody — it is a
+    // thread and a clock. What stops a forged chat notice is the type
+    // itself being refused, not the id being hard to guess. (The
+    // bucketing now lives in the Function; tests/unit/chatServer covers
+    // that one notice is written per window.)
     await testEnv.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore()
       await setDoc(doc(db, 'users', CAROL), publicProfile(CAROL, 'Carol'))
@@ -839,14 +845,9 @@ describe('notifications', () => {
         activityFixture(ALICE, { participantUids: [ALICE, BOB, CAROL] }),
       )
     })
-    const id = 'chat-act1-2839'
     const chat = note({ type: 'chat', title: 'New message in Football Night' })
-    await assertSucceeds(setDoc(doc(asBob(), 'users', ALICE, 'notifications', id), chat))
-    // Carol writes next, in the same window: refused. So is Bob again.
-    await assertFails(setDoc(doc(asCarol(), 'users', ALICE, 'notifications', id), chat))
-    await assertFails(setDoc(doc(asBob(), 'users', ALICE, 'notifications', id), chat))
-    // The next window is a fresh document for whoever gets there first.
-    await assertSucceeds(
+    await assertFails(setDoc(doc(asBob(), 'users', ALICE, 'notifications', 'chat-act1-2839'), chat))
+    await assertFails(
       setDoc(doc(asCarol(), 'users', ALICE, 'notifications', 'chat-act1-2840'), chat),
     )
   })
@@ -1933,6 +1934,131 @@ describe('a removal the host cannot walk back', () => {
 describe('unmatched paths', () => {
   test('writing to an undeclared collection is denied', async () => {
     await assertFails(addDoc(collection(asAlice(), 'anything'), { x: 1 }))
+  })
+})
+
+describe('chat moderation', () => {
+  // Everything the moderation path writes, and what a client may do with
+  // it. The message rules themselves are in the chat block above; these
+  // are the collections that came with moderation (ADR-033).
+  const seedBlock = (extra = {}) =>
+    testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'moderationBlocks', 'b1'), {
+        uid: ALICE,
+        activityId: 'act1',
+        reason: 'harassment',
+        status: 'blocked',
+        contentHeld: true,
+        text: 'the refused message',
+        createdAt: new Date(),
+        ...extra,
+      })
+    })
+
+  test('a refused message is readable by admins and by nobody else', async () => {
+    await seedBlock()
+    await assertSucceeds(getDoc(doc(asAdmin(), 'moderationBlocks', 'b1')))
+    // Not even by the person who wrote it: the record carries the
+    // categories that fired, and that is a recipe for the next attempt.
+    await assertFails(getDoc(doc(asAlice(), 'moderationBlocks', 'b1')))
+    await assertFails(getDoc(doc(asBob(), 'moderationBlocks', 'b1')))
+  })
+
+  test('nobody writes one — not the sender, not an admin', async () => {
+    await seedBlock()
+    await assertFails(
+      setDoc(doc(asAlice(), 'moderationBlocks', 'mine'), { uid: ALICE, status: 'overturned' }),
+    )
+    // An admin's answer goes through the callable, which checks the rank
+    // and holds the only path to the thread. Letting an admin edit the
+    // record directly would let one mark a message approved without the
+    // message ever being written, or the reverse.
+    await assertFails(updateDoc(doc(asAdmin(), 'moderationBlocks', 'b1'), { status: 'upheld' }))
+    await assertFails(deleteDoc(doc(asAdmin(), 'moderationBlocks', 'b1')))
+  })
+
+  test('a chat picture is readable by the thread, and by nobody else', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'chatPictures', 'msg1'), {
+        activityId: 'act1',
+        senderId: ALICE,
+        dataUrl: 'data:image/png;base64,AAAA',
+        createdAt: Date.now(),
+      })
+    })
+    await assertSucceeds(getDoc(doc(asAlice(), 'chatPictures', 'msg1')))
+    // Bob is not on the roster of act1 in this block's fixture.
+    await assertFails(getDoc(doc(asBob(), 'chatPictures', 'msg1')))
+  })
+
+  test('nobody can attach a picture a moderator never saw', async () => {
+    await assertFails(
+      setDoc(doc(asAlice(), 'chatPictures', 'msg2'), {
+        activityId: 'act1',
+        senderId: ALICE,
+        dataUrl: 'data:image/png;base64,AAAA',
+        createdAt: Date.now(),
+      }),
+    )
+    // Including over one that already exists — which is what "an approved
+    // attachment cannot be swapped for an unchecked file" means in rules.
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'chatPictures', 'msg3'), {
+        activityId: 'act1',
+        senderId: ALICE,
+        dataUrl: 'data:image/png;base64,AAAA',
+        createdAt: Date.now(),
+      })
+    })
+    await assertFails(
+      updateDoc(doc(asAlice(), 'chatPictures', 'msg3'), { dataUrl: 'data:image/png;base64,BBBB' }),
+    )
+    await assertFails(deleteDoc(doc(asAlice(), 'chatPictures', 'msg3')))
+  })
+
+  test('a chat notification cannot be written by a client any more', async () => {
+    // The notice that a message exists may only be written by whatever
+    // approved that message. Otherwise an unchecked message reaches an
+    // inbox, an unread count and a lock screen.
+    await assertFails(
+      setDoc(doc(asAlice(), 'users', BOB, 'notifications', 'chat-act1-1'), {
+        type: 'chat',
+        title: 'Futsal',
+        body: 'anything at all',
+        activityId: 'act1',
+        read: false,
+        createdAt: new Date(),
+      }),
+    )
+  })
+
+  test('the other notification kinds still work', async () => {
+    // The change is narrow on purpose: joining and following still
+    // announce themselves from the client.
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'users', BOB, 'notifications', 'joined-1'), {
+        type: 'activity',
+        title: 'Futsal',
+        body: 'Alice joined',
+        activityId: 'act1',
+        read: false,
+        createdAt: new Date(),
+      }),
+    )
+  })
+
+  test('the send counters are the Function\'s alone', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'chatModeration', ALICE), {
+        sends: { start: 1, count: 3 },
+      })
+      await setDoc(doc(context.firestore(), 'chatModerationUsage', '2026-09-22'), { count: 3 })
+    })
+    await assertFails(getDoc(doc(asAlice(), 'chatModeration', ALICE)))
+    await assertFails(
+      setDoc(doc(asAlice(), 'chatModeration', ALICE), { sends: { start: 1, count: 0 } }),
+    )
+    await assertFails(getDoc(doc(asAdmin(), 'chatModerationUsage', '2026-09-22')))
   })
 })
 

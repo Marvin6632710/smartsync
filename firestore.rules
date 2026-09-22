@@ -351,13 +351,21 @@ service cloud.firestore {
                .data.notificationsEnabled == true
           && (
             (
-              request.resource.data.type in ['activity', 'chat', 'follow']
+              request.resource.data.type in ['activity', 'follow']
               && senderOnRoster(request.resource.data)
             ) || (
               request.resource.data.type == 'moderation'
               && isAdmin()
             )
           );
+          // 'chat' is deliberately not in that list. A chat notification
+          // is an announcement that a message exists, and a message only
+          // exists once it has been moderated — so the same Function that
+          // approves one writes the notice for it, past these rules. A
+          // client that could still write one could put an unchecked
+          // message into somebody's inbox, their unread count and their
+          // phone's lock screen, which is exactly what moderation before
+          // delivery is meant to prevent (ADR-033).
         allow update: if isSelf(uid) && touches(['read']);
         allow delete: if isSelf(uid);
       }
@@ -689,11 +697,24 @@ service cloud.firestore {
 
         allow read: if isParticipant() && withinRetention() && !isBanned();
 
-        allow create: if isParticipant()
-          && withinRetention()
-          && !cannotAct()
-          && request.resource.data.senderId == request.auth.uid
-          && isString(request.resource.data.text, 2000);
+        // Nobody writes a message from a browser any more, and that is the
+        // whole of how moderation is enforced (ADR-033).
+        //
+        // A message has to be checked before another person can read it,
+        // and a check the client performs is a check a client can skip:
+        // anyone with the project's public config can call Firestore
+        // directly. So the write moved to `sendChatMessage`, a callable
+        // Cloud Function that holds the moderation key, re-checks
+        // everything this rule used to check — roster, retention,
+        // suspension, the shape and size of the text and the picture —
+        // asks the Moderation API, and only then writes with the Admin
+        // SDK, which passes these rules by design.
+        //
+        // What that buys, stated plainly: there is no path by which an
+        // unchecked message exists in a place another person can read,
+        // preview, or be notified about. Not "the app doesn't do that" —
+        // the database refuses it.
+        allow create: if false;
 
         // Append-only: no silent edits, no deleting evidence.
         allow update, delete: if false;
@@ -1010,6 +1031,53 @@ service cloud.firestore {
       allow read, write: if false;
     }
     match /aiPicksUsage/{day} {
+      allow read, write: if false;
+    }
+
+    // ------------------------------------------------------- chat moderation
+
+    // A chat picture, kept out of the message document so a thread listing
+    // does not drag every photo down with it — the same shape profile and
+    // activity pictures already use, and named by the message it belongs
+    // to. Readable by the people who can read that message, which is to
+    // say the activity's participants, inside the same retention window.
+    //
+    // Written by nobody here. It arrives with its message from the
+    // moderation Function or not at all, which is what stops an approved
+    // message being paired with a picture nothing ever looked at.
+    match /chatPictures/{messageId} {
+      function parent() {
+        return get(/databases/$(database)/documents/activities/$(resource.data.activityId)).data;
+      }
+      allow get: if signedIn() && !isBanned()
+        && exists(/databases/$(database)/documents/activities/$(resource.data.activityId))
+        && request.auth.uid in parent().participantUids
+        && parent().startsAt > request.time - duration.value(30, 'd');
+      allow list, write: if false;
+    }
+
+    // A message the moderator refused, held so a person can ask a human to
+    // look again and an admin has something to look at. Admins read it in
+    // the console; the person who wrote it never reads it back from here —
+    // their own draft is still in their own browser, and the appeal is
+    // made through a callable. Written only by the Function.
+    //
+    // Never readable by the sender, deliberately: the record carries the
+    // categories the API returned, and handing somebody the exact reason
+    // their message failed is handing them a way to tune the next one
+    // past it.
+    match /moderationBlocks/{blockId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // The hour's send count per person and the day's total across
+    // everyone, for the limits in lib/sendChat.js. Function-only, like
+    // the AI Picks counters above.
+    match /chatModeration/{uid} {
+      allow read, write: if false;
+    }
+    match /chatModerationUsage/{day} {
       allow read, write: if false;
     }
 

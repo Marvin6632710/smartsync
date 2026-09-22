@@ -105,6 +105,7 @@ describe.each([
     expect(nav).toEqual([
       locale.console.nav.overview,
       locale.console.nav.reports,
+      locale.console.nav.blocks,
       locale.console.nav.accounts,
       locale.console.nav.activities,
       locale.console.nav.history,

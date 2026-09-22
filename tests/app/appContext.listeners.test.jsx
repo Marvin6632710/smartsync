@@ -62,9 +62,15 @@ const followUser = vi.fn(() => Promise.resolve())
 const unfollowUser = vi.fn(() => Promise.resolve())
 const ensureFollowerMirror = vi.fn(() => Promise.resolve(false))
 const notifyFollowers = vi.fn(() => Promise.resolve({ told: 0, declined: 0, failed: 0 }))
-const pushChatNotification = vi.fn(() => Promise.resolve())
 const reportError = vi.fn()
 vi.mock('../../src/utils/reportError', () => ({ reportError }))
+// Sending is a callable Cloud Function that moderates first (ADR-033).
+const sendChatMessageCall = vi.fn(async () => ({ status: 'sent', id: 'm1' }))
+const requestChatReview = vi.fn(async () => ({ status: 'appealed' }))
+vi.mock('../../src/firebase/chat', () => ({
+  sendChatMessage: (...args) => sendChatMessageCall(...args),
+  requestChatReview: (...args) => requestChatReview(...args),
+}))
 vi.mock('../../src/firebase/notifications', () => ({
   watchNotifications: (uid, cb) => channel('notifications')(uid, cb),
   watchUnreadCount: (uid, cb) => channel('unread')(uid, cb),
@@ -73,7 +79,6 @@ vi.mock('../../src/firebase/notifications', () => ({
   unfollowUser,
   ensureFollowerMirror,
   notifyFollowers,
-  pushChatNotification,
   pushNotification: vi.fn(() => Promise.resolve()),
   markNotificationRead: vi.fn(),
   markAllNotificationsRead: vi.fn(),
@@ -129,7 +134,6 @@ vi.mock('../../src/context/AuthContext', () => ({
 const { AppProvider, useApp, SERVER_SILENCE_MS } = await import('../../src/context/AppContext')
 const { forgetDurable } = await import('../../src/utils/storage')
 const { updateActivity: updateActivityDoc } = await import('../../src/firebase/activities')
-const { sendMessage: sendMessageDoc } = await import('../../src/firebase/messages')
 
 // ---- a probe that reports what the context is holding --------------------
 
@@ -178,9 +182,9 @@ beforeEach(() => {
   unfollowUser.mockClear()
   ensureFollowerMirror.mockClear()
   notifyFollowers.mockClear()
-  pushChatNotification.mockClear()
-  pushChatNotification.mockImplementation(() => Promise.resolve())
   reportError.mockClear()
+  sendChatMessageCall.mockClear()
+  sendChatMessageCall.mockImplementation(async () => ({ status: 'sent', id: 'm1' }))
   createActivityDoc.mockReset()
   outcomeOf.mockReset()
   outcomeOf.mockResolvedValue('landed')
@@ -908,10 +912,26 @@ describe('following somebody', () => {
 })
 
 describe('a message in a thread', () => {
+  // Sending moved to a callable Cloud Function that moderates first
+  // (ADR-033), so nothing here writes a message or a chat notification.
+  // What the context still owns is the pending row the author sees while
+  // that call is in flight, and what becomes of it.
   function Composer() {
-    const { sendMessage } = useApp()
-    return <button onClick={() => sendMessage('t1', 'hello')}>send</button>
+    const { sendMessage, chatPending, retryChatMessage, discardChatMessage } = useApp()
+    return (
+      <div>
+        <button onClick={() => sendMessage('t1', 'hello')}>send</button>
+        <button onClick={() => retryChatMessage(chatPending[0]?.id)}>retry</button>
+        <button onClick={() => discardChatMessage(chatPending[0]?.id)}>discard</button>
+        <span data-testid="pending">
+          {JSON.stringify(
+            chatPending.map(({ text, status, reason }) => ({ text, status, reason })),
+          )}
+        </span>
+      </div>
+    )
   }
+  const pending = () => JSON.parse(screen.getByTestId('pending').textContent)
   const flush = () =>
     act(async () => {
       await Promise.resolve()
@@ -919,8 +939,7 @@ describe('a message in a thread', () => {
     })
   const thread = (extra = {}) =>
     activity('t1', { participantUids: ['me', 'p1', 'p2', 'p3'], participants: 4, ...extra })
-
-  test('tells every other participant through the bounded chat channel', async () => {
+  const mount = () => {
     render(
       <AppProvider>
         <Composer />
@@ -928,42 +947,75 @@ describe('a message in a thread', () => {
     )
     act(() => emit.activities([thread()], { fromCache: false }))
     act(() => emit.peers([]))
+  }
+
+  test('the message is handed to moderation, never written here', async () => {
+    sendChatMessageCall.mockResolvedValueOnce({ status: 'sent', id: 'm1' })
+    mount()
     fireEvent.click(screen.getByText('send'))
+    // On screen as "being checked" before anything comes back, and on
+    // nobody else's screen at all.
+    expect(pending()).toMatchObject([{ text: 'hello', status: 'checking' }])
     await flush()
-    const recipients = pushChatNotification.mock.calls.map(([uid]) => uid).sort()
-    expect(recipients).toEqual(['p1', 'p2', 'p3'])
-    const [, payload] = pushChatNotification.mock.calls[0]
-    expect(payload).toMatchObject({ activityId: 't1', title: 'New message in t1' })
+    const [request] = sendChatMessageCall.mock.calls[0]
+    expect(request).toMatchObject({ activityId: 't1', text: 'hello' })
+    expect(request.clientMsgId).toMatch(/^[a-f0-9]{24}$/)
+    // Approved: the row goes, and the thread's own listener is what shows it.
+    expect(pending()).toEqual([])
   })
 
-  test('skips somebody who turned notifications off', async () => {
-    render(
-      <AppProvider>
-        <Composer />
-      </AppProvider>,
-    )
-    act(() => emit.activities([thread()], { fromCache: false }))
-    act(() => emit.peers([{ uid: 'p2', name: 'P2', notificationsEnabled: false }]))
+  test('a refusal keeps the words with their author, with the reason', async () => {
+    sendChatMessageCall.mockResolvedValueOnce({ status: 'blocked', reason: 'harassment' })
+    mount()
     fireEvent.click(screen.getByText('send'))
     await flush()
-    expect(pushChatNotification.mock.calls.map(([uid]) => uid).sort()).toEqual(['p1', 'p3'])
+    expect(pending()).toMatchObject([{ text: 'hello', status: 'blocked', reason: 'harassment' }])
   })
 
-  test('a refusal is the bucket working, not an error; anything else is recorded', async () => {
-    pushChatNotification
-      .mockImplementationOnce(() => Promise.reject({ code: 'permission-denied' }))
-      .mockImplementationOnce(() => Promise.reject(new Error('unavailable')))
-    render(
-      <AppProvider>
-        <Composer />
-      </AppProvider>,
-    )
-    act(() => emit.activities([thread()], { fromCache: false }))
-    act(() => emit.peers([]))
+  test('a retry re-sends the same message id, so a timeout cannot post it twice', async () => {
+    sendChatMessageCall.mockRejectedValueOnce(new Error('timeout'))
+    mount()
     fireEvent.click(screen.getByText('send'))
     await flush()
-    expect(reportError).toHaveBeenCalledTimes(1)
-    expect(reportError.mock.calls[0][0]).toBe('notifications.chat')
+    expect(pending()).toMatchObject([{ status: 'failed' }])
+    sendChatMessageCall.mockResolvedValueOnce({ status: 'sent', id: 'm1' })
+    fireEvent.click(screen.getByText('retry'))
+    await flush()
+    const first = sendChatMessageCall.mock.calls[0][0].clientMsgId
+    const second = sendChatMessageCall.mock.calls[1][0].clientMsgId
+    expect(second).toBe(first)
+    expect(pending()).toEqual([])
+  })
+
+  test('offline: it waits, and goes when the connection is back', async () => {
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    sendChatMessageCall.mockRejectedValueOnce(new Error('offline'))
+    mount()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(pending()).toMatchObject([{ status: 'failed', reason: 'offline' }])
+    // Nothing was reported as an error: being offline is not a fault.
+    expect(reportError).not.toHaveBeenCalled()
+    online.mockReturnValue(true)
+    sendChatMessageCall.mockResolvedValueOnce({ status: 'sent', id: 'm1' })
+    await act(async () => {
+      window.dispatchEvent(new Event('online'))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    // Checked on the way through, like every other message.
+    expect(sendChatMessageCall).toHaveBeenCalledTimes(2)
+    expect(pending()).toEqual([])
+    online.mockRestore()
+  })
+
+  test('discarding it is the author throwing it away, and nothing else', async () => {
+    sendChatMessageCall.mockResolvedValueOnce({ status: 'blocked', reason: 'hate' })
+    mount()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    fireEvent.click(screen.getByText('discard'))
+    expect(pending()).toEqual([])
   })
 })
 
@@ -1200,60 +1252,10 @@ describe('a write while offline', () => {
     expect(screen.getByTestId('toast').textContent).toBe("Couldn't save changes")
   })
 
-  test('a message: null when refused, so the composer can put the text back', async () => {
-    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
-    render(
-      <AppProvider>
-        <Writer />
-      </AppProvider>,
-    )
-    act(() => emit.activities([activity('t1')], { fromCache: false }))
-    fireEvent.click(screen.getByText('send'))
-    await flush()
-    expect(screen.getByTestId('result').textContent).toBe('null')
-    expect(screen.getByTestId('toast').textContent).toBe("Couldn't send")
-    expect(pushChatNotification).not.toHaveBeenCalled()
-  })
-
-  test('a message that lands is truthy, and one sent offline is not announced as saved', async () => {
-    sendMessageDoc.mockResolvedValueOnce({ id: 'm1' })
-    render(
-      <AppProvider>
-        <Writer />
-      </AppProvider>,
-    )
-    act(() => emit.activities([activity('t1')], { fromCache: false }))
-    fireEvent.click(screen.getByText('send'))
-    await flush()
-    expect(screen.getByTestId('result').textContent).toBe('sent')
-    expect(screen.getByTestId('toast').textContent).toBe('')
-
-    sendMessageDoc.mockReturnValueOnce(never())
-    goOffline()
-    fireEvent.click(screen.getByText('send'))
-    await flush()
-    expect(screen.getByTestId('result').textContent).toBe('sent')
-    // The bubble is already on screen; no toast for a queued message.
-    expect(screen.getByTestId('toast').textContent).toBe('')
-    goOnline()
-  })
-
-  test('a blank message is nothing to send and nothing to announce', async () => {
-    sendMessageDoc.mockResolvedValue(undefined)
-    render(
-      <AppProvider>
-        <Writer />
-      </AppProvider>,
-    )
-    act(() =>
-      emit.activities([activity('t1', { participantUids: ['me', 'p1'] })], { fromCache: false }),
-    )
-    fireEvent.click(screen.getByText('send-blank'))
-    await flush()
-    expect(screen.getByTestId('result').textContent).toBe('null')
-    expect(sendMessageDoc).not.toHaveBeenCalled()
-    expect(pushChatNotification).not.toHaveBeenCalled()
-  })
+  // The message cases that used to live here went with the write path
+  // they tested: sending is a callable now, and what happens to a message
+  // that is refused, queued or blocked is in "a message in a thread"
+  // above (ADR-033).
 })
 
 describe('a server that never answers', () => {
@@ -1549,11 +1551,23 @@ describe('what was typed into a queued write', () => {
   // copy back and took the content with it. The context keeps it, per
   // account and on disk, and hands it back to the screen it came from.
   function Writer() {
-    const { sendMessage, createActivity, updateActivity, unsent, discardUnsent } = useApp()
+    const { createActivity, updateActivity, unsent, discardUnsent } = useApp()
     return (
       <div>
-        <button onClick={() => sendMessage('t1', 'hello there')}>send</button>
-        <button onClick={() => sendMessage('t1', 'second one')}>send-2</button>
+        <button
+          onClick={() =>
+            createActivity({ title: 'hello there', locationName: 'Park', category: 'Running' })
+          }
+        >
+          send
+        </button>
+        <button
+          onClick={() =>
+            createActivity({ title: 'second one', locationName: 'Park', category: 'Running' })
+          }
+        >
+          send-2
+        </button>
         <button
           onClick={() =>
             createActivity({ title: 'Late run', locationName: 'Park', category: 'Running' })
@@ -1619,17 +1633,22 @@ describe('what was typed into a queued write', () => {
 
   test('offline → queued → success: noted while pending, gone once it lands', async () => {
     const write = held()
-    sendMessageDoc.mockReturnValue(write.promise)
+    createActivityDoc.mockReturnValue(write.promise)
     mount()
     goOffline()
     fireEvent.click(screen.getByText('send'))
     await flush()
     expect(rows()).toEqual([
       {
-        kind: 'message',
-        key: 't1',
+        kind: 'activity-create',
+        key: 'me',
         status: 'pending',
-        payload: { text: 'hello there', id: 'm-minted' },
+        payload: {
+          title: 'hello there',
+          locationName: 'Park',
+          category: 'Running',
+          id: 'm-minted',
+        },
         error: null,
       },
     ])
@@ -1643,7 +1662,7 @@ describe('what was typed into a queued write', () => {
 
   test('offline → queued → refused: kept as failed with the reason, and persisted', async () => {
     const write = held()
-    sendMessageDoc.mockReturnValue(write.promise)
+    createActivityDoc.mockReturnValue(write.promise)
     mount()
     goOffline()
     fireEvent.click(screen.getByText('send'))
@@ -1653,7 +1672,12 @@ describe('what was typed into a queued write', () => {
       await flush()
     })
     expect(rows()).toMatchObject([
-      { kind: 'message', key: 't1', status: 'failed', error: { code: 'permission-denied' } },
+      {
+        kind: 'activity-create',
+        key: 'me',
+        status: 'failed',
+        error: { code: 'permission-denied' },
+      },
     ])
     expect(rows()[0].error.message).toMatch(/refused/)
     // On disk, so a reload does not lose it.
@@ -1663,7 +1687,7 @@ describe('what was typed into a queued write', () => {
 
   test('a malformed write refused with another code keeps its own message', async () => {
     const write = held()
-    sendMessageDoc.mockReturnValue(write.promise)
+    createActivityDoc.mockReturnValue(write.promise)
     mount()
     goOffline()
     fireEvent.click(screen.getByText('send'))
@@ -1674,16 +1698,6 @@ describe('what was typed into a queued write', () => {
     })
     expect(rows()[0].error).toEqual({ code: 'invalid-argument', message: 'Document too large' })
     goOnline()
-  })
-
-  test('an immediate refusal of a message is kept too — the composer has already let it go', async () => {
-    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
-    mount()
-    fireEvent.click(screen.getByText('send'))
-    await flush()
-    expect(rows()).toMatchObject([
-      { kind: 'message', status: 'failed', payload: { text: 'hello there' } },
-    ])
   })
 
   test('an immediate refusal of a form write is not kept — the form is still on screen', async () => {
@@ -1698,19 +1712,19 @@ describe('what was typed into a queued write', () => {
     const first = held()
     const second = held()
     second.promise.id = 'm-2'
-    sendMessageDoc.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    createActivityDoc.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
     mount()
     goOffline()
     fireEvent.click(screen.getByText('send'))
     fireEvent.click(screen.getByText('send-2'))
     await flush()
-    expect(rows().map((r) => r.payload.text)).toEqual(['hello there', 'second one'])
+    expect(rows().map((r) => r.payload.title)).toEqual(['hello there', 'second one'])
     await act(async () => {
       second.reject({ code: 'permission-denied' })
       first.settle({})
       await flush()
     })
-    expect(rows()).toMatchObject([{ status: 'failed', payload: { text: 'second one' } }])
+    expect(rows()).toMatchObject([{ status: 'failed', payload: { title: 'second one' } }])
     goOnline()
   })
 
@@ -1798,10 +1812,17 @@ describe('what was typed into a queued write', () => {
   })
 
   test('discarding removes the row', async () => {
-    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
+    const write = held()
+    createActivityDoc.mockReturnValue(write.promise)
     mount()
+    goOffline()
     fireEvent.click(screen.getByText('send'))
     await flush()
+    await act(async () => {
+      write.reject({ code: 'permission-denied' })
+      await flush()
+    })
+    goOnline()
     expect(rows()).toHaveLength(1)
     fireEvent.click(screen.getByText('discard-first'))
     expect(rows()).toEqual([])
@@ -1809,10 +1830,17 @@ describe('what was typed into a queued write', () => {
   })
 
   test('rows are kept per account and never shown to another', async () => {
-    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
+    const write = held()
+    createActivityDoc.mockReturnValue(write.promise)
     mount()
+    goOffline()
     fireEvent.click(screen.getByText('send'))
     await flush()
+    await act(async () => {
+      write.reject({ code: 'permission-denied' })
+      await flush()
+    })
+    goOnline()
     expect(rows()).toHaveLength(1)
     cleanup()
     currentUser = { uid: 'someone-else', interests: [], historyCategories: [] }
@@ -1831,17 +1859,24 @@ describe('what was typed into a queued write', () => {
       id: 'other-tab-1',
       at: Date.now(),
       session: 'the-other-tab',
-      kind: 'message',
+      kind: 'activity-create',
       key: 't1',
       status: 'pending',
-      payload: { text: 'from the other tab', id: 'm-o' },
+      payload: { title: 'from the other tab', id: 'm-o' },
       error: null,
     }
     const stored = () => JSON.parse(localStorage.getItem('smartsync:unsent:me') || '[]')
-    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
+    const write = held()
+    createActivityDoc.mockReturnValue(write.promise)
     mount()
+    goOffline()
     fireEvent.click(screen.getByText('send'))
     await flush()
+    await act(async () => {
+      write.reject({ code: 'permission-denied' })
+      await flush()
+    })
+    goOnline()
     expect(rows()).toHaveLength(1)
     const mine = stored()[0].id
     // The other tab writes its row while this tab is open…
@@ -1861,9 +1896,17 @@ describe('what was typed into a queued write', () => {
         { ...other, id: mine, session: 'x' },
       ]),
     )
-    sendMessageDoc.mockRejectedValueOnce({ code: 'permission-denied' })
+    const second = held()
+    second.promise.id = 'm-2'
+    createActivityDoc.mockReturnValue(second.promise)
+    goOffline()
     fireEvent.click(screen.getByText('send'))
     await flush()
+    await act(async () => {
+      second.reject({ code: 'permission-denied' })
+      await flush()
+    })
+    goOnline()
     const ids = stored().map((r) => r.id)
     expect(ids).toContain('other-tab-1')
     expect(ids).toContain('other-tab-2')
@@ -1901,12 +1944,12 @@ describe('what was typed into a queued write', () => {
       block('localStorage')
       block('sessionStorage')
       const write = held()
-      sendMessageDoc.mockReturnValue(write.promise)
+      createActivityDoc.mockReturnValue(write.promise)
       expect(() => mount()).not.toThrow()
       goOffline()
       fireEvent.click(screen.getByText('send'))
       await flush()
-      expect(rows()).toMatchObject([{ status: 'pending', payload: { text: 'hello there' } }])
+      expect(rows()).toMatchObject([{ status: 'pending', payload: { title: 'hello there' } }])
       await act(async () => {
         write.reject({ code: 'permission-denied' })
         await flush()
@@ -1921,7 +1964,7 @@ describe('what was typed into a queued write', () => {
     test('leaving the page is guarded only while memory is the only copy of something', async () => {
       block('localStorage')
       block('sessionStorage')
-      sendMessageDoc.mockReturnValue(new Promise(() => {}))
+      createActivityDoc.mockReturnValue(new Promise(() => {}))
       mount()
       expect(unloadGuarded()).toBe(false)
       goOffline()
@@ -1936,7 +1979,7 @@ describe('what was typed into a queued write', () => {
     })
 
     test('with storage working, leaving the page is never guarded', async () => {
-      sendMessageDoc.mockReturnValue(new Promise(() => {}))
+      createActivityDoc.mockReturnValue(new Promise(() => {}))
       mount()
       goOffline()
       fireEvent.click(screen.getByText('send'))
@@ -1949,13 +1992,13 @@ describe('what was typed into a queued write', () => {
 
     test('with only localStorage blocked, this tab’s sessionStorage keeps the rows across a reload', async () => {
       block('localStorage')
-      sendMessageDoc.mockReturnValue(new Promise(() => {}))
+      createActivityDoc.mockReturnValue(new Promise(() => {}))
       mount()
       goOffline()
       fireEvent.click(screen.getByText('send'))
       await flush()
       expect(JSON.parse(sessionStorage.getItem('smartsync:unsent:me'))).toMatchObject([
-        { payload: { text: 'hello there' } },
+        { payload: { title: 'hello there' } },
       ])
       expect(unloadGuarded()).toBe(false)
       goOnline()
@@ -1967,10 +2010,10 @@ describe('what was typed into a queued write', () => {
       id: 'old-1',
       at: Date.now() - 60_000,
       session: 'a-previous-page-load',
-      kind: 'message',
+      kind: 'activity-create',
       key: 't1',
       status: 'pending',
-      payload: { text: 'from before', id: 'm-old' },
+      payload: { title: 'from before', id: 'm-old' },
       error: null,
       ...over,
     })
@@ -2075,7 +2118,7 @@ describe('what was typed into a queued write', () => {
 
     test('rows queued in this page load are left to their own promises', async () => {
       const write = held()
-      sendMessageDoc.mockReturnValue(write.promise)
+      createActivityDoc.mockReturnValue(write.promise)
       mount()
       goOffline()
       fireEvent.click(screen.getByText('send'))
@@ -2094,7 +2137,7 @@ describe('what was typed into a queued write', () => {
       await flush()
       expect(rows()[0].status).toBe('pending')
       expect(reportError).toHaveBeenCalledWith('unsent.reconcile', expect.anything(), {
-        kind: 'message',
+        kind: 'activity-create',
       })
     })
   })

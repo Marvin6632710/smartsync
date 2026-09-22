@@ -33,19 +33,6 @@ const MAX_NOTIFICATIONS = 50
  */
 const SAFETY_NOTIFICATIONS = 20
 
-/**
- * How often one thread may notify one person about chat.
- *
- * Every message used to write a notification to every participant, so a
- * twenty-person thread with a hundred messages produced two thousand
- * documents, buried everything else in every inbox, and grew the collection
- * without bound. Now the notification's id carries a ten-minute bucket: the
- * first message in a bucket creates it, and every later one — from any
- * sender — is a write to a document that already exists, which the rules
- * refuse. Six an hour per thread, at most, and nobody is told twice.
- */
-export const CHAT_NOTIFY_WINDOW_MS = 10 * 60_000
-
 /** Firestore's ceiling on operations in one batch. */
 const BATCH_LIMIT = 500
 
@@ -158,30 +145,6 @@ function kindFields(kind, params) {
     kind: String(kind).slice(0, 40),
     params: params && typeof params === 'object' ? params : {},
   }
-}
-
-/**
- * One chat notification per thread per window, whoever is writing.
- *
- * The id is derived from the thread and the current ten-minute bucket, so
- * this is a `set` that succeeds once per bucket and is refused thereafter.
- * A refusal here is the design working, not a failure — the caller treats
- * permission-denied as nothing to say.
- */
-export function pushChatNotification(
-  uid,
-  { activityId, title, body, kind, params, now = Date.now() },
-) {
-  const bucket = Math.floor(now / CHAT_NOTIFY_WINDOW_MS)
-  return setDoc(doc(db, 'users', uid, 'notifications', `chat-${activityId}-${bucket}`), {
-    type: 'chat',
-    title: String(title || '').slice(0, 120),
-    body: String(body || '').slice(0, 300),
-    activityId,
-    ...kindFields(kind, params),
-    read: false,
-    createdAt: serverTimestamp(),
-  })
 }
 
 export function markNotificationRead(uid, notificationId) {

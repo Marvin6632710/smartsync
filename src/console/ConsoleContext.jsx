@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   CLAIM_TTL_MS,
   REPORT_REASONS,
+  watchModerationBlocks,
   watchModerationLog,
   watchOpenReports,
   watchResolvedReports,
@@ -72,6 +73,7 @@ export function ConsoleProvider({ children }) {
   const [openReports, setOpenReports] = useState([])
   const [resolvedReports, setResolvedReports] = useState([])
   const [log, setLog] = useState([])
+  const [blocks, setBlocks] = useState([])
   const [loaded, setLoaded] = useState({})
   const [errors, setErrors] = useState({})
   const [fetched, setFetched] = useState(() => new Map())
@@ -84,6 +86,8 @@ export function ConsoleProvider({ children }) {
   useFeed(feed, 'open', watchOpenReports, setOpenReports)
   useFeed(feed, 'resolved', watchResolvedReports, setResolvedReports)
   useFeed(feed, 'log', watchModerationLog, setLog)
+  // Chat messages moderation refused, and the appeals against them.
+  useFeed(feed, 'blocks', watchModerationBlocks, setBlocks)
 
   // ---------------------------------------------------------------- names
 
@@ -253,6 +257,7 @@ export function ConsoleProvider({ children }) {
     openReports,
     resolvedReports,
     log,
+    blocks,
     loaded,
     errors,
     referenceError,

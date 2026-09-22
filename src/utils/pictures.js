@@ -10,13 +10,20 @@ export function validatePictureFile(file) {
   if (file.size > MAX_UPLOAD_BYTES) throw new Error('pictures.sizeError')
 }
 
+/** The bytes half of the check, shared with chat pictures, which have no version. */
+export function validPictureDataUrl(dataUrl) {
+  return (
+    typeof dataUrl === 'string' &&
+    dataUrl.length <= MAX_PICTURE_LENGTH &&
+    /^data:image\/(webp|png|jpeg);base64,[A-Za-z0-9+/]+=*$/.test(dataUrl)
+  )
+}
+
 export function validPicture(picture) {
   return (
     typeof picture?.version === 'string' &&
     /^[a-zA-Z0-9-]{1,64}$/.test(picture.version) &&
-    typeof picture?.dataUrl === 'string' &&
-    picture.dataUrl.length <= MAX_PICTURE_LENGTH &&
-    /^data:image\/(webp|png|jpeg);base64,[A-Za-z0-9+/]+=*$/.test(picture.dataUrl)
+    validPictureDataUrl(picture?.dataUrl)
   )
 }
 
@@ -35,7 +42,10 @@ export async function preparePicture(file, kind = 'activity') {
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d')
     if (!context) throw new Error('pictures.readError')
-    let edge = kind === 'profile' ? 512 : 1440
+    // A chat photo is looked at in a bubble, not full-bleed, and it has
+    // to survive a moderation call and a Firestore document — 1024 is
+    // the size where all three are comfortable.
+    let edge = kind === 'profile' ? 512 : kind === 'chat' ? 1024 : 1440
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const scale = Math.min(1, edge / Math.max(image.naturalWidth, image.naturalHeight))
       canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))

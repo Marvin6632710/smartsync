@@ -549,7 +549,40 @@
     "suspendedNote": "你的账号已被暂停，无法在此发言。你仍可以阅读对话。",
     "placeholder": "给群里发消息",
     "inputLabel": "聊天消息",
-    "send": "发送消息"
+    "send": "发送消息",
+    "checkingTitle": "检查中",
+    "checking": "正在检查这条消息，其他人尚未看到…",
+    "moderationNote": "消息和图片会先经过检查，群里才能看到。",
+    "addPicture": "添加图片",
+    "removePicture": "移除这张图片",
+    "attachmentPreview": "将发送的图片",
+    "captionPlaceholder": "说点什么（可选）",
+    "pictureFrom": "{{name}} 发送的图片",
+    "editMessage": "修改",
+    "askReview": "申请人工复核",
+    "reviewAsked": "已提交复核",
+    "reviewFailed": "申请未能提交，请稍后再试。",
+    "blocked": {
+      "harassment": "这条消息像是在针对某个人。修改后即可发送。",
+      "threat": "这条消息像是威胁。修改后即可发送。",
+      "hate": "这条消息像是在攻击某个群体。修改后即可发送。",
+      "sexual": "这条消息对群聊来说过于露骨。修改后即可发送。",
+      "violence": "这条消息对群聊来说过于血腥。修改后即可发送。",
+      "self-harm": "这条消息像是在鼓励自我伤害，因此未发送。",
+      "profanity": "本群聊不允许这类用语。换个说法即可发送。",
+      "severe": "这条消息无法发送，已通知相关人员。",
+      "default": "这条消息违反群聊规则，未发送。"
+    },
+    "failed": {
+      "unavailable": "检查未能完成，因此什么都没有发送。",
+      "error": "发送前出现了问题。",
+      "offline": "你处于离线状态。恢复连接后会检查并发送。",
+      "rateLimited_other": "你在短时间内发送了很多消息。请在 {{count}} 分钟后再试。",
+      "closed": "此群聊已关闭，因此未发送。",
+      "not-allowed": "你无法在此群聊中发言。",
+      "not-found": "该活动已不存在。",
+      "not-configured": "此服务器尚未设置消息检查，因此未发送。"
+    }
   },
   "messages": {
     "title": "消息",
@@ -1111,6 +1144,7 @@
     "nav": {
       "overview": "概览",
       "reports": "举报",
+      "blocks": "被拦截的消息",
       "accounts": "账号",
       "history": "历史",
       "activities": "活动"
@@ -1232,6 +1266,55 @@
       "reporter": "举报人",
       "reportedBy": "举报人",
       "reportId": "举报编号"
+    },
+    "blocks": {
+      "search": "搜索被拦截的消息",
+      "searchPlaceholder": "内容、发送者或活动",
+      "who": "发送者",
+      "reason": "原因",
+      "what": "消息",
+      "status": "状态",
+      "when": "时间",
+      "activity": "活动",
+      "categories": "API 返回的类别",
+      "appealed": "已申请复核",
+      "detailTitle": "被拦截的消息",
+      "about": "详情",
+      "content": "所写内容",
+      "noContent": "未保留",
+      "pictureOnly": "仅图片",
+      "pictureAlt": "被拦截的图片",
+      "decide": "处理",
+      "decideHint": "撤销拦截会按原样把这条消息发到群聊，并删除这里保留的副本。维持拦截则结束处理，不发送任何内容。",
+      "uphold": "维持拦截",
+      "overturn": "撤销并发送",
+      "severeTitle": "需在此控制台之外处理",
+      "severeBody": "此项被标记为涉及未成年人的性内容。文字和图片均未保留，这里没有可复核的内容。请按 README §11 的上报步骤处理。",
+      "emptyTitle": "暂无待办",
+      "emptyBody": "被拦截的消息会显示在这里，有人申请复核的排在前面。",
+      "filters": {
+        "appealed": "已申请复核",
+        "blocked": "已拦截",
+        "resolved": "已处理",
+        "severe": "已标记",
+        "all": "全部"
+      },
+      "statuses": {
+        "blocked": "已拦截",
+        "upheld": "维持拦截",
+        "overturned": "已撤销",
+        "severe": "已标记"
+      },
+      "reasons": {
+        "harassment": "骚扰",
+        "threat": "威胁",
+        "hate": "仇恨言论",
+        "sexual": "性内容",
+        "violence": "血腥暴力",
+        "self-harm": "自我伤害",
+        "profanity": "用语",
+        "sexual-minors": "儿童安全"
+      }
     },
     "accounts": {
       "title": "账号",

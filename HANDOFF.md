@@ -9,6 +9,154 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest continuation — chat is moderated before delivery (2026-09-23)
+
+**Not committed, not deployed.** Working tree only, for the owner to
+test on localhost first. 908 unit/app tests and 390 rules tests pass;
+lint and build clean.
+
+Built to the owner's 12-point specification: text and image moderation
+for activity chat, enforced on the server, with rules that prevent
+bypass, clear feedback, safe failure handling, usage control, human
+review, four languages, verification and documentation.
+
+### The one decision everything else follows from
+
+**The database refuses every client-written message.**
+`activities/{id}/messages` is now `allow create: if false`, and so is
+the new `chatPictures/{messageId}`. The only writer is
+`sendChatMessageCall`, a callable Function using the Admin SDK, which
+bypasses rules because it *is* the rule for a chat message now: `gate()`
+re-checks membership, the activity's existence, suspension, closure and
+the 30-day retention window before anything is moderated or written.
+
+This is what makes the check impossible to skip. A client-side check
+before `addDoc` would have been walked around by anyone who opens the
+network tab — which is exactly the population that matters — so there
+is no longer any request, from the app or from a script holding a real
+token, that puts words in a thread.
+
+### What is checked, and what is deliberately not
+
+`omni-moderation-latest`, up to three calls, stopping at the first
+refusal: the text; the picture as an image; and the picture's words,
+because the API applies only six of thirteen categories to images and
+`hate`, `harassment` and threats are not among them — so a picture is
+transcribed by a small vision model (`gpt-5.6-luna`) and the
+transcription moderated as text. A transcription failure is logged and
+does **not** block: a model that cannot read a photograph of a beach is
+not evidence of anything.
+
+Nine categories block, and only when the API's boolean is true **and**
+its score clears a floor kept in `functions/lib/moderation.js` —
+harassment 0.5, threats 0.35/0.3, hate 0.45, sexual 0.5, graphic
+violence 0.5, violent wrongdoing 0.5, self-harm instructions 0.4. The
+booleans alone fire on mild cases; a heated argument about a football
+match reads as harassment at 0.12, and a moderator that blocks that
+teaches people to stop using the chat.
+
+Four categories deliberately do not block: `violence` without `graphic`,
+`illicit` without violence, and `self-harm` / `self-harm/intent`. That
+last pair is the one to be ready to defend: somebody telling the group
+they are struggling is not abuse, and blocking it would take the message
+away from the one person in the thread who might have helped, and hide
+it from the Report button too.
+
+Ordinary swearing is allowed; `CHAT_PROFANITY_POLICY=block` changes that
+without a code change, and `CHAT_PROFANITY_WORDS` extends the list.
+
+### What a refusal looks like
+
+The message never reaches the thread, so nothing has to be taken back.
+It stays in the sender's own composer area as an unsent bubble with a
+general reason — never the category, never a score, because a refusal
+that reads like a scorecard is an invitation to tune a message until it
+passes — and three choices: **Edit** (words and picture go back to the
+composer), **Discard**, **Ask for a review**.
+
+An appeal reaches `/admin/chat`. **Uphold** closes it; **Overturn and
+post** posts the message the person actually wrote, from the held copy,
+and deletes that copy in the same write — so putting right a false
+positive is the message appearing in the thread rather than an apology.
+
+Sexual content involving minors is handled differently on purpose:
+blocked, **nothing retained**, no appeal, no console view. The
+provider's guidance forbids sending suspected CSAM to the API, and the
+obligation it creates is a report to an authority, not a button. README
+§11 says that rather than implying the console covers it.
+
+**A failure is never a delivery.** Outage, quota, revoked key: the
+message is kept, the screen says the check could not be completed, and
+Retry is offered.
+
+### Files
+
+| Area | Files |
+| --- | --- |
+| Policy (pure) | `functions/lib/moderation.js` — categories, floors, `judge`, `decide`, the transcription prompt |
+| API adapter | `functions/lib/openai.js` — `moderate()`, `readImageText()`, error classification |
+| Request checking | `functions/lib/chat.js` — text cleaning, image sniffing by bytes, `validateSend` |
+| The send path | `functions/lib/sendChat.js` — `gate`, `takeTurn`, `checkParts`, `sendChatMessage`, `recordBlock`, `resolveBlock` |
+| Callables | `functions/index.js` — `sendChatMessageCall`, `requestChatReview`, `resolveChatBlock` |
+| Rules | `firestore.rules` — messages, `chatPictures`, `moderationBlocks`, `chatModeration`, `chatModerationUsage` |
+| Client | `src/firebase/chat.js`, `src/context/AppContext.jsx` (`chatPending`, retry, review), `src/pages/ChatPage.jsx` |
+| Console | `src/console/pages/ChatBlocksPage.jsx` + nav/route/feed wiring |
+| Stand-in | `scripts/fake-openai.mjs` |
+
+### Verified in the emulator — against the stand-in, not the real API
+
+Driven through the running app at `localhost:5173` with
+`scripts/fake-openai.mjs` in place of OpenAI:
+
+| Case | Result |
+| --- | --- |
+| Ordinary message | moderated and delivered, `moderatedAt` stamped |
+| `xharassx` | refused with a plain reason; in no thread, picture or notification |
+| Appeal | `appealed: true`, queued at `/admin/chat` with a sidebar count |
+| Overturn | the original message posted; held copy deleted |
+| Outage (stand-in 503) | "check could not be completed", nothing written, Retry offered |
+| Retry after recovery | delivered |
+| Picture | caption, image and transcription all called; stored in `chatPictures`; renders |
+| Meme (`OPENAI_FAKE_IMAGE_TEXT=xhatex`) | blocked with `source: image-text` although the caption was clean |
+| `xmildx` (flagged at 0.12) | delivered — the floor does its job |
+| Rate limit | "try again in 60 minutes", message kept |
+| Client writes a message / a picture / its own counter / a chat notification | all four `permission-denied` |
+| Non-participant reads the thread, reads a picture, calls the callable | refused, refused, `not-allowed` |
+| Non-admin resolves a block; appeals somebody else's | 403 "Admins only", 403 "Not your message" |
+| Non-admin reads `moderationBlocks` | `permission-denied` |
+
+**What is not verified: the real model's scores against these floors.**
+The key is now set (2026-09-23) but the account has no credits, so no
+call has reached the model. Every test and every
+emulator pass above uses the stand-in, which answers with the documented
+shape for marker words. The handling is proved; the floors are the part
+most likely to need tuning once a real key is in.
+
+### Before it can go live
+
+1. ~~Set the secret~~ **done 2026-09-23** —
+   `OPENAI_API_KEY` version 1 in Secret Manager, a `sk-proj…` key, 164
+   characters, no stray whitespace. **It cannot make a call yet:** the
+   OpenAI account has no credit balance, so `/v1/models` answers 200 but
+   `/v1/moderations` answers a bare `429` and `/v1/responses` answers
+   `insufficient_quota` / `credit_balance_exhausted`. Free of per-token
+   charge is not the same as usable on an empty account. A one-off
+   top-up at platform.openai.com → Billing clears it; moderation is then
+   free of charge against that balance and only transcription spends it.
+2. Deploy the rules **and** the three callables in one command — rules
+   alone stops chat working, Functions alone leaves the bypass open:
+   ```
+   npx firebase deploy \
+     --only functions:sendChatMessageCall,functions:requestChatReview,functions:resolveChatBlock,firestore:rules \
+     --project smartsync-c1f07
+   ```
+3. Then `npm run deploy` for hosting.
+
+Costs: the Moderation API is free for text and images both; only the
+transcription is billed, about $0.0007 a picture, bounded by
+`CHAT_DAILY_CAP`. README §11 has the full setup, the env knobs and the
+limitations. ADR-033 has the reasoning and what was rejected.
+
 ## Latest continuation — the Gemini key, the model and the timeouts (2026-09-22)
 
 **Why:** hours after AI Picks shipped, every model call started coming

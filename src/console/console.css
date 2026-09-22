@@ -1201,3 +1201,37 @@ button.con-stat:hover {
     transition: none !important;
   }
 }
+
+/* A refused message, shown to the one person who has to decide about it.
+   Bounded so a wall of text or a tall photo does not push the buttons
+   off the panel — the decision is the point of the screen. */
+.con-blocked-content {
+  display: grid;
+  gap: 8px;
+  max-height: 340px;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px dashed var(--warning);
+  border-radius: var(--con-radius);
+  background: var(--warning-soft);
+}
+.con-blocked-content p {
+  margin: 0;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.con-blocked-content img {
+  max-width: 100%;
+  max-height: 220px;
+  width: fit-content;
+  border-radius: var(--con-radius);
+}
+/* One line of a message in the queue; the rest is in the panel. */
+.con-clip {
+  display: block;
+  max-width: 34ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

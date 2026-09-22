@@ -1,15 +1,10 @@
-import {
-  collection,
-  doc,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-} from 'firebase/firestore'
+import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 
 import { db } from './config'
+
+// Reading only. A message is written by the moderation Cloud Function
+// and by nothing else — see firebase/chat.js for the way in, and
+// ADR-033 for why the rules refuse a message written from a browser.
 
 // Chat is capped per activity. Without a limit the listener re-downloads the
 // entire history on every new message, which gets expensive fast on a free
@@ -52,27 +47,6 @@ export function watchMessages(activityId, callback, onError) {
     },
     onError,
   )
-}
-
-/**
- * Sends a message. The promise settles when the server has it; its `.id` is
- * known at once (minted locally, as `createActivity` does), so a message
- * queued offline can be found again after a reload to learn whether it
- * landed or was refused.
- */
-export function sendMessage(activityId, user, text) {
-  const trimmed = String(text || '').trim()
-  if (!trimmed) return Promise.resolve()
-  const ref = doc(messagesRef(activityId))
-  const pending = setDoc(ref, {
-    senderId: user.uid,
-    senderName: user.name,
-    senderAvatar: user.avatar,
-    text: trimmed.slice(0, 2000),
-    createdAt: serverTimestamp(),
-  }).then(() => ref)
-  pending.id = ref.id
-  return pending
 }
 
 /** Newest message only — enough for an inbox preview, one document per thread. */

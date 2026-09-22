@@ -560,7 +560,41 @@
     "suspendedNote": "Your account is suspended, so you cannot post here. You can still read the conversation.",
     "placeholder": "Message the group",
     "inputLabel": "Chat message",
-    "send": "Send message"
+    "send": "Send message",
+    "checkingTitle": "Checking",
+    "checking": "Checking this message before anyone sees it…",
+    "moderationNote": "Messages and pictures are checked before the group sees them.",
+    "addPicture": "Add a picture",
+    "removePicture": "Remove this picture",
+    "attachmentPreview": "Picture to send",
+    "captionPlaceholder": "Say something about it (optional)",
+    "pictureFrom": "Picture from {{name}}",
+    "editMessage": "Edit",
+    "askReview": "Ask for a review",
+    "reviewAsked": "Review requested",
+    "reviewFailed": "The request could not be sent. Try again in a moment.",
+    "blocked": {
+      "harassment": "This reads as targeting someone. Rewrite it and it can go through.",
+      "threat": "This reads as a threat. Rewrite it and it can go through.",
+      "hate": "This reads as abuse of a group of people. Rewrite it and it can go through.",
+      "sexual": "This is too explicit for a group chat. Rewrite it and it can go through.",
+      "violence": "This is too graphic for a group chat. Rewrite it and it can go through.",
+      "self-harm": "This reads as encouraging self-harm, so it was not sent.",
+      "profanity": "This chat does not allow that language. Reword it and it can go through.",
+      "severe": "This cannot be sent, and a person has been alerted.",
+      "default": "This message was not sent because it broke the chat rules."
+    },
+    "failed": {
+      "unavailable": "The check could not be completed, so nothing was sent.",
+      "error": "Something went wrong before this could be sent.",
+      "offline": "You are offline. It will be checked and sent when you are back.",
+      "rateLimited_one": "You have sent a lot in a short time. Try again in {{count}} minute.",
+      "rateLimited_other": "You have sent a lot in a short time. Try again in {{count}} minutes.",
+      "closed": "This chat has closed, so nothing was sent.",
+      "not-allowed": "You cannot post in this chat.",
+      "not-found": "This activity no longer exists.",
+      "not-configured": "Message checking is not set up on this server, so nothing was sent."
+    }
   },
   "messages": {
     "title": "Messages",
@@ -1133,6 +1167,7 @@
     "nav": {
       "overview": "Overview",
       "reports": "Reports",
+      "blocks": "Chat blocks",
       "accounts": "Accounts",
       "history": "History",
       "activities": "Activities"
@@ -1255,6 +1290,55 @@
       "reporter": "Reporter",
       "reportedBy": "Reported by",
       "reportId": "Report id"
+    },
+    "blocks": {
+      "search": "Search refused messages",
+      "searchPlaceholder": "Text, person or activity",
+      "who": "Sender",
+      "reason": "Reason",
+      "what": "Message",
+      "status": "Status",
+      "when": "When",
+      "activity": "Activity",
+      "categories": "Categories the API returned",
+      "appealed": "review asked",
+      "detailTitle": "Refused message",
+      "about": "About",
+      "content": "What was written",
+      "noContent": "Not kept",
+      "pictureOnly": "Picture only",
+      "pictureAlt": "The refused picture",
+      "decide": "Decision",
+      "decideHint": "Overturning posts this message to the thread as it was written, and deletes the copy held here. Upholding closes it and sends nothing.",
+      "uphold": "Uphold the block",
+      "overturn": "Overturn and post",
+      "severeTitle": "Handled outside this console",
+      "severeBody": "This was flagged as sexual content involving a minor. Nothing was kept — no text, no picture — and there is nothing to review here. Follow the reporting steps in README §11.",
+      "emptyTitle": "Nothing waiting",
+      "emptyBody": "Refused messages appear here, and the ones people ask a person to look at come first.",
+      "filters": {
+        "appealed": "Review asked",
+        "blocked": "Refused",
+        "resolved": "Answered",
+        "severe": "Flagged",
+        "all": "Everything"
+      },
+      "statuses": {
+        "blocked": "Refused",
+        "upheld": "Upheld",
+        "overturned": "Overturned",
+        "severe": "Flagged"
+      },
+      "reasons": {
+        "harassment": "Harassment",
+        "threat": "Threat",
+        "hate": "Hateful abuse",
+        "sexual": "Sexual content",
+        "violence": "Graphic violence",
+        "self-harm": "Self-harm",
+        "profanity": "Language",
+        "sexual-minors": "Child safety"
+      }
     },
     "accounts": {
       "title": "Accounts",

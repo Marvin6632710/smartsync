@@ -78,6 +78,8 @@ export function moderationMock(registry) {
     watchRoles: (cb, onError) => watcher('roles')(cb, onError),
     watchWarnings: (cb, onError) => watcher('warnings')(cb, onError),
     watchModerationLog: (cb, onError) => watcher('log')(cb, onError),
+    watchModerationBlocks: (cb, onError) => watcher('blocks')(cb, onError),
+    BLOCKS_PAGE: 100,
     claimedByOther: (row, me, now = Date.now()) =>
       Boolean(row?.claimedBy) &&
       row.claimedBy !== me &&

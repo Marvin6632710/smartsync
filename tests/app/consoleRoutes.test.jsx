@@ -74,6 +74,8 @@ vi.mock('../../src/firebase/moderation', () => ({
   // Settings watches your own record too.
   watchMyWarnings: noop,
   watchModerationLog: noop,
+  watchModerationBlocks: noop,
+  BLOCKS_PAGE: 100,
   fetchCounts: async () => ({}),
 }))
 vi.mock('../../src/firebase/users', () => ({

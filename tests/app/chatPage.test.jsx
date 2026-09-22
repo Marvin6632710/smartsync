@@ -32,8 +32,10 @@ vi.mock('../../src/firebase/auth', () => ({ refreshCredential }))
 let activities = []
 let feedLoading = false
 const sendMessage = vi.fn()
-let unsent = []
-const discardUnsent = vi.fn()
+const retryChatMessage = vi.fn()
+const discardChatMessage = vi.fn()
+const reviewChatMessage = vi.fn()
+let chatPending = []
 vi.mock('../../src/context/AppContext', () => ({
   useApp: () => ({
     activities,
@@ -41,12 +43,23 @@ vi.mock('../../src/context/AppContext', () => ({
     // before anything is known.
     joinedIds: activities.map((a) => a.id),
     sendMessage,
+    chatPending,
+    retryChatMessage,
+    discardChatMessage,
+    reviewChatMessage,
     blockedIds: new Set(),
     loading: feedLoading,
-    unsent,
-    discardUnsent,
   }),
 }))
+// A picture is decoded on a canvas, which jsdom does not have; what is
+// under test here is what the screen does with the result.
+const preparePicture = vi.fn(async () => ({ dataUrl: 'data:image/webp;base64,AAAA' }))
+vi.mock('../../src/utils/pictures', async (importActual) => ({
+  ...(await importActual()),
+  preparePicture: (...args) => preparePicture(...args),
+}))
+let storedPicture = null
+vi.mock('../../src/hooks/usePicture', () => ({ usePicture: () => storedPicture }))
 vi.mock('../../src/context/AuthContext', () => ({
   useAuth: () => ({ user: { uid: 'me', name: 'Me', suspended: false } }),
 }))
@@ -83,8 +96,12 @@ beforeEach(() => {
   activities = [thread]
   feedLoading = false
   subscriptions.length = 0
-  unsent = []
-  discardUnsent.mockClear()
+  chatPending = []
+  storedPicture = null
+  discardChatMessage.mockClear()
+  retryChatMessage.mockClear()
+  reviewChatMessage.mockClear()
+  preparePicture.mockClear()
   sendMessage.mockReset()
   refreshCredential.mockClear()
   window.HTMLElement.prototype.scrollIntoView = () => {}
@@ -152,116 +169,175 @@ describe('the composer', () => {
   const type = (value) =>
     fireEvent.change(screen.getByLabelText('Chat message'), { target: { value } })
   const send = () => fireEvent.submit(screen.getByLabelText('Chat message').closest('form'))
+  const pending = (extra = {}) => ({
+    id: 'p1',
+    activityId: 'a1',
+    text: 'see you at 7',
+    image: null,
+    status: 'checking',
+    reason: null,
+    ...extra,
+  })
 
-  test('clears at once, and stays clear when the message lands', async () => {
-    sendMessage.mockResolvedValue({ id: 'm1' })
+  test('hands the message to moderation and clears, saying what is happening', async () => {
     render(page())
     act(() => open().onRows([]))
     type('see you at 7')
     send()
-    expect(screen.getByLabelText('Chat message').value).toBe('')
-    await flush()
-    expect(sendMessage).toHaveBeenCalledWith('a1', 'see you at 7')
+    expect(sendMessage).toHaveBeenCalledWith('a1', 'see you at 7', null)
     expect(screen.getByLabelText('Chat message').value).toBe('')
   })
 
-  test('a refused message is never written back over the input', async () => {
-    // The context records the refusal in `unsent`; the composer keeps
-    // whatever has been typed since, untouched.
-    sendMessage.mockResolvedValue(null)
+  test('while it is being checked it is on the author’s screen and nowhere else', () => {
+    chatPending = [pending()]
     render(page())
     act(() => open().onRows([]))
-    type('first')
-    send()
-    type('second')
-    await flush()
-    expect(screen.getByLabelText('Chat message').value).toBe('second')
+    const bubble = document.querySelector('.pending-bubble')
+    expect(bubble.className).toMatch(/checking/)
+    expect(bubble.getAttribute('role')).toBe('status')
+    expect(bubble.textContent).toMatch(/Checking this message before anyone sees it/)
+    // It is not a message in the thread: the thread has none.
+    expect(document.querySelectorAll('.message-bubble:not(.pending-bubble)')).toHaveLength(0)
   })
 
-  test('a message the server refused is shown in the thread, with the reason, to retry or discard', async () => {
-    sendMessage.mockResolvedValue({ id: 'm2' })
-    const failed = {
-      id: 'u1',
-      kind: 'message',
-      key: 'a1',
-      status: 'failed',
-      payload: { text: 'see you at 7', id: 'm1' },
-      error: {
-        code: 'permission-denied',
-        message: 'It was refused — you may no longer be allowed to do this.',
-      },
-    }
-    unsent = [
-      failed,
-      { ...failed, id: 'u2', key: 'other-thread' },
-      { ...failed, id: 'u3', status: 'pending' },
-    ]
+  test('a refusal says why in general terms, and never rewrites the message', () => {
+    chatPending = [pending({ status: 'blocked', reason: 'harassment' })]
     render(page())
     act(() => open().onRows([]))
-    // Only this thread's failed rows; a pending one is still the optimistic bubble.
-    expect(screen.getAllByRole('alert')).toHaveLength(1)
-    expect(screen.getByText('see you at 7')).toBeTruthy()
-    expect(screen.getByText(/It was refused/)).toBeTruthy()
+    const bubble = document.querySelector('.pending-bubble.blocked')
+    expect(bubble.getAttribute('role')).toBe('alert')
+    expect(bubble.textContent).toMatch(/reads as targeting someone/)
+    // The words are still there, exactly as written.
+    expect(bubble.textContent).toMatch(/see you at 7/)
+    // No category name, no score, nothing to tune the next attempt with.
+    expect(bubble.textContent).not.toMatch(/harassment|0\.9/)
+  })
 
+  test('Edit puts it back in the composer to be rewritten', () => {
+    chatPending = [pending({ status: 'blocked', reason: 'hate' })]
+    render(page())
+    act(() => open().onRows([]))
+    fireEvent.click(screen.getByText('Edit'))
+    expect(screen.getByLabelText('Chat message').value).toBe('see you at 7')
+    expect(discardChatMessage).toHaveBeenCalledWith('p1')
+  })
+
+  test('Discard drops it, and Ask for a review asks a person', () => {
+    chatPending = [pending({ status: 'blocked', reason: 'hate' })]
+    render(page())
+    act(() => open().onRows([]))
+    fireEvent.click(screen.getByText('Ask for a review'))
+    expect(reviewChatMessage).toHaveBeenCalledWith('p1')
+    fireEvent.click(screen.getByText('Discard'))
+    expect(discardChatMessage).toHaveBeenCalledWith('p1')
+  })
+
+  test('a child-safety flag offers no appeal', () => {
+    chatPending = [pending({ status: 'blocked', reason: 'sexual-minors', severe: true })]
+    render(page())
+    act(() => open().onRows([]))
+    expect(screen.getByText(/a person has been alerted/)).toBeTruthy()
+    expect(screen.queryByText('Ask for a review')).toBeNull()
+  })
+
+  test('a check that could not be completed offers Retry, not a sent message', () => {
+    chatPending = [pending({ status: 'failed', reason: 'unavailable' })]
+    render(page())
+    act(() => open().onRows([]))
+    expect(screen.getByText(/could not be completed/)).toBeTruthy()
     fireEvent.click(screen.getByText('Retry'))
-    expect(discardUnsent).toHaveBeenCalledWith('u1')
-    expect(sendMessage).toHaveBeenCalledWith('a1', 'see you at 7')
-    // The input was not touched by any of it.
-    expect(screen.getByLabelText('Chat message').value).toBe('')
+    expect(retryChatMessage).toHaveBeenCalledWith('p1')
   })
 
-  test('two taps on Retry send once', async () => {
-    unsent = [
-      {
-        id: 'u1',
-        kind: 'message',
-        key: 'a1',
-        status: 'failed',
-        payload: { text: 'again' },
-        error: { message: 'It was refused.' },
-      },
-    ]
-    let settle
-    sendMessage.mockReturnValue(new Promise((resolve) => (settle = resolve)))
+  test('offline says so, and being rate-limited says how long', () => {
+    chatPending = [pending({ status: 'failed', reason: 'offline' })]
+    const { unmount } = render(page())
+    act(() => open().onRows([]))
+    expect(screen.getByText(/You are offline/)).toBeTruthy()
+    unmount()
+    chatPending = [pending({ status: 'failed', reason: 'rate-limited', retryAfterSeconds: 300 })]
     render(page())
     act(() => open().onRows([]))
-    const retry = screen.getByText('Retry')
-    fireEvent.click(retry)
-    fireEvent.click(retry)
-    expect(sendMessage).toHaveBeenCalledTimes(1)
-    expect(sendMessage).toHaveBeenCalledWith('a1', 'again')
+    expect(screen.getByText(/Try again in 5 minutes/)).toBeTruthy()
+  })
+
+  test('only this thread’s unsent messages are shown', () => {
+    chatPending = [pending(), pending({ id: 'p2', activityId: 'other', text: 'elsewhere' })]
+    render(page())
+    act(() => open().onRows([]))
+    expect(document.querySelectorAll('.pending-bubble')).toHaveLength(1)
+    expect(screen.queryByText('elsewhere')).toBeNull()
+  })
+
+  test('a picture is prepared, previewed, and sent with the message', async () => {
+    render(page())
+    act(() => open().onRows([]))
+    const file = new File(['x'], 'photo.png', { type: 'image/png' })
     await act(async () => {
-      settle({ id: 'm2' })
+      fireEvent.change(screen.getByLabelText('Add a picture'), { target: { files: [file] } })
       await flush()
     })
+    // Re-encoded for chat, which also strips the file's metadata.
+    expect(preparePicture).toHaveBeenCalledWith(file, 'chat')
+    expect(document.querySelector('.chat-attachment img').src).toContain('data:image/webp')
+    type('look at this')
+    send()
+    expect(sendMessage).toHaveBeenCalledWith('a1', 'look at this', 'data:image/webp;base64,AAAA')
   })
 
-  test('Discard drops a refused message without sending it', () => {
-    unsent = [
-      {
-        id: 'u1',
-        kind: 'message',
-        key: 'a1',
-        status: 'failed',
-        payload: { text: 'never mind', id: 'm1' },
-        error: null,
-      },
-    ]
+  test('a picture can be taken off again before it goes anywhere', async () => {
     render(page())
     act(() => open().onRows([]))
-    fireEvent.click(screen.getByText('Discard'))
-    expect(discardUnsent).toHaveBeenCalledWith('u1')
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Add a picture'), {
+        target: { files: [new File(['x'], 'p.png', { type: 'image/png' })] },
+      })
+      await flush()
+    })
+    fireEvent.click(screen.getByLabelText('Remove this picture'))
+    expect(document.querySelector('.chat-attachment')).toBeNull()
     expect(sendMessage).not.toHaveBeenCalled()
   })
 
-  test('a message queued offline is treated as sent', async () => {
-    sendMessage.mockResolvedValue(Symbol('queued'))
+  test('a picture that cannot be read is said so, and nothing is sent', async () => {
+    preparePicture.mockRejectedValueOnce(new Error('pictures.typeError'))
     render(page())
     act(() => open().onRows([]))
-    type('later')
-    send()
-    await flush()
-    expect(screen.getByLabelText('Chat message').value).toBe('')
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Add a picture'), {
+        target: { files: [new File(['x'], 'p.txt', { type: 'text/plain' })] },
+      })
+      await flush()
+    })
+    expect(screen.getByText(/Choose a JPG, PNG or WebP image/)).toBeTruthy()
+    expect(document.querySelector('.chat-attachment')).toBeNull()
+  })
+
+  test('the composer says, once, what happens to a message', () => {
+    render(page())
+    act(() => open().onRows([]))
+    expect(screen.getByText(/checked before the group sees them/)).toBeTruthy()
+  })
+})
+
+describe('an approved message', () => {
+  test('a picture arrives with the message it was checked with', () => {
+    storedPicture = 'data:image/webp;base64,BBBB'
+    render(page())
+    act(() =>
+      open().onRows([
+        { id: 'm1', senderId: 'h', senderName: 'Host', text: 'we are here', hasImage: true },
+      ]),
+    )
+    const img = screen.getByAltText('Picture from Host')
+    expect(img.src).toContain('BBBB')
+    expect(screen.getByText('we are here')).toBeTruthy()
+  })
+
+  test('a message without one has no picture at all', () => {
+    render(page())
+    act(() => open().onRows([{ id: 'm1', senderId: 'h', senderName: 'Host', text: 'hi' }]))
+    expect(document.querySelector('.message-picture')).toBeNull()
   })
 })
 
