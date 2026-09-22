@@ -232,6 +232,19 @@ three. Details in README.md; the parts worth knowing here:
   `.map-side`/`.smart-map` and `.profile-column`/`.profile-recent` are
   now placed by hand. Verified light and dark, 1024px and phone (no seam
   when the columns stack); deployed hosting only.
+- **The 403 traced to the Google account; free tier, `flash`, wider
+  timeouts, 2026-09-22** — the denial was not the key, the request or the
+  project (a third key from a billing-free project was refused the same
+  way); a key made under a different Google account works. That key is on
+  the free tier, where `gemini-3.5-flash-lite` never answered and
+  `gemini-3.5-flash` answered correctly in 43–75 s (queuing, not
+  generating; two to three seconds on the paid key). Attaching billing to
+  the working project was recommended and declined, so: `DEFAULT_MODEL` →
+  `gemini-3.5-flash`, model-call timeout 20 s → 90 s, Function 30 s →
+  110 s, browser callable 35 s → 115 s, and the SDK retry dropped (a
+  second attempt no longer fits; Try again is the retry). AI Picks can
+  now take up to a minute on a first load and is then cached for ten.
+  ADR-032; README §10; secret at version 5.
 - **Live after the 2026-09-22 deploy: Gemini refusing the project (403)**
   — `34ae1d4` shipped (Function then hosting); the live page then showed
   the no-ranking state because the API answered every generation call

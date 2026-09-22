@@ -30,7 +30,12 @@ let recommend = null
  */
 export function recommendActivitiesCall(data) {
   if (!recommend) {
-    recommend = httpsCallable(client(), 'recommendActivities', { timeout: 35_000 })
+    // The last and longest of the three budgets: the model call gives up
+    // at 90 s, the Function at 110 s, and this at 115 s — so whatever
+    // goes wrong, the page hears a reason rather than a dead socket.
+    // Long because the free-tier model queues for up to a minute
+    // (ADR-032); the page says it is asking the whole time.
+    recommend = httpsCallable(client(), 'recommendActivities', { timeout: 115_000 })
   }
   return recommend(data)
 }

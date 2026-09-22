@@ -1473,7 +1473,8 @@ what a person may see exactly as before — visibility, blocking, spots,
 their discovery filters, minus what they have already joined — keeps the
 forty best by the engine's score, and sends those with the person's
 signals to a callable Cloud Function. The Function checks the shape of
-everything, asks `gemini-3.5-flash-lite` (the current stable "fastest,
+everything, asks `gemini-3.5-flash-lite` (_since 2026-09-22
+`gemini-3.5-flash`: see ADR-032_) (the current stable "fastest,
 most cost-effective" model, through the official SDK's Interactions API,
 JSON against a schema, `store: false`, low thinking) for an order and, for
 each pick, up to three **reason codes** from a fixed list. It then drops
@@ -1614,4 +1615,71 @@ three.
 reverse geocoding — a Maps call per activity for a coarser signal);
 sending coordinates (refused outright); leaving it out (the owner's
 call, made knowing the gain was modest).
+
+---
+
+## ADR-032 — The model is `gemini-3.5-flash`, and the key lives in a free-tier project
+
+**Context.** AI Picks shipped on `gemini-3.5-flash-lite` with a key from
+an AI Studio project carrying prepay credits (ADR-029). On 2026-09-22,
+hours after the deploy, every generation call began returning `403
+"Your project has been denied access. Please contact support."` The key
+still authenticated — listing models answered 200 — and the same refusal
+came from a raw request on both the current and the legacy endpoint, so
+it was neither the app nor the request shape. A key from a second
+project, then a third with no billing at all, were refused identically:
+the block followed the account, not the project. It cleared when the
+owner made a key under a different Google account.
+
+**Decision.** Two changes, both forced by that afternoon.
+
+The key now comes from a **free-tier project** (no billing). The app's
+own limits — ten model calls per person per hour, fifteen hundred a day
+— already bound the traffic well inside the free tier for an exhibition,
+and a project with no payment method attached cannot be stopped by a
+payments review again.
+
+The default model is **`gemini-3.5-flash`**. On that free-tier project
+`flash-lite` answered "currently experiencing high demand" to every
+attempt over several minutes, while `flash` answered immediately. Lite
+is cheaper per token and slightly faster, and was the right default
+while capacity was there; a model with no capacity for you is not
+cheaper, it is absent. `GEMINI_MODEL` in `functions/.env` still
+overrides the default, so returning to lite is one line and a deploy.
+
+**And the three timeouts go up: 20 s → 90 s at the model call, 30 s →
+110 s at the Function, 35 s → 115 s in the browser; the SDK's one retry
+goes.** This is the real price of the free tier and it was measured, not
+guessed: the same call that took two or three seconds on the paid key
+took 43, 49, 65 and 75 seconds on the free one, and sometimes refused
+outright with "currently experiencing high demand". The time is queuing,
+not generating — the answers, when they come, are correct and about the
+same size. Twenty seconds on that tier means throwing away every answer
+just before it arrives. The retry goes because at ninety seconds a second
+attempt cannot fit inside the Function's budget; the page's Try again is
+the retry, and it belongs to the person anyway.
+
+**Cost.** A larger model: more tokens billed if billing is ever attached
+again, and a fraction of a second slower per request — against about
+1,100 tokens a call, invisible to anyone using the app. The waiting is
+not invisible: AI Picks can now say "Asking Gemini…" for a minute on a
+first load, which is a poor thing to demonstrate live and was put to the
+owner as exactly that, against attaching billing to the working project.
+They chose the free tier. Two things take the edge off it: the answer is
+cached per person for ten minutes, so it is instant for the rest of a
+demo once it has been asked, and every failure still arrives as "Not
+ranked" with what is on, soonest first. The free tier's own rate limits
+sit above the app's caps. And the refusal that started all this is worth
+saying plainly at the exhibition rather than hiding: a dependency on
+somebody else's service can be withdrawn without notice, which is
+exactly why every failure in this feature is a value the page can
+explain rather than an exception that blanks it.
+
+**Rejected.** Waiting for lite to free up (no estimate, and the
+exhibition is dated); pinning the model in `functions/.env` only (that
+file is not in git, so a deploy from a fresh clone would quietly fall
+back to a model with no capacity); going back to a billed project (the
+block that started this was a payments review); attaching billing to the
+new project, which would restore the two-second behaviour and was the
+recommendation — the owner chose to stay free.
 

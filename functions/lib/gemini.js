@@ -13,15 +13,40 @@
  *   it says is still checked by `parsePicks`.
  * - A low thinking level: ordering forty short records is not a hard
  *   problem, and thought tokens are billed as output.
- * - One retry at most, and a timeout: the browser is waiting, and "not
- *   ranked, try again" said promptly beats a ranking that arrives after
- *   the person has left. The SDK would otherwise try five times with
- *   growing pauses.
+ * - A timeout, and no retry of our own: the browser is waiting, and a
+ *   ranking that arrives after the person has left is worth nothing.
+ *   The SDK would otherwise try five times with growing pauses — and
+ *   on the free tier, where one attempt can take over a minute (see
+ *   the timeout below), a second attempt cannot fit inside the
+ *   Function's own budget. The page's Try again is the retry, and it
+ *   is the person's to press.
  */
 import { GoogleGenAI } from '@google/genai'
 
-export const DEFAULT_MODEL = 'gemini-3.5-flash-lite'
-export const DEFAULT_TIMEOUT_MS = 20_000
+/**
+ * `flash`, not `flash-lite`, since 2026-09-22.
+ *
+ * Lite is the cheaper and faster of the two and was the right default
+ * while the key had billing behind it. On the free-tier project the app
+ * now uses, every lite call came back "currently experiencing high
+ * demand" for as long as it was tried, while flash answered at once —
+ * a model with no capacity for you is not a cheaper model, it is no
+ * model. `GEMINI_MODEL` in functions/.env overrides this without a code
+ * change, so going back is one line when lite has room again.
+ */
+export const DEFAULT_MODEL = 'gemini-3.5-flash'
+/**
+ * Ninety seconds, not twenty, since 2026-09-22 (ADR-032).
+ *
+ * On a paid project this call answered in two or three seconds and
+ * twenty was generous. On the free tier the app now uses, the same call
+ * measured 43, 49, 65 and 75 seconds — the time is spent queuing, not
+ * generating. Twenty seconds there means the answer is always thrown
+ * away just before it arrives. Ninety catches what the free tier
+ * actually delivers and still leaves room under the Function's budget
+ * (110 s) and the browser's (115 s).
+ */
+export const DEFAULT_TIMEOUT_MS = 90_000
 
 /** The error the adapter throws: a name for the kind, and the HTTP status if there was one. */
 export class RankerError extends Error {
@@ -71,9 +96,11 @@ export function geminiRanker({
         },
         {
           timeout_ms: timeoutMs,
+          // None: at this timeout a second attempt would outlive the
+          // Function. See the note at the top of the file.
           retries: {
             strategy: 'attempt-count-backoff',
-            maxRetries: 1,
+            maxRetries: 0,
             backoff: { initialInterval: 400, maxInterval: 400, exponent: 1 },
           },
         },

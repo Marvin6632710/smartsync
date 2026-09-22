@@ -96,7 +96,9 @@ export const recommendActivities = onCall(
   {
     region: 'us-central1',
     secrets: [geminiKey],
-    timeoutSeconds: 30,
+    // Longer than the model call's own ninety seconds, so a slow answer
+    // is returned rather than cut off by the platform (ADR-032).
+    timeoutSeconds: 110,
     memory: '256MiB',
     // A ceiling on how many copies may run at once, which is a ceiling on
     // how fast the model can be called whatever the per-person limits say.

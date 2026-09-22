@@ -9,6 +9,56 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest continuation — the Gemini key, the model and the timeouts (2026-09-22)
+
+**Why:** hours after AI Picks shipped, every model call started coming
+back `403 "Your project has been denied access. Please contact
+support."` What was ruled out, in order: the key (it authenticates —
+listing models answers 200), the app and the request shape (a raw curl
+on both the Interactions and the legacy `generateContent` endpoint gets
+the same refusal), and the project (a second key, then a third from a
+brand-new project with no billing, were refused identically). It was the
+**Google account**: the keys were being made under the university
+account. A key made under a different account works.
+
+**What that key can actually do** — measured with the app's own ranker
+against the real API:
+
+| model | free tier, this account |
+| --- | --- |
+| `gemini-3.5-flash-lite` | "currently experiencing high demand" on every attempt, over many minutes |
+| `gemini-3.5-flash` | correct rankings, in 43 s / 49 s / 65 s / 75 s — and sometimes the same refusal |
+
+The time is queuing, not generating: the answers are the usual ~1,100
+tokens. On the paid key the same call took two or three seconds.
+
+**The owner's decision.** Attaching billing to the working project (two
+seconds again) was recommended and declined; they chose to stay on the
+free tier and wait out the latency. So:
+
+- `DEFAULT_MODEL` is now `gemini-3.5-flash` (`functions/lib/gemini.js`);
+  `GEMINI_MODEL` in `functions/.env` still overrides it, which is the
+  one-line way back to `flash-lite` if capacity returns or billing is
+  attached.
+- The three budgets go up: the model call 20 s → **90 s**, the Function
+  `timeoutSeconds` 30 → **110**, the browser callable 35 s → **115 s**.
+  They stay in that order on purpose, so a failure always reaches the
+  page as a reason rather than a dead socket.
+- The SDK's one retry goes (`maxRetries: 0`): at ninety seconds a second
+  attempt cannot fit inside the Function. The page's **Try again** is the
+  retry.
+- ADR-032 records all of it, including what it costs: AI Picks can now
+  say "Asking Gemini…" for a minute on a first load. The ten-minute
+  per-person cache means it is instant for the rest of a demo once
+  asked.
+
+**Secret:** `GEMINI_API_KEY` is at **version 5** (the working key), set
+by the owner and deployed with it. Versions 1–4 are dead (the denied
+projects). The key value has never been in a file or a commit.
+
+**Shipped:** see the commit after `6ad1feb`; Function and hosting
+deployed, 854 unit/app tests, lint and build clean.
+
 ## Latest continuation — cards and columns get an edge (2026-09-22)
 
 **Shipped: `ead3537`, pushed, hosting deployed** (stylesheet

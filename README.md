@@ -450,10 +450,12 @@ How a request goes:
    exactly that shape, checks its cache (the same question in the last ten
    minutes is answered without a model call), counts the call against the
    person's hour (10) and the day's total (1,500), and only then calls
-   Gemini — `gemini-3.5-flash-lite` through the official `@google/genai`
-   SDK, Interactions API, JSON output against a schema, `store: false`, one
-   retry, a 20 s timeout. `functions/lib/picks.js`, `recommend.js`,
-   `gemini.js`.
+   Gemini — `gemini-3.5-flash` through the official `@google/genai`
+   SDK, Interactions API, JSON output against a schema, `store: false`,
+   no retry, a 90 s timeout (the Function gives up at 110 s, the browser
+   at 115 s). Those are wide because the key is on a free-tier project,
+   where a call queues for up to a minute — ADR-032. `functions/lib/picks.js`,
+   `recommend.js`, `gemini.js`.
 3. The answer is a list of ids with reason **codes**, not prose. An id the
    model was not given is dropped, a repeat is dropped, and each code is
    kept only when the data supports it (`interest` needs the category in
@@ -482,7 +484,9 @@ npx firebase deploy --only functions:recommendActivities,firestore:rules --proje
 ```
 
 Optional tuning, in `functions/.env` (ignored by git, read at deploy):
-`GEMINI_MODEL` (default `gemini-3.5-flash-lite`), `PICKS_USER_HOURLY_CAP`
+`GEMINI_MODEL` (default `gemini-3.5-flash`; `gemini-3.5-flash-lite` is
+cheaper and faster when the account has capacity for it),
+`PICKS_USER_HOURLY_CAP`
 (default 10), `PICKS_DAILY_CAP` (default 1500). Set a Cloud Billing budget
 alert; at the documented prices the daily cap bounds the model cost to a
 few dollars a day even with every request a miss.
