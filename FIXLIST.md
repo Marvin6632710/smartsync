@@ -217,6 +217,21 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **Cards and columns get an edge, 2026-09-22 (`ead3537`, deployed)** —
+  the owner, looking at Discover, Map and Profile on a wide dark screen,
+  asked for the boundaries between categories to be visible. Each
+  activity card now carries a hairline in its own category's colour
+  (`color-mix` of `--cat` with `--line`, the light partner `--cat-2` in
+  the dark set, brighter on hover) instead of `border-color: transparent`;
+  and a seam runs down the gutter of all three wide layouts — the feed
+  and the picks, the list and the map, the profile and what you joined —
+  a 1px gradient faded at both ends, drawn as a `::after` grid item in
+  the left column's cell, shifted half the gap. Placing it broke the map
+  and profile grids at first (a definitely-placed grid item is placed
+  before auto-placed ones, so both real columns shifted a cell along):
+  `.map-side`/`.smart-map` and `.profile-column`/`.profile-recent` are
+  now placed by hand. Verified light and dark, 1024px and phone (no seam
+  when the columns stack); deployed hosting only.
 - **Live after the 2026-09-22 deploy: Gemini refusing the project (403)**
   — `34ae1d4` shipped (Function then hosting); the live page then showed
   the no-ranking state because the API answered every generation call

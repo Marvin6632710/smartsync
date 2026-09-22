@@ -9,6 +9,41 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest continuation — cards and columns get an edge (2026-09-22)
+
+**Shipped: `ead3537`, pushed, hosting deployed** (stylesheet
+`index-D1379UNV.css`, verified served and carrying both rules). CSS
+only — no test, locale or behaviour change; 854 unit/app tests pass.
+
+The owner asked, from screenshots of Discover, Map and Profile on a wide
+dark screen, for "the border between different categories to be more
+visible", then drew a line down the gutter between the two columns and
+said to keep the first change and add that too.
+
+1. **Card edges.** `.activity-card` had `border-color: transparent`, so
+   on the dark ground a card's body melted into the page and two
+   neighbouring cards read as one slab. It now takes
+   `color-mix(in srgb, var(--cat) 45%, var(--line))`, 72% on hover; the
+   dark set uses `--cat-2` (the light partner) at 40/62%, because the
+   base hues are too dark to draw a line with.
+2. **The column seam.** `.discover-page[data-picks='yes']::after`,
+   `.smart-map-page::after`, `.profile-page::after` — a 1px
+   `--line-strong` gradient, transparent at 0/100% and solid from 5% to
+   95%, `justify-self: end` with a negative margin of half that page's
+   column gap (16/8/16px), `align-self: stretch`. Inside the 1024px
+   media block only: below that the columns stack and there is nothing
+   to divide.
+   **The trap:** a grid item with a definite position is placed before
+   the auto-placed ones, so pinning the pseudo to column 1 pushed the
+   map's list into the map's cell and the map out of sight (same for the
+   profile). `.map-side`/`.smart-map` and `.profile-column`/
+   `.profile-recent` are therefore placed by hand now. Discover was
+   never affected — its children already sit in named grid areas.
+
+Verified in the emulator app, light and dark, wide and 375px, and on the
+live site by reading the served stylesheet and the computed border of a
+card (`color(srgb 0.15 0.42 0.39)` on a Study card) and of the seam.
+
 ## Latest continuation — the scoring engine removed (2026-09-22)
 
 **State: SHIPPED 2026-09-22 as `34ae1d4` (pushed, Function + hosting
