@@ -400,12 +400,14 @@ describe('rateWindow', () => {
 })
 
 describe('classifyError', () => {
-  test('429 is the quota, 5xx and no status are the service, other 4xx is our request', () => {
+  test('429 is the quota, 5xx and no status are the service, 401/402/403 the key or the account, other 4xx our request', () => {
     expect(classifyError({ status: 429 })).toBe('rate-limited')
     expect(classifyError({ status: 503 })).toBe('unavailable')
     expect(classifyError(new Error('timeout'))).toBe('unavailable')
     expect(classifyError({ status: 400 })).toBe('invalid')
-    expect(classifyError({ status: 403 })).toBe('invalid')
+    expect(classifyError({ status: 401 })).toBe('refused')
+    expect(classifyError({ status: 402 })).toBe('refused')
+    expect(classifyError({ status: 403 })).toBe('refused')
   })
 })
 

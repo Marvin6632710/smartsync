@@ -11,12 +11,11 @@ update is documentation only. The application has no half-finished changes.
 
 ## Latest continuation — the scoring engine removed (2026-09-22)
 
-**State: built and verified on localhost; NOT committed, NOT deployed.**
-The owner is testing it first; nothing goes to git or the live site
-until they say so. `git status` shows the whole change as a working-tree
-diff on top of `8df38bd` (together with the place-names addition below:
-49 modified, 8 deleted, 2 new). The live site is still the `8df38bd`
-build with the engine.
+**State: SHIPPED 2026-09-22 as `34ae1d4` (pushed, Function + hosting
+deployed) — see "Shipped" below; the live model call is currently
+refused by Google (403), which is outside the app.** What follows was
+written while it was still a working-tree diff on top of `8df38bd`
+(with the place-names addition below: 49 modified, 8 deleted, 2 new).
 
 **The owner's decision.** With AI Picks ranked by Gemini, they asked
 whether the signal weights were still needed. I laid out that the weights
@@ -153,7 +152,39 @@ to change; they chose to build it.
 - Docs: README §10 (what goes out, the codes), ADR-029 amendment note,
   ADR-031, FIXLIST, CLAUDE_HANDOFF.
 
-### To finish, when the owner says so
+### Shipped 2026-09-22 — and what the live site showed afterwards
+
+The owner tested locally ("ok it works, commit and deploy"): committed
+as one commit, `34ae1d4` ("The scoring engine goes: Gemini ranks, and
+place names go by name"), pushed (main == origin), the Function
+deployed first (`recommendActivities`, successful update), then hosting
+(bundle `index-BmzwjMUp.js`, verified equal to the local build and free
+of the engine's strings). Rules unchanged, not deployed.
+
+**Live check: the code runs, but Gemini is refusing the project.** The
+page showed "Not ranked… soonest first" with Try again, and the Function
+log said `ai picks model call failed … status 403 "Your project has been
+denied access. Please contact support."` A direct probe with the
+deployed key (read from Secret Manager, never printed): the key is
+valid (`GET /v1beta/models` → 200) but every generation call answers
+`permission_denied` with that text. That is a Google-side block on the
+AI Studio / Cloud project behind the key — it worked at 15:00 UTC on
+2026-09-21 — most likely the new prepay billing account under review,
+or the project flagged. **Nothing in the app can fix it**; the owner
+has to look in AI Studio (Billing / the project's notices), contact
+support as the message says, or create a key in a different project
+(a no-billing one runs on the free tier) and re-set the secret
+(`npx firebase functions:secrets:set GEMINI_API_KEY`, answer Y to the
+redeploy prompt).
+
+Follow-up, so the page tells the truth meanwhile: `classifyError` now
+maps 401/402/403 to a new kind `refused` (was `invalid`, whose wording
+"gave an answer the app could not use" was wrong for a denied project);
+`picks.fallback.refused` = "Gemini is refusing this server's access
+right now…" in four languages. Committed and deployed after `34ae1d4`
+(see git log; Function + hosting).
+
+### To finish, when the owner says so — done above; kept for the record
 
 1. `git add -A && git commit` (one commit, or two: the engine removal
    and "Place names to Gemini, by name only"; co-author line on each),

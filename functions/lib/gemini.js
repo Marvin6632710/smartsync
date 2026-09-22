@@ -37,8 +37,13 @@ export function classifyError(error) {
   const status = Number(error?.status ?? error?.statusCode)
   if (status === 429) return 'rate-limited'
   if (status >= 500 || !Number.isFinite(status)) return 'unavailable'
-  // 400s other than the quota: our request was refused (a bad key, a
-  // rejected schema). The person should not pay for it with a blank page.
+  // The key or the account, not the request: an invalid key (401), no
+  // credit left (402), or the project shut out (403 "Your project has
+  // been denied access") — the live outage of 2026-09-22 was the last
+  // one, and read as "an answer the app could not use" until this.
+  if (status === 401 || status === 402 || status === 403) return 'refused'
+  // Other 400s: our request was refused (a rejected schema, say). The
+  // person should not pay for it with a blank page.
   return 'invalid'
 }
 

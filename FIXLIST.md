@@ -217,6 +217,18 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **Live after the 2026-09-22 deploy: Gemini refusing the project (403)**
+  — `34ae1d4` shipped (Function then hosting); the live page then showed
+  the no-ranking state because the API answered every generation call
+  with `permission_denied: "Your project has been denied access. Please
+  contact support."` (key valid: the models list answers 200). Google's
+  side — the AI Studio/Cloud project behind the key, most likely the new
+  prepay billing under review; worked the evening before. Follow-up:
+  401/402/403 now classify as `refused` with the wording "Gemini is
+  refusing this server's access right now…" (four languages) instead of
+  "gave an answer the app could not use". The owner has to resolve it in
+  AI Studio (billing/support) or re-set the secret with a key from
+  another project.
 - **Place names go to Gemini, by name only, 2026-09-22** — at the owner's
   request after the trade-off was laid out (ADR-031). Each candidate
   carries its `locationName` as `place` (cleaned, 60 chars) and the

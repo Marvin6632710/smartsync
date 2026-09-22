@@ -796,6 +796,7 @@
       "rate-limited_one": "Gemini has been asked a lot in the last hour, so here is what is on, soonest first. Try again in {{count}} minute.",
       "rate-limited_other": "Gemini has been asked a lot in the last hour, so here is what is on, soonest first. Try again in {{count}} minutes.",
       "not-configured": "Gemini is not set up on this server, so here is what is on, soonest first.",
+      "refused": "Gemini is refusing this server's access right now, so here is what is on, soonest first.",
       "invalid": "Gemini gave an answer the app could not use, so here is what is on, soonest first.",
       "stale": "The activities changed since Gemini answered, so here is what is on, soonest first.",
       "error": "The recommendation service could not be reached, so here is what is on, soonest first."
