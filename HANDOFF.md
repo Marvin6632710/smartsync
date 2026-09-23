@@ -50,23 +50,37 @@ to the offline stand-in (useful if the venue wifi fails), restore
 `OPENAI_BASE_URL=http://127.0.0.1:5699/v1` and run
 `node scripts/fake-openai.mjs`.
 
-### Still to do — the deploy
+### DEPLOYED — 2026-09-23
 
-Not deployed yet; the live site still has the old rules and chat there
-works as before. Deploy rules **and** the three callables in one
-command — rules alone stops chat working, Functions alone leaves the
-bypass open:
+Live. Deployed in three steps rather than one command, deliberately:
+**Functions first, then rules, then hosting.** The single-command form
+gives no ordering guarantee, and if rules had landed first and the
+Functions deploy then failed, every chat message on the live site would
+have been refused with nothing able to write one — a dead chat for as
+long as the fix took.
 
-```bash
-npx firebase deploy \
-  --only functions:sendChatMessageCall,functions:requestChatReview,functions:resolveChatBlock,firestore:rules \
-  --project smartsync-c1f07
-```
+| step | result |
+| --- | --- |
+| `functions:sendChatMessageCall,requestChatReview,resolveChatBlock` | all three created; Secret Manager access to `OPENAI_API_KEY` granted automatically |
+| `firestore:rules` | compiled and released |
+| `hosting` | `index-zxYnK4zD.js`, confirmed being served |
 
-Then `npm run deploy` for hosting, and send one real message on the live
-site to confirm. Watch the balance afterwards: with OCR off nothing
-should consume it, so a falling balance means something unexpected is
-calling the vision model.
+Verified after the deploy: all three functions `ACTIVE` with
+`OPENAI_API_KEY` version 1 bound as a secret environment variable, at
+60 s / 512 MiB / max 10 instances; an unauthenticated call to each
+returns the app's own "Sign in…" wording rather than a 500, which is
+what proves the module loaded rather than merely uploaded.
+
+**One difference from localhost worth knowing.** There is no
+`functions/.env`, so production runs the defaults — which means
+`CHAT_IMAGE_OCR` is **on** in production, while `functions/.env.local`
+still has it off for the emulator. So the live site reads the words
+inside pictures and localhost does not. That is the more protective
+setting and costs about $0.0007 a picture; to turn it off live, add
+`CHAT_IMAGE_OCR=off` to `functions/.env` and redeploy the functions.
+
+Watch the credit balance for the first day. Text moderation is free, so
+the balance should fall only with pictures, and slowly.
 
 ## Latest continuation — chat is moderated before delivery (2026-09-23)
 
