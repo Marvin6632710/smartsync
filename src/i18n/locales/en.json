@@ -586,6 +586,7 @@
     },
     "failed": {
       "unavailable": "The check could not be completed, so nothing was sent.",
+      "refused": "Message checking is unavailable right now, so nothing was sent. This one is ours to fix, not yours.",
       "error": "Something went wrong before this could be sent.",
       "offline": "You are offline. It will be checked and sent when you are back.",
       "rateLimited_one": "You have sent a lot in a short time. Try again in {{count}} minute.",

@@ -40,7 +40,16 @@ export const MODERATION_MODEL = 'omni-moderation-latest'
  * first (see `imageTextPrompt`).
  */
 export const CATEGORIES = {
-  harassment: { block: true, reason: 'harassment', floor: 0.5, image: false },
+  // 0.85, and it was measured rather than guessed. Against the real
+  // model on 2026-09-23, ordinary messages this app exists to carry
+  // reach much higher than 0.5: "your idea is rubbish and you did not
+  // think it through" scores 0.807, friendly teasing 0.803, and board
+  // game trash talk 0.804. Real abuse sits above: a cruel personal
+  // attack 0.889, a pile-on 0.978, a sustained one 0.976. The old 0.5
+  // floor blocked all three of the first group, which is the one
+  // failure that would have made the chat unusable. See README §11 for
+  // the measurements and for what this number cannot separate.
+  harassment: { block: true, reason: 'harassment', floor: 0.85, image: false },
   'harassment/threatening': { block: true, reason: 'threat', floor: 0.35, image: false },
   hate: { block: true, reason: 'hate', floor: 0.45, image: false },
   'hate/threatening': { block: true, reason: 'threat', floor: 0.3, image: false },

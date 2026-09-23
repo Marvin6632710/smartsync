@@ -9,84 +9,64 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
-## ⚠ OPEN ITEM — do not deploy chat moderation yet (owner's decision, 2026-09-23)
+## Chat moderation: credits on, floors calibrated, ready to deploy (2026-09-23)
 
-**Chat moderation is committed and pushed (`f825c92`) but deliberately
-NOT deployed. The live site is unaffected and chat there works
-normally.** Keep it that way until the step below is done.
+The earlier hold is lifted. **$5 of credit was added on 2026-09-23 and
+the whole path now runs against the real API.** `/v1/moderations` and
+`/v1/responses` both answer 200.
 
-**Why.** The `OPENAI_API_KEY` secret is set (version 1, valid — it
-authenticates), but the OpenAI account has no credit balance. Measured
-against the live API on 2026-09-23:
+**One floor moved, and it mattered.** The floors had never been measured.
+Against the real model, ordinary messages this app exists to carry score
+far higher than the old harassment floor of 0.5 — criticism of an idea
+0.807, friendly teasing 0.803, board-game trash talk 0.804 — while real
+abuse starts at 0.889. At 0.5 the chat would have refused all three on
+day one. The floor is now **0.85**, pinned by a test naming the measured
+scores. README §11 carries the full measurements.
 
-| call | answer |
-| --- | --- |
-| `GET /v1/models` | 200 — the key is good |
-| `POST /v1/moderations` | bare `429 "Too Many Requests"`, no rate-limit headers |
-| `POST /v1/responses` | `429 insufficient_quota` / `credit_balance_exhausted` |
+**What it cannot do is written down rather than hidden.** Threats and
+trash talk are the same thing to this model ("I will end you" about a
+card deck scores *higher* than "I will kill you" to a person); calmly
+worded stalking and weapon threats come back clean; "go back to your own
+country" is not classified as hate at all; coercive sexual pressure and
+indirect suicide instructions are not flagged by the API in the first
+place, so no threshold reaches them. On a held-out set of nineteen, all
+twelve that had to pass did, and five of seven that should have blocked
+did not. Report and the admin console are still the path for the rest —
+that is the honest architecture, and it is the answer to give if a panel
+asks what the model misses.
 
-Free of per-token charge is **not** the same as usable on an empty
-account. OpenAI gates API access on having credits, and the moderation
-endpoint reports that gate only as an unexplained 429.
+**Verified against the live API, through the real callable:** seven of
+seven — five ordinary messages delivered (including swearing, blunt
+criticism, teasing and somebody saying they are struggling), two
+personal attacks refused and absent from the thread.
 
-**So deploying now would break chat completely** — every message
-refused, and because a 429 currently classifies as `rate-limited` the
-sender would be told "You have sent a lot in a short time, try again in
-60 minutes", which is not the reason. `npm run deploy` pushes rules and
-Functions together, so it is the command to avoid.
+**Local setup now points at the real API**, not the stand-in:
+`functions/.secret.local` holds the real `OPENAI_API_KEY` and the
+`OPENAI_BASE_URL` line is gone from `functions/.env.local`.
+`CHAT_IMAGE_OCR=off` is still set, so pictures are moderated as images
+but their text is not read — turn it on by deleting that line if the
+meme gap matters more than a fraction of a cent per picture. To go back
+to the offline stand-in (useful if the venue wifi fails), restore
+`OPENAI_BASE_URL=http://127.0.0.1:5699/v1` and run
+`node scripts/fake-openai.mjs`.
 
-**The owner's plan: top up close to the exhibition, to keep the spend
-minimal.** Noted as their call. **The exhibition is Friday 25 September
-2026** (the SP1 defence is the separate, earlier date in ROADMAP.md).
-So "close to it" is two days out from 2026-09-23, and the window allows
-for about one attempt. Leave time for step 3 (calibration — the floors
-have never been measured and some will move) and step 6 (one real
-message on the live site). Topping up on the morning itself leaves
-neither. One fact for that decision, since it
-cuts the other way: moderation has no per-token charge, so the balance
-is not consumed by it — with `CHAT_IMAGE_OCR=off` already set, nothing
-spends the credit at all. Topping up early therefore costs the same as
-topping up late; the only thing that argues for waiting is credit
-expiry (historically a year from purchase).
+### Still to do — the deploy
 
-### When the time comes — the whole checklist
+Not deployed yet; the live site still has the old rules and chat there
+works as before. Deploy rules **and** the three callables in one
+command — rules alone stops chat working, Functions alone leaves the
+bypass open:
 
-1. Add credits: <https://platform.openai.com/settings/organization/billing>
-   (one-off, minimum normally $5 — not a subscription).
-2. Confirm it cleared, without printing the key:
-   ```bash
-   KEY=$(npx firebase functions:secrets:access OPENAI_API_KEY --project smartsync-c1f07)
-   curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.openai.com/v1/moderations \
-     -H "authorization: Bearer $KEY" -H 'content-type: application/json' \
-     -d '{"model":"omni-moderation-latest","input":"hello"}'
-   ```
-   `200` means it is ready. `429` means it is not.
-3. **Calibrate the floors against the real model before trusting them.**
-   They have never been measured — they were chosen from the docs and
-   from reasoning. Ask Claude to run the calibration probe: ten
-   realistic messages (ordinary, heated-about-football, swearing, blunt
-   criticism, an insult, a threat, somebody saying they are struggling,
-   film violence) printed as category and score against each floor in
-   `functions/lib/moderation.js`. Expect some to need moving.
-4. Deploy rules **and** Functions in one command — rules alone stops
-   chat working, Functions alone leaves the bypass open:
-   ```bash
-   npx firebase deploy \
-     --only functions:sendChatMessageCall,functions:requestChatReview,functions:resolveChatBlock,firestore:rules \
-     --project smartsync-c1f07
-   ```
-5. `npm run deploy` for hosting.
-6. Send one real message on the live site and confirm it arrives.
+```bash
+npx firebase deploy \
+  --only functions:sendChatMessageCall,functions:requestChatReview,functions:resolveChatBlock,firestore:rules \
+  --project smartsync-c1f07
+```
 
-### Also pending, small
-
-Make a quota 429 read honestly. `classify()` in
-`functions/lib/openai.js` maps every 429 to `rate-limited`, which blames
-the sender for an empty account. A 429 whose body carries
-`insufficient_quota` or `credit_balance_exhausted` should classify as
-`refused` — the wording AI Picks already uses for a key problem that is
-ours, not theirs. Not done because it was not asked for; worth doing
-before any deploy on a tight balance.
+Then `npm run deploy` for hosting, and send one real message on the live
+site to confirm. Watch the balance afterwards: with OCR off nothing
+should consume it, so a falling balance means something unexpected is
+calling the vision model.
 
 ## Latest continuation — chat is moderated before delivery (2026-09-23)
 

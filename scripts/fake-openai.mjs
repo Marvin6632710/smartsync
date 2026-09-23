@@ -24,7 +24,8 @@
  *
  *   node scripts/fake-openai.mjs             # listens on 127.0.0.1:5699
  *   FAKE_OPENAI_MODE=error node …            # every call fails with 503
- *   FAKE_OPENAI_MODE=quota node …            # every call fails with 429
+ *   FAKE_OPENAI_MODE=quota node …            # 429, a real rate limit
+ *   FAKE_OPENAI_MODE=nocredit node …         # 429, an empty account
  *   FAKE_OPENAI_MODE=slow node …             # answers after 30 s
  *   OPENAI_FAKE_IMAGE_TEXT='xhatex' node …   # every picture "contains" that
  *
@@ -118,7 +119,18 @@ const server = http.createServer((req, res) => {
       return answer(res, 400, { error: { message: 'bad json' } })
     }
     if (MODE === 'error') return answer(res, 503, { error: { message: 'down' } })
-    if (MODE === 'quota') return answer(res, 429, { error: { message: 'slow down' } })
+    if (MODE === 'quota') return answer(res, 429, { error: { message: 'Too Many Requests' } })
+    // The same status, a different truth: an account with no credit. The
+    // real moderation endpoint says only "Too Many Requests" here, but
+    // /v1/responses names it, and that is what the adapter reads.
+    if (MODE === 'nocredit')
+      return answer(res, 429, {
+        error: {
+          message: 'You have no credits remaining. Add credits to continue using the API.',
+          type: 'insufficient_quota',
+          code: 'credit_balance_exhausted',
+        },
+      })
     if (MODE === 'slow') await new Promise((done) => setTimeout(done, 30_000))
 
     if (req.url.includes('/moderations')) {

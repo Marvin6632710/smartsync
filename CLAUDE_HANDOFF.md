@@ -3,25 +3,19 @@
 Prepared 2026-09-21. Use the existing local folder:
 `/Users/marvin/Downloads/SmartSync 2`.
 
-## ⚠ Read this before any deploy (open at 2026-09-23)
+## Chat moderation — calibrated and ready, not yet deployed (2026-09-23)
 
-**Chat moderation is committed and pushed (`f825c92`) but deliberately
-NOT deployed, and must not be until the OpenAI account has credits.**
-The live site still has the old rules, so chat there works normally —
-that stays true only while nobody deploys.
+Credits are on the OpenAI account and the whole path runs against the
+real API. **The harassment floor moved 0.5 → 0.85 because the floors had
+never been measured and the old one refused ordinary chat** — criticism
+of an idea scores 0.807, friendly teasing 0.803, trash talk 0.804, while
+real abuse starts at 0.889. Pinned by a test naming those scores;
+measurements and the honest list of what the model misses are in README
+§11 and in HANDOFF.md.
 
-The `OPENAI_API_KEY` secret is set and the key is valid, but the account
-has no credit balance, so `/v1/moderations` answers a bare `429`. Deploy
-in that state and every chat message is refused — and the sender is told
-"you have sent a lot in a short time", which is not the reason.
-`npm run deploy` pushes rules and Functions together, so it is the
-command to avoid.
-
-**The owner's plan: top up close to the exhibition — Friday 25 September
-2026 — to keep the spend minimal.** HANDOFF.md opens with the full
-six-step checklist for that day, including calibrating the floors
-against the real model before trusting them. If a session starts on or
-after 24 September and this notice is still here, raise it.
+Still **not deployed** — the live site has the old rules and chat there
+works. When deploying, rules and the three callables must go in one
+command; HANDOFF.md opens with it.
 
 ## Start here
 

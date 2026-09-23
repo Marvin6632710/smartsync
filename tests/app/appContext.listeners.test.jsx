@@ -972,6 +972,26 @@ describe('a message in a thread', () => {
     expect(pending()).toMatchObject([{ text: 'hello', status: 'blocked', reason: 'harassment' }])
   })
 
+  test('the kind of failure survives, not just that there was one', async () => {
+    // Everything the moderator could not do comes back as `unavailable`
+    // with the kind underneath it. Keeping only the status threw the
+    // kind away, so an unpaid account and a service outage read the
+    // same — and three wordings in the locale files were unreachable.
+    sendChatMessageCall.mockResolvedValueOnce({ status: 'unavailable', reason: 'refused' })
+    mount()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(pending()).toMatchObject([{ status: 'failed', reason: 'refused' }])
+  })
+
+  test('a status with no kind under it still reports the status', async () => {
+    sendChatMessageCall.mockResolvedValueOnce({ status: 'rate-limited', retryAfterSeconds: 120 })
+    mount()
+    fireEvent.click(screen.getByText('send'))
+    await flush()
+    expect(pending()).toMatchObject([{ status: 'failed', reason: 'rate-limited' }])
+  })
+
   test('a retry re-sends the same message id, so a timeout cannot post it twice', async () => {
     sendChatMessageCall.mockRejectedValueOnce(new Error('timeout'))
     mount()

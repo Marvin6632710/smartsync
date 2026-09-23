@@ -1422,9 +1422,14 @@ export function AppProvider({ children }) {
           })
           return
         }
+        // The Function says both: a broad status, and — when it has one —
+        // the kind of failure underneath it. Everything the moderator
+        // could not do arrives as `unavailable`, so taking the status
+        // alone threw away the only part that differed and left three
+        // wordings in the locale files that nothing could ever reach.
         patchPending(row.id, {
           status: 'failed',
-          reason: answer?.status || 'unavailable',
+          reason: answer?.reason || answer?.status || 'unavailable',
           retryAfterSeconds: answer?.retryAfterSeconds || null,
         })
       } catch (error) {

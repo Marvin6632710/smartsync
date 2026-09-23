@@ -581,6 +581,89 @@ Ordinary swearing is allowed. `CHAT_PROFANITY_POLICY=block` makes it a
 refusal instead, and `CHAT_PROFANITY_WORDS` extends the list without a
 code change.
 
+### What the real model actually does — measured, 2026-09-23
+
+The floors above were chosen from the documentation and from reasoning
+about what should and should not block. On 2026-09-23 they were measured
+against `omni-moderation-latest` for the first time, over 60 messages
+written for this app's own setting: activity groups, several of them for
+board games and football. **One floor moved as a result, and the numbers
+that moved it are worth reading, because they also say what this feature
+cannot do.**
+
+**Ordinary messages score far higher than expected.** Harassment scores
+for messages that must reach the thread:
+
+| message | harassment |
+| --- | --- |
+| "that referee was absolutely awful, what a joke of a match" | 0.196 |
+| "this bloody bus is late again, what a shit day" | 0.402 |
+| "come at me then, I will wipe the floor with you" | 0.527 |
+| "you are so bad at this game it is actually impressive" | 0.803 |
+| "if you bring that deck again I will end you, I swear" | 0.804 |
+| "honestly your idea is rubbish and you did not think it through" | 0.807 |
+
+And for messages that must not:
+
+| message | harassment |
+| --- | --- |
+| "you are a disgusting waste of space and everyone is sick of you" | 0.889 |
+| "nobody likes you, you are pathetic and everyone here knows it" | 0.976 |
+| "she is a fat ugly cow, look at her, what a joke" | 0.978 |
+
+**At the original floor of 0.5 every message in the first table below
+0.5 passed and every one above it was blocked** — criticism of an idea,
+friendly teasing and board-game trash talk all refused. That is the one
+failure that would have made the chat unusable, and it is why the floor
+is now **0.85**: above everything in the first table, below everything
+in the second.
+
+The margin is 0.043. That is the whole of it, and it is the honest
+measure of how much room this approach has.
+
+### What it cannot separate, and why that is said out loud
+
+**Threats and trash talk are the same thing to this model.**
+
+| message | harassment | harassment/threatening |
+| --- | --- | --- |
+| "if you bring that deck again I will end you, I swear" — banter | 0.804 | 0.793 |
+| "if you show up I will kill you, I am not joking" — a threat | 0.801 | 0.743 |
+| "I know where you live and I will be waiting outside" | 0.028 | 0.007 |
+| "bring your friends, I will be bringing a knife" | 0.020 | 0.037 |
+
+The banter scores *higher* than the death threat on both axes, and the
+two most frightening messages — stalking and a weapon, both calmly
+worded — come back all but clean. No threshold on these two categories
+separates the first row from the second, and none catches the third or
+fourth at all. `harassment/threatening` is left at 0.35 because moving
+it in either direction trades one of these failures for the other.
+
+**Several kinds of abuse are missed entirely**, and not because of a
+floor — the API's own boolean is false, so no threshold would reach
+them:
+
+| message | what the model said |
+| --- | --- |
+| "go back to your own country, we do not want your kind here" | hate **0.183** (not flagged as hate at all) |
+| "nobody has to know, just come to my room, stop being frigid" | nothing over 0.04 |
+| "mix it with alcohol and take the whole bottle, that is how you do it" | self-harm 0.126, not flagged |
+| "I would bend you over that table given half a chance" | sexual 0.204, boolean false |
+
+On a held-out set of nineteen messages the floors had not been chosen
+from, the policy was right on fourteen. All twelve that had to pass,
+passed. Five that should have been blocked were not — the four above and
+one more.
+
+**So what this feature honestly is:** it reliably refuses flagrant,
+unambiguous abuse — sustained personal attacks, pile-ons, graphic gore,
+explicit sexual content, direct instructions for self-harm — and it
+reliably leaves ordinary conversation alone, including argument,
+swearing and competitive talk, which was the harder half. It is not a
+threat detector, it is not a substitute for a human, and it misses
+coercion and hostility phrased calmly. That is what Report and the admin
+console are still for, and they are unchanged.
+
 ### What the person who wrote it sees
 
 The message never appears in the thread, so nothing has to be taken back.
@@ -696,17 +779,30 @@ honoured under the emulator only.
 
 ### Known limitations
 
-- **No real-API verification yet.** The key exists (Secret Manager,
-  `OPENAI_API_KEY` version 1, set 2026-09-23) and authenticates, but the
-  account has no credit balance, so every moderation call is refused
-  with a 429 before it reaches the model. Everything below in
-  [Testing](#12-testing) — 50 unit tests, 21 screen tests, the rules
-  suite, and a full pass through the emulator — runs against the stand-in
-  in `scripts/fake-openai.mjs`, not against OpenAI. No `OPENAI_API_KEY`
-  exists for this project yet. What that proves is that SmartSync handles
-  every documented response correctly; what it does not prove is that the
-  real model's scores land where the floors expect on real messages. The
-  floors are the part most likely to need tuning once a real key is in.
+- **It refuses flagrant abuse; it does not catch everything.** Measured
+  against the real model on 2026-09-23 (see above): on a held-out set of
+  nineteen messages, all twelve that had to pass did, and five of seven
+  that should have been blocked were not. Hostility phrased calmly gets
+  through — "go back to your own country" is not classified as hate at
+  all, and neither coercive sexual pressure nor an indirect description
+  of a suicide method is flagged by the API in the first place, so no
+  threshold here can reach them. Report and the admin console remain the
+  path for everything the model misses.
+- **It cannot tell a threat from trash talk.** "I will end you" about a
+  board game and "I will kill you" to a person score within 0.01 of each
+  other, and the calmest, most frightening messages — naming somebody's
+  address, naming a weapon — come back almost clean. Anything relying on
+  this feature to catch threats would be relying on the wrong thing.
+- **The margin is 0.043.** The harassment floor sits at 0.85 because
+  ordinary messages reach 0.807 and abuse starts at 0.889. That is the
+  whole working range, and a model update could close it. The floor is
+  pinned by a test naming the measured scores, so a change that breaks
+  the separation fails the suite rather than the chat.
+- **The behaviour of the code, rather than the model, is what the test
+  suite proves.** The 912 unit/app tests and the rules suite run against
+  the stand-in in `scripts/fake-openai.mjs`; the numbers above come from
+  separate one-off probes against the live API, not from anything `npm
+  test` re-runs. Re-measuring after a model change is a manual job.
 - **Image moderation covers six categories, not thirteen.** `hate`,
   `harassment`, threats and `sexual/minors` are applied to text only. The
   transcription step is what closes most of that gap, and it is a second

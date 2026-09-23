@@ -36,13 +36,27 @@ export class ModerationError extends Error {
 /**
  * Which kind of failure this is.
  *
- * 429 and 5xx are theirs and will pass; 401/403 mean the key is wrong or
- * revoked, which is ours to fix and not something a person can retry
- * their way out of; anything without a status is the network.
+ * 5xx is theirs and will pass; 401/403 mean the key is wrong or revoked,
+ * which is ours to fix and not something a person can retry their way
+ * out of; anything without a status is the network.
+ *
+ * 429 is the one that needs its body read. Two different things arrive
+ * with that status: an actual rate limit, which passes in a minute and
+ * is fairly the sender's to wait out, and an exhausted credit balance,
+ * which is an account we did not top up and will never clear on its own.
+ * Telling somebody "you have sent a lot in a short time" when the truth
+ * is "we ran out of credit" blames them for our invoice, and invites
+ * them to wait for something that is not coming. Measured on
+ * 2026-09-23: the moderation endpoint answers a bare `Too Many
+ * Requests` for both, but `/v1/responses` names the second one
+ * `insufficient_quota` / `credit_balance_exhausted`, so when a body says
+ * so, it is believed.
  */
-export function classify(status) {
+const QUOTA = /insufficient_quota|credit_balance_exhausted|billing_hard_limit|exceeded your current quota/i
+
+export function classify(status, detail = '') {
   if (!Number.isFinite(status)) return 'unavailable'
-  if (status === 429) return 'rate-limited'
+  if (status === 429) return QUOTA.test(String(detail)) ? 'refused' : 'rate-limited'
   if (status >= 500) return 'unavailable'
   if (status === 401 || status === 403) return 'refused'
   return 'invalid'
@@ -68,7 +82,7 @@ async function post(path, body, { apiKey, timeoutMs, baseUrl }) {
   }
   if (!response.ok) {
     const detail = await response.text().catch(() => '')
-    throw new ModerationError(classify(response.status), detail.slice(0, 300), response.status)
+    throw new ModerationError(classify(response.status, detail), detail.slice(0, 300), response.status)
   }
   return response.json()
 }
