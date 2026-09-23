@@ -17,6 +17,14 @@ Still **not deployed** — the live site has the old rules and chat there
 works. When deploying, rules and the three callables must go in one
 command; HANDOFF.md opens with it.
 
+## Handing this to a different agent?
+
+Read [CODEX_HANDOFF.md](CODEX_HANDOFF.md) instead — it is the
+self-contained briefing for an agent with none of the conversation
+behind it: how the owner works, the secrets rules, the two features
+that carry the marks, what is still open before the exhibition, the
+traps this project has already hit, and a prompt to start with.
+
 ## Start here
 
 1. Read this file, then the latest sections of [HANDOFF.md](HANDOFF.md).
