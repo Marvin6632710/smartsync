@@ -27,12 +27,12 @@ The list below is a changelog of _what_ each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
 digging through git.
 
-- **LOCAL, awaiting owner review (2026-09-23)** — People for you moved from
+- **LIVE (`ad394d4`, 2026-09-23)** — People for you moved from
   the bottom of AI Picks to immediately below its introduction. Its entry card
   is more prominent, and the matching page now uses roomier, better-grouped
   person cards without changing matching, reporting, following or notification
   behaviour.
-- **LOCAL, awaiting owner review (2026-09-23)** — the right-side activity
+- **LIVE (`ad394d4`, 2026-09-23)** — the right-side activity
   details card uses larger time, place and attendance rows on laptops: 17 px
   type, 20 px icons, stronger colour and more breathing room. The hero and
   layouts below 1024 px are unchanged.

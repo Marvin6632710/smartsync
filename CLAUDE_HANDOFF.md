@@ -3,9 +3,9 @@
 Prepared 2026-09-21. Use the existing local folder:
 `/Users/marvin/Downloads/SmartSync 2`.
 
-## Current local change — People for you UI (2026-09-23)
+## Current release addition — People for you UI (2026-09-23)
 
-Ready for owner testing, **not committed, pushed or deployed**. On AI Picks,
+**Live in `ad394d4`, pushed and deployed to Firebase Hosting.** On AI Picks,
 the People for you entry is now directly below the page introduction instead
 of after every activity group, and is a larger accent destination card. On
 `/matching`, the existing people, compatibility values, report controls and
@@ -14,9 +14,9 @@ Cards now separate identity, interests, match facts and notification choice,
 with larger avatars/type, more padding and a roomier two-column laptop grid.
 Existing localized strings are reused, so no locale or ADR update is needed.
 
-## Current local change — activity detail rail (2026-09-23)
+## Current release addition — activity detail rail (2026-09-23)
 
-Ready for owner testing, **not committed, pushed or deployed**. The owner asked
+**Live in `ad394d4`, pushed and deployed to Firebase Hosting.** The owner asked
 for only the time, place and joined count in the right-side activity details
 card to be more noticeable on laptops. At 1024 px and wider, `src/styles.css`
 now increases those rows from the caption scale to 17 px, grows their icons to
@@ -66,10 +66,13 @@ do not assume access to the previous assistant's conversation.
 - Before this documentation handoff, local and remote were clean and equal
   at `622ed9c` (Google Maps release verification).
 - Live site: <https://smartsync-c1f07.web.app>.
-- Deployed application: `1adfa05`, entry bundle `index-jHb5xmTm.js`.
+- Deployed application: `ad394d4`, entry bundle `index-CgmWREws.js` and CSS
+  bundle `index-BDc6-pic.css` (confirmed from the public site).
 - Hosting includes Google Maps, picture uploads and name-only search.
   Firestore rules/indexes were last released with picture uploads, `355b89f`.
-- This handoff changes documentation only; no application deployment is needed.
+- The latest hosting release also surfaces People for you near the AI Picks
+  introduction, opens up its matching cards and enlarges the laptop activity
+  detail facts. It changes no Firebase rules or Functions.
 
 | Completed feature | Behavior and implementation |
 | --- | --- |

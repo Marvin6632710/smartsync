@@ -9,10 +9,11 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
-## Latest local continuation — People for you surfaced and opened up (2026-09-23)
+## Latest continuation — People for you surfaced and opened up (2026-09-23)
 
-**LOCAL ONLY — ready for the owner's localhost check; not committed, pushed
-or deployed.** The People for you entry moved from the very bottom of AI Picks
+**LIVE — committed `ad394d4`, pushed and hosting deployed 2026-09-23**
+(`index-CgmWREws.js` and `index-BDc6-pic.css`, confirmed being served). The
+People for you entry moved from the very bottom of AI Picks
 to directly below the page introduction, before activity rankings and interest
 groups. Its larger accent card now reads as a destination rather than a footer.
 The matching page keeps the same compatibility calculation, reporting and
@@ -23,10 +24,10 @@ matching, following, reporting or notification behaviour changed. All visible
 copy was reused, so the four locale files remain current; this UI-only change
 does not need an ADR.
 
-## Latest local continuation — larger activity facts on laptops (2026-09-23)
+## Latest continuation — larger activity facts on laptops (2026-09-23)
 
-**LOCAL ONLY — ready for the owner's localhost check; not committed, pushed
-or deployed.** On activity details at 1024 px and wider, the right-side
+**LIVE — included in `ad394d4`, pushed and hosting deployed 2026-09-23.** On
+activity details at 1024 px and wider, the right-side
 decision card now gives its time, place and joined count a 17 px type scale,
 20 px icons, stronger text colour and more space between rows. The card itself
 has slightly more padding. The coloured activity banner is unchanged, as are
