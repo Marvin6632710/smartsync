@@ -5,6 +5,7 @@ import LocationPicker from '../components/LocationPicker'
 import UnsentDraft from '../components/UnsentDraft'
 import PicturePicker from '../components/PicturePicker'
 import CategoryIcon from '../components/CategoryIcon'
+import ActivitySchedulePicker from '../components/ActivitySchedulePicker'
 import { categories } from '../data/categories'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -183,21 +184,13 @@ export default function CreateActivityPage() {
           />
         </label>
 
-        <div className="form-row">
-          <label>
-            {t('create.date')}
-            <input
-              type="date"
-              min={today()}
-              value={form.date}
-              onChange={(e) => set('date', e.target.value)}
-            />
-          </label>
-          <label>
-            {t('create.time')}
-            <input type="time" value={form.time} onChange={(e) => set('time', e.target.value)} />
-          </label>
-        </div>
+        <ActivitySchedulePicker
+          date={form.date}
+          time={form.time}
+          minDate={today()}
+          onDateChange={(value) => set('date', value)}
+          onTimeChange={(value) => set('time', value)}
+        />
         {/* Time band used to be a separate dropdown that could contradict the
             time. It is derived now, so it is shown rather than asked. */}
         <p className="helper-text">

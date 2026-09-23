@@ -29,6 +29,20 @@ vi.mock('../../src/components/LocationPicker', () => ({
     return null
   },
 }))
+vi.mock('../../src/components/ActivitySchedulePicker', () => ({
+  default: ({ date, time, onDateChange, onTimeChange }) => (
+    <>
+      <label>
+        Date
+        <input type="date" value={date} onChange={(event) => onDateChange(event.target.value)} />
+      </label>
+      <label>
+        Time
+        <input type="time" value={time} onChange={(event) => onTimeChange(event.target.value)} />
+      </label>
+    </>
+  ),
+}))
 
 const selectedPicture = { version: 'selected-v1', dataUrl: 'data:image/png;base64,aGVsbG8=' }
 vi.mock('../../src/utils/pictures', async () => ({
@@ -41,7 +55,7 @@ const { default: CreateActivityPage } = await import('../../src/pages/CreateActi
 beforeEach(() => createActivity.mockClear())
 afterEach(cleanup)
 
-const field = (type) => [...document.querySelectorAll('input')].find((i) => i.type === type)
+const field = (type) => [...document.querySelectorAll('input')].find((input) => input.type === type)
 const fill = () => {
   fireEvent.change(screen.getByPlaceholderText('e.g. Saturday Football'), {
     target: { value: 'Run' },

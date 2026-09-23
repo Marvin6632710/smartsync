@@ -3,6 +3,18 @@
 Prepared 2026-09-21. Use the existing local folder:
 `/Users/marvin/Downloads/SmartSync 2`.
 
+## Current local change — activity schedule picker (2026-09-23)
+
+Ready for owner testing, **not committed, pushed or deployed**. Create and edit
+activity now share `src/components/ActivitySchedulePicker.jsx` instead of the
+browser's native date/time popovers. It provides a localized in-app calendar,
+Today/Tomorrow shortcuts, an alarm-style hour/five-minute dial and common-time
+shortcuts. Stored date/time shapes, validation, time-band derivation and save
+behaviour are unchanged. The new copy is translated in all four locale files;
+the responsive styling is in `src/styles.css`. No rules, Functions or ADR
+changed. Verification: 945 unit/app tests, lint, format and production build
+all pass.
+
 ## Current release addition — People for you UI (2026-09-23)
 
 **Live in `ad394d4`, pushed and deployed to Firebase Hosting.** On AI Picks,

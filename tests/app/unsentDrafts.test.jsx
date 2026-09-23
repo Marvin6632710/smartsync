@@ -185,7 +185,7 @@ describe('editing an activity', () => {
     expect(screen.getByDisplayValue('Sunday Football')).toBeTruthy()
     expect(screen.getByDisplayValue('New boots')).toBeTruthy()
     // Fields the draft did not carry keep their current value.
-    expect(screen.getByDisplayValue('2026-10-01')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Change date.*1 Oct 2026/ })).toBeTruthy()
   })
 
   test('an edit somebody else overtook is offered as a choice, not as a failed save', () => {

@@ -7,6 +7,7 @@ import UnsentDraft from '../components/UnsentDraft'
 import PicturePicker from '../components/PicturePicker'
 import { ActivityPicture } from '../components/SavedPicture'
 import CategoryIcon from '../components/CategoryIcon'
+import ActivitySchedulePicker from '../components/ActivitySchedulePicker'
 import { categories } from '../data/categories'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -214,24 +215,12 @@ function EditActivityForm({ existing }) {
             maxLength={1000}
           />
         </label>
-        <div className="form-row">
-          <label>
-            {t('create.date')}
-            <input
-              type="date"
-              value={form.date || ''}
-              onChange={(e) => set('date', e.target.value)}
-            />
-          </label>
-          <label>
-            {t('create.time')}
-            <input
-              type="time"
-              value={form.time || ''}
-              onChange={(e) => set('time', e.target.value)}
-            />
-          </label>
-        </div>
+        <ActivitySchedulePicker
+          date={form.date || ''}
+          time={form.time || ''}
+          onDateChange={(value) => set('date', value)}
+          onTimeChange={(value) => set('time', value)}
+        />
         <p className="helper-text">
           {t('create.countsAs', {
             time: formatClock(form.time),

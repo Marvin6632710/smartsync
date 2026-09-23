@@ -27,6 +27,10 @@ The list below is a changelog of _what_ each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
 digging through git.
 
+- **LOCAL, awaiting owner review (2026-09-23)** — activity creation and editing
+  use a SmartSync-styled calendar and alarm-like time dial instead of Safari's
+  native date/time popovers. Today/Tomorrow and common-time shortcuts speed up
+  ordinary choices; stored values and validation are unchanged.
 - **LIVE (`ad394d4`, 2026-09-23)** — People for you moved from
   the bottom of AI Picks to immediately below its introduction. Its entry card
   is more prominent, and the matching page now uses roomier, better-grouped

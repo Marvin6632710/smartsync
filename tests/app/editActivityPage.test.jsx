@@ -24,6 +24,20 @@ vi.mock('../../src/context/AuthContext', () => ({ useAuth: () => ({ user: { uid:
 vi.mock('../../src/components/LocationPicker', () => ({
   default: () => <div data-testid="picker" />,
 }))
+vi.mock('../../src/components/ActivitySchedulePicker', () => ({
+  default: ({ date, time, onDateChange, onTimeChange }) => (
+    <>
+      <label>
+        Date
+        <input type="date" value={date} onChange={(event) => onDateChange(event.target.value)} />
+      </label>
+      <label>
+        Time
+        <input type="time" value={time} onChange={(event) => onTimeChange(event.target.value)} />
+      </label>
+    </>
+  ),
+}))
 
 const selectedPicture = { version: 'selected-v1', dataUrl: 'data:image/png;base64,aGVsbG8=' }
 vi.mock('../../src/utils/pictures', async () => ({

@@ -9,6 +9,22 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest local continuation — modern activity schedule picker (2026-09-23)
+
+**LOCAL ONLY — ready for the owner's localhost check; not committed, pushed
+or deployed.** Create and edit activity no longer hand date and time selection
+to the browser's old native popovers. Both now use the shared
+`ActivitySchedulePicker`: two compact summary cards open an in-app calendar or
+an alarm-style 24-hour dial. The calendar includes Today/Tomorrow shortcuts,
+month navigation, localized day/month names and a past-date floor while
+creating. The time panel adjusts hours and five-minute steps and offers 09:00,
+14:00 and 19:00 shortcuts. The underlying `YYYY-MM-DD` and `HH:mm` values,
+future-date validation, derived time bands and Firebase writes are unchanged.
+The controls collapse to one column on narrow phones, support keyboard focus
+and Escape, and use the existing light/dark tokens. All four locale files are
+current. 945 unit/app tests pass; lint, format and production build are clean.
+This is a UI-only component change and does not need an ADR.
+
 ## Latest continuation — People for you surfaced and opened up (2026-09-23)
 
 **LIVE — committed `ad394d4`, pushed and hosting deployed 2026-09-23**
