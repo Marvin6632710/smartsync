@@ -3,9 +3,9 @@
 Prepared 2026-09-21. Use the existing local folder:
 `/Users/marvin/Downloads/SmartSync 2`.
 
-## Current local change — activity schedule picker (2026-09-23)
+## Current release addition — activity schedule picker (2026-09-23)
 
-Ready for owner testing, **not committed, pushed or deployed**. Create and edit
+**Live in `481ecae`, pushed and deployed to Firebase Hosting.** Create and edit
 activity now share `src/components/ActivitySchedulePicker.jsx` instead of the
 browser's native date/time popovers. It provides a localized in-app calendar,
 Today/Tomorrow shortcuts, an alarm-style hour/five-minute dial and common-time
@@ -13,7 +13,7 @@ shortcuts. Stored date/time shapes, validation, time-band derivation and save
 behaviour are unchanged. The new copy is translated in all four locale files;
 the responsive styling is in `src/styles.css`. No rules, Functions or ADR
 changed. Verification: 945 unit/app tests, lint, format and production build
-all pass.
+all pass; the public create and edit routes return 200.
 
 ## Current release addition — People for you UI (2026-09-23)
 
@@ -78,13 +78,12 @@ do not assume access to the previous assistant's conversation.
 - Before this documentation handoff, local and remote were clean and equal
   at `622ed9c` (Google Maps release verification).
 - Live site: <https://smartsync-c1f07.web.app>.
-- Deployed application: `ad394d4`, entry bundle `index-CgmWREws.js` and CSS
-  bundle `index-BDc6-pic.css` (confirmed from the public site).
+- Deployed application: `481ecae`, entry bundle `index-BgOCQDwj.js` and CSS
+  bundle `index-Bb89R7aD.css` (confirmed from the public site).
 - Hosting includes Google Maps, picture uploads and name-only search.
   Firestore rules/indexes were last released with picture uploads, `355b89f`.
-- The latest hosting release also surfaces People for you near the AI Picks
-  introduction, opens up its matching cards and enlarges the laptop activity
-  detail facts. It changes no Firebase rules or Functions.
+- The latest hosting release adds the shared activity calendar and alarm-style
+  time picker. It changes no Firebase rules or Functions.
 
 | Completed feature | Behavior and implementation |
 | --- | --- |

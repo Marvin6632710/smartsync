@@ -27,7 +27,7 @@ The list below is a changelog of _what_ each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
 digging through git.
 
-- **LOCAL, awaiting owner review (2026-09-23)** — activity creation and editing
+- **LIVE (`481ecae`, 2026-09-23)** — activity creation and editing
   use a SmartSync-styled calendar and alarm-like time dial instead of Safari's
   native date/time popovers. Today/Tomorrow and common-time shortcuts speed up
   ordinary choices; stored values and validation are unchanged.
