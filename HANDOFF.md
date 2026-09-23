@@ -11,9 +11,11 @@ update is documentation only. The application has no half-finished changes.
 
 ## Latest continuation — a minimum age of fifteen (2026-09-23)
 
-**Built and verified locally. NOT committed, NOT deployed** — owner
-tests on localhost first. 941 unit/app tests and 395 rules tests pass;
-lint, format and build clean.
+**LIVE — committed `bc49f2c`, pushed, rules and hosting deployed
+2026-09-23** (`index-Zb3WFv1n.js`, confirmed being served). 941 unit/app
+tests and 395 rules tests pass; lint, format and build clean. The chat
+moderation callables were re-checked afterwards and still answer with
+the app's own wording, so the rules change did not disturb them.
 
 SmartSync puts strangers in touch and arranges for them to meet in
 person, and had no minimum age at all. It has one now: **fifteen and
@@ -88,14 +90,15 @@ stop nobody and pretend to. README §13 and ADR-034 say so rather than
 implying otherwise; it is a better answer at a defence than a claim that
 does not survive one question.
 
-### One thing to decide before deploying
+### ⚠ Do this before the exhibition, not during it
 
-Every existing live account — including the demo ones — will be asked
-for a date of birth on next entry, once. That is intended (a minimum
-that applies only to new accounts is not a minimum), but it means the
-demo accounts need answering once each before a demonstration, and the
-seeded production data has no dates. Worth doing before the exhibition
-rather than during it.
+**Every existing live account is now asked for a date of birth on next
+entry, once — the demo accounts included.** That is intended: a minimum
+that applies only to new accounts is not a minimum. But it means each
+demo account needs answering once before anybody demonstrates with it,
+and the seeded production data carries no dates. Sign in to each demo
+account on the live site once and give it a date; otherwise the first
+thing an audience sees is the age screen.
 
 ## Chat moderation: credits on, floors calibrated, ready to deploy (2026-09-23)
 
