@@ -15,6 +15,7 @@ import { useListenerRetry } from '../hooks/useListenerRetry'
 import {
   defaultPrivacy,
   ensureUserProfile,
+  refreshPublicAge,
   watchPrivateProfile,
   watchUserProfile,
 } from '../firebase/users'
@@ -178,6 +179,32 @@ export function AuthProvider({ children }) {
       stopRole()
     }
   }, [authUser, profileAttempt, guard, resubscribe])
+
+  /**
+   * A birthday that passed while nobody was looking.
+   *
+   * The public profile carries an age, which is a number derived from a
+   * date, so it is wrong from somebody's birthday until something
+   * corrects it. This is that something — and it has to exist, or
+   * consenting to show your age once would pin a number to your profile
+   * that slowly stopped being true.
+   *
+   * Cheap: the helper compares before it writes, so the ordinary case is
+   * an equality check and no request at all. The dependencies are the
+   * three values that could change the answer rather than the profile
+   * objects themselves, so an unrelated snapshot does not re-run it.
+   */
+  const dateOfBirth = privateProfile?.dateOfBirth || ''
+  const showsAge = privateProfile?.privacy?.showAge === true
+  const shownAge = publicProfile?.age ?? null
+  useEffect(() => {
+    if (!authUser?.uid || !dateOfBirth) return
+    // A refusal here is not worth troubling anybody with: the age on the
+    // profile is a day or so stale and the next load tries again.
+    refreshPublicAge(authUser.uid, { dateOfBirth, showAge: showsAge, age: shownAge }).catch(
+      () => {},
+    )
+  }, [authUser?.uid, dateOfBirth, showsAge, shownAge])
 
   /**
    * Re-attempts profile creation after a failure. Exposed so the UI can offer

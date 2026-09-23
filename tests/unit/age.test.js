@@ -105,6 +105,21 @@ describe('what the date picker offers', () => {
   })
 })
 
+describe('the number on a public profile going stale', () => {
+  // publicAge is what refreshPublicAge compares against. The case that
+  // matters is a birthday: the stored number was right yesterday and is
+  // wrong today, and nothing would notice without this.
+  test('a birthday makes the stored number wrong, and it can be told', () => {
+    const person = { dateOfBirth: '2001-03-14', showAge: true }
+    expect(publicAge(person, on('2026-03-13'))).toBe(24)
+    expect(publicAge(person, on('2026-03-14'))).toBe(25)
+  })
+
+  test('withdrawing consent disagrees with any stored number', () => {
+    expect(publicAge({ dateOfBirth: '2001-03-14', showAge: false })).toBeNull()
+  })
+})
+
 describe('publicAge — what other people can see', () => {
   test('is the number when they have agreed to it', () => {
     expect(publicAge({ dateOfBirth: '2000-06-15', showAge: true }, on('2026-09-23'))).toBe(26)
