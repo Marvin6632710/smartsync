@@ -26,7 +26,7 @@ export default function UserMatchingPage() {
   )
 
   return (
-    <div className="page-content">
+    <div className="page-content matching-page">
       <section className="headline-block">
         <span className="eyebrow">{t('matching.eyebrow')}</span>
         <h2>{t('matching.title')}</h2>
@@ -54,26 +54,28 @@ export default function UserMatchingPage() {
                 <div className="match-user-copy">
                   <div className="match-name-row">
                     <h3>{personName(matchedUser.name)}</h3>
-                    <button
-                      className="icon-button slim person-report"
-                      onClick={() =>
-                        setReporting({
-                          type: 'user',
-                          id: matchedUser.uid,
-                          name: matchedUser.name,
-                          avatar: matchedUser.avatar,
-                          label: 'matching.reportLabel',
-                          context: storedContext('match', { score: matchedUser.score }),
-                        })
-                      }
-                      aria-label={t('matching.reportOrBlock', { name: matchedUser.name })}
-                    >
-                      <Flag size={15} />
-                    </button>
-                    <span className="match-pill">
-                      <UserRoundCheck size={13} />
-                      {t('common.percent', { value: matchedUser.score })}
-                    </span>
+                    <div className="match-card-actions">
+                      <span className="match-pill">
+                        <UserRoundCheck size={13} />
+                        {t('common.percent', { value: matchedUser.score })}
+                      </span>
+                      <button
+                        className="icon-button slim person-report"
+                        onClick={() =>
+                          setReporting({
+                            type: 'user',
+                            id: matchedUser.uid,
+                            name: matchedUser.name,
+                            avatar: matchedUser.avatar,
+                            label: 'matching.reportLabel',
+                            context: storedContext('match', { score: matchedUser.score }),
+                          })
+                        }
+                        aria-label={t('matching.reportOrBlock', { name: matchedUser.name })}
+                      >
+                        <Flag size={15} />
+                      </button>
+                    </div>
                   </div>
                   <p>
                     {matchedUser.shared.length > 0

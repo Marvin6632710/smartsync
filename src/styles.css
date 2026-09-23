@@ -2168,18 +2168,18 @@ select:focus-visible {
 .new-match-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px;
+  gap: 16px;
+  padding: 18px;
 }
 .new-match-top {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 14px;
 }
 .match-avatar {
-  width: 46px;
-  height: 46px;
-  min-width: 46px;
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
 }
 .match-user-copy {
   flex: 1;
@@ -2187,34 +2187,48 @@ select:focus-visible {
 }
 .match-name-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
 }
 .match-name-row h3 {
   margin: 0;
-  font-size: var(--t-h3);
+  padding-top: 2px;
+  font-size: var(--t-h2);
+  line-height: 1.25;
+}
+.match-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .match-user-copy p {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   color: var(--text-2);
-  font-size: var(--t-sm);
+  font-size: var(--t-body);
+}
+.new-match-card .chip-row {
+  gap: 8px;
+}
+.new-match-card .tiny-chip {
+  padding: 7px 12px;
 }
 .match-details {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 .match-details span {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 8px 11px;
   border-radius: var(--r-pill);
   background: var(--surface-2);
   border: 1px solid var(--line);
   color: var(--text-2);
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
 }
 .match-details svg {
   color: var(--text-3);
@@ -2223,26 +2237,30 @@ select:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  gap: 16px;
+  margin-top: 2px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
 }
 .notify-text strong {
   display: block;
-  font-size: var(--t-sm);
+  font-size: var(--t-body);
   font-weight: var(--w-semibold);
 }
 .notify-text p {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   color: var(--text-2);
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
   line-height: 1.4;
 }
 .notify-user-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 14px;
+  min-height: 42px;
+  padding: 9px 15px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-pill);
   background: var(--surface);
@@ -2270,18 +2288,26 @@ select:focus-visible {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 12px;
-  padding: 14px;
+  gap: 16px;
+  padding: 18px 20px;
   text-align: left;
   color: var(--text);
-  transition: border-color 0.15s ease;
+  border-color: var(--accent-line);
+  background: linear-gradient(105deg, var(--accent-soft), var(--surface) 72%);
+  box-shadow: var(--shadow-md);
+  transition:
+    transform var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
 }
 .people-match-banner:hover {
-  border-color: var(--line-strong);
+  transform: translateY(-1px);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lg);
 }
 .people-match-icon {
-  width: 38px;
-  height: 38px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
   border-radius: var(--r-md);
@@ -2295,12 +2321,13 @@ select:focus-visible {
   gap: 2px;
 }
 .people-match-copy strong {
-  font-size: var(--t-h3);
+  font-size: var(--t-h2);
   font-weight: var(--w-semibold);
 }
 .people-match-copy span {
   color: var(--text-2);
-  font-size: var(--t-sm);
+  font-size: var(--t-body);
+  line-height: 1.4;
 }
 
 /* =========================================================
@@ -6491,6 +6518,23 @@ button.celebration-toast:hover {
     padding-top: 32px;
   }
 
+  /* People are compared side by side on a laptop, with enough room inside
+     each card for the identity, match facts and notification choice to read
+     as three groups instead of one dense block. */
+  .matching-page .people-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+  }
+  .matching-page .new-match-card {
+    gap: 18px;
+    padding: 22px;
+  }
+  .matching-page .match-avatar {
+    width: 58px;
+    height: 58px;
+    min-width: 58px;
+  }
+
   /* --- Discover: the feed with a sidebar ------------------------------
      The hero is a banner across the page. Beneath it, what is on soonest
      takes the main column and the picks from your interests keep it
@@ -6743,6 +6787,29 @@ button.celebration-toast:hover {
   .rail-summary strong {
     color: var(--text);
     font-weight: var(--w-semibold);
+  }
+  /* The action rail is where somebody decides whether an activity fits.
+     Its original phone-sized caption treatment is declared immediately
+     above, so the laptop enhancement belongs here in the cascade: after the
+     base rail, where it cannot be silently reset to the smaller values. */
+  .detail-rail {
+    padding: 22px;
+  }
+  .rail-summary {
+    gap: 14px;
+    padding-bottom: 18px;
+  }
+  .rail-summary span {
+    gap: 11px;
+    color: var(--text);
+    font-size: var(--t-h2);
+    font-weight: var(--w-medium);
+    line-height: 1.4;
+  }
+  .rail-summary svg {
+    width: 20px;
+    height: 20px;
+    color: var(--text-2);
   }
   .detail-hero {
     padding: 28px;

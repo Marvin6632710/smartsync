@@ -9,6 +9,31 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest local continuation — People for you surfaced and opened up (2026-09-23)
+
+**LOCAL ONLY — ready for the owner's localhost check; not committed, pushed
+or deployed.** The People for you entry moved from the very bottom of AI Picks
+to directly below the page introduction, before activity rankings and interest
+groups. Its larger accent card now reads as a destination rather than a footer.
+The matching page keeps the same compatibility calculation, reporting and
+notification controls, but its cards have larger avatars and names, grouped
+top-right actions, roomier chips and facts, and a separate notification panel.
+Laptop cards use a wider 24 px grid gap and 22 px internal padding. No data,
+matching, following, reporting or notification behaviour changed. All visible
+copy was reused, so the four locale files remain current; this UI-only change
+does not need an ADR.
+
+## Latest local continuation — larger activity facts on laptops (2026-09-23)
+
+**LOCAL ONLY — ready for the owner's localhost check; not committed, pushed
+or deployed.** On activity details at 1024 px and wider, the right-side
+decision card now gives its time, place and joined count a 17 px type scale,
+20 px icons, stronger text colour and more space between rows. The card itself
+has slightly more padding. The coloured activity banner is unchanged, as are
+the phone and tablet layouts. This is a desktop-only CSS change in
+`src/styles.css`; it changes no wording, data, rules or application behaviour,
+so no locale or ADR change is required.
+
 ## Latest continuation — a minimum age of fifteen (2026-09-23)
 
 **LIVE — committed `bc49f2c`, pushed, rules and hosting deployed

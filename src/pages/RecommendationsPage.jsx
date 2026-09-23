@@ -205,6 +205,21 @@ export default function RecommendationsPage() {
         <p className="helper-text how-privacy">{t('picks.privacy')}</p>
       </section>
 
+      {/* People used to be the final item after every activity group, which
+          made a whole recommendation feature look like a footer. It belongs
+          beside the page introduction: still part of AI Picks, but visible
+          before somebody commits to scrolling through the activity lists. */}
+      <button className="people-match-banner" onClick={() => navigate('/matching')}>
+        <div className="people-match-icon">
+          <UsersRound size={24} />
+        </div>
+        <div className="people-match-copy">
+          <strong>{t('picks.peopleForYou')}</strong>
+          <span>{t('picks.peopleForYouHint')}</span>
+        </div>
+        <ChevronRight size={20} />
+      </button>
+
       {eligible.length > 0 && sourceBar}
 
       {eligible.length === 0 ? (
@@ -399,17 +414,6 @@ export default function RecommendationsPage() {
           )}
         </>
       )}
-
-      <button className="people-match-banner" onClick={() => navigate('/matching')}>
-        <div className="people-match-icon">
-          <UsersRound size={23} />
-        </div>
-        <div className="people-match-copy">
-          <strong>{t('picks.peopleForYou')}</strong>
-          <span>{t('picks.peopleForYouHint')}</span>
-        </div>
-        <ChevronRight size={18} />
-      </button>
     </div>
   )
 }

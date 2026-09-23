@@ -3,6 +3,27 @@
 Prepared 2026-09-21. Use the existing local folder:
 `/Users/marvin/Downloads/SmartSync 2`.
 
+## Current local change — People for you UI (2026-09-23)
+
+Ready for owner testing, **not committed, pushed or deployed**. On AI Picks,
+the People for you entry is now directly below the page introduction instead
+of after every activity group, and is a larger accent destination card. On
+`/matching`, the existing people, compatibility values, report controls and
+activity-notification toggle are unchanged; only their presentation changed.
+Cards now separate identity, interests, match facts and notification choice,
+with larger avatars/type, more padding and a roomier two-column laptop grid.
+Existing localized strings are reused, so no locale or ADR update is needed.
+
+## Current local change — activity detail rail (2026-09-23)
+
+Ready for owner testing, **not committed, pushed or deployed**. The owner asked
+for only the time, place and joined count in the right-side activity details
+card to be more noticeable on laptops. At 1024 px and wider, `src/styles.css`
+now increases those rows from the caption scale to 17 px, grows their icons to
+20 px and adds spacing and card padding. The coloured hero and everything
+below 1024 px are unchanged. No copy, locale, rules or architectural decision
+changed.
+
 ## Chat moderation — calibrated and ready, not yet deployed (2026-09-23)
 
 Credits are on the OpenAI account and the whole path runs against the
