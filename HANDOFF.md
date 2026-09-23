@@ -71,6 +71,34 @@ Verified after the deploy: all three functions `ACTIVE` with
 returns the app's own "Sign in…" wording rather than a 500, which is
 what proves the module loaded rather than merely uploaded.
 
+### Verified on the live site — 8/8
+
+`node scripts/live-chat-check.mjs d2OhixGqJ7THyQdjFLDB`, signed in as a
+real account against the deployed Functions, the deployed rules and the
+real Moderation API:
+
+| | |
+| --- | --- |
+| ordinary note | sent, in the thread |
+| swearing | sent, in the thread |
+| "your idea is rubbish and you did not think it through" | sent, in the thread |
+| "you are so bad at this game it is actually impressive" | sent, in the thread |
+| somebody saying they feel low | sent, in the thread |
+| a personal attack | blocked · harassment, absent |
+| a pile-on | blocked · harassment, absent |
+| **writing straight to the thread, moderation skipped** | **permission-denied** |
+
+The last row is the one that matters: without it the other seven are a
+courtesy rather than a control.
+
+The Function's own log agrees — `auth: VALID` throughout, five "chat
+message sent", two "chat message blocked" with `source: text` and
+`reason: harassment`, no errors, no rate limits, and 1.5–2.3 s per call,
+which is a real round trip to OpenAI rather than something
+short-circuiting. Note the three middle passes: every one of them scores
+as harassment to some degree, and at the original floor of 0.5 all three
+would have been refused on the live site.
+
 **One difference from localhost worth knowing.** There is no
 `functions/.env`, so production runs the defaults — which means
 `CHAT_IMAGE_OCR` is **on** in production, while `functions/.env.local`
