@@ -186,7 +186,12 @@
       "nameRequired": "Please enter your name.",
       "passwordShort": "Password must be at least {{count}} characters.",
       "haveAccount": "Already have an account?",
-      "signInLink": "Sign in"
+      "signInLink": "Sign in",
+      "dobHint_one": "SmartSync is for people aged {{count}} and over. Your date of birth stays private.",
+      "dobHint_other": "SmartSync is for people aged {{count}} and over. Your date of birth stays private.",
+      "dobRequired": "Please enter your date of birth.",
+      "tooYoung_one": "You need to be {{count}} or over to use SmartSync.",
+      "tooYoung_other": "You need to be {{count}} or over to use SmartSync."
     },
     "errors": {
       "emailInUse": "An account already exists with this email. Try signing in.",
@@ -210,7 +215,8 @@
       "staySignedIn": "Stay signed in",
       "notYou": "Not you? Sign out",
       "failed": "Couldn't sign out"
-    }
+    },
+    "dateOfBirth": "Date of birth"
   },
   "terms": {
     "title": "Terms & Safety",
@@ -715,7 +721,10 @@
     "shareTitle": "SmartSync profile",
     "shareText": "{{name}} ({{username}}) is on SmartSync. {{bio}}",
     "anonymousName": "Anonymous user",
-    "newUserName": "New user"
+    "newUserName": "New user",
+    "ageYears_one": "{{count}} year old",
+    "ageYears_other": "{{count}} years old",
+    "ageHiddenTag": "only you"
   },
   "editProfile": {
     "title": "Edit profile",
@@ -783,7 +792,12 @@
     "approximateHint": "Round your position to about a kilometre before storing it",
     "howEyebrow": "How this works",
     "howTitle": "Enforced, not just hidden",
-    "howBody": "Your email, your real name while anonymous mode is on, and your stored position live in a part of your profile the database will not serve to anyone but you. Activity chats are readable only by people who joined that activity, and close 30 days after it — after that nobody can open the thread, including us."
+    "howBody": "Your email, your real name while anonymous mode is on, and your stored position live in a part of your profile the database will not serve to anyone but you. Activity chats are readable only by people who joined that activity, and close 30 days after it — after that nobody can open the thread, including us.",
+    "showAge": "Show my age",
+    "showAgeOnHint_one": "Other people see {{count}} on your profile.",
+    "showAgeOnHint_other": "Other people see {{count}} on your profile.",
+    "showAgeOffHint": "Your age is on your profile for you alone.",
+    "showAgeFailed": "That could not be changed. Please try again."
   },
   "blocked": {
     "eyebrow": "Safety",
@@ -1449,5 +1463,24 @@
     "readError": "This picture could not be opened. Try another JPG, PNG or WebP image.",
     "saveError": "Could not save the picture and your changes. Please try again.",
     "anonymousHint": "Your picture stays hidden from others while anonymous mode is on."
+  },
+  "age": {
+    "eyebrow": "One more thing",
+    "title": "How old are you?",
+    "lead_one": "SmartSync is for people aged {{count}} and over. We ask once.",
+    "lead_other": "SmartSync is for people aged {{count}} and over. We ask once.",
+    "privateHint": "Kept private. Only the age it works out to can be shown, and only if you turn that on.",
+    "willBeTooYoung_one": "That date makes you under {{count}}, so you will not be able to use SmartSync yet.",
+    "willBeTooYoung_other": "That date makes you under {{count}}, so you will not be able to use SmartSync yet.",
+    "invalidDate": "That is not a date. Please check it.",
+    "saveFailed": "That could not be saved. Please try again.",
+    "submit": "Continue",
+    "saving": "Saving…",
+    "signOutInstead": "Sign out instead",
+    "tooYoungTitle": "SmartSync is not for you yet",
+    "tooYoungBody_one": "You need to be {{count}} or over. Nothing has been shared and nobody has been told.",
+    "tooYoungBody_other": "You need to be {{count}} or over. Nothing has been shared and nobody has been told.",
+    "comeBack_one": "Come back in about {{count}} year.",
+    "comeBack_other": "Come back in about {{count}} years."
   }
 }

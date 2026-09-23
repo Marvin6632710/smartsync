@@ -3,12 +3,15 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import ClosedAccountScreen from './components/ClosedAccountScreen'
+import TooYoungScreen from './components/TooYoungScreen'
+import AgeCheckPage from './pages/AgeCheckPage'
 import BootScreen from './components/BootScreen'
 import ProfileErrorScreen from './components/ProfileErrorScreen'
 import Shell from './components/Shell'
 import { useAuth } from './context/AuthContext'
 import { useTermsAcceptance } from './terms'
 import { lazyRoute } from './utils/lazyRoute'
+import { meetsMinimumAge } from './utils/age'
 
 import TermsDialog from './components/TermsDialog'
 import TermsDetailsPage from './pages/TermsDetailsPage'
@@ -131,6 +134,21 @@ function Stages() {
   // other route decision — including onboarding — because whatever state the
   // account was in, this outranks it.
   if (user.banned) return <ClosedAccountScreen />
+
+  // Stage 3a — how old they are, before anything else they could do.
+  //
+  // Above onboarding on purpose. Interests, a picture and a bio are
+  // things somebody makes; the minimum age decides whether they should
+  // be making them here at all, so it is answered first. Accounts made
+  // before the gate existed have no date on file and arrive here too —
+  // a minimum that applies only to accounts created after a certain
+  // Tuesday is not a minimum.
+  if (!user.dateOfBirth) return <AgeCheckPage />
+
+  // The date is on file and it is too young. The rules refuse the same
+  // account independently, so this screen is the explanation rather than
+  // the enforcement — see utils/age.js and firestore.rules.
+  if (!meetsMinimumAge(user.dateOfBirth)) return <TooYoungScreen />
 
   if (!user.onboarded) {
     return (

@@ -128,12 +128,12 @@ describe('signing up against the emulators', () => {
     // account exists, with whatever name it can find. Here it is started
     // the moment the account exists and races the sign-up's own write.
     const { onAuthStateChanged } = await import('firebase/auth')
-    const { pendingSignUpName } = await import('../../src/firebase/auth')
+    const { pendingSignUpDetails } = await import('../../src/firebase/auth')
     let observerWrite
     const stop = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser || firebaseUser.email !== email || observerWrite) return
       observerWrite = ensureUserProfile(firebaseUser.uid, {
-        name: pendingSignUpName(firebaseUser.email) ?? firebaseUser.displayName,
+        name: pendingSignUpDetails(firebaseUser.email)?.name ?? firebaseUser.displayName,
         email: firebaseUser.email,
       })
     })

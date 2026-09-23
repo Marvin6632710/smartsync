@@ -175,6 +175,73 @@ describe('profile privacy', () => {
     )
   })
 
+  test('a date of birth under fifteen is refused, whatever the form did', async () => {
+    // The gate the app draws is a courtesy; this is the gate. A client
+    // that skips the screen, or sends its own request, has to meet the
+    // same minimum — otherwise the youngest account that can exist is
+    // decided by whoever is willing to edit some JavaScript.
+    const almost = new Date()
+    almost.setFullYear(almost.getFullYear() - 15)
+    almost.setDate(almost.getDate() + 1)
+    const iso = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    await assertFails(
+      setDoc(
+        doc(asAlice(), 'users', ALICE, 'private', 'profile'),
+        { dateOfBirth: iso(almost) },
+        { merge: true },
+      ),
+    )
+  })
+
+  test('a date of birth of exactly fifteen years ago is accepted', async () => {
+    const exactly = new Date()
+    exactly.setFullYear(exactly.getFullYear() - 15)
+    const iso = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    await assertSucceeds(
+      setDoc(
+        doc(asAlice(), 'users', ALICE, 'private', 'profile'),
+        { dateOfBirth: iso(exactly) },
+        { merge: true },
+      ),
+    )
+  })
+
+  test('a date of birth that is not a date is refused', async () => {
+    for (const bad of ['tomorrow', '2011-9-1', 20110901, true]) {
+      await assertFails(
+        setDoc(
+          doc(asAlice(), 'users', ALICE, 'private', 'profile'),
+          { dateOfBirth: bad },
+          { merge: true },
+        ),
+      )
+    }
+  })
+
+  test('every other private setting is still the owner\'s alone to change', async () => {
+    // The date of birth is the one field the database has an opinion
+    // about; a write that does not mention it must be untouched by that.
+    await assertSucceeds(
+      setDoc(
+        doc(asAlice(), 'users', ALICE, 'private', 'profile'),
+        { privacy: { approximateLocation: false } },
+        { merge: true },
+      ),
+    )
+  })
+
+  test('a public age must be a number in a human range, or absent', async () => {
+    await assertSucceeds(updateDoc(doc(asAlice(), 'users', ALICE), { age: 26 }))
+    await assertSucceeds(updateDoc(doc(asAlice(), 'users', ALICE), { age: null }))
+    // Under the minimum it is not an age this app should be carrying,
+    // and a string is not an age at all.
+    await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), { age: 12 }))
+    await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), { age: 900 }))
+    await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), { age: 'twenty' }))
+  })
+
   test('two joins in quick succession both reach the history', async () => {
     // The history signal used to be written as a whole list from the client's
     // copy of the profile, so a second join before the first landed erased

@@ -185,7 +185,10 @@
       "nameRequired": "请输入你的姓名。",
       "passwordShort": "密码至少需要 {{count}} 个字符。",
       "haveAccount": "已有账号？",
-      "signInLink": "登录"
+      "signInLink": "登录",
+      "dobHint_other": "SmartSync 面向 {{count}} 岁及以上的用户。你的出生日期不会公开。",
+      "dobRequired": "请填写你的出生日期。",
+      "tooYoung_other": "你需要年满 {{count}} 岁才能使用 SmartSync。"
     },
     "errors": {
       "emailInUse": "该邮箱已注册账号，请尝试登录。",
@@ -209,7 +212,8 @@
       "staySignedIn": "保持登录",
       "notYou": "不是你？退出登录",
       "failed": "无法退出登录"
-    }
+    },
+    "dateOfBirth": "出生日期"
   },
   "terms": {
     "title": "条款与安全",
@@ -703,7 +707,9 @@
     "shareTitle": "SmartSync 个人资料",
     "shareText": "{{name}}（{{username}}）在 SmartSync 上。{{bio}}",
     "anonymousName": "匿名用户",
-    "newUserName": "新用户"
+    "newUserName": "新用户",
+    "ageYears_other": "{{count}} 岁",
+    "ageHiddenTag": "仅自己可见"
   },
   "editProfile": {
     "title": "编辑个人资料",
@@ -769,7 +775,11 @@
     "approximateHint": "存储前将你的位置模糊到约一公里范围",
     "howEyebrow": "工作原理",
     "howTitle": "强制保护，而非仅仅隐藏",
-    "howBody": "你的邮箱、开启匿名模式时的真实姓名，以及存储的位置，都保存在资料中只有你本人能读取的部分。活动聊天只有加入该活动的人可以查看，并在活动结束 30 天后关闭——此后包括我们在内，没有人能再打开。"
+    "howBody": "你的邮箱、开启匿名模式时的真实姓名，以及存储的位置，都保存在资料中只有你本人能读取的部分。活动聊天只有加入该活动的人可以查看，并在活动结束 30 天后关闭——此后包括我们在内，没有人能再打开。",
+    "showAge": "显示我的年龄",
+    "showAgeOnHint_other": "别人会在你的资料上看到 {{count}}。",
+    "showAgeOffHint": "你的年龄只有你自己看得到。",
+    "showAgeFailed": "修改失败，请再试一次。"
   },
   "blocked": {
     "eyebrow": "安全",
@@ -1425,5 +1435,20 @@
     "readError": "无法打开此图片，请尝试其他 JPG、PNG 或 WebP 图片。",
     "saveError": "无法保存图片和更改，请重试。",
     "anonymousHint": "开启匿名模式时，其他用户无法看到你的头像。"
+  },
+  "age": {
+    "eyebrow": "还有一件事",
+    "title": "你多大了？",
+    "lead_other": "SmartSync 面向 {{count}} 岁及以上的用户。我们只问一次。",
+    "privateHint": "不会公开。只有据此算出的年龄可以显示，而且要你自己打开才行。",
+    "willBeTooYoung_other": "这个日期说明你还不满 {{count}} 岁，暂时还不能使用 SmartSync。",
+    "invalidDate": "这不是一个日期，请检查一下。",
+    "saveFailed": "保存失败，请再试一次。",
+    "submit": "继续",
+    "saving": "保存中…",
+    "signOutInstead": "改为退出登录",
+    "tooYoungTitle": "SmartSync 还不适合你",
+    "tooYoungBody_other": "你需要年满 {{count}} 岁。没有任何内容被分享，也没有通知任何人。",
+    "comeBack_other": "大约 {{count}} 年后再来吧。"
   }
 }

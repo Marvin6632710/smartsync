@@ -1801,3 +1801,82 @@ unauthorized or bypass attempts, every one refused. What is **not**
 verified is the real model's scores against these floors — no
 `OPENAI_API_KEY` exists for this project yet, and the floors are the part
 most likely to need tuning when one does.
+
+---
+
+## ADR-034 — A minimum age of fifteen, self-declared, enforced by the database, and shown only by consent
+
+**Context.** SmartSync puts strangers in touch and arranges for them to
+meet in person. It had no minimum age and asked for none, so a child
+could make an account, join an activity at a named place and time, and
+chat privately with adults who had no way of knowing. Every other safety
+control in the project — blocking, reporting, suspension, chat
+moderation — works on what somebody does. This is the one that is about
+who is admitted at all.
+
+**Decision.** Fifteen and over. Four parts.
+
+**1. A date of birth, not an age.** An age is true for a year. Somebody
+who typed 15 would still be 15 at their thirtieth birthday, and the one
+number the minimum depends on would be the one number quietly going
+stale. The date goes in the *private* half of the profile, with the
+email and the real name, because it is the same kind of thing.
+
+**2. The database enforces it, not the form.** `firestore.rules`
+refuses a write to the private profile carrying a date of birth under
+the minimum. Rules have no date arithmetic, only durations, and fifteen
+years is not a fixed number of days — so the cut-off is built as a
+`YYYY-MM-DD` string from `request.time` and compared as a string, which
+for that format is exactly a date comparison and needs no agreement
+about timezones. A client that skips the screen is refused the same way
+one that uses it is.
+
+**3. The gate is in the router, above onboarding.** `App.jsx` sends an
+account with no date on file to the age screen before any other route
+decision except a closed account. Interests, a picture and a bio are
+things somebody makes; whether they should be making them here is
+answered first. Accounts created before this existed arrive there too —
+a minimum that applies only to accounts made after a certain Tuesday is
+not a minimum.
+
+**4. The age is public only by consent, and consent means absence.**
+`showAge` is off by default. When it is on, the public profile carries
+an `age` number; when it is off, that field is `null` — the number
+leaves the document rather than being hidden at render time. Firestore
+has no field-level read rules, so a value in a public document is
+readable whatever the screen draws; ADR-005 made the same argument for a
+name under anonymous mode, and it is the same argument. The date of
+birth itself is never public under any setting. The owner's own profile
+card shows their age either way, labelled "only you" when nobody else
+can see it, so the card is never quietly different from what others get.
+
+**What this is honestly worth.** Nothing here verifies anybody's age.
+Nothing short of an identity document could, and SmartSync asks for
+none, so a determined fourteen-year-old types a different year and is
+in. That is true of almost every age gate on the internet and it is
+stated in README §13 rather than implied away. What the gate actually
+achieves is narrower and still worth having: the minimum is stated, it
+is asked before anything else, it cannot be walked around by a client
+that skips the form, and an account that says it is too young is
+refused rather than quietly allowed. The refusal screen therefore
+offers no way to edit the date — a retry button would turn the gate into
+a guessing game with unlimited tries, which would stop nobody and
+pretend to.
+
+**Cost.** One more question before somebody can use the app, on a screen
+that cannot be skipped — a real cost at an exhibition, where the person
+trying it has thirty seconds of patience. Every existing account is
+interrupted once. And a date of birth is personal data the project did
+not previously hold, which is why it is private, why only a derived
+number can ever be public, and why that number is off by default.
+
+**Rejected.** Storing an age instead of a date (stale within a year, and
+the staleness would be in the safety-critical number). A tick-box saying
+"I am over 15" (nothing to enforce, nothing to show, and it teaches
+people the answer). Asking at first activity rather than at sign-up (an
+account already exists by then, and the question gets harder to ask the
+longer it is left). Blocking under-15s only in the client (walked around
+by anyone who wants to). Making the age public by default (it is
+personal, and a default that reveals something is not a default). Asking
+for an identity document (disproportionate for a student project, and it
+would collect far more than this needs).

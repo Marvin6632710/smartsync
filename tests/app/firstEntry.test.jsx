@@ -28,6 +28,10 @@ const member = {
   name: 'Uma',
   avatar: 'UM',
   email: 'uma@example.com',
+  // Old enough, and answered — otherwise every one of these renders the
+  // age gate instead of the screen under test (App.jsx puts it above
+  // onboarding on purpose).
+  dateOfBirth: '1996-05-04',
   onboarded: true,
   banned: false,
   isAdmin: false,

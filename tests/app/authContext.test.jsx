@@ -38,7 +38,8 @@ vi.mock('../../src/firebase/auth', () => ({
     return () => {}
   },
   currentUid: () => signedIn,
-  pendingSignUpName: (email) => (email === 'u@x' ? pendingName : null),
+  pendingSignUpDetails: (email) =>
+    email === 'u@x' ? { name: pendingName, dateOfBirth: '' } : null,
   refreshCredential,
   retryRefused,
   signIn: vi.fn(),
@@ -122,7 +123,11 @@ describe('becoming a user', () => {
     await act(async () => authCallback({ uid: 'u1', displayName: 'Uma', email: 'u@x' }))
     expect(screen.getByTestId('status').textContent).toBe('ready')
     expect(screen.getByTestId('ready').textContent).toBe('false')
-    expect(ensureUserProfile).toHaveBeenCalledWith('u1', { name: 'Uma', email: 'u@x' })
+    expect(ensureUserProfile).toHaveBeenCalledWith('u1', {
+      name: 'Uma',
+      email: 'u@x',
+      dateOfBirth: '',
+    })
     arrive()
     expect(screen.getByTestId('ready').textContent).toBe('true')
     expect(screen.getByTestId('name').textContent).toBe('Uma')
@@ -167,7 +172,11 @@ describe('the name a new profile is made with', () => {
     signedIn = 'u1'
     await act(async () => authCallback({ uid: 'u1', displayName: null, email: 'u@x' }))
     await flush()
-    expect(ensureUserProfile).toHaveBeenCalledWith('u1', { name: 'Typed Name', email: 'u@x' })
+    expect(ensureUserProfile).toHaveBeenCalledWith('u1', {
+      name: 'Typed Name',
+      email: 'u@x',
+      dateOfBirth: '',
+    })
   })
 
   test('is read afresh on every try, so a record named meanwhile is used', async () => {
@@ -181,8 +190,16 @@ describe('the name a new profile is made with', () => {
     await act(async () => authCallback(record))
     await flush()
     expect(ensureUserProfile).toHaveBeenCalledTimes(2)
-    expect(ensureUserProfile.mock.calls[0][1]).toEqual({ name: null, email: 'u@x' })
-    expect(ensureUserProfile.mock.calls[1][1]).toEqual({ name: 'Named Later', email: 'u@x' })
+    expect(ensureUserProfile.mock.calls[0][1]).toEqual({
+      name: null,
+      email: 'u@x',
+      dateOfBirth: '',
+    })
+    expect(ensureUserProfile.mock.calls[1][1]).toEqual({
+      name: 'Named Later',
+      email: 'u@x',
+      dateOfBirth: '',
+    })
   })
 })
 

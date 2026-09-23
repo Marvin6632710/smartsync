@@ -21,6 +21,7 @@ import { hostedActivitiesFromServer, hostedActivityRefs, stampHostIdentity } fro
 import { db } from './config'
 import { writePicture } from './pictures'
 import { validPicture } from '../utils/pictures'
+import { isValidDob, publicAge } from '../utils/age'
 
 const ANONYMOUS_NAME = 'Anonymous user'
 const ANONYMOUS_AVATAR = 'AN'
@@ -81,11 +82,15 @@ function publicIdentity({ realName, anonymous }) {
  * together, always — see ensureUserProfile — so a half-registered account
  * can never exist.
  */
-function newProfile(uid, { name, email, username }) {
+function newProfile(uid, { name, email, username, dateOfBirth }) {
   const realName = acceptableName(name)
+  const birthday = isValidDob(dateOfBirth) ? dateOfBirth : ''
   const publicData = {
     uid,
     ...publicIdentity({ realName, anonymous: false }),
+    // Nobody's age is public until they say so, so a new profile carries
+    // none. The date itself is in the private half, below.
+    age: null,
     username: username || `@${(email || 'user').split('@')[0].slice(0, 20)}`,
     bio: '',
     interests: [],
@@ -108,6 +113,10 @@ function newProfile(uid, { name, email, username }) {
     privacy: defaultPrivacy,
     location: null,
     onboarded: false,
+    // Empty when an account was made before the age gate existed, or by
+    // a path that did not ask. App.jsx sends those to the age screen
+    // rather than letting them in unchecked.
+    dateOfBirth: birthday,
     createdAt: serverTimestamp(),
   }
   return [
@@ -482,4 +491,53 @@ export function saveReadingLocale(uid, { language, timeZone }) {
 
 export function saveLocation(uid, location) {
   return updatePrivateProfile(uid, { location })
+}
+
+/**
+ * The date of birth, and the age it puts on the public profile.
+ *
+ * Both halves in one batch, because they are one fact. Written
+ * separately, a dropped connection between them could leave an age
+ * visible on a profile whose date of birth never saved — a number about
+ * somebody, derived from nothing.
+ *
+ * `showAge` decides whether the public half gets a number or `null`;
+ * see `publicAge` for why it is `null` and not a hidden field.
+ */
+export function saveDateOfBirth(uid, dateOfBirth, showAge = false) {
+  if (!isValidDob(dateOfBirth)) return Promise.reject(new Error('age.invalid'))
+  const batch = writeBatch(db)
+  batch.set(privateDoc(uid), { dateOfBirth, privacy: { showAge } }, { merge: true })
+  batch.update(publicDoc(uid), {
+    age: publicAge({ dateOfBirth, showAge }),
+    updatedAt: serverTimestamp(),
+  })
+  return batch.commit()
+}
+
+/**
+ * Consent, changed. The number appears on the public profile or leaves it.
+ */
+export function setShowAge(uid, showAge, dateOfBirth) {
+  const batch = writeBatch(db)
+  batch.set(privateDoc(uid), { privacy: { showAge } }, { merge: true })
+  batch.update(publicDoc(uid), {
+    age: publicAge({ dateOfBirth, showAge }),
+    updatedAt: serverTimestamp(),
+  })
+  return batch.commit()
+}
+
+/**
+ * A birthday passed while nobody was looking.
+ *
+ * The public age is a number derived from a date, so it is wrong for one
+ * day a year unless something corrects it. This is that something: it
+ * writes only when the stored number actually disagrees with the date,
+ * so the ordinary case is a comparison and no write at all.
+ */
+export function refreshPublicAge(uid, { dateOfBirth, showAge, age }) {
+  const correct = publicAge({ dateOfBirth, showAge })
+  if (correct === (age ?? null)) return Promise.resolve(false)
+  return updatePublicProfile(uid, { age: correct }).then(() => true)
 }

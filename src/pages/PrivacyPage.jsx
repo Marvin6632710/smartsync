@@ -1,10 +1,10 @@
 import React from 'react'
-import { EyeOff, LocateFixed, MapPinned, ShieldCheck } from 'lucide-react'
+import { CakeSlice, EyeOff, LocateFixed, MapPinned, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { useDeviceLocation } from '../hooks/useDeviceLocation'
 import { useSaveProfile } from '../hooks/useSaveProfile'
-import { setAnonymousMode, updatePrivateProfile } from '../firebase/users'
+import { setAnonymousMode, setShowAge, updatePrivateProfile } from '../firebase/users'
 import { coarsen } from '../utils/geo'
 
 export default function PrivacyPage() {
@@ -55,6 +55,35 @@ export default function PrivacyPage() {
           </span>
           <span className={`switch ${user.anonymous ? 'on' : ''}`} aria-hidden="true" />
         </button>
+        {/* The date of birth never becomes public; this switch is only
+            about the number derived from it, and turning it off removes
+            that number from the public profile rather than hiding it at
+            render time — see utils/age.js. Nothing to switch if we do
+            not know how old they are. */}
+        {user.age !== null && (
+          <button
+            className="setting-row"
+            onClick={() =>
+              save(() => setShowAge(user.uid, !privacy.showAge, user.dateOfBirth), {
+                failure: t('privacy.showAgeFailed'),
+              })
+            }
+            role="switch"
+            aria-checked={privacy.showAge}
+            disabled={saving}
+          >
+            <CakeSlice size={18} />
+            <span>
+              <strong>{t('privacy.showAge')}</strong>
+              <small>
+                {privacy.showAge
+                  ? t('privacy.showAgeOnHint', { count: user.age })
+                  : t('privacy.showAgeOffHint')}
+              </small>
+            </span>
+            <span className={`switch ${privacy.showAge ? 'on' : ''}`} aria-hidden="true" />
+          </button>
+        )}
         <button
           className="setting-row"
           onClick={() => (privacy.locationPermission ? clear() : request())}

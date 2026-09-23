@@ -48,17 +48,22 @@ export function authErrorKey(error) {
  * for any account that lacks one. It used to build that profile from the
  * Auth record's display name — still null at that instant — and the person
  * arrived as "New user". Now the sign-up leaves the name here first, and
- * the observer asks for it (see pendingSignUpName): whichever of the two
- * creates the profile, it carries the name that was typed.
+ * the observer asks for it (see pendingSignUpDetails): whichever of the two
+ * creates the profile, it carries what was typed.
+ *
+ * The date of birth travels the same way and for the same reason. The
+ * observer winning the race used to be harmless; with an age gate it
+ * would have made a profile with no date of birth, and its owner would
+ * have been sent to the age screen straight after filling the field in.
  */
 let pendingSignUp = null
 const emailKey = (email) =>
   String(email || '')
     .trim()
     .toLowerCase()
-export function pendingSignUpName(email) {
+export function pendingSignUpDetails(email) {
   if (!pendingSignUp || pendingSignUp.email !== emailKey(email)) return null
-  return pendingSignUp.name
+  return { name: pendingSignUp.name, dateOfBirth: pendingSignUp.dateOfBirth }
 }
 
 /**
@@ -101,13 +106,13 @@ export async function retryRefused(run, { delays = RETRY_DELAYS_MS } = {}) {
   }
 }
 
-export async function signUp({ email, password, name }) {
+export async function signUp({ email, password, name, dateOfBirth = '' }) {
   // Cut to what the rules accept: a longer one was refused at profile
   // creation, and the account it belonged to landed on an error screen.
   const displayName = acceptableName(name)
   // Left for the observer before the account exists, so there is no instant
   // at which the account is there and the name is not.
-  pendingSignUp = { email: emailKey(email), name: displayName }
+  pendingSignUp = { email: emailKey(email), name: displayName, dateOfBirth }
   let credential
   try {
     credential = await createUserWithEmailAndPassword(auth, email.trim(), password)
@@ -138,7 +143,11 @@ export async function signUp({ email, password, name }) {
   }
   try {
     await retryRefused(() =>
-      ensureUserProfile(uid, { name: displayName, email: credential.user.email }),
+      ensureUserProfile(uid, {
+        name: displayName,
+        email: credential.user.email,
+        dateOfBirth,
+      }),
     )
   } catch (error) {
     reportError('auth.signUp.profile', error, { uid })

@@ -1016,6 +1016,29 @@ select:focus-visible {
   color: var(--text-2);
   border: 1px solid transparent;
 }
+/* The age sits inside the handle pill, after a divider, so it reads as
+   part of who somebody is rather than a second badge competing with it. */
+.profile-age {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding-left: 9px;
+  border-left: 1px solid var(--line);
+  color: var(--text-2);
+}
+/* Shown to its owner only. Dimmer, and it carries the word saying so —
+   the card must never look the same as the one other people see. */
+.profile-age.private {
+  color: var(--text-3, var(--text-2));
+  opacity: 0.85;
+}
+.profile-age em {
+  font-style: normal;
+  font-size: var(--t-xs, 0.75rem);
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
 .floating-pill.accent,
 .match-pill {
   background: var(--accent-soft);

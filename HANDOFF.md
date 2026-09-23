@@ -9,6 +9,94 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest continuation — a minimum age of fifteen (2026-09-23)
+
+**Built and verified locally. NOT committed, NOT deployed** — owner
+tests on localhost first. 941 unit/app tests and 395 rules tests pass;
+lint, format and build clean.
+
+SmartSync puts strangers in touch and arranges for them to meet in
+person, and had no minimum age at all. It has one now: **fifteen and
+over**, asked at sign-up and — for accounts made before the gate
+existed — on a screen above every other route except a closed account.
+
+### The four decisions
+
+**A date of birth, not an age.** An age is true for a year; somebody who
+typed 15 would still be 15 at thirty, and the staleness would be in the
+one number the minimum depends on. The date sits in the *private* half
+of the profile with the email and the real name, and is never public
+under any setting.
+
+**The database enforces it.** `firestore.rules` refuses a private-profile
+write carrying a date of birth under the minimum, so a client that skips
+the screen is refused exactly as one that uses it. Rules have no date
+arithmetic — only durations, and fifteen years is not a fixed number of
+days — so the cut-off is built as a `YYYY-MM-DD` string from
+`request.time` and compared as a string, which for that format *is* a
+date comparison and needs no timezone agreed.
+
+**The gate is in the router**, above onboarding. Interests, a picture and
+a bio are things somebody makes; whether they should be making them here
+is answered first.
+
+**The age is public only by consent, and consent means absence.**
+`showAge` is off by default. On, the public profile carries a number;
+off, that field is `null` — the number *leaves* rather than being hidden
+at render time, because Firestore has no field-level read rules and a
+value in a public document is readable whatever the screen draws (the
+same argument ADR-005 makes for a name under anonymous mode). The
+owner's own card shows their age either way, labelled "only you" when
+nobody else can see it, so it is never quietly different from what
+others get.
+
+### Files
+
+| | |
+| --- | --- |
+| The whole policy | `src/utils/age.js` — `MIN_AGE` is the one number to change |
+| The gate | `src/App.jsx`, `src/pages/AgeCheckPage.jsx`, `src/components/TooYoungScreen.jsx` |
+| Enforcement | `firestore.rules` — `ageCutoff()`, `oldEnough()`, `validAge()` |
+| Data | `src/firebase/users.js` — `saveDateOfBirth`, `setShowAge`, `refreshPublicAge` |
+| Sign-up | `src/pages/SignUpPage.jsx`, `src/firebase/auth.js` (`pendingSignUpDetails`) |
+| Consent + display | `src/pages/PrivacyPage.jsx`, `src/pages/ProfilePage.jsx` |
+
+`pendingSignUpName` became `pendingSignUpDetails` and returns
+`{ name, dateOfBirth }`. Both the sign-up and the auth observer race to
+create a profile; if the date did not travel with the name, the observer
+winning would make a profile with no date and its owner would be sent
+to the age screen straight after filling the field in.
+
+### Verified in the emulator
+
+An account with no date on file gets the screen, and cannot reach
+`/home`, `/profile`, `/map`, `/settings`, `/admin` or a chat by typing
+the address. An under-15 date is refused **with nothing written** and
+"Come back in about 1 year." A valid one lets them through. The profile
+card reads "25 years old · only you". The consent switch puts `age: 25`
+on the public document and takes it back to `null`, while the private
+`dateOfBirth` stays put.
+
+### Known limitation, said plainly
+
+**It is self-declared and unverified.** A determined fourteen-year-old
+types a different year. Nothing short of an identity document would
+change that, and asking for one would collect far more than this needs.
+The refusal screen deliberately offers no way to edit the date — a retry
+button would make it a guessing game with unlimited tries, which would
+stop nobody and pretend to. README §13 and ADR-034 say so rather than
+implying otherwise; it is a better answer at a defence than a claim that
+does not survive one question.
+
+### One thing to decide before deploying
+
+Every existing live account — including the demo ones — will be asked
+for a date of birth on next entry, once. That is intended (a minimum
+that applies only to new accounts is not a minimum), but it means the
+demo accounts need answering once each before a demonstration, and the
+seeded production data has no dates. Worth doing before the exhibition
+rather than during it.
+
 ## Chat moderation: credits on, floors calibrated, ready to deploy (2026-09-23)
 
 The earlier hold is lifted. **$5 of credit was added on 2026-09-23 and

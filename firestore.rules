@@ -242,8 +242,54 @@ service cloud.firestore {
 
     // ------------------------------------------------------------------ users
 
+    /**
+     * The latest date of birth that is at least fifteen years ago, as
+     * `YYYY-MM-DD` — built here because rules have no arithmetic on
+     * dates, only on durations, and fifteen years is not a fixed number
+     * of days. Compared as a string, which is exactly a date comparison
+     * for this format, and needs no timezone to be agreed on.
+     *
+     * The policy itself lives in `src/utils/age.js`; this is its copy in
+     * the only language the database speaks. Change one, change both.
+     */
+    function ageCutoff() {
+      return string(request.time.year() - 15)
+        + (request.time.month() < 10 ? '-0' : '-') + string(request.time.month())
+        + (request.time.day() < 10 ? '-0' : '-') + string(request.time.day());
+    }
+
+    /**
+     * A date of birth old enough to be here.
+     *
+     * A self-declared age is not a verified one and this does not
+     * pretend otherwise — nothing short of an identity document could,
+     * and SmartSync asks for none. What it does is make the minimum
+     * real rather than cosmetic: a client that skips the form, or sends
+     * its own request, is refused by the database in the same way, so
+     * the youngest account that can exist is one whose owner typed a
+     * date that says fifteen.
+     */
+    function oldEnough(dob) {
+      return dob is string && dob.size() == 10 && dob <= ageCutoff();
+    }
+
+    /**
+     * The age other people can see: a number in a sane range, or absent.
+     *
+     * Absent, not hidden. Consent withdrawn removes the value from the
+     * public document, because a public document is readable whatever
+     * the screen decides to draw (ADR-005 makes the same argument for a
+     * name under anonymous mode).
+     */
+    function validAge(data) {
+      return !('age' in data)
+        || data.age == null
+        || (data.age is int && data.age >= 15 && data.age <= 120);
+    }
+
     function validPublicProfile(data) {
-      return isString(data.name, 60)
+      return validAge(data)
+        && isString(data.name, 60)
         && validPictureVersion(data)
         && isString(data.username, 40)
         && validBio(data.bio)
@@ -282,8 +328,19 @@ service cloud.firestore {
       allow delete: if isSelf(uid) && !isBanned();
 
       // Private half of the profile. Never readable by anyone else.
+      //
+      // The date of birth is the one field here the database has an
+      // opinion about. Everything else in this document is the owner's
+      // business and nobody else's; the date of birth decides whether
+      // the account may exist at all, so a write that carries one has to
+      // carry one old enough. A write that does not mention it — every
+      // other setting on every other screen — is left alone.
       match /private/{docId} {
-        allow read, write: if isSelf(uid);
+        allow read: if isSelf(uid);
+        allow write: if isSelf(uid)
+          && (!('dateOfBirth' in request.resource.data)
+              || request.resource.data.dateOfBirth == ''
+              || oldEnough(request.resource.data.dateOfBirth));
       }
 
       match /notifications/{notificationId} {

@@ -92,7 +92,18 @@ export default function ProfilePage() {
               <AvatarContent person={user} />
             </div>
             <h2>{personName(user.name)}</h2>
-            <div className="profile-handle">{user.username}</div>
+            <div className="profile-handle">
+              {user.username}
+              {/* Their own age, shown to them whether or not they show it
+                  to anybody else — with a word saying which, so the card
+                  is never quietly different from what others see. */}
+              {user.age !== null && (
+                <span className={`profile-age ${user.privacy.showAge ? '' : 'private'}`}>
+                  {t('profile.ageYears', { count: user.age })}
+                  {!user.privacy.showAge && <em> · {t('profile.ageHiddenTag')}</em>}
+                </span>
+              )}
+            </div>
             <p>{user.bio}</p>
           </div>
           {/* Who you are includes what you are into: the interests sit on

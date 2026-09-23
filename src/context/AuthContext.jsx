@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 import {
   observeAuth,
-  pendingSignUpName,
+  pendingSignUpDetails,
   refreshCredential,
   retryRefused,
   signIn,
@@ -10,6 +10,7 @@ import {
   signUp,
 } from '../firebase/auth'
 import { watchRole } from '../firebase/moderation'
+import { ageOn } from '../utils/age'
 import { useListenerRetry } from '../hooks/useListenerRetry'
 import {
   defaultPrivacy,
@@ -39,12 +40,14 @@ const AuthContext = createContext(null)
  * named meanwhile.
  */
 function ensureProfileWithRetry(firebaseUser) {
-  return retryRefused(() =>
-    ensureUserProfile(firebaseUser.uid, {
-      name: pendingSignUpName(firebaseUser.email) ?? firebaseUser.displayName,
+  return retryRefused(() => {
+    const pending = pendingSignUpDetails(firebaseUser.email)
+    return ensureUserProfile(firebaseUser.uid, {
+      name: pending?.name ?? firebaseUser.displayName,
       email: firebaseUser.email,
-    }),
-  )
+      dateOfBirth: pending?.dateOfBirth || '',
+    })
+  })
 }
 
 /**
@@ -207,12 +210,22 @@ export function AuthProvider({ children }) {
       privacy: {
         ...defaultPrivacy,
         ...(privateProfile?.privacy || {}),
+        // Consent to show an age, not the age itself. Off unless it was
+        // turned on: a default that reveals something is not a default.
+        showAge: privateProfile?.privacy?.showAge === true,
         // Read from the public half — screens should not have to know that
         // this one setting lives somewhere different from its neighbours.
         notifications: publicProfile.notificationsEnabled ?? true,
       },
       location: privateProfile?.location || null,
       onboarded: privateProfile?.onboarded ?? false,
+      // The date is private and the age is computed from it, so no screen
+      // has to do date arithmetic and none of them can disagree about how
+      // old somebody is. `age` here is *their own* age whether or not they
+      // show it; what other people see is the `age` field on the public
+      // profile, which is null until they consent (see utils/age.js).
+      dateOfBirth: privateProfile?.dateOfBirth || '',
+      age: ageOn(privateProfile?.dateOfBirth || ''),
       // What the server knows of how this person reads, and what may reach
       // their devices; both private, both read by the push Function.
       language: privateProfile?.language || null,

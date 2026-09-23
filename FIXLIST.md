@@ -217,6 +217,34 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **A minimum age of fifteen, 2026-09-23** — asked at sign-up and, for
+  accounts that predate the gate, on a screen above every other route
+  except a closed account (interests are something somebody makes;
+  whether they should be making them here is answered first). A **date
+  of birth**, not an age, because an age is true for a year and would go
+  stale in the one number the minimum depends on; it lives in the
+  private half of the profile with the email and the real name, and is
+  never public under any setting. **The rules enforce it**, not the
+  form: a private-profile write carrying a date under the minimum is
+  refused, so a client that skips the screen is refused the same way —
+  the cut-off is built as a `YYYY-MM-DD` string from `request.time`,
+  because rules have no date arithmetic and fifteen years is not a fixed
+  number of days. The **age** may appear on the public profile, off by
+  default, and turning it off sets the field to `null` rather than
+  hiding it at render time (Firestore has no field-level read rules —
+  the same argument as ADR-005 for a name under anonymous mode). The
+  owner's own card shows it either way, labelled "only you" when nobody
+  else can see it. The refusal screen offers no way to edit the date: a
+  retry button would make the gate a guessing game with unlimited tries,
+  which would stop nobody and pretend to. `src/utils/age.js` is the
+  whole policy; `MIN_AGE` is the one number to change. ADR-034. 28 tests
+  added (15 on the policy, 13 through App's real routing) plus 5 in the
+  rules suite; verified in the emulator — the gate appears for an
+  account with no date, an under-15 date is refused with nothing written
+  and "come back in about 1 year", a valid one lets them through, the
+  profile reads "25 years old · only you", and the consent switch moves
+  the number on and off the public document. **Self-declared and
+  unverified**, which README §13 says plainly rather than implying away.
 - **Chat is moderated before delivery, 2026-09-23** — to the owner's
   12-point specification. The database now refuses every client-written
   message (`allow create: if false` on `activities/*/messages`, and on

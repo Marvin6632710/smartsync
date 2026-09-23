@@ -41,7 +41,7 @@ vi.mock('../../src/firebase/activities', () => ({
 const reportError = vi.fn()
 vi.mock('../../src/utils/reportError', () => ({ reportError }))
 
-const { pendingSignUpName, retryRefused, RETRY_DELAYS_MS, signUp } =
+const { pendingSignUpDetails, retryRefused, RETRY_DELAYS_MS, signUp } =
   await import('../../src/firebase/auth')
 
 const refused = { code: 'permission-denied' }
@@ -79,7 +79,11 @@ describe('signUp', () => {
     )
     expect(updateProfile).toHaveBeenCalledWith(authUser, { displayName: 'Alice' })
     expect(ensureUserProfile).toHaveBeenCalledTimes(1)
-    expect(ensureUserProfile).toHaveBeenCalledWith('u1', { name: 'Alice', email: 'x@y.z' })
+    expect(ensureUserProfile).toHaveBeenCalledWith('u1', {
+      name: 'Alice',
+      email: 'x@y.z',
+      dateOfBirth: '',
+    })
     expect(getIdToken).not.toHaveBeenCalled()
     expect(reportError).not.toHaveBeenCalled()
   })
@@ -87,20 +91,20 @@ describe('signUp', () => {
   test('leaves the name for the observer before the account exists, and clears it after', async () => {
     let duringCreation
     createUserWithEmailAndPassword.mockImplementationOnce(async () => {
-      duringCreation = pendingSignUpName('X@Y.Z ')
+      duringCreation = pendingSignUpDetails('X@Y.Z ')?.name
       return { user: authUser }
     })
     let duringProfile
     ensureUserProfile.mockImplementationOnce(async () => {
-      duringProfile = pendingSignUpName('x@y.z')
+      duringProfile = pendingSignUpDetails('x@y.z')?.name
       return true
     })
     await complete(signUp({ email: 'x@y.z', password: 'secret1', name: 'Alice' }))
     expect(duringCreation).toBe('Alice')
     expect(duringProfile).toBe('Alice')
-    expect(pendingSignUpName('x@y.z')).toBeNull()
+    expect(pendingSignUpDetails('x@y.z')).toBeNull()
     // Another address never sees it.
-    expect(pendingSignUpName('other@y.z')).toBeNull()
+    expect(pendingSignUpDetails('other@y.z')).toBeNull()
   })
 
   test('a refused profile write buys a fresh credential and lands on the second try', async () => {
@@ -122,7 +126,7 @@ describe('signUp', () => {
     expect(reportError).toHaveBeenCalledTimes(1)
     expect(reportError).toHaveBeenCalledWith('auth.signUp.profile', refused, { uid: 'u1' })
     // Nothing is left behind for a later sign-up to pick up.
-    expect(pendingSignUpName('x@y.z')).toBeNull()
+    expect(pendingSignUpDetails('x@y.z')).toBeNull()
   })
 
   test('any other failure after the account exists is recorded once, not retried', async () => {
@@ -142,7 +146,32 @@ describe('signUp', () => {
       { code: 'auth/network-request-failed' },
       { uid: 'u1' },
     )
-    expect(ensureUserProfile).toHaveBeenCalledWith('u1', { name: 'Alice', email: 'x@y.z' })
+    expect(ensureUserProfile).toHaveBeenCalledWith('u1', {
+      name: 'Alice',
+      email: 'x@y.z',
+      dateOfBirth: '',
+    })
+  })
+
+  test('the date of birth reaches the profile, and the observer, and is cleared after', async () => {
+    // The observer can win the race to create the profile. If the date
+    // did not travel with the name, its owner would fill the field in at
+    // sign-up and be sent straight to the age screen anyway.
+    let seenByObserver
+    ensureUserProfile.mockImplementationOnce(async () => {
+      seenByObserver = pendingSignUpDetails('x@y.z')
+      return true
+    })
+    await complete(
+      signUp({ email: 'x@y.z', password: 'secret1', name: 'Alice', dateOfBirth: '2000-04-05' }),
+    )
+    expect(seenByObserver).toEqual({ name: 'Alice', dateOfBirth: '2000-04-05' })
+    expect(ensureUserProfile).toHaveBeenCalledWith('u1', {
+      name: 'Alice',
+      email: 'x@y.z',
+      dateOfBirth: '2000-04-05',
+    })
+    expect(pendingSignUpDetails('x@y.z')).toBeNull()
   })
 
   test('a failure to create the account itself is still the caller’s to show, and leaves no name behind', async () => {
@@ -154,7 +183,7 @@ describe('signUp', () => {
     })
     expect(updateProfile).not.toHaveBeenCalled()
     expect(ensureUserProfile).not.toHaveBeenCalled()
-    expect(pendingSignUpName('x@y.z')).toBeNull()
+    expect(pendingSignUpDetails('x@y.z')).toBeNull()
   })
 })
 
@@ -208,7 +237,11 @@ describe('the name', () => {
     // brand-new account on "Can't load your profile".
     const long = 'A'.repeat(75)
     await complete(signUp({ email: 'x@y.z', password: 'secret1', name: long }))
-    expect(ensureUserProfile).toHaveBeenCalledWith('u1', { name: 'A'.repeat(60), email: 'x@y.z' })
+    expect(ensureUserProfile).toHaveBeenCalledWith('u1', {
+      name: 'A'.repeat(60),
+      email: 'x@y.z',
+      dateOfBirth: '',
+    })
     expect(updateProfile).toHaveBeenCalledWith(authUser, { displayName: 'A'.repeat(60) })
   })
 

@@ -329,10 +329,13 @@ values, so they can be tested without a database.
 ```
 users/{uid}                       PUBLIC — any signed-in user can read
   uid, name, avatar, username, bio,
-  interests[], preferredTime, historyCategories[], anonymous, pictureVersion?
+  interests[], preferredTime, historyCategories[], anonymous, pictureVersion?,
+  age?                            a number ONLY while its owner consents;
+                                  null otherwise — absent, not hidden
 
   private/profile                 PRIVATE — only the owner can read
-    email, realName, privacy{}, location{lat,lng}, onboarded
+    email, realName, privacy{}, location{lat,lng}, onboarded,
+    dateOfBirth                   never public under any setting
 
   notifications/{id}              owner reads; anyone may write one
   following/{targetUid}           owner only
@@ -395,8 +398,18 @@ determined user can call Firestore directly without going through the UI:
   you host and may edit. Picture writes are size/type constrained and tied
   to the parent's version. Anonymous profile pictures cannot be read by
   another account, even an admin.
-- Your email, your real name while anonymous mode is on, and your stored
-  position live in a document nobody else can read. Firestore has no
+- **SmartSync is for people aged 15 and over, and the database is what
+  enforces it.** The rules refuse a private profile carrying a date of
+  birth under the minimum, so a client that skips the sign-up screen is
+  refused exactly as one that uses it. The app asks before any other
+  screen — above onboarding — and accounts made before the gate existed
+  are asked too. It is self-declared and unverified; §13 says what that
+  is and is not worth. ADR-034.
+- Your email, your real name while anonymous mode is on, your date of
+  birth, and your stored position live in a document nobody else can
+  read. Your age can appear on your public profile, but only if you turn
+  it on, and turning it off removes the number rather than hiding it —
+  the date itself is never public under any setting. Firestore has no
   field-level read rules, so this separation is the only way to make it real
   rather than cosmetic. Turning on anonymous mode also rewrites the copy of
   your name held on every activity you host — see ADR-005, including what it
@@ -911,6 +924,15 @@ Honest about what is not there:
   it. Firestore has no field-level read rules and refuses a whole query if any
   document in it fails, so those reports are hidden from that reviewer's queue
   in the client only. ADR-011.
+- **The age gate is self-declared and unverified.** SmartSync asks for a
+  date of birth, refuses anything under 15 in the security rules as well
+  as the form, and offers no "try again" on the refusal — but it has no
+  way to check that the date is true, and a determined fourteen-year-old
+  types a different year. Nothing short of an identity document would
+  change that, and asking for one would collect far more than this
+  needs. What the gate is honestly worth: the minimum is stated, asked
+  before anything else, and cannot be walked around by a client that
+  skips the form. ADR-034.
 - **Blocking hides, it does not conceal.** Somebody you blocked cannot join
   your activities or reach you, and you stop seeing them everywhere — but they
   are not told, and their own view of public activity listings is unchanged.
