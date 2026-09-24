@@ -11,6 +11,7 @@
 import { describe, expect, test, vi } from 'vitest'
 
 import {
+  checkParts,
   DEFAULT_USER_CAP,
   gate,
   rateWindow,
@@ -59,9 +60,11 @@ function fakeDb(initial = {}) {
     get: async () => ({ exists: docs.has(path), data: () => docs.get(path) }),
     set: async (data, opts) => write(path, data, opts),
   })
+  const snapshot = (path) => ({ exists: docs.has(path), data: () => docs.get(path) })
   return {
     docs,
     doc,
+    getAll: vi.fn(async (...refs) => refs.map((ref) => snapshot(ref.path))),
     batch: () => {
       const queued = []
       return {
@@ -79,18 +82,17 @@ function fakeDb(initial = {}) {
 const DELETE = Symbol('delete')
 const FieldValue = { serverTimestamp: () => 'ts', delete: () => DELETE }
 const quiet = { info: () => {}, warn: () => {} }
-const sender = { name: 'Maya', avatar: 'MR', activityTitle: 'Futsal' }
 
 const world = (extra = {}) =>
   fakeDb({
     'activities/a1': { participantUids: ['me', 'you', 'third'], startsAt: NOW + DAY, title: 'Futsal' },
+    'users/me': { name: 'Maya', avatar: 'MR' },
     ...extra,
   })
 const base = (db, openai, request = {}) => ({
   db,
   FieldValue,
   uid: 'me',
-  sender,
   openai,
   now: NOW,
   log: quiet,
@@ -131,6 +133,13 @@ describe('sending', () => {
     const out = await sendChatMessage(base(db, openai))
     expect(out).toEqual({ status: 'sent', id: 'm1' })
     expect(openai.moderate).toHaveBeenCalledWith({ text: 'see you at 7' })
+    expect(db.getAll).toHaveBeenCalledTimes(1)
+    expect(db.getAll.mock.calls[0].map((ref) => ref.path)).toEqual([
+      'activities/a1/messages/m1',
+      'activities/a1',
+      'roles/me',
+      'users/me',
+    ])
     expect(db.docs.get('activities/a1/messages/m1')).toMatchObject({
       senderId: 'me',
       senderName: 'Maya',
@@ -162,6 +171,52 @@ describe('sending', () => {
     expect(openai.moderate.mock.calls[2][0].text).toBe('FREE PIZZA FRIDAY')
     expect(db.docs.get('activities/a1/messages/m1')).toMatchObject({ hasImage: true })
     expect(db.docs.get('chatPictures/m1')).toMatchObject({ activityId: 'a1', senderId: 'me' })
+  })
+
+  test('independent picture checks start together, then keep their source order', async () => {
+    const deferred = () => {
+      let resolve
+      const promise = new Promise((done) => {
+        resolve = done
+      })
+      return { promise, resolve }
+    }
+    const typed = deferred()
+    const picture = deferred()
+    const transcription = deferred()
+    const transcribedText = deferred()
+    const openai = {
+      moderate: vi.fn((input) => {
+        if (input.imageDataUrl) return picture.promise
+        if (input.text === 'FREE PIZZA FRIDAY') return transcribedText.promise
+        return typed.promise
+      }),
+      readImageText: vi.fn(() => transcription.promise),
+    }
+
+    const checking = checkParts({
+      openai,
+      text: 'look',
+      image: { dataUrl: PNG },
+      ocr: true,
+      log: quiet,
+    })
+
+    await Promise.resolve()
+    expect(openai.moderate).toHaveBeenCalledTimes(2)
+    expect(openai.readImageText).toHaveBeenCalledTimes(1)
+
+    typed.resolve(clean())
+    picture.resolve(clean())
+    transcription.resolve('FREE PIZZA FRIDAY')
+    await vi.waitFor(() => expect(openai.moderate).toHaveBeenCalledTimes(3))
+    transcribedText.resolve(clean())
+
+    await expect(checking).resolves.toEqual([
+      { source: 'text', result: clean() },
+      { source: 'image', result: clean() },
+      { source: 'image-text', result: clean() },
+    ])
   })
 
   test('a refused message reaches nobody, anywhere', async () => {
@@ -224,6 +279,30 @@ describe('sending', () => {
     expect([...db.docs.keys()].filter((p) => p.startsWith('activities/a1/messages/'))).toHaveLength(
       1,
     )
+  })
+
+  test('a landed retry is confirmed before a missing activity or blocked role is judged', async () => {
+    const db = fakeDb({
+      'activities/a1/messages/m1': { senderId: 'me', text: 'already there' },
+      'roles/me': { suspended: true },
+    })
+    const openai = passing()
+    const out = await sendChatMessage(base(db, openai))
+
+    expect(out).toEqual({ status: 'sent', id: 'm1', duplicate: true })
+    expect(openai.moderate).not.toHaveBeenCalled()
+    expect(db.docs.has('chatModeration/me')).toBe(false)
+    expect(db.docs.has('chatModerationUsage/2026-09-22')).toBe(false)
+  })
+
+  test('the preflight falls back to parallel document reads without getAll', async () => {
+    const db = world()
+    delete db.getAll
+
+    const out = await sendChatMessage(base(db, passing()))
+
+    expect(out).toEqual({ status: 'sent', id: 'm1' })
+    expect(db.docs.get('activities/a1/messages/m1')).toMatchObject({ senderName: 'Maya' })
   })
 
   test('a moderation failure keeps the message with its author', async () => {

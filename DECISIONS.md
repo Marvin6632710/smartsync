@@ -1685,6 +1685,20 @@ recommendation — the owner chose to stay free.
 
 ## ADR-033 — Chat is moderated before delivery, and the database refuses every client-written message
 
+> **Implementation refinement, 2026-09-24 — uncommitted, not deployed, ready
+> for localhost testing.** This does not change the decision below. The send
+> preflight now reads the existing message, activity, role and sender profile in
+> one Admin SDK `getAll` round trip. Typed-text moderation, image moderation and
+> OCR start concurrently; moderation of any OCR text remains the dependent
+> second stage. A captioned picture with OCR can still make four OpenAI
+> requests, but the first three no longer wait for one another. The adapter's
+> 8-second abort covers response-body reading and parsing. Pending sends use the
+> normal own-message shape with a spinner by the time, without a visible
+> Checking heading/long sentence or a permanent composer note; delivered own
+> messages show a subtle check. Clients still write no chat content, and no
+> message, picture or notification is written before every required moderation
+> stage allows it.
+
 **Context.** Activity chat was the one place in SmartSync where a person
 could put words on somebody else's screen with nothing between them. The
 rules checked who could write and where, never what. Everything else the
@@ -1768,11 +1782,11 @@ also what most "fail open" advice would have recommended.
 paid part is transcribing pictures: about $0.0007 each at `gpt-5.6-luna`
 prices, bounded by `CHAT_DAILY_CAP`. The real costs are elsewhere. It
 adds a wait to sending — a second for text, a few for a picture — where
-before there was none, and the screen now says "Checking…" where a
-message used to simply appear. It adds a second external dependency that
-can be withdrawn, after ADR-032 made exactly that point about the first.
-And it moves a write from the client to a Function, which means chat now
-needs the Blaze plan to work at all.
+before there was none. The sender's own pending bubble now carries a compact
+spinner beside its time, and the delivered bubble carries a subtle check. It
+adds a second external dependency that can be withdrawn, after ADR-032 made
+exactly that point about the first. And it moves a write from the client to a
+Function, which means chat now needs the Blaze plan to work at all.
 
 **Rejected.** A client-side check before `addDoc` (walked around by
 anyone who wants to, which is the population that matters). Writing the

@@ -2,12 +2,55 @@
 
 Original hand-off written 2026-09-21 after removing the moderator rank and
 shipping the admin console. Later picture-upload, search and map changes are
-recorded below; the original session details remain for context.
+recorded below; the original session details remain for context. The current
+uncommitted chat-send refinement is recorded first.
 
 **Continuing in Claude Code?** Start with [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md)
 for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
-update is documentation only. The application has no half-finished changes.
+now also records the deliberate uncommitted working-tree state below.
+
+## Latest continuation — shorter, quieter moderated chat send (2026-09-24)
+
+**UNCOMMITTED — ready for localhost testing; not deployed.** The current
+working tree shortens the wait without relaxing the moderation boundary.
+
+While a send is pending, it now looks like the sender's normal message bubble:
+their name and message remain in place, with a compact spinner beside the time.
+There is no visible **Checking** heading, no long status sentence in the bubble
+and no permanent moderation sentence below the composer. The full checking
+sentence remains available to screen readers. Once the listener receives a
+delivered message, the sender's own bubble shows a subtle check beside its
+time. Refused and failed messages keep their existing explanation and actions.
+
+The Function now reads the existing message, activity, role and sender profile
+in one Admin SDK `getAll` preflight round trip. The existing-message result is
+still considered first, so a retry can confirm a send that already landed
+without spending another rate-limit turn. Typed-text moderation, image
+moderation and image transcription are independent and now start together. If
+transcription returns words, those words are moderated as the dependent second
+stage. A captioned picture with OCR can therefore make **four OpenAI requests**
+in total — text moderation, image moderation, transcription, then moderation
+of the transcription — but the first three no longer wait on one another.
+Decision order remains text, image, then image text, regardless of which
+request answers first.
+
+The OpenAI adapter's 8-second abort now covers reading and parsing the response
+body as well as waiting for response headers. A server that sends headers and
+then stalls cannot occupy the Function's longer outer timeout.
+
+The safety invariant is unchanged: clients still cannot write messages or chat
+pictures, and the Function writes no message, picture or chat notification
+until every required moderation stage has completed and allowed the send. The
+working tree is ready for the localhost pass covering text-only send,
+captioned-picture OCR, refusal, outage/retry and the pending-to-delivered visual
+transition. Do not describe this refinement as committed, pushed or deployed.
+
+Validation on this working tree: **957 unit/app tests and 402 Firestore rules
+tests pass**; lint, Prettier, Maps configuration and the production build are
+clean. The localhost chat was visually checked with the permanent sentence
+gone and delivered checks in place; sending a new message is left for the owner
+to exercise in the open local session.
 
 ## Latest release — expanded admin powers (2026-09-24)
 
@@ -302,9 +345,9 @@ courtesy rather than a control.
 
 The Function's own log agrees — `auth: VALID` throughout, five "chat
 message sent", two "chat message blocked" with `source: text` and
-`reason: harassment`, no errors, no rate limits, and 1.5–2.3 s per call,
-which is a real round trip to OpenAI rather than something
-short-circuiting. Note the three middle passes: every one of them scores
+`reason: harassment`, no errors, no rate limits, and 1.5–2.3 s per
+text-only callable invocation, which is a real round trip to OpenAI rather
+than something short-circuiting. Note the three middle passes: every one of them scores
 as harassment to some degree, and at the original floor of 0.5 all three
 would have been refused on the live site.
 
@@ -349,18 +392,22 @@ token, that puts words in a thread.
 
 ### What is checked, and what is deliberately not
 
-`omni-moderation-latest`, up to three calls, stopping at the first
-refusal: the text; the picture as an image; and the picture's words,
-because the API applies only six of thirteen categories to images and
-`hate`, `harassment` and threats are not among them — so a picture is
-transcribed by a small vision model (`gpt-5.6-luna`) and the
-transcription moderated as text. A transcription failure is logged and
-does **not** block: a model that cannot read a photograph of a beach is
-not evidence of anything.
+`omni-moderation-latest` checks up to three content sources: the typed
+text; the picture as an image; and the picture's words. Those are three
+sources, not three API requests: a captioned picture with OCR can use
+four requests because transcription and moderation of that transcription
+are separate. The API applies only six of thirteen categories to images
+and `hate`, `harassment` and threats are not among them, so a picture is
+transcribed by a small vision model (`gpt-5.6-luna`) and the transcription
+is moderated as text. In the current uncommitted latency pass, typed-text
+moderation, image moderation and transcription start concurrently; any
+transcribed words are moderated in a second stage. A transcription failure
+is logged and does **not** block: a model that cannot read a photograph of
+a beach is not evidence of anything.
 
 Nine categories block, and only when the API's boolean is true **and**
 its score clears a floor kept in `functions/lib/moderation.js` —
-harassment 0.5, threats 0.35/0.3, hate 0.45, sexual 0.5, graphic
+harassment 0.85, threats 0.35/0.3, hate 0.45, sexual 0.5, graphic
 violence 0.5, violent wrongdoing 0.5, self-harm instructions 0.4. The
 booleans alone fire on mild cases; a heated argument about a football
 match reads as harassment at 0.12, and a moderator that blocks that
@@ -402,39 +449,39 @@ Retry is offered.
 
 ### Files
 
-| Area             | Files                                                                                                            |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Policy (pure)    | `functions/lib/moderation.js` — categories, floors, `judge`, `decide`, the transcription prompt                  |
-| API adapter      | `functions/lib/openai.js` — `moderate()`, `readImageText()`, error classification                                |
-| Request checking | `functions/lib/chat.js` — text cleaning, image sniffing by bytes, `validateSend`                                 |
-| The send path    | `functions/lib/sendChat.js` — `gate`, `takeTurn`, `checkParts`, `sendChatMessage`, `recordBlock`, `resolveBlock` |
-| Callables        | `functions/index.js` — `sendChatMessageCall`, `requestChatReview`, `resolveChatBlock`                            |
-| Rules            | `firestore.rules` — messages, `chatPictures`, `moderationBlocks`, `chatModeration`, `chatModerationUsage`        |
-| Client           | `src/firebase/chat.js`, `src/context/AppContext.jsx` (`chatPending`, retry, review), `src/pages/ChatPage.jsx`    |
-| Console          | `src/console/pages/ChatBlocksPage.jsx` + nav/route/feed wiring                                                   |
-| Stand-in         | `scripts/fake-openai.mjs`                                                                                        |
+| Area             | Files                                                                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Policy (pure)    | `functions/lib/moderation.js` — categories, floors, `judge`, `decide`, the transcription prompt                              |
+| API adapter      | `functions/lib/openai.js` — `moderate()`, `readImageText()`, error classification and the body-inclusive 8 s abort           |
+| Request checking | `functions/lib/chat.js` — text cleaning, image sniffing by bytes, `validateSend`                                             |
+| The send path    | `functions/lib/sendChat.js` — batched preflight, concurrent first stage, `gate`, `takeTurn`, `checkParts`, send/block/review |
+| Callables        | `functions/index.js` — `sendChatMessageCall`, `requestChatReview`, `resolveChatBlock`                                        |
+| Rules            | `firestore.rules` — messages, `chatPictures`, `moderationBlocks`, `chatModeration`, `chatModerationUsage`                    |
+| Client           | `src/firebase/chat.js`, `src/context/AppContext.jsx` (`chatPending`, retry, review), `src/pages/ChatPage.jsx`                |
+| Console          | `src/console/pages/ChatBlocksPage.jsx` + nav/route/feed wiring                                                               |
+| Stand-in         | `scripts/fake-openai.mjs`                                                                                                    |
 
 ### Verified in the emulator — against the stand-in, not the real API
 
 Driven through the running app at `localhost:5173` with
 `scripts/fake-openai.mjs` in place of OpenAI:
 
-| Case                                                                        | Result                                                                         |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Ordinary message                                                            | moderated and delivered, `moderatedAt` stamped                                 |
-| `xharassx`                                                                  | refused with a plain reason; in no thread, picture or notification             |
-| Appeal                                                                      | `appealed: true`, queued at `/admin/chat` with a sidebar count                 |
-| Overturn                                                                    | the original message posted; held copy deleted                                 |
-| Outage (stand-in 503)                                                       | "check could not be completed", nothing written, Retry offered                 |
-| Retry after recovery                                                        | delivered                                                                      |
-| Picture                                                                     | caption, image and transcription all called; stored in `chatPictures`; renders |
-| Meme (`OPENAI_FAKE_IMAGE_TEXT=xhatex`)                                      | blocked with `source: image-text` although the caption was clean               |
-| `xmildx` (flagged at 0.12)                                                  | delivered — the floor does its job                                             |
-| Rate limit                                                                  | "try again in 60 minutes", message kept                                        |
-| Client writes a message / a picture / its own counter / a chat notification | all four `permission-denied`                                                   |
-| Non-participant reads the thread, reads a picture, calls the callable       | refused, refused, `not-allowed`                                                |
-| Non-admin resolves a block; appeals somebody else's                         | 403 "Admins only", 403 "Not your message"                                      |
-| Non-admin reads `moderationBlocks`                                          | `permission-denied`                                                            |
+| Case                                                                        | Result                                                                              |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Ordinary message                                                            | moderated and delivered, `moderatedAt` stamped                                      |
+| `xharassx`                                                                  | refused with a plain reason; in no thread, picture or notification                  |
+| Appeal                                                                      | `appealed: true`, queued at `/admin/chat` with a sidebar count                      |
+| Overturn                                                                    | the original message posted; held copy deleted                                      |
+| Outage (stand-in 503)                                                       | "check could not be completed", nothing written, Retry offered                      |
+| Retry after recovery                                                        | delivered                                                                           |
+| Picture                                                                     | caption/image/OCR checked, then OCR text checked; stored in `chatPictures`; renders |
+| Meme (`OPENAI_FAKE_IMAGE_TEXT=xhatex`)                                      | blocked with `source: image-text` although the caption was clean                    |
+| `xmildx` (flagged at 0.12)                                                  | delivered — the floor does its job                                                  |
+| Rate limit                                                                  | "try again in 60 minutes", message kept                                             |
+| Client writes a message / a picture / its own counter / a chat notification | all four `permission-denied`                                                        |
+| Non-participant reads the thread, reads a picture, calls the callable       | refused, refused, `not-allowed`                                                     |
+| Non-admin resolves a block; appeals somebody else's                         | 403 "Admins only", 403 "Not your message"                                           |
+| Non-admin reads `moderationBlocks`                                          | `permission-denied`                                                                 |
 
 **What is not verified: the real model's scores against these floors.**
 The key is now set (2026-09-23) but the account has no credits, so no

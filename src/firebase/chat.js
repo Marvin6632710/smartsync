@@ -15,11 +15,11 @@ import { httpsCallable } from 'firebase/functions'
 import { client } from './functions'
 
 /**
- * Long enough for two moderation calls and a transcription, each with
- * its own timeout on the server, plus the writes. Shorter than the
- * Function's own budget would mean the browser giving up on a message
- * the server is about to deliver — and then a retry that sends it
- * twice, which is what `clientMsgId` exists to prevent anyway.
+ * Long enough for the parallel text/image/transcription stage, one
+ * possible transcription-moderation follow-up, and the writes. Shorter
+ * than the Function's own budget would mean the browser giving up on a
+ * message the server is about to deliver — and then a retry that sends
+ * it twice, which is what `clientMsgId` exists to prevent anyway.
  */
 const SEND_TIMEOUT_MS = 70_000
 

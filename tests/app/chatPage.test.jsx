@@ -179,7 +179,7 @@ describe('the composer', () => {
     ...extra,
   })
 
-  test('hands the message to moderation and clears, saying what is happening', async () => {
+  test('hands the message to moderation and clears the composer', async () => {
     render(page())
     act(() => open().onRows([]))
     type('see you at 7')
@@ -195,6 +195,12 @@ describe('the composer', () => {
     const bubble = document.querySelector('.pending-bubble')
     expect(bubble.className).toMatch(/checking/)
     expect(bubble.getAttribute('role')).toBe('status')
+    expect(bubble.querySelector('strong').textContent).toBe('Me')
+    expect(bubble.querySelector('.message-check-spinner')).toBeTruthy()
+    expect(bubble.querySelector('.sr-only').textContent).toMatch(
+      /Checking this message before anyone sees it/,
+    )
+    expect(screen.queryByText('Checking')).toBeNull()
     expect(bubble.textContent).toMatch(/Checking this message before anyone sees it/)
     // It is not a message in the thread: the thread has none.
     expect(document.querySelectorAll('.message-bubble:not(.pending-bubble)')).toHaveLength(0)
@@ -313,14 +319,24 @@ describe('the composer', () => {
     expect(document.querySelector('.chat-attachment')).toBeNull()
   })
 
-  test('the composer says, once, what happens to a message', () => {
+  test('the composer stays compact without a permanent moderation sentence', () => {
     render(page())
     act(() => open().onRows([]))
-    expect(screen.getByText(/checked before the group sees them/)).toBeTruthy()
+    expect(document.querySelector('.chat-moderation-note')).toBeNull()
   })
 })
 
 describe('an approved message', () => {
+  test('an own message has a compact sent mark beside its time', () => {
+    render(page())
+    act(() =>
+      open().onRows([{ id: 'm1', senderId: 'me', senderName: 'Me', text: 'on my way' }]),
+    )
+    const bubble = screen.getByText('on my way').closest('.message-bubble')
+    expect(bubble.querySelector('.message-sent-mark')).toBeTruthy()
+    expect(bubble.querySelector('.sr-only').textContent).toBe('Sent')
+  })
+
   test('a picture arrives with the message it was checked with', () => {
     storedPicture = 'data:image/webp;base64,BBBB'
     render(page())

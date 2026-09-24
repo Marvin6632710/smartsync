@@ -1384,10 +1384,11 @@ export function AppProvider({ children }) {
    * unchecked.
    *
    * While it is in flight it is here, as a pending row the chat screen
-   * shows to its author and to nobody else: "Checking message…", then
-   * gone, or blocked with a reason, or failed with a retry. Its `id` is
-   * the message's id as well as the row's, so a retry after a timeout
-   * lands on the same document instead of posting twice.
+   * shows to its author and to nobody else: the ordinary bubble shape with
+   * a small progress marker, then gone, blocked with a reason, or failed
+   * with a retry. Its `id` is the message's id as well as the row's, so a
+   * retry after a timeout lands on the same document instead of posting
+   * twice.
    */
   const patchPending = React.useCallback((id, patch) => {
     setChatPending((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)))

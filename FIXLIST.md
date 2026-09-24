@@ -27,6 +27,18 @@ The list below is a changelog of _what_ each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
 digging through git.
 
+- **UNCOMMITTED — READY FOR LOCALHOST TESTING (2026-09-24)** — moderated chat
+  now uses one batched preflight read for the existing message, activity, role
+  and sender profile. Typed-text moderation, image moderation and OCR begin
+  together; OCR text is moderated in the dependent second stage, so the four
+  possible OpenAI requests for a captioned picture are overlapped where they
+  are independent. The 8-second OpenAI abort includes response-body parsing.
+  Pending sends look like normal own-message bubbles with a compact spinner by
+  the time; the visible Checking title/long sentence and permanent composer
+  note are gone, while delivered own messages show a subtle check. The
+  no-client-write and moderate-before-message/picture/notification guarantees
+  are unchanged. **957 unit/app and 402 rules tests pass; lint, format, Maps and
+  build are clean.** This working-tree refinement is not committed or deployed.
 - **LIVE (`d7d8595`, 2026-09-24)** — the admin console gains seven
   approved powers: reversible profile fields, activity pictures and published
   messages; timed suspension; appeals; security session/reset actions; and
@@ -293,9 +305,9 @@ three. Details in README.md; the parts worth knowing here:
   guidance forbids sending suspected CSAM to the API, and the real
   obligation is a report to an authority, not a click (README §11). An
   outage, a quota refusal or a revoked key never becomes delivery: the
-  message is kept and Retry is offered. Also: a rate limit of 60 sends
-  an hour per person and a daily call budget, chat pictures at a 1024px
-  edge with their metadata stripped in the browser, and chat
+  message is kept and Retry is offered. Also: a rate limit of 60 new send
+  checks an hour per person and a daily send-check budget, chat pictures at a
+  1024px edge with their metadata stripped in the browser, and chat
   notifications removed from what a client may write. ADR-033. 71 tests
   added plus rules coverage; verified end to end in the emulator against
   the stand-in in `scripts/fake-openai.mjs` — clean message delivered,

@@ -380,7 +380,7 @@ chatModeration/{uid}              nobody reads or writes but the Function
   sends{start,count}              — one person's hourly send allowance
 
 chatModerationUsage/{YYYY-MM-DD}  nobody reads or writes but the Function
-  count, updatedAt                — the app's daily moderation-call budget
+  count, updatedAt                — the app's daily new-send check budget
 
 profilePictures/{uid}             owner writes; anonymous photos are owner-only
   dataUrl, version, updatedAt
@@ -595,10 +595,15 @@ directly, replaying the app's own request — none of them reach the
 thread, because the thread is not writable by anyone holding a user's
 credentials. That is the whole design in one sentence.
 
+> **Current working tree, 2026-09-24:** the latency and pending-message UI
+> refinement described below is uncommitted, not deployed and ready for
+> localhost testing. It changes when independent work runs and how progress is
+> shown; it does not change the server-only write boundary or the checks a send
+> must pass.
+
 ### What gets checked
 
-`sendChatMessageCall` checks up to three things, and stops at the first
-refusal:
+`sendChatMessageCall` checks up to three content sources:
 
 1. **The text**, through OpenAI's Moderation API (`omni-moderation-latest`).
 2. **The picture**, through the same call — the API takes images as well.
@@ -609,11 +614,19 @@ refusal:
    transcribed by a small vision model and the transcription is moderated
    as text. Turn this off with `CHAT_IMAGE_OCR=off` and that gap is open.
 
+Three content sources do not mean three API requests. A captioned picture with
+OCR can make four: typed-text moderation, image moderation, transcription, and
+then moderation of the transcription. In the current uncommitted latency pass,
+the first three start together because they are independent; OCR text is still
+moderated as the required second stage. Results keep the fixed text → image →
+image-text decision order regardless of which first-stage request finishes
+first.
+
 A category blocks only when the API's own boolean is true **and** its
 score clears a floor kept in `functions/lib/moderation.js`. The booleans
 are tuned for a general audience and fire on mild cases; the floors are
 what keep a heated argument about a football match out of the blocked
-pile. Blocked: targeted harassment (0.5), threats (0.35/0.3), hateful
+pile. Blocked: targeted harassment (0.85), threats (0.35/0.3), hateful
 abuse (0.45), sexual content (0.5), graphic violence (0.5), violent
 wrongdoing (0.5), instructions for self-harm (0.4).
 
@@ -713,6 +726,14 @@ console are still for, and they are unchanged.
 
 ### What the person who wrote it sees
 
+While moderation is running, the sender sees the message in the same shape as
+their normal own-message bubble, with a compact spinner beside the time. There
+is no visible **Checking** heading or long progress sentence, and the composer
+does not carry a permanent moderation note. The checking description remains
+available to screen readers. Once delivered, an own message has a subtle check
+beside its time. The pending bubble is local UI state, not a message in the
+thread.
+
 The message never appears in the thread, so nothing has to be taken back.
 It stays in their own composer area as an unsent bubble with a plain
 reason — "This reads as targeting someone. Rewrite it and it can go
@@ -763,14 +784,14 @@ moderation can still be walked around.
 
 Optional tuning, in `functions/.env` (ignored by git, read at deploy):
 
-| variable                | default        | what it does                                     |
-| ----------------------- | -------------- | ------------------------------------------------ |
-| `CHAT_USER_HOURLY_CAP`  | 60             | messages one person may send in an hour          |
-| `CHAT_DAILY_CAP`        | 5000           | moderation calls the whole app may make in a day |
-| `CHAT_IMAGE_OCR`        | on             | `off` skips reading the words inside pictures    |
-| `CHAT_PROFANITY_POLICY` | allow          | `block` refuses ordinary swearing too            |
-| `CHAT_PROFANITY_WORDS`  | —              | comma-separated additions to the word list       |
-| `OPENAI_VISION_MODEL`   | `gpt-5.6-luna` | the model that transcribes pictures              |
+| variable                | default        | what it does                                       |
+| ----------------------- | -------------- | -------------------------------------------------- |
+| `CHAT_USER_HOURLY_CAP`  | 60             | new chat send checks one person may start hourly   |
+| `CHAT_DAILY_CAP`        | 5000           | new chat send checks the whole app may start daily |
+| `CHAT_IMAGE_OCR`        | on             | `off` skips reading the words inside pictures      |
+| `CHAT_PROFANITY_POLICY` | allow          | `block` refuses ordinary swearing too              |
+| `CHAT_PROFANITY_WORDS`  | —              | comma-separated additions to the word list         |
+| `OPENAI_VISION_MODEL`   | `gpt-5.6-luna` | the model that transcribes pictures                |
 
 ### What it costs
 
@@ -795,9 +816,10 @@ is about **$0.0007 a picture** — a thousand pictures is well under a
 dollar. `CHAT_DAILY_CAP` bounds the worst case for the whole app.
 
 The rest is Firebase, on the same Blaze plan AI Picks already needs: one
-Function invocation per message, a handful of Firestore reads and writes,
-and the held copy of a blocked message. Set a Cloud Billing budget alert
-anyway.
+Function invocation per send, one server round trip that reads the existing
+message, activity, role and sender profile together, the rate-limit transaction
+and the final writes. A blocked message also has a held copy. Set a Cloud
+Billing budget alert anyway.
 
 ### Running it locally
 
@@ -870,11 +892,14 @@ test` re-runs. Re-measuring after a model change is a manual job.
   deleted when an appeal is overturned. An upheld one stays for the
   retention window. Deleting them on a schedule needs a Cloud Scheduler
   job that is not written yet.
-- **It adds a wait to sending.** Three API calls when a picture is
-  attached, on an 8-second timeout each, inside a Function with a 60
-  second budget. Text alone is usually well under a second; a picture
-  with OCR on is a few seconds. The screen says "Checking…" rather than
-  pretending the message has gone.
+- **It adds a wait to sending.** A captioned picture with OCR can make four
+  OpenAI requests: typed-text moderation, image moderation and transcription
+  start together, then the transcription is moderated as text. Each request
+  has an 8-second abort that covers response-body parsing as well as response
+  headers, inside a Function with a 60-second budget. Text alone is usually
+  well under a second; a picture with OCR on is a few seconds. During that wait
+  the normal own-message bubble shows a compact spinner beside its time; it is
+  still only local pending state and has not reached the thread.
 - **Moderation is English-first.** The refusal wording is translated into
   all four languages, but the model's own accuracy is best in English and
   the transcription step has not been measured on Burmese or Thai script.

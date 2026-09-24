@@ -65,26 +65,40 @@ export function classify(status, detail = '') {
 async function post(path, body, { apiKey, timeoutMs, baseUrl }) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
-  let response
   try {
-    response = await fetch(`${baseUrl || API}${path}`, {
+    const response = await fetch(`${baseUrl || API}${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(body),
       signal: controller.signal,
     })
+    if (!response.ok) {
+      let detail = ''
+      try {
+        detail = await response.text()
+      } catch (error) {
+        // Preserve the old tolerance for an unreadable error body, but do not
+        // turn an actual timeout into a response with an empty detail.
+        if (controller.signal.aborted) throw error
+      }
+      throw new ModerationError(
+        classify(response.status, detail),
+        detail.slice(0, 300),
+        response.status,
+      )
+    }
+    // Parsing is part of the request too. Keeping it inside the abort window
+    // prevents a server that sent headers and then stalled its body from
+    // occupying the Function's much larger outer timeout.
+    return await response.json()
   } catch (error) {
+    if (error instanceof ModerationError) throw error
     // An abort is a timeout here; either way nothing was decided, so the
     // message stays unsent rather than going through unchecked.
     throw new ModerationError('unavailable', String(error?.message || error))
   } finally {
     clearTimeout(timer)
   }
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new ModerationError(classify(response.status, detail), detail.slice(0, 300), response.status)
-  }
-  return response.json()
 }
 
 /**

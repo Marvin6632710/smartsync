@@ -2259,6 +2259,22 @@ select:focus-visible {
   color: var(--text-3);
   font-size: 10px;
 }
+.message-meta {
+  display: flex;
+  min-height: 14px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: var(--text-3);
+}
+.message-meta > span:not(.sr-only) {
+  display: inline;
+  color: inherit;
+}
+.message-sent-mark {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
 .chat-form {
   display: grid;
   gap: 8px;
@@ -2334,17 +2350,6 @@ select:focus-visible {
   color: var(--danger);
   font-size: var(--t-xs);
 }
-/* Said once, under the composer: what happens to a message before the
-   group sees it. Quiet, because it is a standing fact rather than a
-   warning about the message being typed. */
-.chat-moderation-note {
-  margin: 0;
-  color: var(--text-3);
-  font-size: 11px;
-  line-height: 1.4;
-  text-align: center;
-}
-
 /* A picture inside a bubble. Bounded by the bubble's width, and by a
    height that keeps a portrait photo from taking the whole thread. */
 .message-picture {
@@ -2365,14 +2370,23 @@ select:focus-visible {
    being checked is the app working (quiet, the accent), refused is a
    decision about what was written (warning), and failed is neither —
    nothing reached the server and the message is waiting (danger). */
-.pending-bubble {
+.pending-bubble:not(.checking) {
   border-style: dashed;
 }
 .pending-bubble.checking {
-  opacity: 0.85;
+  opacity: 0.9;
 }
-.pending-bubble.checking > span {
+.pending-message-meta {
   color: var(--accent);
+}
+.message-check-spinner {
+  flex: 0 0 auto;
+  animation: chat-message-check 0.8s linear infinite;
+}
+@keyframes chat-message-check {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .pending-bubble.blocked {
   background: var(--warning-soft);
@@ -3626,6 +3640,9 @@ select:focus-visible {
    asked for less motion. The skeleton still communicates "loading" by shape. */
 @media (prefers-reduced-motion: reduce) {
   .skeleton-line {
+    animation: none;
+  }
+  .message-check-spinner {
     animation: none;
   }
 }

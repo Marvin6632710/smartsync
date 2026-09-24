@@ -194,26 +194,12 @@ const moderationClient = () => {
   })
 }
 
-/** Where the sender's own name comes from — theirs, not what they claimed. */
-async function senderOf(uid, activityId) {
-  const [userSnap, activitySnap] = await Promise.all([
-    db.doc(`users/${uid}`).get(),
-    db.doc(`activities/${activityId}`).get(),
-  ])
-  const user = userSnap.data() || {}
-  return {
-    name: String(user.name || 'SmartSync user').slice(0, 60),
-    avatar: String(user.avatar || '').slice(0, 8),
-    activityTitle: String(activitySnap.data()?.title || '').slice(0, 120),
-  }
-}
-
 export const sendChatMessageCall = onCall(
   {
     region: 'us-central1',
     secrets: [openaiKey],
-    // Two moderation calls and a transcription, each with its own short
-    // timeout, plus the writes.
+    // Parallel first-stage moderation and transcription, then at most one
+    // transcription follow-up, each with its own short timeout, plus writes.
     timeoutSeconds: 60,
     memory: '512MiB',
     maxInstances: 10,
@@ -228,12 +214,10 @@ export const sendChatMessageCall = onCall(
     } catch (error) {
       throw new HttpsError('invalid-argument', String(error?.message || error))
     }
-    const sender = await senderOf(request.auth.uid, checked.activityId)
     return sendChatMessage({
       db,
       FieldValue,
       uid: request.auth.uid,
-      sender,
       request: checked,
       openai: moderationClient(),
       caps: chatCaps(),

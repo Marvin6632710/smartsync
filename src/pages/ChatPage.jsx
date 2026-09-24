@@ -1,5 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Archive, Flag, ImagePlus, Lock, Send, ShieldAlert, X } from 'lucide-react'
+import {
+  Archive,
+  Check,
+  Flag,
+  ImagePlus,
+  LoaderCircle,
+  Lock,
+  Send,
+  ShieldAlert,
+  X,
+} from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -133,9 +143,9 @@ export default function ChatPage() {
     event.preventDefault()
     const pending = text.trim()
     if (!pending && !attachment) return
-    // The composer clears, but nothing is on anybody's screen yet: what
-    // happens now is a row that says it is being checked. A refusal puts
-    // the words back in reach rather than throwing them away.
+    // The composer clears, but nothing is on anybody else's screen yet:
+    // the sender gets a local bubble with a small in-flight marker. A
+    // refusal puts the words back in reach rather than throwing them away.
     sendMessage(id, pending, attachment)
     setText('')
     setAttachment(null)
@@ -151,7 +161,6 @@ export default function ChatPage() {
   }
 
   const pendingNote = (row) => {
-    if (row.status === 'checking') return t('chat.checking')
     if (row.status === 'blocked') {
       return row.severe
         ? t('chat.blocked.severe')
@@ -229,7 +238,15 @@ export default function ChatPage() {
                   />
                 ) : null}
                 {!removed && message.text && <p>{message.text}</p>}
-                <span>{formatMessageTime(message.createdAt)}</span>
+                <div className="message-meta">
+                  <span>{formatMessageTime(message.createdAt)}</span>
+                  {own && (
+                    <>
+                      <Check className="message-sent-mark" size={13} aria-hidden="true" />
+                      <span className="sr-only">{t('chat.sent')}</span>
+                    </>
+                  )}
+                </div>
                 {removed && own && (
                   <AppealButton
                     className="text-button"
@@ -274,7 +291,7 @@ export default function ChatPage() {
           })}
 
         {/* MINE, AND NOT SENT
-            Checking, refused, or never delivered. The words are still here
+            In flight, refused, or never delivered. The words are still here
             and still only here: a message that did not pass was never on
             anybody else's screen, in their inbox, or in their unread count. */}
         {mine.map((row) => (
@@ -286,11 +303,19 @@ export default function ChatPage() {
           >
             <strong>
               {row.status === 'blocked' && <ShieldAlert size={13} aria-hidden="true" />}
-              {row.status === 'checking' ? t('chat.checkingTitle') : t('chat.notSent')}
+              {row.status === 'checking' ? personName(user.name) : t('chat.notSent')}
             </strong>
             {row.image && <img className="message-picture" src={row.image} alt="" />}
             {row.text && <p>{row.text}</p>}
-            <span>{pendingNote(row)}</span>
+            {row.status === 'checking' ? (
+              <div className="message-meta pending-message-meta">
+                <span>{formatMessageTime(row.at)}</span>
+                <LoaderCircle className="message-check-spinner" size={13} aria-hidden="true" />
+                <span className="sr-only">{t('chat.checking')}</span>
+              </div>
+            ) : (
+              <span>{pendingNote(row)}</span>
+            )}
             {row.status !== 'checking' && (
               <div className="unsent-actions">
                 {row.status === 'blocked' ? (
@@ -385,7 +410,6 @@ export default function ChatPage() {
               <Send size={18} />
             </button>
           </div>
-          <p className="chat-moderation-note">{t('chat.moderationNote')}</p>
         </form>
       )}
 

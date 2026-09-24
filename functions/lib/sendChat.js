@@ -19,7 +19,7 @@ import { decide, SEVERE } from './moderation.js'
 import { ModerationError } from './openai.js'
 
 export const RETENTION_DAYS = 30
-/** Messages one person may send in an hour, and moderation calls the app may make in a day. */
+/** New send checks one person may start hourly, and the app may start daily. */
 export const DEFAULT_USER_CAP = 60
 export const DEFAULT_DAILY_CAP = 5000
 const HOUR_MS = 60 * 60_000
@@ -72,10 +72,19 @@ async function takeTurn({ db, uid, now, caps }) {
  * exists, inside the retention window, not suspended and not closed.
  */
 export async function gate({ db, uid, activityId, now }) {
-  const [activitySnap, roleSnap] = await Promise.all([
-    db.doc(`activities/${activityId}`).get(),
-    db.doc(`roles/${uid}`).get(),
-  ])
+  const refs = [db.doc(`activities/${activityId}`), db.doc(`roles/${uid}`)]
+  const [activitySnap, roleSnap] = await readAll(db, refs)
+  return gateSnapshots({ activitySnap, roleSnap, uid, now })
+}
+
+/** One server RPC when the Admin SDK supports it; small fakes can fall back. */
+async function readAll(db, refs) {
+  if (typeof db.getAll === 'function') return db.getAll(...refs)
+  return Promise.all(refs.map((ref) => ref.get()))
+}
+
+/** The gate itself, shared by the public helper and the send preflight. */
+function gateSnapshots({ activitySnap, roleSnap, uid, now }) {
   if (!activitySnap.exists) return { ok: false, status: 'not-found' }
   const activity = activitySnap.data() || {}
   const role = roleSnap.data() || {}
@@ -90,8 +99,9 @@ export async function gate({ db, uid, activityId, now }) {
 }
 
 /**
- * Checks the parts of a message, cheapest first, and stops at the first
- * refusal — a message blocked on its text costs one call, not three.
+ * Checks the independent parts of a message together, then checks any words
+ * transcribed from its picture. Results stay in policy order — typed text,
+ * picture, picture text — no matter which first-stage request answers first.
  *
  * The picture is checked twice over: once as a picture, and once as
  * whatever words are readable in it. That second pass is what catches a
@@ -99,31 +109,40 @@ export async function gate({ db, uid, activityId, now }) {
  * `illicit` to text only.
  */
 export async function checkParts({ openai, text, image, ocr, log }) {
-  const results = []
-  if (text) {
-    results.push({ source: 'text', result: await openai.moderate({ text }) })
-  }
-  if (image) {
-    results.push({ source: 'image', result: await openai.moderate({ imageDataUrl: image.dataUrl }) })
-    if (ocr) {
-      let readable = ''
-      try {
-        readable = await openai.readImageText({ imageDataUrl: image.dataUrl })
-      } catch (error) {
-        // Transcription is the one step allowed to fail without holding
-        // the message: the picture itself has already been moderated,
-        // and a vision outage must not stop a photo of a football pitch.
-        // Said out loud in the log, because it is a gap in coverage
-        // while it lasts.
-        log?.warn?.('chat image text unread', {
-          kind: error?.kind || 'unavailable',
-          detail: String(error?.message || error).slice(0, 200),
-        })
-      }
-      if (readable) {
-        results.push({ source: 'image-text', result: await openai.moderate({ text: readable }) })
-      }
+  // The independent first-stage checks start together. A picture's
+  // transcription still needs one second stage when it found words, but it
+  // no longer sits behind the typed-text and image moderation calls.
+  const readImageText = async () => {
+    try {
+      return await openai.readImageText({ imageDataUrl: image.dataUrl })
+    } catch (error) {
+      // Transcription is the one step allowed to fail without holding
+      // the message: the picture itself has already been moderated,
+      // and a vision outage must not stop a photo of a football pitch.
+      // Said out loud in the log, because it is a gap in coverage
+      // while it lasts.
+      log?.warn?.('chat image text unread', {
+        kind: error?.kind || 'unavailable',
+        detail: String(error?.message || error).slice(0, 200),
+      })
+      return ''
     }
+  }
+  const readablePromise = image && ocr ? readImageText() : Promise.resolve('')
+
+  const [textResult, imageResult, readable] = await Promise.all([
+    text ? openai.moderate({ text }) : Promise.resolve(null),
+    image ? openai.moderate({ imageDataUrl: image.dataUrl }) : Promise.resolve(null),
+    readablePromise,
+  ])
+
+  // Fixed insertion order keeps the same first-refusal and source semantics
+  // regardless of which concurrent request happened to answer first.
+  const results = []
+  if (text) results.push({ source: 'text', result: textResult })
+  if (image) results.push({ source: 'image', result: imageResult })
+  if (readable) {
+    results.push({ source: 'image-text', result: await openai.moderate({ text: readable }) })
   }
   return results
 }
@@ -136,7 +155,6 @@ export async function sendChatMessage({
   db,
   FieldValue,
   uid,
-  sender,
   request,
   openai,
   now = Date.now(),
@@ -148,13 +166,30 @@ export async function sendChatMessage({
   const { activityId, clientMsgId, text, image } = request
   const messageRef = db.doc(`activities/${activityId}/messages/${clientMsgId}`)
 
-  // Already there: a retry after a timeout, or the same send twice. The
-  // second one is not an error and must not become a second message.
-  const existing = await messageRef.get()
+  // One read round for the whole preflight. The message stays first in the
+  // decision order: a retry after a timeout confirms the original delivery
+  // even if the activity or account changed after it landed, and it consumes
+  // no second rate-limit turn.
+  const activityRef = db.doc(`activities/${activityId}`)
+  const roleRef = db.doc(`roles/${uid}`)
+  const userRef = db.doc(`users/${uid}`)
+  const [existing, activitySnap, roleSnap, userSnap] = await readAll(db, [
+    messageRef,
+    activityRef,
+    roleRef,
+    userRef,
+  ])
   if (existing.exists) return outcome('sent', { id: clientMsgId, duplicate: true })
 
-  const allowed = await gate({ db, uid, activityId, now })
+  const allowed = gateSnapshots({ activitySnap, roleSnap, uid, now })
   if (!allowed.ok) return outcome(allowed.status)
+
+  const user = userSnap.data() || {}
+  const sender = {
+    name: String(user.name || 'SmartSync user').slice(0, 60),
+    avatar: String(user.avatar || '').slice(0, 8),
+    activityTitle: String(allowed.activity.title || '').slice(0, 120),
+  }
 
   if (!openai) return outcome('unavailable', { reason: 'not-configured' })
 
@@ -194,8 +229,23 @@ export async function sendChatMessage({
       source: verdict.source,
       hasImage: Boolean(image),
     })
-    await recordBlock({ db, FieldValue, uid, sender, activityId, clientMsgId, text, image, verdict, now })
-    return outcome('blocked', { reason: verdict.reason, source: verdict.source, severe: verdict.severe })
+    await recordBlock({
+      db,
+      FieldValue,
+      uid,
+      sender,
+      activityId,
+      clientMsgId,
+      text,
+      image,
+      verdict,
+      now,
+    })
+    return outcome('blocked', {
+      reason: verdict.reason,
+      source: verdict.source,
+      severe: verdict.severe,
+    })
   }
 
   // Approved — and only now does anything become readable by anybody

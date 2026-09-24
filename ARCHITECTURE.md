@@ -332,18 +332,52 @@ host gets a notification. Join twice quickly — nothing breaks, because
 
 ### Chat
 
-**Path:** `ChatPage` → `useThread` → `messages.js:watchMessages`
+**Read path:** `ChatPage` → `useThread` → `messages.js:watchMessages`
 
-Readable and writable **only by people on the roster**, enforced in the rules.
-Append-only: no edits, no deletions. Threads close 30 days after the activity —
-that is expiry of _access_, not deletion, because scheduled deletion needs
-Cloud Functions and the paid plan.
+**Send path:** `ChatPage` → `src/firebase/chat.js` →
+`sendChatMessageCall` → `functions/lib/sendChat.js`
 
-The listener is only opened once you have joined, because otherwise every
-non-member visit logs a permission error.
+People on the roster can read the thread, but **no client can write a message
+or chat picture**. Firestore rules set message and `chatPictures` creates to
+false; the callable Function using the Admin SDK is the only writer. Messages
+remain append-only, with no client edits or deletions. Threads close 30 days
+after the activity — expiry of access, not deletion.
+
+The client first adds only a local pending row. In the current uncommitted
+latency pass, the Function then uses one Admin SDK `getAll` round trip for the
+existing message, activity, role and sender profile. An existing message wins
+first so an uncertain retry confirms the original result without taking a
+second rate-limit turn. Otherwise the snapshots prove membership, activity
+state, suspension and the retention window before moderation starts.
+
+Typed-text moderation, image moderation and OCR are independent first-stage
+requests and start together. If OCR returns words, their text moderation is the
+dependent second stage. A captioned picture with OCR may therefore use four
+OpenAI requests, with the first three concurrent. The fixed decision order is
+text, image, then image text. Each adapter call has an 8-second abort covering
+response-body reading and parsing, so headers alone cannot keep it alive.
+
+Only an allowed verdict reaches the final batch, which writes the message, its
+optional picture and chat notifications together. A refusal may write its
+admin-only moderation record, but no message, picture or notification appears;
+an outage writes none of those and leaves Retry with the sender. This invariant
+is unchanged by the optimization.
+
+While the callable runs, `ChatPage` presents the local row like a normal own
+bubble with a spinner beside its time. It has no visible Checking heading or
+long status line, and the composer has no standing moderation sentence. The
+screen-reader description remains. When the listener receives the delivered
+message, the own bubble shows a subtle check beside the time.
+
+The listener is opened only after joining, because otherwise every non-member
+visit logs a permission error. **Current status (2026-09-24):** the latency and
+pending-state changes are uncommitted, not deployed and ready for localhost
+testing.
 
 **Test:** open an activity you have not joined and press Open chat — it tells
-you to join first. Join, and the thread appears.
+you to join first. After joining, send text and a captioned picture, then check
+the pending spinner, delivered check, refusal and outage/retry paths. No failed
+or refused send may create a thread row, chat picture or notification.
 
 ### Notifications
 
