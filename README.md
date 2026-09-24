@@ -109,13 +109,17 @@ all of them is `demo1234`. These are emulator-only accounts that exist solely
 on your machine; the live site uses the same email addresses with a different
 password that is not in this repository (see section 4).
 
-| Email                  | Who            |
-| ---------------------- | -------------- |
-| `you@smartsync.demo`   | Min Khant Aung |
-| `alex@smartsync.demo`  | Alex Chen      |
-| `maya@smartsync.demo`  | Maya Rahman    |
-| `narin@smartsync.demo` | Narin Suksai   |
-| `june@smartsync.demo`  | June Park      |
+| Email                    | Who             |
+| ------------------------ | --------------- |
+| `you@smartsync.demo`     | Min Khant Aung  |
+| `marvin@smart.sync.demo` | Zwe Khat Lin    |
+| `lotus@smart.sync.demo`  | Chaw Yadanar Oo |
+| `narin@smartsync.demo`   | Narin Suksai    |
+| `june@smartsync.demo`    | June Park       |
+
+Zwe and Chaw currently have the admin role in production and in the running
+emulator. That role was assigned out of band; the app and seed script cannot
+grant it. Recreate their role rows after resetting the emulator.
 
 To see it genuinely working as a multi-user app, open a second browser (or a
 private window), sign in as somebody else, and join the other person's
@@ -195,14 +199,14 @@ The dates deliberately reach well past the defence. Activities that have
 already started are hidden from discovery, so seeding only "the next two
 weeks" would leave the app looking empty on the day it has to be shown.
 
-| Email                  | Interests                |
-| ---------------------- | ------------------------ |
-| `you@smartsync.demo`   | Football, Gaming, Coffee |
-| `alex@smartsync.demo`  | Football, Gaming, Gym    |
-| `maya@smartsync.demo`  | Coffee, Study, Movies    |
-| `narin@smartsync.demo` | Running, Cycling, Food   |
-| `june@smartsync.demo`  | Gaming, Movies, Hangouts |
-| `pim@smartsync.demo`   | Basketball, Food, Events |
+| Email                    | Interests                |
+| ------------------------ | ------------------------ |
+| `you@smartsync.demo`     | Football, Gaming, Coffee |
+| `marvin@smart.sync.demo` | Football, Gaming, Gym    |
+| `lotus@smart.sync.demo`  | Coffee, Study, Movies    |
+| `narin@smartsync.demo`   | Running, Cycling, Food   |
+| `june@smartsync.demo`    | Gaming, Movies, Hangouts |
+| `pim@smartsync.demo`     | Basketball, Food, Events |
 
 The password is **not written down in this repository**, deliberately — these
 are live accounts on a site anyone can reach, and a password committed to a
@@ -212,7 +216,7 @@ requires it as `SEED_PASSWORD` rather than falling back to a default.
 
 Signing in as two of them side by side is the clearest demonstration the app
 has: the same eighteen activities rank completely differently. Football Night
-is Min Khant's top match at 84% and sits at 39% for Maya.
+is Min Khant's top match at 84% and sits at 39% for Chaw.
 
 ## 5. Deploying
 
@@ -459,7 +463,7 @@ determined user can call Firestore directly without going through the UI:
 - Chat closes 30 days after the activity. This is enforced by the rules, not
   filtered in the app, so it holds against anyone querying the database
   directly. It expires _access_, not the documents — see ADR-010.
-- Notifications can be sent by anyone (that is how "Alex joined your
+- Notifications can be sent by anyone (that is how "Zwe joined your
   activity" works) but only in a fixed shape and only as unread, so nobody
   can forge a pre-read system message.
 - Your block list is private to you. Publishing it would tell people they had

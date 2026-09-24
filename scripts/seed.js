@@ -51,8 +51,8 @@ const people = [
   },
   {
     key: 'alex',
-    email: 'alex@smartsync.demo',
-    name: 'Alex Chen',
+    email: 'marvin@smart.sync.demo',
+    name: 'Zwe Khat Lin',
     username: '@alexc',
     bio: 'Football every week, gym the other days.',
     interests: ['Football', 'Gaming', 'Gym'],
@@ -61,8 +61,8 @@ const people = [
   },
   {
     key: 'maya',
-    email: 'maya@smartsync.demo',
-    name: 'Maya Rahman',
+    email: 'lotus@smart.sync.demo',
+    name: 'Chaw Yadanar Oo',
     username: '@mayar',
     bio: 'Study sessions and good coffee.',
     interests: ['Coffee', 'Study', 'Movies'],

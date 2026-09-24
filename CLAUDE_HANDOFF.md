@@ -3,6 +3,21 @@
 Prepared 2026-09-21. Use the existing local folder:
 `/Users/marvin/Downloads/SmartSync 2`.
 
+## Current release — renamed admin demo identities (2026-09-24)
+
+**Source committed and pushed; live and local Firebase data migrated and
+verified; Hosting redeployed at the owner's request.** The existing UIDs and
+passwords were preserved while Alex Chen became Zwe Khat Lin at
+`marvin@smart.sync.demo`, and Maya Rahman became Chaw Yadanar Oo at
+`lotus@smart.sync.demo`. Auth, public/private profiles and hosted activity
+identity copies were updated in place. Historical chat/notification/moderation
+snapshots retain their original names by design. The existing usernames
+`@alexc` and `@mayar` were not changed. Both accounts have exact active-admin
+rows (`role: 'admin'`, `suspended: false`) in production and the running
+emulator, created through privileged Firebase access; the app and seed scripts
+still cannot mint admins. Seed scripts, credentials, README and the demo script
+use the new identities. The application bundle did not change.
+
 ## Current release — moderated chat latency and send state (2026-09-24)
 
 **Live in `6b323f6`, pushed and deployed to `sendChatMessageCall` and Hosting.** Pending sends

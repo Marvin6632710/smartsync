@@ -37,7 +37,7 @@ Live at **<https://smartsync-c1f07.web.app>**. Account passwords are in
 - **Two browser windows side by side**, both at the live URL.
   - **Left = Min Khant Aung** (`you@smartsync.demo`) — interests Football,
     Gaming, Coffee
-  - **Right = Maya Rahman** (`maya@smartsync.demo`) — interests Coffee,
+  - **Right = Chaw Yadanar Oo** (`lotus@smart.sync.demo`) — interests Coffee,
     Study, Movies
 - Both already signed in and sitting on **Discover**.
 - Phone in your hand, same URL, signed in as Min Khant.
@@ -68,7 +68,7 @@ On the **left** (Min Khant), scroll to **Weekend Five-a-Side**.
 
 > "Football. For him it scores 78%, near the top."
 
-On the **right** (Maya), find the same activity — it is far down the list.
+On the **right** (Chaw), find the same activity — it is far down the list.
 
 > "The same activity, for her: 37%."
 
@@ -105,14 +105,14 @@ Press **Reset to defaults**.
 
 ### 3:00 — It is genuinely multi-user (90 seconds) ⭐
 
-Right window (Maya): open **Weekend Five-a-Side** → **Join activity**.
+Right window (Chaw): open **Weekend Five-a-Side** → **Join activity**.
 
 Point at the **left** window without touching it.
 
 > "I have not touched this window."
 
 The participant count has gone up on its own. Open the notification bell in
-the left window — Maya's join is there.
+the left window — Chaw's join is there.
 
 Right window: **Open chat**, send a short message. It appears in the left
 window's thread.

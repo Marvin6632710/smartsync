@@ -1,11 +1,24 @@
 # SmartSync — handing the work to another agent
 
-Updated 2026-09-24. The latest moderated-chat refinement shipped in `6b323f6`:
-the commit is on `origin/main`, `sendChatMessageCall` is active, and Hosting
-serves the checksum-verified build. This is the briefing for a fresh agent with
-none of the conversation behind it. Read this first, then
+Updated 2026-09-24. The latest source/data release renames two demo identities
+and grants both active admin rows; the underlying application remains the
+moderated-chat build from `6b323f6`. Source is on `origin/main`,
+`sendChatMessageCall` is active, and Hosting serves the checksum-verified build.
+This is the briefing for a fresh agent with none of the conversation behind it.
+Read this first, then
 [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md) for the feature-by-feature state
 and [HANDOFF.md](HANDOFF.md) for what each recent change actually did.
+
+**Latest data/source release, 2026-09-24: committed, pushed and verified; Hosting
+redeployed.** The existing demo-account UIDs and passwords were preserved while
+`alex@smartsync.demo` / Alex Chen became
+`marvin@smart.sync.demo` / Zwe Khat Lin, and `maya@smartsync.demo` / Maya Rahman
+became `lotus@smart.sync.demo` / Chaw Yadanar Oo. Auth, public/private profiles
+and hosted activities were updated and verified. Historical snapshots and the
+usernames `@alexc` / `@mayar` remain unchanged. Both accounts now have active
+admin rows in production and the running emulator, assigned through privileged
+Firebase access; there is still no app path that can grant admin. The source
+changes were seed and documentation files only; the app bundle is unchanged.
 
 **Latest release, 2026-09-24: live in `6b323f6`.** It shortens moderated-chat
 latency and quiets the pending state. One Admin SDK `getAll` preflight reads the

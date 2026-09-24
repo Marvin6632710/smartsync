@@ -27,6 +27,16 @@ The list below is a changelog of _what_ each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
 digging through git.
 
+- **LIVE (2026-09-24)** — renamed two existing demo
+  identities without changing their UIDs or passwords: Alex Chen is now Zwe
+  Khat Lin at `marvin@smart.sync.demo`; Maya Rahman is now Chaw Yadanar Oo at
+  `lotus@smart.sync.demo`. Auth, profile documents and hosted activity identity
+  copies were migrated and verified in production and the running emulators.
+  Both accounts were granted clean active-admin rows in both environments
+  through privileged Firebase access. Historical snapshots and the existing
+  usernames remain unchanged. Seed and demo documentation are updated; the app
+  still provides no route for granting admin. Source is pushed and the
+  checksum-stable Hosting build was redeployed at the owner's request.
 - **LIVE (`6b323f6`, 2026-09-24)** — moderated chat
   now uses one batched preflight read for the existing message, activity, role
   and sender profile. Typed-text moderation, image moderation and OCR begin

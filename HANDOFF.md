@@ -2,13 +2,35 @@
 
 Original hand-off written 2026-09-21 after removing the moderator rank and
 shipping the admin console. Later picture-upload, search and map changes are
-recorded below; the original session details remain for context. The latest
-chat-send release is recorded first.
+recorded below; the original session details remain for context. The current
+demo-identity change is recorded first.
 
 **Continuing in Claude Code?** Start with [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md)
 for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; later release
 records below carry the current state.
+
+## Latest data/source release — renamed admin demo identities (2026-09-24)
+
+**Live and local data migrated and verified; source committed and pushed;
+Hosting redeployed at the owner's request.** The existing demo accounts kept
+their UIDs and passwords while these identities changed:
+
+- `alex@smartsync.demo` / Alex Chen → `marvin@smart.sync.demo` / Zwe Khat Lin
+- `maya@smartsync.demo` / Maya Rahman → `lotus@smart.sync.demo` / Chaw Yadanar Oo
+
+Firebase Auth email/display name, public/private profiles and hosted activity
+identity copies were updated in place: four live hosted activities and two
+local-emulator activities per account. Old chat messages, notifications and
+moderation snapshots deliberately keep the name present when they were
+created, matching the normal rename policy. Internal seed keys and the visible
+usernames `@alexc` / `@mayar` are unchanged because the owner requested only
+email and person-name changes. Both accounts now have exact active-admin rows
+`{ role: 'admin', suspended: false }` in production and the running emulator,
+assigned through privileged Firebase access rather than an app path.
+`demo-credentials.local.txt`, both seed scripts, README and the exhibition
+script now carry the new identities. No application, rules or Function change
+was required; the checksum-stable Hosting build was released again as requested.
 
 ## Latest release — shorter, quieter moderated chat send (2026-09-24)
 
@@ -1572,8 +1594,11 @@ npm run dev -- --host 127.0.0.1  # http://127.0.0.1:5173; allowed by the Maps ke
 - `.env.local` has `VITE_USE_EMULATORS=true`; `.env.production` sets it
   `false` with the real config, and wins in `vite build`.
 - Seed accounts (password `demo1234`, from `scripts/seed.js`):
-  `you@smartsync.demo` (Min Khant Aung), `alex@`, `maya@`, `narin@`,
+  `you@smartsync.demo` (Min Khant Aung), `marvin@smart.sync.demo` (Zwe Khat
+  Lin), `lotus@smart.sync.demo` (Chaw Yadanar Oo), `narin@smartsync.demo` and
   `june@smartsync.demo`. The seed creates **no** roles, reports or log.
+  Zwe and Chaw were granted admin out of band in the current emulator; recreate
+  those role rows after any emulator reset.
 - Make yourself admin in the emulator: Emulator UI → Firestore → collection
   `roles` → document id = the uid → `role: "admin"`, `suspended: false`; or
   with the owner token, which bypasses rules on the emulator only:
