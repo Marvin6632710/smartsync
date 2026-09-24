@@ -411,8 +411,24 @@
     "today": "Today",
     "tomorrow": "Tomorrow",
     "yesterday": "Yesterday",
-    "weekdays": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-    "weekdaysShort": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    "weekdays": [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ],
+    "weekdaysShort": [
+      "Sun",
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat"
+    ],
     "monthsShort": [
       "Jan",
       "Feb",
@@ -914,6 +930,9 @@
     "similarStyle": "Similar activity style",
     "similarInterests": "Similar interests",
     "anyTime": "Any time",
+    "sharedLabel": "Shared",
+    "freeLabel": "Usually free",
+    "interestsLabel": "Interests",
     "notificationsOn": "Notifications on",
     "activityNotifications": "Activity notifications",
     "alertedWhen": "You'll be alerted when {{name}} posts an activity.",

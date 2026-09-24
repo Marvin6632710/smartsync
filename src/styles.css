@@ -2755,99 +2755,203 @@ select:focus-visible {
    PEOPLE MATCHING
    ========================================================= */
 
+/* A card is a person and one decision. Everything that explains the
+   ranking — what you share, when they are free, what they are into —
+   lives in a drawer opened by pressing them, because ten cards all
+   showing six chips, two fact pills and a bordered notification block
+   with its own heading is a page nobody can skim. Collapsed, the names
+   line up down the column and the cards are about a third as tall. */
+
 .new-match-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 18px;
-}
-.new-match-top {
-  display: flex;
-  align-items: flex-start;
   gap: 14px;
+  padding: 14px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
-.match-avatar {
-  width: 52px;
-  height: 52px;
-  min-width: 52px;
+.new-match-card:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow);
 }
-.match-user-copy {
-  flex: 1;
-  min-width: 0;
-}
-.match-name-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-.match-name-row h3 {
-  margin: 0;
-  padding-top: 2px;
-  font-size: var(--t-h2);
-  line-height: 1.25;
-}
-.match-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-.match-user-copy p {
-  margin: 4px 0 0;
-  color: var(--text-2);
-  font-size: var(--t-body);
-}
-.new-match-card .chip-row {
-  gap: 8px;
-}
-.new-match-card .tiny-chip {
-  padding: 7px 12px;
-}
-.match-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.match-details span {
+.match-head {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 11px;
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  color: var(--text-2);
-  font-size: var(--t-sm);
 }
-.match-details svg {
-  color: var(--text-3);
-}
-.notify-row {
+/* The person is the control, so it takes the row and the report flag
+   keeps its own target beside it. */
+.match-toggle {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 2px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+}
+.match-avatar {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+}
+.match-identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.match-name {
+  font-size: var(--t-h3);
+  font-weight: var(--w-semibold);
+  line-height: 1.25;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.match-name-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.match-sub {
+  font-size: var(--t-sm);
+  color: var(--text-2);
+}
+/* Two tiers, not a gradient of them, and the cut is
+   SIMILAR_USER_THRESHOLD — the same number the picks request uses to
+   call somebody similar. A 33% and an 80% drawn identically is the pill
+   saying nothing; filled versus quiet says which is which at a glance. */
+.match-pill[data-strong='yes'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.match-pill[data-strong='no'] {
+  background: var(--bg-sunken);
+  border-color: transparent;
+  color: var(--text-2);
+}
+.match-pill {
+  flex-shrink: 0;
+  padding: 4px 9px;
+  font-size: var(--t-tiny);
+  font-variant-numeric: tabular-nums;
+}
+.match-chevron {
+  flex-shrink: 0;
+  color: var(--text-3);
+  transition: transform 0.18s ease;
+}
+.new-match-card[data-open='yes'] .match-chevron {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+.match-toggle:hover .match-name {
+  color: var(--accent);
+}
+/* Findable the moment it is wanted, and quiet until then — a bordered
+   circle beside every face makes the page look like a list of suspects. */
+.new-match-card .person-report {
+  border-color: transparent;
+  background: transparent;
+}
+.new-match-card .person-report:hover,
+.new-match-card .person-report:focus-visible {
+  border-color: var(--line);
   background: var(--surface-2);
 }
-.notify-text strong {
-  display: block;
-  font-size: var(--t-body);
-  font-weight: var(--w-semibold);
+
+/* The drawer. Sunken rather than another bordered card, so it reads as
+   the inside of this one rather than a second thing stacked on it. */
+.match-more {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
 }
-.notify-text p {
-  margin: 4px 0 0;
-  color: var(--text-2);
+@media (prefers-reduced-motion: no-preference) {
+  .match-more {
+    animation: matchReveal 0.18s ease;
+  }
+}
+@keyframes matchReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.match-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px 14px;
+  margin: 0;
+}
+/* The rows are grouped in divs because that is what a dl allows, but the
+   columns belong to the list: per-row grids let "Shared" and "Usually
+   free" set different widths, so the two values never lined up. */
+.match-facts > div {
+  display: contents;
+}
+.match-facts dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-tiny);
+  font-weight: var(--w-medium);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.match-facts dt svg {
+  /* Baseline alignment drags an icon down with the text it sits beside. */
+  align-self: center;
+}
+.match-facts dd {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: var(--w-medium);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.match-interests {
+  display: grid;
+  gap: 8px;
+}
+.match-more-label {
+  font-size: var(--t-tiny);
+  font-weight: var(--w-medium);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.match-more .chip-row {
+  gap: 6px;
+}
+
+.match-notify {
+  display: grid;
+  gap: 8px;
+}
+.match-notify-hint {
+  margin: 0;
   font-size: var(--t-sm);
   line-height: 1.4;
+  color: var(--text-2);
 }
 .notify-user-button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   min-height: 42px;
   padding: 9px 15px;
@@ -3357,13 +3461,6 @@ select:focus-visible {
   }
   .interest-grid {
     grid-template-columns: repeat(2, 1fr);
-  }
-  .notify-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .notify-user-button {
-    justify-content: center;
   }
 }
 
@@ -7183,9 +7280,19 @@ button.celebration-toast:hover {
   .stack.card-grid > .stack {
     grid-column: 1 / -1;
   }
+  /* .stack.people-grid follows, so this needs the extra class to win —
+     equal weight would leave the rule below in charge. The card is about
+     a third of its old height now, so two fit across a tablet, which also
+     stops the follow button becoming a 700px pill on one. */
+  .matching-page .stack.people-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
   .stack.people-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    /* Each card keeps its own height. Stretched, opening one card's
+       drawer left the one beside it tall and half empty. */
+    align-items: start;
     gap: 16px;
   }
 
@@ -7370,16 +7477,16 @@ button.celebration-toast:hover {
      as three groups instead of one dense block. */
   .matching-page .people-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 24px;
+    gap: 20px;
   }
   .matching-page .new-match-card {
-    gap: 18px;
-    padding: 22px;
+    gap: 16px;
+    padding: 18px;
   }
   .matching-page .match-avatar {
-    width: 58px;
-    height: 58px;
-    min-width: 58px;
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
   }
 
   /* --- Discover: the feed with a sidebar ------------------------------

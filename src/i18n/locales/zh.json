@@ -398,8 +398,24 @@
     "today": "今天",
     "tomorrow": "明天",
     "yesterday": "昨天",
-    "weekdays": ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"],
-    "weekdaysShort": ["周日", "周一", "周二", "周三", "周四", "周五", "周六"],
+    "weekdays": [
+      "星期日",
+      "星期一",
+      "星期二",
+      "星期三",
+      "星期四",
+      "星期五",
+      "星期六"
+    ],
+    "weekdaysShort": [
+      "周日",
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六"
+    ],
     "monthsShort": [
       "1月",
       "2月",
@@ -892,6 +908,9 @@
     "similarStyle": "活动风格相似",
     "similarInterests": "兴趣相似",
     "anyTime": "任何时段",
+    "sharedLabel": "共同",
+    "freeLabel": "通常有空",
+    "interestsLabel": "兴趣",
     "notificationsOn": "通知已开启",
     "activityNotifications": "活动通知",
     "alertedWhen": "{{name}} 发布活动时会提醒你。",
