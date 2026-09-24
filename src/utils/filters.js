@@ -11,16 +11,40 @@
  */
 import { categories, timeBands } from '../data/categories'
 
-export const DISTANCE_RANGE = { min: 1, max: 15 }
+// Fifteen was too short for a city this size: an activity across Bangkok
+// is simply further than that, and somebody who would happily travel for
+// the right thing had no way to say so — the slider stopped before the
+// answer. Thirty is the ceiling now. The clamp in `storedDistance` reads
+// this, so a stored choice from the old range is still valid and nobody's
+// saved filter changes meaning when the maximum moves.
+export const DISTANCE_RANGE = { min: 1, max: 30 }
 
 // Single source of truth — used as the initial state, by every reset, and
 // as the yardstick for "is anything narrowing the feed".
 export const defaultFilters = {
   categories: [],
-  maxDistance: 10,
+  maxDistance: 20,
   timeBands: [],
   availableOnly: true,
 }
+
+/**
+ * What `maxDistance` defaulted to before 2026-09-24, and why it is still
+ * written down.
+ *
+ * The filters are saved to localStorage by an effect that runs on mount,
+ * so every device that has ever opened SmartSync already has a number
+ * stored — including the ones that never touched the slider. Raising the
+ * default alone would therefore have reached nobody who had used the app
+ * before, which is everybody who reported activities going missing.
+ *
+ * So a stored ten is read as "never chose one" and becomes the new
+ * default. This cannot hide anything: the only direction it moves is
+ * wider. It does override somebody who deliberately picked ten, which is
+ * the cost, and it is worth it because ten was the default for long
+ * enough that almost every ten on a device is one nobody chose.
+ */
+const PREVIOUS_DEFAULT_DISTANCE = 10
 
 /**
  * The members of `chosen` that are in `vocabulary`, once each, in the
@@ -48,6 +72,7 @@ function storedSet(source, setKey, singleKey) {
 function storedDistance(value) {
   const number = Number(value)
   if (!Number.isFinite(number) || number <= 0) return defaultFilters.maxDistance
+  if (number === PREVIOUS_DEFAULT_DISTANCE) return defaultFilters.maxDistance
   return Math.min(DISTANCE_RANGE.max, Math.max(DISTANCE_RANGE.min, Math.round(number)))
 }
 

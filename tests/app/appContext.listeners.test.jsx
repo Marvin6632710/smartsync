@@ -17,6 +17,8 @@ import React from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
+import { defaultFilters } from '../../src/utils/filters'
+
 // ---- the layer underneath, replaced by controllable fakes ----------------
 
 const emit = {} // channel name -> the callback the context handed us
@@ -514,7 +516,9 @@ describe('the discovery filters', () => {
     )
     expect(seen.filters).toEqual({
       categories: [],
-      maxDistance: 10,
+      // A stored ten is the old default, so it moves with the default
+      // rather than pinning a device to a range nobody chose.
+      maxDistance: defaultFilters.maxDistance,
       timeBands: [],
       availableOnly: true,
     })
@@ -533,7 +537,7 @@ describe('the discovery filters', () => {
     act(() =>
       seen.setFilters({
         categories: ['Football', 'Basketball'],
-        maxDistance: 10,
+        maxDistance: defaultFilters.maxDistance,
         timeBands: ['Morning', 'Evening'],
         availableOnly: true,
       }),
@@ -550,7 +554,7 @@ describe('the discovery filters', () => {
     act(() => seen.resetFilters())
     expect(seen.filters).toEqual({
       categories: [],
-      maxDistance: 10,
+      maxDistance: defaultFilters.maxDistance,
       timeBands: [],
       availableOnly: true,
     })

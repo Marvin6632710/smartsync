@@ -80,6 +80,21 @@ describe('normaliseFilters', () => {
     expect(normaliseFilters({ maxDistance: 0 }).maxDistance).toBe(defaultFilters.maxDistance)
     expect(normaliseFilters({ maxDistance: -4 }).maxDistance).toBe(defaultFilters.maxDistance)
     expect(normaliseFilters({ maxDistance: 400 }).maxDistance).toBe(DISTANCE_RANGE.max)
+    // The range reaches across a city, not across a district. A stored
+    // choice from the old fifteen-kilometre slider is still inside it,
+    // so nobody's saved filter quietly changed meaning when it moved.
+    expect(DISTANCE_RANGE.max).toBe(30)
+    expect(defaultFilters.maxDistance).toBe(20)
+    // The filters are written to storage on mount, so every device that
+    // has opened SmartSync already holds a number — including the ones
+    // that never touched the slider. A stored ten is read as "never
+    // chose one" and moves with the default; without this, raising the
+    // default would have reached nobody who had used the app before.
+    expect(normaliseFilters({ maxDistance: 10 }).maxDistance).toBe(20)
+    // A choice that was never the default is left exactly alone.
+    expect(normaliseFilters({ maxDistance: 3 }).maxDistance).toBe(3)
+    expect(normaliseFilters({ maxDistance: 15 }).maxDistance).toBe(15)
+    expect(normaliseFilters({ maxDistance: 30 }).maxDistance).toBe(30)
     expect(normaliseFilters({ maxDistance: 0.4 }).maxDistance).toBe(DISTANCE_RANGE.min)
     expect(normaliseFilters({ maxDistance: '7' }).maxDistance).toBe(7)
     expect(normaliseFilters({ maxDistance: 7.6 }).maxDistance).toBe(8)
@@ -135,7 +150,11 @@ describe('matchesFilters', () => {
     expect(matchesFilters(activity({ category: 'Football', timeBand: 'Afternoon' }), f)).toBe(false)
     expect(matchesFilters(activity({ category: 'Running', timeBand: 'Morning' }), f)).toBe(false)
     // …and the distance and the room are still part of "every one".
-    expect(matchesFilters(activity({ distanceKm: 12 }), f)).toBe(false)
+    // Measured against the default rather than a fixed number, so moving
+    // the default tests the boundary instead of failing on arithmetic.
+    const beyond = defaultFilters.maxDistance + 1
+    expect(matchesFilters(activity({ distanceKm: beyond }), f)).toBe(false)
+    expect(matchesFilters(activity({ distanceKm: defaultFilters.maxDistance }), f)).toBe(true)
     expect(matchesFilters(activity({ participants: 8 }), f)).toBe(false)
   })
 

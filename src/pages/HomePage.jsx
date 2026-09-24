@@ -172,9 +172,17 @@ export default function HomePage() {
           ) : filteredActivities.length === 0 ? (
             <FiltersEmptyState />
           ) : (
-            soonest
-              .slice(0, 6)
-              .map((activity) => <ActivityCard key={activity.id} activity={activity} compact />)
+            // Every activity that passed the filters, not a sample of them.
+            // This used to stop at six, with the count beside the heading
+            // still reporting the true total — so a feed of eighteen showed
+            // six cards under the number 18, with nothing on the screen
+            // saying the rest existed or how to reach them. People read
+            // that as their activity never having been posted, and because
+            // the order is by start time, the ones cut were whichever
+            // categories happened to fall later.
+            soonest.map((activity) => (
+              <ActivityCard key={activity.id} activity={activity} compact />
+            ))
           )}
         </div>
       </section>

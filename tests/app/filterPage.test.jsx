@@ -105,7 +105,8 @@ test('nothing reaches the feed until Apply, which sends the sets and goes home',
   expect(setFilters).toHaveBeenCalledTimes(1)
   expect(setFilters).toHaveBeenCalledWith({
     categories: ['Football', 'Basketball'],
-    maxDistance: 10,
+    // The slider was not touched, so this is whatever the default is.
+    maxDistance: defaultFilters.maxDistance,
     timeBands: ['Morning', 'Evening'],
     availableOnly: false,
   })
@@ -143,7 +144,7 @@ test('Reset clears both sets, puts the distance and the switch back, and applies
   expect(checkedIn('Time of day')).toEqual([])
   expect(pressed('All categories')).toBeTruthy()
   expect(pressed('Any time')).toBeTruthy()
-  expect(screen.getByRole('slider').value).toBe('10')
+  expect(screen.getByRole('slider').value).toBe(String(defaultFilters.maxDistance))
   expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true')
 })
 
