@@ -27,7 +27,7 @@ The list below is a changelog of _what_ each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
 digging through git.
 
-- **UNCOMMITTED — READY FOR LOCALHOST TESTING (2026-09-24)** — moderated chat
+- **LIVE (`6b323f6`, 2026-09-24)** — moderated chat
   now uses one batched preflight read for the existing message, activity, role
   and sender profile. Typed-text moderation, image moderation and OCR begin
   together; OCR text is moderated in the dependent second stage, so the four
@@ -38,7 +38,8 @@ digging through git.
   note are gone, while delivered own messages show a subtle check. The
   no-client-write and moderate-before-message/picture/notification guarantees
   are unchanged. **957 unit/app and 402 rules tests pass; lint, format, Maps and
-  build are clean.** This working-tree refinement is not committed or deployed.
+  build are clean.** The updated callable and Hosting are deployed; the active
+  Function and live bundle checksums were verified.
 - **LIVE (`d7d8595`, 2026-09-24)** — the admin console gains seven
   approved powers: reversible profile fields, activity pictures and published
   messages; timed suspension; appeals; security session/reset actions; and
@@ -308,16 +309,17 @@ three. Details in README.md; the parts worth knowing here:
   message is kept and Retry is offered. Also: a rate limit of 60 new send
   checks an hour per person and a daily send-check budget, chat pictures at a
   1024px edge with their metadata stripped in the browser, and chat
-  notifications removed from what a client may write. ADR-033. 71 tests
+  notifications removed from what a client may write. ADR-033. 78 chat-focused tests
   added plus rules coverage; verified end to end in the emulator against
   the stand-in in `scripts/fake-openai.mjs` — clean message delivered,
   refusal present in no thread, picture or notification, appeal,
   overturn, outage and successful retry, picture sent and rendered, a
   meme blocked by its words and not its caption, a flagged-but-under-floor
   message delivered, the rate limit, and ten bypass attempts all
-  refused. **Not** verified against the real API: no `OPENAI_API_KEY`
-  exists for this project yet, and the floors are what a real key would
-  most likely retune.
+  refused. Real-API calibration then delivered five ordinary messages and
+  refused two personal attacks; the measured scores support the `0.85`
+  harassment floor. The key is stored in Secret Manager, while automated tests
+  keep using the stand-in.
 - **Cards and columns get an edge, 2026-09-22 (`ead3537`, deployed)** —
   the owner, looking at Discover, Map and Profile on a wide dark screen,
   asked for the boundaries between categories to be visible. Each

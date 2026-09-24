@@ -1685,8 +1685,8 @@ recommendation — the owner chose to stay free.
 
 ## ADR-033 — Chat is moderated before delivery, and the database refuses every client-written message
 
-> **Implementation refinement, 2026-09-24 — uncommitted, not deployed, ready
-> for localhost testing.** This does not change the decision below. The send
+> **Implementation refinement, 2026-09-24 — live in `6b323f6`; callable and
+> Hosting deployed.** This does not change the decision below. The send
 > preflight now reads the existing message, activity, role and sender profile in
 > one Admin SDK `getAll` round trip. Typed-text moderation, image moderation and
 > OCR start concurrently; moderation of any OCR text remains the dependent
@@ -1800,18 +1800,19 @@ thread itself gets). Telling the sender the category and the score (a
 tuning aid). Letting a severe flag be appealed (there is no version of
 that review anybody should be asked to do in a console).
 
-**Verified in the emulator, not against the real API.** The whole path
-was driven through the running app against the stand-in in
+**Verified in the emulator and then calibrated against the real API.** The
+whole path was first driven through the running app against the stand-in in
 `scripts/fake-openai.mjs`: a clean message delivered; a refusal that
 appears in no thread, no picture document and no notification; an appeal;
 an overturn that posts the original; an outage that keeps the message and
 retries successfully once the service returns; a picture sent and
 rendered; a meme blocked by the words inside it and not by its caption; a
 flagged-but-under-floor message delivered; the rate limit; and ten
-unauthorized or bypass attempts, every one refused. What is **not**
-verified is the real model's scores against these floors — no
-`OPENAI_API_KEY` exists for this project yet, and the floors are the part
-most likely to need tuning when one does.
+unauthorized or bypass attempts, every one refused. On 2026-09-23, seven
+calibration messages then ran through the real callable: five ordinary
+messages delivered and two personal attacks were refused. The measured scores
+support the `0.85` harassment floor. The key is stored in Secret Manager; the
+automated suite stays on the stand-in for repeatability and cost control.
 
 ---
 

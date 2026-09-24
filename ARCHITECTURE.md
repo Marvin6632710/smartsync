@@ -343,8 +343,8 @@ false; the callable Function using the Admin SDK is the only writer. Messages
 remain append-only, with no client edits or deletions. Threads close 30 days
 after the activity — expiry of access, not deletion.
 
-The client first adds only a local pending row. In the current uncommitted
-latency pass, the Function then uses one Admin SDK `getAll` round trip for the
+The client first adds only a local pending row. In the 2026-09-24 release, the
+Function then uses one Admin SDK `getAll` round trip for the
 existing message, activity, role and sender profile. An existing message wins
 first so an uncertain retry confirms the original result without taking a
 second rate-limit turn. Otherwise the snapshots prove membership, activity
@@ -371,8 +371,8 @@ message, the own bubble shows a subtle check beside the time.
 
 The listener is opened only after joining, because otherwise every non-member
 visit logs a permission error. **Current status (2026-09-24):** the latency and
-pending-state changes are uncommitted, not deployed and ready for localhost
-testing.
+pending-state changes are live in `6b323f6`; the callable and Hosting are
+deployed.
 
 **Test:** open an activity you have not joined and press Open chat — it tells
 you to join first. After joining, send text and a captioned picture, then check

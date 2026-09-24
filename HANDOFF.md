@@ -2,18 +2,19 @@
 
 Original hand-off written 2026-09-21 after removing the moderator rank and
 shipping the admin console. Later picture-upload, search and map changes are
-recorded below; the original session details remain for context. The current
-uncommitted chat-send refinement is recorded first.
+recorded below; the original session details remain for context. The latest
+chat-send release is recorded first.
 
 **Continuing in Claude Code?** Start with [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md)
 for the current release, local setup, feature status and continuation steps.
-Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
-now also records the deliberate uncommitted working-tree state below.
+Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; later release
+records below carry the current state.
 
-## Latest continuation — shorter, quieter moderated chat send (2026-09-24)
+## Latest release — shorter, quieter moderated chat send (2026-09-24)
 
-**UNCOMMITTED — ready for localhost testing; not deployed.** The current
-working tree shortens the wait without relaxing the moderation boundary.
+**LIVE — committed and pushed as `6b323f6`; `sendChatMessageCall` and Hosting
+deployed 2026-09-24.** The release shortens the wait without relaxing the
+moderation boundary.
 
 While a send is pending, it now looks like the sender's normal message bubble:
 their name and message remain in place, with a compact spinner beside the time.
@@ -42,15 +43,16 @@ then stalls cannot occupy the Function's longer outer timeout.
 The safety invariant is unchanged: clients still cannot write messages or chat
 pictures, and the Function writes no message, picture or chat notification
 until every required moderation stage has completed and allowed the send. The
-working tree is ready for the localhost pass covering text-only send,
-captioned-picture OCR, refusal, outage/retry and the pending-to-delivered visual
-transition. Do not describe this refinement as committed, pushed or deployed.
+release covers text-only sends, captioned-picture OCR, refusal, outage/retry and
+the pending-to-delivered visual transition.
 
-Validation on this working tree: **957 unit/app tests and 402 Firestore rules
+Release validation: **957 unit/app tests and 402 Firestore rules
 tests pass**; lint, Prettier, Maps configuration and the production build are
-clean. The localhost chat was visually checked with the permanent sentence
-gone and delivered checks in place; sending a new message is left for the owner
-to exercise in the open local session.
+clean. Production lists the updated callable as active. Hosting serves
+`index-4OXYldmG.js` and `index-iC2Ysgsx.css`; both live files match the local
+build byte-for-byte. The signed-in live chat was opened successfully with the
+permanent sentence gone and delivered checks in place; no new production
+message was submitted during verification.
 
 ## Latest release — expanded admin powers (2026-09-24)
 
@@ -399,7 +401,7 @@ four requests because transcription and moderation of that transcription
 are separate. The API applies only six of thirteen categories to images
 and `hate`, `harassment` and threats are not among them, so a picture is
 transcribed by a small vision model (`gpt-5.6-luna`) and the transcription
-is moderated as text. In the current uncommitted latency pass, typed-text
+is moderated as text. In the 2026-09-24 latency release, typed-text
 moderation, image moderation and transcription start concurrently; any
 transcribed words are moderated in a second stage. A transcription failure
 is logged and does **not** block: a model that cannot read a photograph of
@@ -483,32 +485,26 @@ Driven through the running app at `localhost:5173` with
 | Non-admin resolves a block; appeals somebody else's                         | 403 "Admins only", 403 "Not your message"                                           |
 | Non-admin reads `moderationBlocks`                                          | `permission-denied`                                                                 |
 
-**What is not verified: the real model's scores against these floors.**
-The key is now set (2026-09-23) but the account has no credits, so no
-call has reached the model. Every test and every
-emulator pass above uses the stand-in, which answers with the documented
-shape for marker words. The handling is proved; the floors are the part
-most likely to need tuning once a real key is in.
+**Real API verification followed on 2026-09-23.** Seven of seven calibration
+messages behaved as expected through the real callable: five ordinary messages
+were delivered and two personal attacks were refused and absent from the
+thread. The measured scores support the `0.85` harassment floor. Automated
+tests still use the deterministic stand-in so they do not spend provider quota
+or change when a model is updated.
 
-### Before it can go live
+### Production release
 
-1. ~~Set the secret~~ **done 2026-09-23** —
-   `OPENAI_API_KEY` version 1 in Secret Manager, a `sk-proj…` key, 164
-   characters, no stray whitespace. **It cannot make a call yet:** the
-   OpenAI account has no credit balance, so `/v1/models` answers 200 but
-   `/v1/moderations` answers a bare `429` and `/v1/responses` answers
-   `insufficient_quota` / `credit_balance_exhausted`. Free of per-token
-   charge is not the same as usable on an empty account. A one-off
-   top-up at platform.openai.com → Billing clears it; moderation is then
-   free of charge against that balance and only transcription spends it.
-2. Deploy the rules **and** the three callables in one command — rules
-   alone stops chat working, Functions alone leaves the bypass open:
-   ```
-   npx firebase deploy \
-     --only functions:sendChatMessageCall,functions:requestChatReview,functions:resolveChatBlock,firestore:rules \
-     --project smartsync-c1f07
-   ```
-3. Then `npm run deploy` for hosting.
+`OPENAI_API_KEY` is stored in Secret Manager and the chat callables, rules and
+Hosting are live. When a future change affects both Functions and rules, keep
+the verified safe order:
+
+1. Deploy the affected Functions.
+2. Deploy Firestore rules only after the Functions succeed.
+3. Build and deploy Hosting last.
+
+Do not use a combined Functions/rules command: it gives no ordering guarantee,
+and rules landing first with a failed Function deploy would leave chat unable
+to accept any message.
 
 Costs: the Moderation API is free for text and images both; only the
 transcription is billed, about $0.0007 a picture, bounded by
@@ -1362,14 +1358,17 @@ was completed with the expanded-admin release above.
 
 |                  |                                                                                                                                                                                                                         |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live             | <https://smartsync-c1f07.web.app> — `index-w5XzjkvV.js` + `index--EhzI9rv.css`, built from `d7d8595`, released and checksum-verified 2026-09-24                                                                         |
-| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`; expanded-admin release `d7d8595` is pushed                                                                                                                         |
-| Deployed         | Hosting and rules through `d7d8595`; nine callable Functions and `expireTimedSuspensions` are active                                                                                                                    |
+| Live             | <https://smartsync-c1f07.web.app> — `index-4OXYldmG.js` + `index-iC2Ysgsx.css`, built from `6b323f6`, released and checksum-verified 2026-09-24                                                                         |
+| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`; chat release `6b323f6` is pushed                                                                                                                                   |
+| Deployed         | Hosting through `6b323f6`, rules through `d7d8595`; nine callable Functions and `expireTimedSuspensions` are active                                                                                                     |
 | **Not** deployed | Browser-push Functions `onNotificationCreated` and `cleanupPushTokens`; they still need the push release decision and a `VITE_FCM_VAPID_KEY`. The live site has inbox notifications but no closed-browser push delivery |
 | Local state      | Firebase CLI signed in as the owner. The dev emulators and Vite server are running for localhost review (see §7)                                                                                                        |
 
 Recent commits, newest first:
 
+- `6b323f6` Shorten moderated chat sends — batched preflight, overlapping
+  independent checks and quieter pending/delivered UI; callable and Hosting
+  deployed.
 - `d7d8595` Expand admin moderation controls — reversible content actions,
   timed suspensions, appeals, security actions and announcements.
 - `622ed9c` Record the configured and verified Google Maps release.
@@ -1499,17 +1498,17 @@ firestore:indexes` returns when the indexes are _submitted_; they build
   attacks on the moderator rank (history, intentional); DEMO_SCRIPT.md does
   not show the console at all.
 - **Historical FIXLIST entry:** the v6 → v7 router upgrade note is stale;
-  `package.json` now specifies `react-router-dom ^7.18.3`. Functions remain
-  undeployed (Blaze + VAPID).
+  `package.json` now specifies `react-router-dom ^7.18.3`. The browser-push
+  Functions remain undeployed (VAPID release decision still pending).
 - Original console browser checks in the emulator app found no console
   errors, including at 375px and in Thai.
 
 ## 5. Original console test results
 
-Historical baseline for `0ba6e0b`, all green. See the continuation sections
-above for the newer results: 801 unit/render tests at the Maps release,
-382 rules tests and 8 integration tests at the picture-upload release.
-Individual suite timing for the original baseline is noted below:
+Historical baseline for `0ba6e0b`, all green. The latest fast results are
+recorded at the top of this file: 957 unit/app and 402 rules tests; the last
+auxiliary integration run recorded 8 passing tests. Individual suite timing
+for the original baseline is noted below:
 
 | Command                                                        | Result                                                                                  |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------- |

@@ -1,32 +1,32 @@
 # SmartSync — handing the work to another agent
 
-Updated 2026-09-24. Expanded admin powers shipped in `d7d8595`: the commit is
-on `origin/main`, six new Functions and the rules are live, and Hosting serves
-the checksum-verified build. This is the briefing for a fresh agent with none
-of the conversation behind it. Read this first, then
+Updated 2026-09-24. The latest moderated-chat refinement shipped in `6b323f6`:
+the commit is on `origin/main`, `sendChatMessageCall` is active, and Hosting
+serves the checksum-verified build. This is the briefing for a fresh agent with
+none of the conversation behind it. Read this first, then
 [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md) for the feature-by-feature state
 and [HANDOFF.md](HANDOFF.md) for what each recent change actually did.
 
-**Current working tree, 2026-09-24: uncommitted, not deployed, ready for
-localhost testing.** It shortens moderated-chat latency and quiets the pending
-state. One Admin SDK `getAll` preflight reads the existing message, activity,
-role and sender profile. Typed-text moderation, image moderation and OCR start
-together; OCR output is moderated as the dependent second stage. A captioned
-picture with OCR therefore still has up to four OpenAI requests, but its first
-three no longer run serially. The 8-second OpenAI abort now includes response
-body parsing. Pending sends use a normal own-message bubble with a small spinner
-beside the time; there is no visible **Checking** heading/long sentence or
-permanent composer note, and delivered own messages get a subtle check. The
-screen-reader status remains.
+**Latest release, 2026-09-24: live in `6b323f6`.** It shortens moderated-chat
+latency and quiets the pending state. One Admin SDK `getAll` preflight reads the
+existing message, activity, role and sender profile. Typed-text moderation,
+image moderation and OCR start together; OCR output is moderated as the
+dependent second stage. A captioned picture with OCR therefore still has up to
+four OpenAI requests, but its first three no longer run serially. The 8-second
+OpenAI abort now includes response body parsing. Pending sends use a normal
+own-message bubble with a small spinner beside the time; there is no visible
+**Checking** heading/long sentence or permanent composer note, and delivered
+own messages get a subtle check. The screen-reader status remains.
 
 This is a latency and presentation change only. Clients still write no chat
 content, and the Function still writes no message, picture or notification
-until every required moderation stage allows it. Do not call this working-tree
-refinement committed, pushed or deployed.
+until every required moderation stage allows it.
 
-Current-tree verification: **957 unit/app and 402 rules tests pass**; lint,
-Prettier, Maps configuration and the production build are clean. The local chat
-layout was visually checked; leave the fresh-message timing check to the owner.
+Release verification: **957 unit/app and 402 rules tests pass**; lint, Prettier,
+Maps configuration and the production build are clean. Production lists the
+callable as active, the live JS/CSS checksums match the local build, and a
+signed-in live chat opened successfully. No production message was sent during
+the smoke test.
 
 **The exhibition is Friday 25 September 2026.** Nothing below is worth
 breaking the live site for.
@@ -40,12 +40,12 @@ join them, each activity has a chat. Final-year student project, live at
 <https://smartsync-c1f07.web.app>, repository
 `Marvin6632710/smartsync`.
 
-|           |                                                                                                                   |
-| --------- | ----------------------------------------------------------------------------------------------------------------- |
-| Front end | React 18, Vite, React Router 7, i18next (en / th / my / zh)                                                       |
-| Back end  | Firebase Auth, Cloud Firestore, Cloud Functions (2nd gen, `us-central1`)                                          |
-| Plan      | Blaze. Gemini and OpenAI keys live in Secret Manager, never in the client                                         |
-| Tests     | Vitest. Last recorded deployed baseline: 952 unit/app, 402 rules, 8 integration, 11 push delivery, 3 push trigger |
+|           |                                                                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Front end | React 18, Vite, React Router 7, i18next (en / th / my / zh)                                                                  |
+| Back end  | Firebase Auth, Cloud Firestore, Cloud Functions (2nd gen, `us-central1`)                                                     |
+| Plan      | Blaze. Gemini and OpenAI keys live in Secret Manager, never in the client                                                    |
+| Tests     | Vitest. Current fast baseline: 957 unit/app, 402 rules; last auxiliary runs: 8 integration, 11 push delivery, 3 push trigger |
 
 ```bash
 npm run emulators    # terminal 1 — Firebase emulators (needs Java)
@@ -134,7 +134,7 @@ _there is no request a client can make that puts words in a thread
 unchecked._ `scripts/live-chat-check.mjs` proves it against the live
 site; the last row of its output is the one that matters.
 
-The pending working-tree optimization preserves that property. It replaces
+The deployed `6b323f6` optimization preserves that property. It replaces
 separate preflight reads with one four-document read round and overlaps the
 independent text, image and OCR requests. Moderating OCR output remains a
 required second stage, and the approved message, optional picture and chat
@@ -252,8 +252,8 @@ Paste this into the new agent.
 
 > You are picking up SmartSync, a React 18 + Vite + Firebase final-year
 > project, live at https://smartsync-c1f07.web.app. The working
-> directory is the repository root and `main` is clean at `4c66280`,
-> fully pushed and deployed.
+> directory is the repository root; tracked project files on `main` are
+> synchronized with `origin/main`, and the application release is deployed.
 >
 > **Read `CODEX_HANDOFF.md` first, in full, before doing anything
 > else.** It covers how the owner works, the secrets rules, the two

@@ -595,11 +595,10 @@ directly, replaying the app's own request — none of them reach the
 thread, because the thread is not writable by anyone holding a user's
 credentials. That is the whole design in one sentence.
 
-> **Current working tree, 2026-09-24:** the latency and pending-message UI
-> refinement described below is uncommitted, not deployed and ready for
-> localhost testing. It changes when independent work runs and how progress is
-> shown; it does not change the server-only write boundary or the checks a send
-> must pass.
+> **Live release `6b323f6`, 2026-09-24:** the latency and pending-message UI
+> refinement described below is deployed to the callable and Hosting. It
+> changes when independent work runs and how progress is shown; it does not
+> change the server-only write boundary or the checks a send must pass.
 
 ### What gets checked
 
@@ -616,7 +615,7 @@ credentials. That is the whole design in one sentence.
 
 Three content sources do not mean three API requests. A captioned picture with
 OCR can make four: typed-text moderation, image moderation, transcription, and
-then moderation of the transcription. In the current uncommitted latency pass,
+then moderation of the transcription. In the 2026-09-24 latency release,
 the first three start together because they are independent; OCR text is still
 moderated as the required second stage. Results keep the fixed text → image →
 image-text decision order regardless of which first-stage request finishes
@@ -771,16 +770,18 @@ the browser or a `VITE_` variable:
 #    (API keys → Create new secret key). A key is shown once.
 # 2. Store it as a secret (the project must be on Blaze to run Functions):
 npx firebase functions:secrets:set OPENAI_API_KEY --project smartsync-c1f07
-# 3. Deploy the three callables and the rules that go with them:
+# 3. Deploy the three callables first:
 npx firebase deploy \
-  --only functions:sendChatMessageCall,functions:requestChatReview,functions:resolveChatBlock,firestore:rules \
+  --only functions:sendChatMessageCall,functions:requestChatReview,functions:resolveChatBlock \
   --project smartsync-c1f07
+# 4. After that succeeds, deploy the rules:
+npx firebase deploy --only firestore:rules --project smartsync-c1f07
 ```
 
-Deploy the rules and the Functions **together**, in that one command. The
+The order is deliberate: **Functions first, then rules, then Hosting**. The
 rules stop clients writing messages; the Functions are what writes them
-instead. Rules alone and chat stops working; Functions alone and the
-moderation can still be walked around.
+instead. A combined command gives no ordering guarantee. If rules land first
+and the Functions deploy fails, chat cannot accept any message.
 
 Optional tuning, in `functions/.env` (ignored by git, read at deploy):
 
@@ -868,7 +869,7 @@ honoured under the emulator only.
   pinned by a test naming the measured scores, so a change that breaks
   the separation fails the suite rather than the chat.
 - **The behaviour of the code, rather than the model, is what the test
-  suite proves.** The 912 unit/app tests and the rules suite run against
+  suite proves.** The 957 unit/app tests and the rules suite run against
   the stand-in in `scripts/fake-openai.mjs`; the numbers above come from
   separate one-off probes against the live API, not from anything `npm
 test` re-runs. Re-measuring after a model change is a manual job.
@@ -919,7 +920,7 @@ npm test
 This runs five suites. The unit and rendering tests (`npm run test:unit`)
 cover the pure functions, the screens, the push policy and wording, and the
 service worker against a stand-in for the worker's globals. Chat moderation
-has 71 of those — `chatModeration.test.js` argues with the policy itself
+has 78 of those — `chatModeration.test.js` argues with the policy itself
 (which categories block, at what floor, which are deliberately left alone),
 `chatServer.test.js` drives the whole send path against a stand-in adapter,
 and `chatPage.test.jsx` covers what the person who wrote a refused message
@@ -972,12 +973,13 @@ Honest about what is not there:
   deliberately no in-app path to that rank and no lesser rank to hand out;
   everything after that happens in the app. A suspended admin is lifted in
   the console too, since no admin may act on another.
-- **Chat moderation has never been run against the real API.** Every test
-  and every emulator pass uses the stand-in in `scripts/fake-openai.mjs`.
-  The handling is proved; the floors are not. Section 11 lists the rest of
-  what that feature does not cover — image categories the API applies to
-  text only, the CSAM restriction, and the languages the transcription step
-  has not been measured on.
+- **Automated chat tests use a stand-in.** The production path and harassment
+  floor were calibrated against the real API on 2026-09-23: five ordinary
+  messages delivered and two personal attacks were refused. The repeatable
+  suite uses `scripts/fake-openai.mjs`, so a provider model update still needs
+  a manual re-measurement. Section 11 lists the remaining limits — image
+  categories the API applies to text only, the CSAM restriction, and the
+  languages the transcription step has not been measured on.
 - **An admin can see a report filed about themselves.** They cannot act on
   it — the rules refuse that — but they can read it, and so learn who filed
   it. Firestore has no field-level read rules and refuses a whole query if any
