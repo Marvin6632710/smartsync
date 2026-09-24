@@ -34,6 +34,7 @@ import ProfilePage from './pages/ProfilePage'
 import EditProfilePage from './pages/EditProfilePage'
 import BlockedPage from './pages/BlockedPage'
 import WarningsPage from './pages/WarningsPage'
+import AppealsPage from './pages/AppealsPage'
 import SettingsPage from './pages/SettingsPage'
 import NotificationSettingsPage from './pages/NotificationSettingsPage'
 import NotificationOpenPage from './pages/NotificationOpenPage'
@@ -133,7 +134,14 @@ function Stages() {
   // A closed account gets one screen and nothing else. Placed above every
   // other route decision — including onboarding — because whatever state the
   // account was in, this outranks it.
-  if (user.banned) return <ClosedAccountScreen />
+  if (user.banned) {
+    return (
+      <Routes>
+        <Route path="/appeals" element={<AppealsPage standalone />} />
+        <Route path="*" element={<ClosedAccountScreen />} />
+      </Routes>
+    )
+  }
 
   // Stage 3a — how old they are, before anything else they could do.
   //
@@ -210,6 +218,7 @@ function Stages() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/blocked" element={<BlockedPage />} />
         <Route path="/warnings" element={<WarningsPage />} />
+        <Route path="/appeals" element={<AppealsPage />} />
         <Route path="/joined" element={<JoinedActivitiesPage />} />
         <Route path="/404" element={<NotFoundPage />} />
       </Route>

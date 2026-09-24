@@ -2940,6 +2940,12 @@ select:focus-visible {
 .dialog .button-row > * {
   flex: 1;
 }
+.dialog .report-detail + .report-detail {
+  margin-top: 12px;
+}
+.dialog .report-detail select {
+  width: 100%;
+}
 
 @keyframes fadeIn {
   from {
@@ -3829,6 +3835,111 @@ input[type='range'] {
   color: var(--danger, #dc2626);
   font-size: var(--t-tiny);
   line-height: 1.4;
+}
+
+.announcement-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 12px 6px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: var(--t-xs);
+}
+.announcement-banner > span {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.announcement-banner > span > span {
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.announcement-banner > small {
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.moderated-message {
+  border-style: dashed;
+  opacity: 0.88;
+}
+.moderated-message-copy {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+  font-style: italic;
+}
+
+.appeals-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.appeals-heading h2,
+.appeals-heading p {
+  margin: 0;
+}
+.appeals-heading p {
+  margin-top: 4px;
+  color: var(--text-2);
+}
+.appeals-heading-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.appeal-options,
+.appeal-history {
+  display: grid;
+  gap: 10px;
+}
+.appeal-option,
+.appeal-history article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+.appeal-option > span,
+.appeal-history article > div {
+  display: grid;
+  gap: 3px;
+}
+.appeal-option small,
+.appeal-history small {
+  color: var(--text-3);
+}
+.appeal-history article p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-2);
+}
+.appeal-history article {
+  flex-wrap: wrap;
+}
+.appeals-standalone {
+  min-height: 100dvh;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  width: min(680px, 100%);
+  margin: 0 auto;
+  padding: 32px 18px;
 }
 
 .removed-banner {

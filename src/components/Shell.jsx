@@ -25,6 +25,7 @@ import RouteErrorBoundary from './RouteErrorBoundary'
 import JoinBurst from './JoinBurst'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
+import AnnouncementBanner from './AnnouncementBanner'
 
 // Labels are translation keys; the words are looked up at render.
 const tabs = [
@@ -51,6 +52,7 @@ const ROUTE_TITLES = new Set([
   'privacy',
   'blocked',
   'moderation',
+  'appeals',
   'joined',
   'terms',
   '404',
@@ -300,6 +302,7 @@ export default function Shell() {
       {/* One row of the shell whatever is in it, so a banner arriving never
           shifts the scroller into a different track. */}
       <div className="shell-banners">
+        <AnnouncementBanner />
         <PushInvite />
         {user.suspended && (
           <div className="suspended-banner" role="alert">

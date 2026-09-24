@@ -87,7 +87,8 @@
     "blocked": "คนที่ถูกบล็อก",
     "moderation": "การดูแลชุมชน",
     "joined": "ที่เข้าร่วม",
-    "terms": "ข้อกำหนดและความปลอดภัย"
+    "terms": "ข้อกำหนดและความปลอดภัย",
+    "appeals": "อุทธรณ์"
   },
   "shell": {
     "openProfile": "เปิดโปรไฟล์",
@@ -406,15 +407,7 @@
       "วันศุกร์",
       "วันเสาร์"
     ],
-    "weekdaysShort": [
-      "อา.",
-      "จ.",
-      "อ.",
-      "พ.",
-      "พฤ.",
-      "ศ.",
-      "ส."
-    ],
+    "weekdaysShort": ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."],
     "monthsShort": [
       "ม.ค.",
       "ก.พ.",
@@ -608,7 +601,8 @@
       "not-allowed": "คุณโพสต์ในแชทนี้ไม่ได้",
       "not-found": "ไม่มีกิจกรรมนี้แล้ว",
       "not-configured": "เซิร์ฟเวอร์นี้ยังไม่ได้ตั้งค่าการตรวจข้อความ จึงไม่ได้ส่ง"
-    }
+    },
+    "removedByAdmin": "ถูกลบโดยผู้ดูแล SmartSync"
   },
   "messages": {
     "title": "ข้อความ",
@@ -659,7 +653,27 @@
       "warningTitle": "คำเตือนเกี่ยวกับบัญชี SmartSync ของคุณ",
       "warningBody": "{{reason}} ยังไม่มีอะไรถูกเอาไป หากเกิดปัญหาซ้ำอาจถูกระงับบัญชี",
       "activityBackTitle": "กิจกรรมของคุณกลับมาแล้ว",
-      "activityBackBody": "\"{{title}}\" ได้รับการตรวจสอบอีกครั้งและกู้คืนแล้ว"
+      "activityBackBody": "\"{{title}}\" ได้รับการตรวจสอบอีกครั้งและกู้คืนแล้ว",
+      "profileContentRemovedTitle": "ข้อมูลโปรไฟล์ถูกลบ",
+      "profileContentRemovedBody": "SmartSync ลบข้อมูลบางส่วนจากโปรไฟล์สาธารณะของคุณ: {{reason}}",
+      "profileContentRestoredTitle": "กู้คืนข้อมูลโปรไฟล์แล้ว",
+      "profileContentRestoredBody": "SmartSync กู้คืนข้อมูลในโปรไฟล์สาธารณะของคุณ: {{reason}}",
+      "activityPictureRemovedTitle": "รูปกิจกรรมถูกลบ",
+      "activityPictureRemovedBody": "SmartSync ลบรูปจาก “{{title}}”: {{reason}}",
+      "activityPictureRestoredTitle": "กู้คืนรูปกิจกรรมแล้ว",
+      "activityPictureRestoredBody": "SmartSync กู้คืนรูปของ “{{title}}”: {{reason}}",
+      "messageRemovedTitle": "ข้อความแชตถูกลบ",
+      "messageRemovedBody": "SmartSync ลบข้อความแชตของคุณหนึ่งรายการ: {{reason}}",
+      "messageRestoredTitle": "กู้คืนข้อความแชตแล้ว",
+      "messageRestoredBody": "SmartSync กู้คืนข้อความแชตของคุณหนึ่งรายการ: {{reason}}",
+      "sessionsRevokedTitle": "ออกจากระบบเพื่อความปลอดภัย",
+      "sessionsRevokedBody": "SmartSync ให้ออกจากระบบจากเซสชันอื่นของคุณ: {{reason}}",
+      "passwordResetSentTitle": "ส่งคำขอรีเซ็ตรหัสผ่านแล้ว",
+      "passwordResetSentBody": "SmartSync ส่งอีเมลรีเซ็ตรหัสผ่านหลังการตรวจสอบความปลอดภัย: {{reason}}",
+      "appealReversedTitle": "ยอมรับคำอุทธรณ์ของคุณแล้ว",
+      "appealReversedBody": "{{reason}}",
+      "appealUpheldTitle": "ตรวจสอบคำอุทธรณ์ของคุณแล้ว",
+      "appealUpheldBody": "{{reason}}"
     },
     "push": {
       "messageFrom": "{{name}} ส่งข้อความมา"
@@ -1179,7 +1193,9 @@
       "blocks": "ข้อความที่ถูกระงับ",
       "accounts": "บัญชี",
       "history": "ประวัติ",
-      "activities": "กิจกรรม"
+      "activities": "กิจกรรม",
+      "appeals": "อุทธรณ์",
+      "announcements": "Recent announcements"
     },
     "denied": {
       "adminsTitle": "เฉพาะผู้ดูแลระบบ",
@@ -1471,5 +1487,154 @@
     "tooYoungTitle": "SmartSync ยังไม่เหมาะกับคุณ",
     "tooYoungBody_other": "คุณต้องมีอายุ {{count}} ปีขึ้นไป ไม่มีข้อมูลใดถูกแบ่งปันและไม่มีใครได้รับแจ้ง",
     "comeBack_other": "กลับมาใหม่ในอีกประมาณ {{count}} ปี"
+  },
+  "adminPowers": {
+    "done": "ดำเนินการเสร็จแล้ว",
+    "saved": "บันทึกการเปลี่ยนแปลงแล้ว",
+    "failed": "ดำเนินการไม่สำเร็จ",
+    "reason": "เหตุผล",
+    "reasonPlaceholder": "อธิบายว่าทำไมจึงต้องดำเนินการนี้",
+    "suspensionLength": "ระยะเวลาระงับบัญชี",
+    "suspensionEnds": "สิ้นสุดการระงับ",
+    "indefinite": "จนกว่าผู้ดูแลจะยกเลิก",
+    "changeSuspension": "เปลี่ยนระยะเวลาระงับ",
+    "profileModeration": "จัดการเนื้อหาโปรไฟล์",
+    "profileModerationHint": "ลบข้อมูลสาธารณะหนึ่งรายการ โดยเก็บต้นฉบับไว้เผื่อการตรวจสอบและกู้คืน",
+    "profileField": {
+      "picture": "รูปโปรไฟล์",
+      "bio": "คำแนะนำตัว",
+      "username": "ชื่อผู้ใช้"
+    },
+    "removeField": "ลบ{{field}}",
+    "restoreField": "กู้คืน{{field}}",
+    "removeProfileTitle": "ลบ{{field}}หรือไม่?",
+    "removeProfileBody": "ข้อมูลสาธารณะจะถูกแทนที่ด้วยค่าที่ปลอดภัย และเก็บต้นฉบับไว้เผื่อการกู้คืน",
+    "restoreProfileTitle": "กู้คืน{{field}}หรือไม่?",
+    "restoreProfileBody": "ต้นฉบับที่เก็บไว้จะกลับมาแสดงต่อสาธารณะ",
+    "security": "ความปลอดภัยของบัญชี",
+    "securityHint": "เซิร์ฟเวอร์เป็นผู้ดำเนินการและจะไม่เปิดเผยอีเมลของบัญชี",
+    "revokeSessions": "ออกจากระบบทุกเซสชัน",
+    "revokeTitle": "ให้ออกจากระบบบัญชีนี้ทุกอุปกรณ์หรือไม่?",
+    "revokeBody": "เซสชันที่มีอยู่จะถูกยกเลิก แต่เจ้าของบัญชียังลงชื่อเข้าใช้อีกครั้งด้วยรหัสผ่านได้",
+    "sendReset": "ส่งอีเมลรีเซ็ตรหัสผ่าน",
+    "resetTitle": "ส่งอีเมลรีเซ็ตรหัสผ่านหรือไม่?",
+    "resetBody": "SmartSync จะส่งอีเมลโดยไม่แสดงที่อยู่อีเมลแก่ผู้ดูแล",
+    "activityPicture": "จัดการรูปกิจกรรม",
+    "activityPictureHint": "ลบเฉพาะรูปโดยไม่ลบกิจกรรม",
+    "removeActivityPicture": "ลบรูป",
+    "restoreActivityPicture": "กู้คืนรูป",
+    "removeActivityPictureTitle": "ลบรูปกิจกรรมนี้หรือไม่?",
+    "removeActivityPictureBody": "กิจกรรมจะใช้ภาพประจำหมวดหมู่ และเก็บรูปเดิมไว้เผื่อการกู้คืน",
+    "restoreActivityPictureTitle": "กู้คืนรูปกิจกรรมนี้หรือไม่?",
+    "restoreActivityPictureBody": "รูปที่เก็บไว้จะแสดงอีกครั้ง",
+    "messageModeration": "จัดการข้อความที่เผยแพร่แล้ว",
+    "messageModerationHint": "ลบข้อความและรูปที่เผยแพร่แล้วออกจากแชตของผู้เข้าร่วมทุกคน",
+    "messageUnavailable": "ข้อความนี้ไม่มีอยู่อีกต่อไป",
+    "removeMessage": "ลบข้อความ",
+    "restoreMessage": "กู้คืนข้อความ",
+    "removeMessageTitle": "ลบข้อความที่เผยแพร่แล้วนี้หรือไม่?",
+    "removeMessageBody": "ข้อความและรูปจะถูกซ่อนจากผู้เข้าร่วมทุกคนและเก็บไว้เพื่อการตรวจสอบ",
+    "restoreMessageTitle": "กู้คืนข้อความนี้หรือไม่?",
+    "restoreMessageBody": "ข้อความที่เก็บไว้จะกลับไปยังแชตกิจกรรม",
+    "duration": {
+      "day": "1 วัน",
+      "threeDays": "3 วัน",
+      "week": "1 สัปดาห์",
+      "month": "30 วัน",
+      "indefinite": "จนกว่าผู้ดูแลจะยกเลิก"
+    },
+    "status": {
+      "removed": "ลบและเก็บต้นฉบับแล้ว",
+      "restored": "กู้คืนแล้ว",
+      "revoked": "ยกเลิกเซสชันที่ใช้งานอยู่แล้ว",
+      "sent": "ส่งอีเมลรีเซ็ตแล้ว",
+      "expired": "สิ้นสุดประกาศแล้ว",
+      "reversed": "ย้อนกลับการดำเนินการแล้ว",
+      "upheld": "ยืนยันการดำเนินการเดิมแล้ว",
+      "already-removed": "รายการนี้ถูกลบแล้ว",
+      "already-restored": "รายการนี้ถูกกู้คืนแล้ว",
+      "nothing-to-remove": "ไม่มีข้อมูลให้ลบ",
+      "original-unavailable": "ไม่พบต้นฉบับ",
+      "no-email": "บัญชีนี้ไม่มีที่อยู่อีเมล",
+      "reviewing": "ผู้ดูแลอีกคนกำลังตรวจสอบคำอุทธรณ์นี้"
+    },
+    "appeals": {
+      "title": "คำอุทธรณ์",
+      "person": "ผู้ใช้",
+      "one": "ตรวจสอบคำอุทธรณ์",
+      "loadFailed": "โหลดคำอุทธรณ์ไม่สำเร็จ",
+      "empty": "ไม่มีคำอุทธรณ์รอตรวจสอบ",
+      "emptyBody": "คำอุทธรณ์ใหม่จะแสดงที่นี่",
+      "request": "คำชี้แจงของผู้ใช้",
+      "type": "การดำเนินการที่อุทธรณ์",
+      "reverse": "ยอมรับและย้อนกลับ",
+      "uphold": "ยืนยันการดำเนินการ",
+      "reverseTitle": "ยอมรับคำอุทธรณ์นี้หรือไม่?",
+      "reverseBody": "ระบบจะย้อนกลับการดำเนินการเดิมของผู้ดูแลเมื่อทำได้",
+      "upholdTitle": "ยืนยันการดำเนินการนี้หรือไม่?",
+      "upholdBody": "การดำเนินการจะยังมีผล และผู้ใช้จะได้รับเหตุผลของคุณ"
+    },
+    "appealKind": {
+      "profile-picture": "การลบรูปโปรไฟล์",
+      "profile-bio": "การลบคำแนะนำตัว",
+      "profile-username": "การลบชื่อผู้ใช้",
+      "activity-picture": "การลบรูปกิจกรรม",
+      "message": "การลบข้อความ",
+      "suspension": "การระงับบัญชี",
+      "closure": "การปิดบัญชี",
+      "activity": "การลบกิจกรรม"
+    },
+    "appealStatus": {
+      "open": "รอตรวจสอบ",
+      "reversed": "ยอมรับแล้ว",
+      "upheld": "ยืนยันเดิมแล้ว",
+      "reviewing": "กำลังตรวจสอบ"
+    },
+    "announcements": {
+      "compose": "เผยแพร่ประกาศ",
+      "titleLabel": "หัวข้อ",
+      "messageLabel": "ข้อความ",
+      "audienceLabel": "กลุ่มเป้าหมาย",
+      "expiresLabel": "หมดอายุภายใน",
+      "sixHours": "6 ชั่วโมง",
+      "publish": "เผยแพร่ประกาศ",
+      "published": "ประกาศเผยแพร่แล้ว",
+      "recent": "ประกาศล่าสุด",
+      "empty": "ยังไม่มีประกาศ",
+      "emptyBody": "ประกาศที่เผยแพร่จะแสดงที่นี่",
+      "active": "กำลังแสดง",
+      "expired": "สิ้นสุดแล้ว",
+      "expires": "หมดอายุ",
+      "expireNow": "สิ้นสุดตอนนี้",
+      "expireTitle": "สิ้นสุดประกาศนี้หรือไม่?",
+      "expireBody": "ประกาศจะหายไปจากทุกคนทันที"
+    },
+    "audience": {
+      "all": "ทุกคน",
+      "hosts": "ผู้จัดกิจกรรม",
+      "participants": "ผู้เข้าร่วมกิจกรรม"
+    }
+  },
+  "appeals": {
+    "title": "คำอุทธรณ์",
+    "intro": "ขอให้ผู้ดูแลตรวจสอบคำตัดสินอีกครั้ง และอธิบายสิ่งที่ควรพิจารณาใหม่",
+    "available": "คำตัดสินที่อุทธรณ์ได้",
+    "noneAvailable": "ขณะนี้ไม่มีคำตัดสินที่อุทธรณ์ได้",
+    "messageHint": "ข้อความแชตที่ถูกลบสามารถอุทธรณ์จากตำแหน่งเดิมในแชตกิจกรรม",
+    "history": "คำอุทธรณ์ของคุณ",
+    "noHistory": "คุณยังไม่เคยส่งคำอุทธรณ์",
+    "appeal": "อุทธรณ์",
+    "dialogTitle": "ขอให้ตรวจสอบ",
+    "dialogBody": "ผู้ดูแลจะตรวจสอบคำตัดสินและคำชี้แจงของคุณ",
+    "explanation": "คำชี้แจงของคุณ",
+    "placeholder": "อธิบายให้ชัดเจนว่าทำไมจึงควรเปลี่ยนคำตัดสิน (อย่างน้อย 10 ตัวอักษร)",
+    "send": "ส่งคำอุทธรณ์",
+    "sent": "ส่งคำอุทธรณ์แล้ว",
+    "sentBody": "ผู้ดูแลสามารถตรวจสอบได้แล้ว",
+    "failed": "ส่งคำอุทธรณ์ไม่สำเร็จ",
+    "noLongerAvailable": "คำตัดสินนี้ไม่สามารถอุทธรณ์ได้แล้ว",
+    "loadFailed": "โหลดคำอุทธรณ์ของคุณไม่สำเร็จ",
+    "settingsHint": "ตรวจสอบหรือส่งคำอุทธรณ์",
+    "fieldLocked": "ผู้ดูแลลบข้อมูลนี้แล้ว โปรดอุทธรณ์เพื่อขอกู้คืน"
   }
 }

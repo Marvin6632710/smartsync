@@ -21,6 +21,8 @@ export default function DeskDialogs() {
     setSuspendTarget,
     suspendReason,
     setSuspendReason,
+    suspendDuration,
+    setSuspendDuration,
     actOnPerson,
     recorded,
     setRecorded,
@@ -97,7 +99,23 @@ export default function DeskDialogs() {
         tone={suspendTarget?.suspend ? 'danger' : 'default'}
         onConfirm={actOnPerson}
         onCancel={() => setSuspendTarget(null)}
-      />
+      >
+        {suspendTarget?.suspend && (
+          <label className="report-detail">
+            {t('adminPowers.suspensionLength')}
+            <select
+              value={suspendDuration}
+              onChange={(event) => setSuspendDuration(event.target.value)}
+            >
+              <option value="24">{t('adminPowers.duration.day')}</option>
+              <option value="72">{t('adminPowers.duration.threeDays')}</option>
+              <option value="168">{t('adminPowers.duration.week')}</option>
+              <option value="720">{t('adminPowers.duration.month')}</option>
+              <option value="indefinite">{t('adminPowers.duration.indefinite')}</option>
+            </select>
+          </label>
+        )}
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={Boolean(recorded)}

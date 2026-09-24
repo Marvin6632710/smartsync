@@ -298,12 +298,12 @@ lets them act on what they notice rather than only on what gets flagged.
 **The ladder, in order.** Each rung costs the person more than the one before
 it, and the system reaches for the cheapest that fits:
 
-| Rung | Who | Costs the person | Reversible by |
-| --- | --- | --- | --- |
-| Warning | moderator | nothing — a record and a message | nobody; it is a record |
-| Remove an activity | moderator | that activity | an admin |
-| Suspend | moderator | hosting, joining, messaging; everything they host is stood down | a moderator |
-| Close the account | **admin only** | everything except reading why | an admin |
+| Rung               | Who            | Costs the person                                                | Reversible by          |
+| ------------------ | -------------- | --------------------------------------------------------------- | ---------------------- |
+| Warning            | moderator      | nothing — a record and a message                                | nobody; it is a record |
+| Remove an activity | moderator      | that activity                                                   | an admin               |
+| Suspend            | moderator      | hosting, joining, messaging; everything they host is stood down | a moderator            |
+| Close the account  | **admin only** | everything except reading why                                   | an admin               |
 
 A system whose only options are "nothing" and "you cannot use this any more"
 reaches for the second far too readily. The warning is the rung that was
@@ -357,7 +357,7 @@ could be turned against its users:
 **Two things that only appeared when the ranks were tested against each
 other**, and both are the reason this ADR is worth reading:
 
-- *Suspension had to reach the accounts a person hosts.* Somebody is suspended
+- _Suspension had to reach the accounts a person hosts._ Somebody is suspended
   because they may be a danger to the people they would be meeting — and their
   existing activities stayed live, in discovery, still accepting strangers. The
   suspension protected nobody from the thing it was for. The rules now refuse a
@@ -365,7 +365,7 @@ other**, and both are the reason this ADR is worth reading:
   everything it is hosting, telling everyone who had joined. The client could
   not have done this filtering itself: roles are readable only by their owner
   and by moderators, so discovery genuinely cannot tell.
-- *A report had to name a person, not a thing.* Reports recorded what was
+- _A report had to name a person, not a thing._ Reports recorded what was
   reported — a user, an activity, a message — and the Suspend button acted on
   that id. For a message report that id is a message, so suspending wrote a
   role document keyed by message and suspended nobody. Reports now carry
@@ -634,8 +634,8 @@ choose to be in a directory with each other.
 
 ## ADR-013 — A follow is stored twice, and the host's copy does the work
 
-**Context.** The People screen's "Notify me" said *"you'll be alerted when
-they post an activity"*. A follow was stored as `users/{me}/following/{them}`,
+**Context.** The People screen's "Notify me" said _"you'll be alerted when
+they post an activity"_. A follow was stored as `users/{me}/following/{them}`,
 readable by nobody but me, and nothing ever read it to send anything. The
 promise could not be kept from where the data lived: the only client that
 knows something was posted is the host's, and the host could not see who was
@@ -721,8 +721,8 @@ account merge their registries rather than overwrite each other's.
 
 An edit is judged three ways, not two. A row for an edit carries what the
 form was seeded with as well as what it saved, so after a reload the
-document showing the save is *landed*, the document still showing the
-seed is *refused*, and the document showing neither is *superseded* — an
+document showing the save is _landed_, the document still showing the
+seed is _refused_, and the document showing neither is _superseded_ — an
 edit made elsewhere since, which is offered back as a choice ("is not
 what it shows now"), never as a failed save to be restored over somebody's
 newer version. Comparing fields alone had called a landed-then-re-edited
@@ -779,7 +779,7 @@ of them; a failure leaves the note for the next connection.
 
 **Also decided alongside.** The feed's first server answer is waited for
 before an activity the cache lacks is called missing (`syncing`). Twenty
-seconds of nothing but cache from *anyone* is treated as offline
+seconds of nothing but cache from _anyone_ is treated as offline
 (`SERVER_SILENCE_MS`) so a stream that never connects still produces the
 banner — but the three profile listeners are tiny and answered first on
 any link that works, so a feed that is merely slow on a link the profile
@@ -809,7 +809,7 @@ a claim that was lost aborts the action before anything changes. Where the
 action can name its report, the rules check the claim on that write too: a
 takedown, and a warning, which must also be about the report's subject. A
 roles row cannot name a report — it is three fields and nothing else, on
-purpose — so the decision is committed *in the same transaction* as the
+purpose — so the decision is committed _in the same transaction_ as the
 action, and the decision needs the claim: a transaction lands whole or not
 at all, which makes a suspension recorded against a report impossible to
 commit without holding its claim, and leaves no moment at which the
@@ -826,7 +826,7 @@ the ordinary refusal.
 at commit time — verified by transaction, and for everything attributed to
 a report, by the rules. Abandoned work costs a colleague at most five
 minutes. A moderator whose claim went stale without anyone taking over may
-still finish. What this does not do: prevent two moderators from *reading*
+still finish. What this does not do: prevent two moderators from _reading_
 the same report, or stop a moderator from acting on somebody through the
 People directory without a report at all — that was always allowed, is
 unchanged, and is judged by the roles and warnings rules alone.
@@ -852,7 +852,7 @@ everywhere it already had it — every category, band, reason, signal id
 and default name is stored as before and translated only at the moment it
 is shown, so filters, rules and the evaluation harness see what they
 always saw. Text the rules fix to plain strings (a notification's title and
-body, a report's context) is still *written* in English, from a template
+body, a report's context) is still _written_ in English, from a template
 table shared with the reader; the reader recognises the template in the
 stored text, lifts the names and titles out of it, and words the sentence
 afresh. A text it does not recognise — an older wording, a hand-written
@@ -999,7 +999,6 @@ the window had been widening every row with it, unseen behind the shell's
 made the English header 17px too wide at 1024px. Appearance stays in
 Settings: a theme is chosen once, a language is what makes the page
 readable.
-
 
 ## ADR-020 — The mark: two hooks making an S, in ink and indigo
 
@@ -1153,7 +1152,6 @@ data are untouched: the dialog sits over the three stages, it is not a
 change to any of them. React 18 has no `inert` boolean, so the wrapper
 sets the attribute as an empty string; React 19 will take `true`.
 
-
 ## ADR-023 — Two consoles, one desk, and a log the rules can vouch for
 
 > **Amended by ADR-024 (2026-09-21).** The moderation console (`/mod`)
@@ -1211,8 +1209,8 @@ written in the same transaction as the action. The rules make an entry
 worth reading: it names its writer as the caller and nobody else; it is
 stamped by the server's clock; an admin's kinds need an admin; and it can
 only claim a state the subject is actually in when the write lands,
-because the rules read the role row or the activity *as it will be after
-the batch* (`getAfter`) — "suspended" is refused unless the row written
+because the rules read the role row or the activity _as it will be after
+the batch_ (`getAfter`) — "suspended" is refused unless the row written
 alongside it, or already there, says so. Nothing is ever edited or
 deleted, by anybody. Warnings and decided reports were records already;
 the history views merge the three into one timeline. Two more feeds and
@@ -1600,7 +1598,7 @@ is a new question.
 ("At Lumphini Park, where you've been before") and what a model can
 read the kind of place from; a coordinate is neither, and is the one
 thing the privacy promise was really about. Venue names are already
-public on every card — what is new is *which* venues this person has
+public on every card — what is new is _which_ venues this person has
 joined, which is why the promise was reworded rather than quietly kept.
 
 **Cost.** A small, real loosening of what leaves the device, on the
@@ -1683,7 +1681,6 @@ block that started this was a payments review); attaching billing to the
 new project, which would restore the two-second behaviour and was the
 recommendation — the owner chose to stay free.
 
-
 ---
 
 ## ADR-033 — Chat is moderated before delivery, and the database refuses every client-written message
@@ -1707,7 +1704,7 @@ going to abuse anything.
 **1. `allow create: if false` on `activities/{id}/messages`.** No client
 writes a chat message any more. The only writer is
 `sendChatMessageCall`, a callable Function using the Admin SDK, which
-bypasses rules because it *is* the rule now: it re-checks membership, the
+bypasses rules because it _is_ the rule now: it re-checks membership, the
 activity's existence, suspension, closure and the 30-day retention window
 itself, in `gate()`, before it moderates anything. Moderation cannot be
 skipped because there is no request that reaches a thread without going
@@ -1756,7 +1753,7 @@ not an apology and a request to type it again.
 involving minors is blocked, **nothing is retained**, there is no appeal
 and no console view. OpenAI's guidance is explicit that its Moderation
 API must not be sent known or suspected CSAM; treating that flag as a
-signal to *store* the content would be the opposite of what any operator
+signal to _store_ the content would be the opposite of what any operator
 should do. The obligation it actually creates — reporting to NCMEC or a
 national authority — is not a button in a student project, and README
 §11 says so rather than implying the console covers it.
@@ -1819,7 +1816,7 @@ who is admitted at all.
 **1. A date of birth, not an age.** An age is true for a year. Somebody
 who typed 15 would still be 15 at their thirtieth birthday, and the one
 number the minimum depends on would be the one number quietly going
-stale. The date goes in the *private* half of the profile, with the
+stale. The date goes in the _private_ half of the profile, with the
 email and the real name, because it is the same kind of thing.
 
 **2. The database enforces it, not the form.** `firestore.rules`
@@ -1880,3 +1877,88 @@ by anyone who wants to). Making the age public by default (it is
 personal, and a default that reveals something is not a default). Asking
 for an identity document (disproportionate for a student project, and it
 would collect far more than this needs).
+
+---
+
+## ADR-035 — Sensitive admin actions use trusted Functions, reversible originals and one appeal path
+
+**Context.** The original console could warn, suspend, close an account and
+take down an activity through transactions constrained by Firestore rules. The
+next set of powers reaches into content owned by somebody else, Firebase Auth
+sessions and password-reset delivery. Granting a browser permission to perform
+those writes would also grant any script running with that admin's token the
+same broad write access. Deleting the content would make mistakes irreversible;
+keeping it in the public document would leave it readable; and adding appeals
+without tying them to the current action would create requests for things that
+no longer exist.
+
+**Decision.** Five callable Functions expose named, bounded operations. Every
+one checks the caller against the current role document, including closure and
+timed suspension, refuses an action on the caller or another admin, validates
+identifiers and text lengths, and requires a reason. The browser chooses from
+operations; it never supplies a patch. Every resulting action writes an audit
+entry and, where somebody is affected, an inbox notice.
+
+**Content removal is reversible and remains enforced after the Function
+returns.** Before a profile picture, bio, username, activity picture or
+published message is removed, its exact original is copied to
+`moderationVault`. Clients have no read or write rule for that collection. The
+public document receives a small `contentModeration` lock carrying only the
+action id, while the visible content becomes a safe state: no picture, blank
+bio, `@removed`, or a removed-message placeholder. Firestore rules preserve
+the lock and reject owner changes to the locked field or picture document.
+Restoration copies the held original back and removes the lock. A restoration
+therefore corrects a decision without asking the person to recreate their
+work, while the removed material is not left publicly readable.
+
+**A timed suspension is a timestamp rule, not a scheduler promise.** Roles may
+carry `suspendedUntil`; every authorization check treats a suspension as active
+only while that instant is in the future. Access returns at the stated time
+even if Cloud Scheduler is late. `expireTimedSuspensions` runs every fifteen
+minutes to remove stale flags, record the expiry and notify the account. The
+job keeps data and communication accurate, but it is not required for the
+authorization result.
+
+**Appeals name an action that still exists.** `/appeals` calls a Function that
+verifies ownership and the current moderation state before creating a record.
+Its id is derived from the person, action kind, target and action token, so
+submitting the same appeal twice returns the first record while a later action
+can be appealed separately. Admins can uphold or reverse it; reversal calls the
+same restore path as the console. The Function compares the stored action token
+again before deciding, so an old appeal cannot reverse a later action on the
+same field. It also claims a five-minute review lease transactionally; another
+admin sees “being reviewed”, a failed attempt releases the claim, and an
+abandoned lease becomes reclaimable. A closed account may reach this route
+because otherwise the strongest action would be the one with no review path.
+
+**Auth privacy stays server-side.** Revoking refresh tokens uses the Admin SDK.
+For a password reset, the Function looks up the Auth user and calls Firebase
+Identity Toolkit with its service credential. The callable returns only
+`sent`, never the address. An admin can initiate the ordinary Firebase reset
+flow but cannot learn a private email or choose a password.
+
+**Announcements are records with an audience and an end.** Admin Functions
+publish or expire them; signed-in active accounts can read them. The browser
+shows a banner only when the record is active, unexpired and the person is in
+the `all`, `hosts` or `participants` audience. A fixed expiry prevents a stale
+emergency notice quietly becoming permanent, and manual expiry is audited.
+
+**Cost.** These powers require a successful Functions deployment before the
+new console can be released, and timed cleanup adds a scheduled invocation.
+The vault retains material users no longer see, so its rules and eventual
+retention policy matter. Audience selection for announcements is evaluated
+from current browser data rather than materialized recipient lists, which is
+simple and live but makes the banner a signed-in app surface rather than a push
+broadcast. Password-reset delivery depends on the Firebase Auth email template
+and Identity Toolkit availability.
+
+**Rejected.** Giving admins broad Firestore update rights (too much authority
+in a stolen browser token). Hard-deleting moderated content (an incorrect
+decision could not be put right). Keeping the original in a hidden public
+field (Firestore has no field-level read security). Relying on the scheduler
+to end suspension (a delayed job would extend a punishment). Letting an admin
+see the email before sending a reset (unnecessary private-data exposure).
+Creating one appeal collection per feature (different states and duplicate
+rules for the same review process). Sending announcements as one notification
+write per account (unbounded fan-out, permanent inbox noise and no clean
+audience change or expiry).

@@ -16,6 +16,15 @@ const addDoc = vi.fn((ref, data) => {
   return Promise.resolve({ id: `n${notices.length}` })
 })
 const writes = []
+const DELETE = Symbol('delete-field')
+const apply = (before, data) => {
+  const next = { ...(before || {}) }
+  for (const [key, value] of Object.entries(data)) {
+    if (value === DELETE) delete next[key]
+    else next[key] = value
+  }
+  return next
+}
 const runTransaction = vi.fn(async (_db, fn) => {
   const tx = {
     get: async (ref) => ({
@@ -24,11 +33,11 @@ const runTransaction = vi.fn(async (_db, fn) => {
     }),
     update: (ref, data) => {
       writes.push({ path: ref.path, data })
-      store.set(ref.path, { ...store.get(ref.path), ...data })
+      store.set(ref.path, apply(store.get(ref.path), data))
     },
     set: (ref, data, options) => {
       writes.push({ path: ref.path, data })
-      store.set(ref.path, options?.merge ? { ...store.get(ref.path), ...data } : data)
+      store.set(ref.path, options?.merge ? apply(store.get(ref.path), data) : apply({}, data))
     },
   }
   return fn(tx)
@@ -40,6 +49,7 @@ vi.mock('firebase/firestore', () => ({
   addDoc,
   collection: (_db, ...path) => ({ path: path.join('/'), isCollection: true }),
   deleteDoc: vi.fn(),
+  deleteField: () => DELETE,
   doc: (first, ...path) =>
     first?.isCollection ? { path: `${first.path}/m${++minted}` } : { path: path.join('/') },
   getDocs,
@@ -50,6 +60,7 @@ vi.mock('firebase/firestore', () => ({
   runTransaction,
   serverTimestamp: () => 'server-time',
   setDoc: vi.fn(),
+  Timestamp: { fromMillis: (value) => value },
   updateDoc: vi.fn(),
   where: vi.fn(),
 }))
@@ -148,7 +159,11 @@ describe('suspension', () => {
   test('suspending twice tells the person once, and lifting twice likewise', async () => {
     await setSuspended('u', true)
     await setSuspended('u', true)
-    expect(store.get('roles/u')).toEqual({ role: 'user', suspended: true })
+    expect(store.get('roles/u')).toEqual({
+      role: 'user',
+      suspended: true,
+      suspendedAt: 'server-time',
+    })
     expect(notices).toHaveLength(1)
     await setSuspended('u', false)
     await setSuspended('u', false)
@@ -165,7 +180,12 @@ describe('suspension', () => {
   test('suspending keeps the closure it found, and writes the only role there is', async () => {
     store.set('roles/u', { role: 'user', suspended: false, banned: true })
     await setSuspended('u', true)
-    expect(store.get('roles/u')).toEqual({ role: 'user', suspended: true, banned: true })
+    expect(store.get('roles/u')).toEqual({
+      role: 'user',
+      suspended: true,
+      suspendedAt: 'server-time',
+      banned: true,
+    })
   })
 
   test('a row left over from the retired moderator rank is brought into line', async () => {
@@ -173,7 +193,11 @@ describe('suspension', () => {
     // so the first decision taken on such a row rewrites the word.
     store.set('roles/u', { role: 'moderator', suspended: false })
     await setSuspended('u', true)
-    expect(store.get('roles/u')).toEqual({ role: 'user', suspended: true })
+    expect(store.get('roles/u')).toEqual({
+      role: 'user',
+      suspended: true,
+      suspendedAt: 'server-time',
+    })
   })
 })
 

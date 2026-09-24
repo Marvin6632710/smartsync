@@ -178,13 +178,16 @@ function EditActivityForm({ existing }) {
           value={picture}
           onChange={setPicture}
           onBusyChange={setPictureBusy}
-          disabled={busy}
+          disabled={busy || existing.contentModeration?.picture?.active === true}
         >
           <div className="picture-placeholder" data-category={(form.category || '').toLowerCase()}>
             <CategoryIcon category={form.category} size={36} />
             <ActivityPicture activity={existing} className="picture-current" />
           </div>
         </PicturePicker>
+        {existing.contentModeration?.picture?.active && (
+          <p className="form-error">{t('appeals.fieldLocked')}</p>
+        )}
         <label>
           {t('create.activityName')}
           <input

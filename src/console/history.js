@@ -23,6 +23,22 @@ export const EVENT_KINDS = [
   'warn',
   'actioned',
   'dismissed',
+  'profile-picture-remove',
+  'profile-picture-restore',
+  'profile-bio-remove',
+  'profile-bio-restore',
+  'profile-username-remove',
+  'profile-username-restore',
+  'activity-picture-remove',
+  'activity-picture-restore',
+  'message-remove',
+  'message-restore',
+  'revoke-sessions',
+  'send-password-reset',
+  'appeal-reverse',
+  'appeal-uphold',
+  'announcement-publish',
+  'announcement-expire',
 ]
 
 export function logEvent(entry) {
@@ -35,6 +51,8 @@ export function logEvent(entry) {
     reason: entry.reason || '',
     reportId: entry.reportId || null,
     activityId: entry.activityId || null,
+    messageId: entry.messageId || null,
+    announcementId: entry.announcementId || null,
     source: 'log',
   }
 }

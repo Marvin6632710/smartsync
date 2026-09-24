@@ -95,7 +95,7 @@ describe('historyEvents', () => {
     expect(historyEvents({ reports: [decided, { ...decided }] })).toHaveLength(1)
   })
 
-  test('the kinds are the log’s six, a warning, and the two decisions — nothing about ranks', () => {
+  test('the kinds cover account, content, security, appeal and announcement decisions', () => {
     expect(EVENT_KINDS).toEqual([
       'suspend',
       'lift',
@@ -106,6 +106,22 @@ describe('historyEvents', () => {
       'warn',
       'actioned',
       'dismissed',
+      'profile-picture-remove',
+      'profile-picture-restore',
+      'profile-bio-remove',
+      'profile-bio-restore',
+      'profile-username-remove',
+      'profile-username-restore',
+      'activity-picture-remove',
+      'activity-picture-restore',
+      'message-remove',
+      'message-restore',
+      'revoke-sessions',
+      'send-password-reset',
+      'appeal-reverse',
+      'appeal-uphold',
+      'announcement-publish',
+      'announcement-expire',
     ])
   })
 })

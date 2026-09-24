@@ -87,7 +87,8 @@
     "blocked": "已屏蔽的人",
     "moderation": "内容审核",
     "joined": "已加入",
-    "terms": "条款与安全"
+    "terms": "条款与安全",
+    "appeals": "申诉"
   },
   "shell": {
     "openProfile": "打开个人资料",
@@ -397,24 +398,8 @@
     "today": "今天",
     "tomorrow": "明天",
     "yesterday": "昨天",
-    "weekdays": [
-      "星期日",
-      "星期一",
-      "星期二",
-      "星期三",
-      "星期四",
-      "星期五",
-      "星期六"
-    ],
-    "weekdaysShort": [
-      "周日",
-      "周一",
-      "周二",
-      "周三",
-      "周四",
-      "周五",
-      "周六"
-    ],
+    "weekdays": ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"],
+    "weekdaysShort": ["周日", "周一", "周二", "周三", "周四", "周五", "周六"],
     "monthsShort": [
       "1月",
       "2月",
@@ -608,7 +593,8 @@
       "not-allowed": "你无法在此群聊中发言。",
       "not-found": "该活动已不存在。",
       "not-configured": "此服务器尚未设置消息检查，因此未发送。"
-    }
+    },
+    "removedByAdmin": "已被 SmartSync 管理员移除。"
   },
   "messages": {
     "title": "消息",
@@ -659,7 +645,27 @@
       "warningTitle": "关于你 SmartSync 账号的警告",
       "warningBody": "{{reason}} 目前没有任何处罚。若问题反复出现，可能会导致账号被暂停。",
       "activityBackTitle": "你的活动已恢复",
-      "activityBackBody": "“{{title}}”经复核后已恢复。"
+      "activityBackBody": "“{{title}}”经复核后已恢复。",
+      "profileContentRemovedTitle": "个人资料内容已移除",
+      "profileContentRemovedBody": "SmartSync 移除了你公开资料中的部分内容：{{reason}}",
+      "profileContentRestoredTitle": "个人资料内容已恢复",
+      "profileContentRestoredBody": "SmartSync 恢复了你公开资料中的部分内容：{{reason}}",
+      "activityPictureRemovedTitle": "活动图片已移除",
+      "activityPictureRemovedBody": "SmartSync 移除了“{{title}}”的图片：{{reason}}",
+      "activityPictureRestoredTitle": "活动图片已恢复",
+      "activityPictureRestoredBody": "SmartSync 恢复了“{{title}}”的图片：{{reason}}",
+      "messageRemovedTitle": "聊天消息已移除",
+      "messageRemovedBody": "SmartSync 移除了你的一条聊天消息：{{reason}}",
+      "messageRestoredTitle": "聊天消息已恢复",
+      "messageRestoredBody": "SmartSync 恢复了你的一条聊天消息：{{reason}}",
+      "sessionsRevokedTitle": "已为安全退出登录",
+      "sessionsRevokedBody": "SmartSync 已让你的其他会话退出：{{reason}}",
+      "passwordResetSentTitle": "已请求重置密码",
+      "passwordResetSentBody": "SmartSync 在安全审核后发送了密码重置邮件：{{reason}}",
+      "appealReversedTitle": "你的申诉已获接受",
+      "appealReversedBody": "{{reason}}",
+      "appealUpheldTitle": "你的申诉已完成审核",
+      "appealUpheldBody": "{{reason}}"
     },
     "push": {
       "messageFrom": "{{name}} 发来了一条消息。"
@@ -1179,7 +1185,9 @@
       "blocks": "被拦截的消息",
       "accounts": "账号",
       "history": "历史",
-      "activities": "活动"
+      "activities": "活动",
+      "appeals": "申诉",
+      "announcements": "Recent announcements"
     },
     "denied": {
       "adminsTitle": "仅限管理员",
@@ -1471,5 +1479,154 @@
     "tooYoungTitle": "SmartSync 还不适合你",
     "tooYoungBody_other": "你需要年满 {{count}} 岁。没有任何内容被分享，也没有通知任何人。",
     "comeBack_other": "大约 {{count}} 年后再来吧。"
+  },
+  "adminPowers": {
+    "done": "操作已完成",
+    "saved": "更改已保存。",
+    "failed": "操作失败",
+    "reason": "原因",
+    "reasonPlaceholder": "说明为什么需要执行此操作",
+    "suspensionLength": "停用时长",
+    "suspensionEnds": "停用结束时间",
+    "indefinite": "直到管理员解除",
+    "changeSuspension": "更改停用时长",
+    "profileModeration": "个人资料内容管理",
+    "profileModerationHint": "移除一项公开资料内容，并保留原内容供复核后恢复。",
+    "profileField": {
+      "picture": "头像",
+      "bio": "个人简介",
+      "username": "用户名"
+    },
+    "removeField": "移除{{field}}",
+    "restoreField": "恢复{{field}}",
+    "removeProfileTitle": "移除{{field}}？",
+    "removeProfileBody": "公开内容将替换为安全占位内容，原内容会保留以便恢复。",
+    "restoreProfileTitle": "恢复{{field}}？",
+    "restoreProfileBody": "保留的原内容将重新公开。",
+    "security": "账户安全",
+    "securityHint": "这些操作由服务器执行，不会向管理员显示账户邮箱。",
+    "revokeSessions": "退出所有活动会话",
+    "revokeTitle": "让此账户在所有设备上退出？",
+    "revokeBody": "现有登录会话将失效。用户仍可使用密码重新登录。",
+    "sendReset": "发送密码重置邮件",
+    "resetTitle": "发送密码重置邮件？",
+    "resetBody": "SmartSync 会发送邮件，但不会向管理员显示邮箱地址。",
+    "activityPicture": "活动图片管理",
+    "activityPictureHint": "只移除图片，不下架活动。",
+    "removeActivityPicture": "移除图片",
+    "restoreActivityPicture": "恢复图片",
+    "removeActivityPictureTitle": "移除此活动图片？",
+    "removeActivityPictureBody": "活动将显示分类插图，原图片会保留以便恢复。",
+    "restoreActivityPictureTitle": "恢复此活动图片？",
+    "restoreActivityPictureBody": "保留的图片将重新显示。",
+    "messageModeration": "已发布消息管理",
+    "messageModerationHint": "从所有参与者的聊天中移除已发布的文字和图片。",
+    "messageUnavailable": "此消息已不存在。",
+    "removeMessage": "移除消息",
+    "restoreMessage": "恢复消息",
+    "removeMessageTitle": "移除此已发布消息？",
+    "removeMessageBody": "文字和图片将对所有参与者隐藏，并保留供复核。",
+    "restoreMessageTitle": "恢复此消息？",
+    "restoreMessageBody": "保留的消息将回到活动聊天中。",
+    "duration": {
+      "day": "1 天",
+      "threeDays": "3 天",
+      "week": "1 周",
+      "month": "30 天",
+      "indefinite": "直到管理员解除"
+    },
+    "status": {
+      "removed": "已移除并保留原内容。",
+      "restored": "已恢复。",
+      "revoked": "活动会话已撤销。",
+      "sent": "重置邮件已发送。",
+      "expired": "公告已结束。",
+      "reversed": "操作已撤销。",
+      "upheld": "原操作已维持。",
+      "already-removed": "该内容已被移除。",
+      "already-restored": "该内容已恢复。",
+      "nothing-to-remove": "没有可移除的内容。",
+      "original-unavailable": "原内容不可用。",
+      "no-email": "此账户没有邮箱地址。",
+      "reviewing": "另一位管理员正在审核此申诉。"
+    },
+    "appeals": {
+      "title": "申诉",
+      "person": "用户",
+      "one": "申诉审核",
+      "loadFailed": "无法加载申诉。",
+      "empty": "没有待审核申诉",
+      "emptyBody": "新申诉会显示在这里。",
+      "request": "用户的说明",
+      "type": "申诉的操作",
+      "reverse": "接受并撤销",
+      "uphold": "维持原操作",
+      "reverseTitle": "接受此申诉？",
+      "reverseBody": "在可行的情况下，原管理员操作将被撤销。",
+      "upholdTitle": "维持此操作？",
+      "upholdBody": "此操作将继续生效，用户会收到你的理由。"
+    },
+    "appealKind": {
+      "profile-picture": "移除头像",
+      "profile-bio": "移除个人简介",
+      "profile-username": "移除用户名",
+      "activity-picture": "移除活动图片",
+      "message": "移除消息",
+      "suspension": "停用账户",
+      "closure": "关闭账户",
+      "activity": "下架活动"
+    },
+    "appealStatus": {
+      "open": "等待审核",
+      "reversed": "已接受",
+      "upheld": "已维持",
+      "reviewing": "审核中"
+    },
+    "announcements": {
+      "compose": "发布公告",
+      "titleLabel": "标题",
+      "messageLabel": "内容",
+      "audienceLabel": "受众",
+      "expiresLabel": "有效时长",
+      "sixHours": "6 小时",
+      "publish": "发布公告",
+      "published": "公告已发布。",
+      "recent": "最近公告",
+      "empty": "暂无公告",
+      "emptyBody": "已发布的公告会显示在这里。",
+      "active": "正在显示",
+      "expired": "已结束",
+      "expires": "到期时间",
+      "expireNow": "立即结束",
+      "expireTitle": "结束此公告？",
+      "expireBody": "公告将立即对所有人消失。"
+    },
+    "audience": {
+      "all": "所有人",
+      "hosts": "活动发起人",
+      "participants": "活动参与者"
+    }
+  },
+  "appeals": {
+    "title": "申诉",
+    "intro": "请求管理员复核管理决定，并说明你认为应重新考虑的原因。",
+    "available": "可以申诉的决定",
+    "noneAvailable": "目前没有可申诉的管理决定。",
+    "messageHint": "被移除的聊天消息可在活动聊天中的原位置申诉。",
+    "history": "你的申诉",
+    "noHistory": "你尚未提交申诉。",
+    "appeal": "申诉",
+    "dialogTitle": "请求复核",
+    "dialogBody": "管理员会审核该决定和你的说明。",
+    "explanation": "你的说明",
+    "placeholder": "清楚说明为什么应更改此决定（至少 10 个字符）",
+    "send": "提交申诉",
+    "sent": "申诉已提交",
+    "sentBody": "管理员现在可以进行审核。",
+    "failed": "无法提交申诉",
+    "noLongerAvailable": "此决定已无法申诉。",
+    "loadFailed": "无法加载你的申诉。",
+    "settingsHint": "查看或提交申诉",
+    "fieldLocked": "管理员已移除此内容。请申诉以请求恢复。"
   }
 }

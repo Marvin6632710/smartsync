@@ -66,6 +66,46 @@ const TEMPLATES = {
     title: 'Your activity is back',
     body: '"{{title}}" was reviewed again and restored.',
   },
+  profileContentRemoved: {
+    title: 'Profile content removed',
+    body: 'SmartSync removed part of your public profile: {{reason}}',
+  },
+  profileContentRestored: {
+    title: 'Profile content restored',
+    body: 'SmartSync restored part of your public profile: {{reason}}',
+  },
+  activityPictureRemoved: {
+    title: 'Activity picture removed',
+    body: 'SmartSync removed the picture from "{{title}}": {{reason}}',
+  },
+  activityPictureRestored: {
+    title: 'Activity picture restored',
+    body: 'SmartSync restored the picture for "{{title}}": {{reason}}',
+  },
+  messageRemoved: {
+    title: 'Chat message removed',
+    body: 'SmartSync removed one of your chat messages: {{reason}}',
+  },
+  messageRestored: {
+    title: 'Chat message restored',
+    body: 'SmartSync restored one of your chat messages: {{reason}}',
+  },
+  sessionsRevoked: {
+    title: 'Signed out for security',
+    body: 'SmartSync signed your other sessions out: {{reason}}',
+  },
+  passwordResetSent: {
+    title: 'Password reset requested',
+    body: 'SmartSync sent a password-reset email after an admin security review: {{reason}}',
+  },
+  appealReversed: {
+    title: 'Your appeal was accepted',
+    body: '{{reason}}',
+  },
+  appealUpheld: {
+    title: 'Your appeal was reviewed',
+    body: '{{reason}}',
+  },
 }
 
 /**

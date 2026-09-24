@@ -132,6 +132,17 @@ const setRole = (uid, data) =>
     })
   })
 
+// Firestore's request.time calendar fields are UTC. Use that same calendar
+// here so the age-boundary checks stay correct around local midnight.
+const utcBirthday = (yearsAgo, daysAfter = 0) => {
+  const date = new Date()
+  date.setUTCFullYear(date.getUTCFullYear() - yearsAgo)
+  date.setUTCDate(date.getUTCDate() + daysAfter)
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(
+    date.getUTCDate(),
+  ).padStart(2, '0')}`
+}
+
 // ---------------------------------------------------------------------------
 
 describe('signed-out access', () => {
@@ -180,29 +191,20 @@ describe('profile privacy', () => {
     // that skips the screen, or sends its own request, has to meet the
     // same minimum — otherwise the youngest account that can exist is
     // decided by whoever is willing to edit some JavaScript.
-    const almost = new Date()
-    almost.setFullYear(almost.getFullYear() - 15)
-    almost.setDate(almost.getDate() + 1)
-    const iso = (d) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     await assertFails(
       setDoc(
         doc(asAlice(), 'users', ALICE, 'private', 'profile'),
-        { dateOfBirth: iso(almost) },
+        { dateOfBirth: utcBirthday(15, 1) },
         { merge: true },
       ),
     )
   })
 
   test('a date of birth of exactly fifteen years ago is accepted', async () => {
-    const exactly = new Date()
-    exactly.setFullYear(exactly.getFullYear() - 15)
-    const iso = (d) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     await assertSucceeds(
       setDoc(
         doc(asAlice(), 'users', ALICE, 'private', 'profile'),
-        { dateOfBirth: iso(exactly) },
+        { dateOfBirth: utcBirthday(15) },
         { merge: true },
       ),
     )
@@ -220,7 +222,7 @@ describe('profile privacy', () => {
     }
   })
 
-  test('every other private setting is still the owner\'s alone to change', async () => {
+  test("every other private setting is still the owner's alone to change", async () => {
     // The date of birth is the one field the database has an opinion
     // about; a write that does not mention it must be untouched by that.
     await assertSucceeds(
@@ -2114,7 +2116,7 @@ describe('chat moderation', () => {
     )
   })
 
-  test('the send counters are the Function\'s alone', async () => {
+  test("the send counters are the Function's alone", async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(doc(context.firestore(), 'chatModeration', ALICE), {
         sends: { start: 1, count: 3 },

@@ -5,6 +5,7 @@ import {
   Languages,
   LogOut,
   MessageSquareWarning,
+  Scale,
   ScrollText,
   ShieldCheck,
   ShieldOff,
@@ -148,6 +149,14 @@ export default function SettingsPage() {
           <span>
             <strong>{t('settings.terms')}</strong>
             <small>{t('settings.termsHint')}</small>
+          </span>
+          <ChevronRight size={17} />
+        </button>
+        <button className="setting-row" onClick={() => navigate('/appeals')}>
+          <Scale size={18} />
+          <span>
+            <strong>{t('appeals.title')}</strong>
+            <small>{t('appeals.settingsHint')}</small>
           </span>
           <ChevronRight size={17} />
         </button>

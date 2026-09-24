@@ -31,6 +31,7 @@ export default function EditProfilePage() {
   const [busy, setBusy] = useState(false)
   const [picture, setPicture] = useState(null)
   const [pictureBusy, setPictureBusy] = useState(false)
+  const locks = user.contentModeration || {}
 
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
 
@@ -157,12 +158,13 @@ export default function EditProfilePage() {
           value={picture}
           onChange={setPicture}
           onBusyChange={setPictureBusy}
-          disabled={busy}
+          disabled={busy || locks.picture?.active === true}
         >
           <div className="avatar xl">
             <AvatarContent person={user} showPrivate />
           </div>
         </PicturePicker>
+        {locks.picture?.active && <p className="form-error">{t('appeals.fieldLocked')}</p>}
         {user.anonymous && <p className="field-hint">{t('pictures.anonymousHint')}</p>}
         <label>
           {t('editProfile.name')}
@@ -175,8 +177,10 @@ export default function EditProfilePage() {
             value={form.username}
             onChange={(e) => set('username', e.target.value)}
             maxLength={40}
+            disabled={locks.username?.active === true}
           />
         </label>
+        {locks.username?.active && <small className="field-hint">{t('appeals.fieldLocked')}</small>}
         <label>
           {t('editProfile.bio')}
           <textarea
@@ -185,8 +189,10 @@ export default function EditProfilePage() {
             onChange={(e) => set('bio', e.target.value)}
             maxLength={BIO_MAX_CHARS}
             aria-describedby="bio-count"
+            disabled={locks.bio?.active === true}
           />
         </label>
+        {locks.bio?.active && <small className="field-hint">{t('appeals.fieldLocked')}</small>}
         {/* Counted live, in words, the unit the limit is written in. The
             character ceiling is the textarea's own maxLength, so it can never
             be crossed; the word count can, and turns the counter red. */}

@@ -107,7 +107,7 @@ describe('the door', () => {
 })
 
 describe('what the console offers', () => {
-  test('six sections, and its own identity', () => {
+  test('eight sections, and its own identity', () => {
     at('/admin')
     act(() => settle(registry.feeds))
     expect(navLabels()).toEqual([
@@ -118,6 +118,8 @@ describe('what the console offers', () => {
       en.console.nav.blocks,
       en.console.nav.accounts,
       en.console.nav.activities,
+      en.console.nav.appeals,
+      en.console.nav.announcements,
       en.console.nav.history,
     ])
     expect(document.querySelector('.console').getAttribute('data-console')).toBe('admin')

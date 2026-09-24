@@ -21,7 +21,8 @@
  * rules used to, then OpenAI's Moderation API, and only then writes.
  * See lib/sendChat.js.
  */
-import { initializeApp } from 'firebase-admin/app'
+import { applicationDefault, getApp, initializeApp } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
 import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
 import { logger } from 'firebase-functions'
@@ -31,6 +32,15 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 
 import { deliverPush } from './lib/deliver.js'
+import {
+  cleanupExpiredSuspensions,
+  performAnnouncementAction,
+  performContentAction,
+  performSecurityAction,
+  resolveAppeal,
+  submitAppeal,
+  suspensionActive,
+} from './lib/admin.js'
 import { DEFAULT_MODEL, geminiRanker } from './lib/gemini.js'
 import { removeStaleTokens } from './lib/housekeeping.js'
 import { validateSend } from './lib/chat.js'
@@ -266,7 +276,7 @@ export const resolveChatBlock = onCall(
     if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.')
     const roleSnap = await db.doc(`roles/${request.auth.uid}`).get()
     const role = roleSnap.data() || {}
-    if (role.role !== 'admin' || role.suspended === true || role.banned === true) {
+    if (role.role !== 'admin' || suspensionActive(role) || role.banned === true) {
       throw new HttpsError('permission-denied', 'Admins only.')
     }
     const blockId = String(request.data?.blockId || '')
@@ -278,3 +288,114 @@ export const resolveChatBlock = onCall(
   },
 )
 
+// ---------------------------------------------------------- admin controls
+
+const callableError = (error) => {
+  if (error instanceof HttpsError) return error
+  const allowed = new Set([
+    'invalid-argument',
+    'permission-denied',
+    'not-found',
+    'already-exists',
+    'failed-precondition',
+    'unavailable',
+  ])
+  const code = allowed.has(error?.code) ? error.code : 'internal'
+  return new HttpsError(code, String(error?.message || 'The admin action could not be completed.'))
+}
+
+const signed = (request) => {
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.')
+  return request.auth.uid
+}
+
+export const adminContentAction = onCall(
+  { region: 'us-central1', timeoutSeconds: 30, memory: '256MiB', maxInstances: 5 },
+  async (request) => {
+    try {
+      return await performContentAction({
+        db,
+        FieldValue,
+        adminId: signed(request),
+        data: request.data,
+      })
+    } catch (error) {
+      throw callableError(error)
+    }
+  },
+)
+
+export const adminSecurityAction = onCall(
+  { region: 'us-central1', timeoutSeconds: 30, memory: '256MiB', maxInstances: 3 },
+  async (request) => {
+    try {
+      const app = getApp()
+      return await performSecurityAction({
+        db,
+        FieldValue,
+        auth: getAuth(app),
+        credential: app.options.credential || applicationDefault(),
+        projectId: app.options.projectId || process.env.GCLOUD_PROJECT,
+        adminId: signed(request),
+        data: request.data,
+        authEmulatorHost:
+          process.env.FUNCTIONS_EMULATOR === 'true'
+            ? process.env.FIREBASE_AUTH_EMULATOR_HOST
+            : undefined,
+      })
+    } catch (error) {
+      throw callableError(error)
+    }
+  },
+)
+
+export const submitModerationAppeal = onCall(
+  { region: 'us-central1', timeoutSeconds: 20, memory: '256MiB', maxInstances: 5 },
+  async (request) => {
+    try {
+      return await submitAppeal({ db, FieldValue, uid: signed(request), data: request.data })
+    } catch (error) {
+      throw callableError(error)
+    }
+  },
+)
+
+export const resolveModerationAppeal = onCall(
+  { region: 'us-central1', timeoutSeconds: 30, memory: '256MiB', maxInstances: 5 },
+  async (request) => {
+    try {
+      return await resolveAppeal({
+        db,
+        FieldValue,
+        adminId: signed(request),
+        data: request.data,
+      })
+    } catch (error) {
+      throw callableError(error)
+    }
+  },
+)
+
+export const adminAnnouncementAction = onCall(
+  { region: 'us-central1', timeoutSeconds: 20, memory: '256MiB', maxInstances: 3 },
+  async (request) => {
+    try {
+      return await performAnnouncementAction({
+        db,
+        FieldValue,
+        adminId: signed(request),
+        data: request.data,
+      })
+    } catch (error) {
+      throw callableError(error)
+    }
+  },
+)
+
+export const expireTimedSuspensions = onSchedule(
+  { schedule: 'every 15 minutes', region: 'us-central1' },
+  async () => {
+    const expired = await cleanupExpiredSuspensions({ db, FieldValue })
+    logger.info('timed suspensions expired', { expired })
+  },
+)

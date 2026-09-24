@@ -34,6 +34,7 @@ export default function ConfirmDialog({
   // A prompt is required unless a caller says otherwise: lifting a
   // suspension takes a note for the record but must not be blocked on one.
   promptRequired = true,
+  children,
 }) {
   const { t } = useTranslation()
   const confirmRef = useRef(null)
@@ -74,7 +75,7 @@ export default function ConfirmDialog({
       // Keep Tab inside the dialog — otherwise focus walks into the page
       // behind it, which is still rendered.
       const focusables = dialogRef.current?.querySelectorAll(
-        'button:not([disabled]), input, textarea',
+        'button:not([disabled]), input, textarea, select',
       )
       if (!focusables?.length) return
       const first = focusables[0]
@@ -124,6 +125,8 @@ export default function ConfirmDialog({
             />
           </label>
         )}
+
+        {children}
 
         <div className="button-row">
           <button className="secondary-button" onClick={onCancel}>

@@ -282,8 +282,24 @@ That is the only step that happens outside the app, and the only rank
 there is to grant: there are two ranks, an ordinary user and an admin, and
 no lesser rank to appoint from inside the app. Warning, suspending and
 un-suspending, closing and reopening, taking activities down and putting
-them back all happen in the console at `/admin`. `admin` itself is the one
+them back all happen in the console at `/admin`. The console also lets an
+admin remove or restore a single public profile field, activity picture or
+published chat message; choose a timed suspension; decide an appeal; revoke
+sessions or trigger Firebase's password-reset email; and publish an expiring
+announcement for everyone, hosts or participants. `admin` itself is the one
 rank with no button anywhere.
+
+Those newer actions are Cloud Functions, not privileged browser writes. The
+Function checks the caller again, refuses self-actions and actions against
+another admin, requires a reason, records the decision and notifies the
+affected account. Content removals keep the original in a server-only vault,
+so a reversal restores what was actually removed. A public lock prevents the
+owner re-uploading or rewriting the field while the removal stands. Password
+reset uses the account email only inside the Function; the console never sees
+it. Accounts can open `/appeals` from Settings, from a moderation notice, or
+even while closed, and admins decide the request in the Appeals section.
+Under the local emulators the reset request stays in the Auth emulator and no
+real email is sent.
 
 To check it worked without a queue to look at: Settings shows an "Admin
 console" row to the admin, the web header carries a shield, and `/admin`
@@ -371,6 +387,15 @@ profilePictures/{uid}             owner writes; anonymous photos are owner-only
 
 activityPictures/{id}             host writes, following activity edit permission
   dataUrl, version, updatedAt
+
+moderationVault/{actionId}         SERVER ONLY — original content removed by an admin
+  kind, subjectId, activityId?, messageId?, original value/picture
+
+moderationAppeals/{stableId}       subject + admins read; Function writes
+  subjectId, kind, targetId, actionToken, detail, status, review lease/decision metadata
+
+announcements/{id}                 active signed-in accounts read; Function writes
+  title, body, audience, active, startsAt, expiresAt, createdBy
 ```
 
 Two decisions worth explaining, because both were forced by how security
@@ -442,6 +467,15 @@ determined user can call Firestore directly without going through the UI:
   past read permissions — and enforce blocking without ever exposing it.
 - Reports are immutable once filed, to everyone including the person who filed
   them. Evidence either side can alter or quietly withdraw is not evidence.
+- Admin content removals cannot be bypassed with a direct write. The rules
+  preserve each public `contentModeration` lock and refuse changes to a locked
+  profile field or picture document. Original content is in `moderationVault`,
+  a collection with no client read or write path. Appeals and announcements
+  are client-readable only to their intended audience and are Function-written.
+- A future `suspendedUntil` blocks an account. Once that instant passes, rules
+  stop treating the account as suspended even if the cleanup job has not yet
+  cleared the role document. The scheduled Function removes stale flags and
+  notifies the account every fifteen minutes; authorization never waits for it.
 - Every path not explicitly allowed is denied.
 
 All of this is covered by tests — see below.
@@ -553,7 +587,7 @@ person who already read it — checked first, and only then written.
 **The database refuses every client-written message.** `firestore.rules`
 now says `allow create: if false` on `activities/{id}/messages`. The only
 writer is a Cloud Function using the Admin SDK, which bypasses rules
-because it *is* the rule for a chat message: it re-checks everything the
+because it _is_ the rule for a chat message: it re-checks everything the
 old rules checked (a participant, of an activity that exists, inside the
 retention window, not suspended, thread not closed) and then moderates.
 There is no path around it. Turning off JavaScript, calling Firestore
@@ -607,22 +641,22 @@ cannot do.**
 **Ordinary messages score far higher than expected.** Harassment scores
 for messages that must reach the thread:
 
-| message | harassment |
-| --- | --- |
-| "that referee was absolutely awful, what a joke of a match" | 0.196 |
-| "this bloody bus is late again, what a shit day" | 0.402 |
-| "come at me then, I will wipe the floor with you" | 0.527 |
-| "you are so bad at this game it is actually impressive" | 0.803 |
-| "if you bring that deck again I will end you, I swear" | 0.804 |
-| "honestly your idea is rubbish and you did not think it through" | 0.807 |
+| message                                                          | harassment |
+| ---------------------------------------------------------------- | ---------- |
+| "that referee was absolutely awful, what a joke of a match"      | 0.196      |
+| "this bloody bus is late again, what a shit day"                 | 0.402      |
+| "come at me then, I will wipe the floor with you"                | 0.527      |
+| "you are so bad at this game it is actually impressive"          | 0.803      |
+| "if you bring that deck again I will end you, I swear"           | 0.804      |
+| "honestly your idea is rubbish and you did not think it through" | 0.807      |
 
 And for messages that must not:
 
-| message | harassment |
-| --- | --- |
-| "you are a disgusting waste of space and everyone is sick of you" | 0.889 |
-| "nobody likes you, you are pathetic and everyone here knows it" | 0.976 |
-| "she is a fat ugly cow, look at her, what a joke" | 0.978 |
+| message                                                           | harassment |
+| ----------------------------------------------------------------- | ---------- |
+| "you are a disgusting waste of space and everyone is sick of you" | 0.889      |
+| "nobody likes you, you are pathetic and everyone here knows it"   | 0.976      |
+| "she is a fat ugly cow, look at her, what a joke"                 | 0.978      |
 
 **At the original floor of 0.5 every message in the first table below
 0.5 passed and every one above it was blocked** — criticism of an idea,
@@ -638,14 +672,14 @@ measure of how much room this approach has.
 
 **Threats and trash talk are the same thing to this model.**
 
-| message | harassment | harassment/threatening |
-| --- | --- | --- |
-| "if you bring that deck again I will end you, I swear" — banter | 0.804 | 0.793 |
-| "if you show up I will kill you, I am not joking" — a threat | 0.801 | 0.743 |
-| "I know where you live and I will be waiting outside" | 0.028 | 0.007 |
-| "bring your friends, I will be bringing a knife" | 0.020 | 0.037 |
+| message                                                         | harassment | harassment/threatening |
+| --------------------------------------------------------------- | ---------- | ---------------------- |
+| "if you bring that deck again I will end you, I swear" — banter | 0.804      | 0.793                  |
+| "if you show up I will kill you, I am not joking" — a threat    | 0.801      | 0.743                  |
+| "I know where you live and I will be waiting outside"           | 0.028      | 0.007                  |
+| "bring your friends, I will be bringing a knife"                | 0.020      | 0.037                  |
 
-The banter scores *higher* than the death threat on both axes, and the
+The banter scores _higher_ than the death threat on both axes, and the
 two most frightening messages — stalking and a weapon, both calmly
 worded — come back all but clean. No threshold on these two categories
 separates the first row from the second, and none catches the third or
@@ -656,12 +690,12 @@ it in either direction trades one of these failures for the other.
 floor — the API's own boolean is false, so no threshold would reach
 them:
 
-| message | what the model said |
-| --- | --- |
-| "go back to your own country, we do not want your kind here" | hate **0.183** (not flagged as hate at all) |
-| "nobody has to know, just come to my room, stop being frigid" | nothing over 0.04 |
-| "mix it with alcohol and take the whole bottle, that is how you do it" | self-harm 0.126, not flagged |
-| "I would bend you over that table given half a chance" | sexual 0.204, boolean false |
+| message                                                                | what the model said                         |
+| ---------------------------------------------------------------------- | ------------------------------------------- |
+| "go back to your own country, we do not want your kind here"           | hate **0.183** (not flagged as hate at all) |
+| "nobody has to know, just come to my room, stop being frigid"          | nothing over 0.04                           |
+| "mix it with alcohol and take the whole bottle, that is how you do it" | self-harm 0.126, not flagged                |
+| "I would bend you over that table given half a chance"                 | sexual 0.204, boolean false                 |
 
 On a held-out set of nineteen messages the floors had not been chosen
 from, the policy was right on fourteen. All twelve that had to pass,
@@ -729,14 +763,14 @@ moderation can still be walked around.
 
 Optional tuning, in `functions/.env` (ignored by git, read at deploy):
 
-| variable | default | what it does |
-| --- | --- | --- |
-| `CHAT_USER_HOURLY_CAP` | 60 | messages one person may send in an hour |
-| `CHAT_DAILY_CAP` | 5000 | moderation calls the whole app may make in a day |
-| `CHAT_IMAGE_OCR` | on | `off` skips reading the words inside pictures |
-| `CHAT_PROFANITY_POLICY` | allow | `block` refuses ordinary swearing too |
-| `CHAT_PROFANITY_WORDS` | — | comma-separated additions to the word list |
-| `OPENAI_VISION_MODEL` | `gpt-5.6-luna` | the model that transcribes pictures |
+| variable                | default        | what it does                                     |
+| ----------------------- | -------------- | ------------------------------------------------ |
+| `CHAT_USER_HOURLY_CAP`  | 60             | messages one person may send in an hour          |
+| `CHAT_DAILY_CAP`        | 5000           | moderation calls the whole app may make in a day |
+| `CHAT_IMAGE_OCR`        | on             | `off` skips reading the words inside pictures    |
+| `CHAT_PROFANITY_POLICY` | allow          | `block` refuses ordinary swearing too            |
+| `CHAT_PROFANITY_WORDS`  | —              | comma-separated additions to the word list       |
+| `OPENAI_VISION_MODEL`   | `gpt-5.6-luna` | the model that transcribes pictures              |
 
 ### What it costs
 
@@ -815,7 +849,7 @@ honoured under the emulator only.
   suite proves.** The 912 unit/app tests and the rules suite run against
   the stand-in in `scripts/fake-openai.mjs`; the numbers above come from
   separate one-off probes against the live API, not from anything `npm
-  test` re-runs. Re-measuring after a model change is a manual job.
+test` re-runs. Re-measuring after a model change is a manual job.
 - **Image moderation covers six categories, not thirteen.** `hate`,
   `harassment`, threats and `sexual/minors` are applied to text only. The
   transcription step is what closes most of that gap, and it is a second

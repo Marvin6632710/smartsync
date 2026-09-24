@@ -79,6 +79,7 @@ export function useDesk(data) {
   // Suspending or lifting somebody you noticed, rather than were told about.
   const [suspendTarget, setSuspendTarget] = useState(null)
   const [suspendReason, setSuspendReason] = useState('')
+  const [suspendDuration, setSuspendDuration] = useState('168')
   const [suspending, setSuspending] = useState(null)
   // The actions that put something on somebody's record and so have to be
   // justified before they can be taken: a warning, a closure, a reopening.
@@ -261,25 +262,33 @@ export function useDesk(data) {
     try {
       let done = false
       if (suspend) {
-        done = await perform(() => suspendAccount(uid, { adminId: user.uid, reason }), {
-          done: ({ stoodDown, failed }) =>
-            failed > 0
-              ? warn(
-                  t('moderation.toasts.partlyStoodDown'),
-                  `${t('moderation.toasts.cannotAct', { name: nameFor(uid) })} ${standDownSummary(stoodDown, failed)}`,
-                )
-              : ok(
-                  t('moderation.toasts.accountSuspended'),
-                  stoodDown > 0
-                    ? t('moderation.toasts.cannotActStoodDown', {
-                        name: nameFor(uid),
-                        count: stoodDown,
-                        noun: t('moderation.toasts.activity', { count: stoodDown }),
-                      })
-                    : t('moderation.toasts.cannotAct', { name: nameFor(uid) }),
-                ),
-          fail: (error) => refused(error, denied),
-        })
+        done = await perform(
+          () =>
+            suspendAccount(uid, {
+              adminId: user.uid,
+              reason,
+              durationHours: suspendDuration === 'indefinite' ? undefined : Number(suspendDuration),
+            }),
+          {
+            done: ({ stoodDown, failed }) =>
+              failed > 0
+                ? warn(
+                    t('moderation.toasts.partlyStoodDown'),
+                    `${t('moderation.toasts.cannotAct', { name: nameFor(uid) })} ${standDownSummary(stoodDown, failed)}`,
+                  )
+                : ok(
+                    t('moderation.toasts.accountSuspended'),
+                    stoodDown > 0
+                      ? t('moderation.toasts.cannotActStoodDown', {
+                          name: nameFor(uid),
+                          count: stoodDown,
+                          noun: t('moderation.toasts.activity', { count: stoodDown }),
+                        })
+                      : t('moderation.toasts.cannotAct', { name: nameFor(uid) }),
+                  ),
+            fail: (error) => refused(error, denied),
+          },
+        )
       } else {
         done = await perform(() => liftSuspension(uid, { adminId: user.uid, reason }), {
           done: () =>
@@ -432,6 +441,7 @@ export function useDesk(data) {
 
   const askSuspend = (uid, suspend) => {
     setSuspendReason('')
+    setSuspendDuration('168')
     setSuspendTarget({ uid, suspend })
   }
 
@@ -448,6 +458,8 @@ export function useDesk(data) {
     setSuspendTarget,
     suspendReason,
     setSuspendReason,
+    suspendDuration,
+    setSuspendDuration,
     recorded,
     setRecorded,
     recordedReason,

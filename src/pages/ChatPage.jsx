@@ -8,6 +8,7 @@ import { personName } from '../i18n'
 import { storedContext } from '../i18n/reportContext'
 import BootScreen from '../components/BootScreen'
 import ReportDialog from '../components/ReportDialog'
+import AppealButton from '../components/AppealButton'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { CHAT_RETENTION_DAYS, isChatClosed } from '../firebase/messages'
@@ -209,19 +210,35 @@ export default function ChatPage() {
           .filter((message) => !blockedIds.has(message.senderId))
           .map((message) => {
             const own = message.senderId === user.uid
+            const removed = message.contentModeration?.message?.active === true
             return (
-              <div className={`message-bubble ${own ? 'mine' : ''}`} key={message.id}>
+              <div
+                className={`message-bubble ${own ? 'mine' : ''}${removed ? ' moderated-message' : ''}`}
+                key={message.id}
+              >
                 <strong>{personName(message.senderName)}</strong>
-                {message.hasImage && (
+                {removed ? (
+                  <p className="moderated-message-copy">
+                    <ShieldAlert size={14} aria-hidden="true" /> {t('chat.removedByAdmin')}
+                  </p>
+                ) : message.hasImage ? (
                   <MessagePicture
                     viewer={user.uid}
                     messageId={message.id}
                     alt={t('chat.pictureFrom', { name: personName(message.senderName) })}
                   />
-                )}
-                {message.text && <p>{message.text}</p>}
+                ) : null}
+                {!removed && message.text && <p>{message.text}</p>}
                 <span>{formatMessageTime(message.createdAt)}</span>
-                {!own && (
+                {removed && own && (
+                  <AppealButton
+                    className="text-button"
+                    kind="message"
+                    targetId={message.id}
+                    activityId={id}
+                  />
+                )}
+                {!own && !removed && (
                   <button
                     className="bubble-report"
                     onClick={() =>

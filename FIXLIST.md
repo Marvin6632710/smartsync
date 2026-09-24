@@ -27,6 +27,16 @@ The list below is a changelog of _what_ each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
 digging through git.
 
+- **LOCAL, READY FOR OWNER REVIEW (2026-09-24)** — the admin console gains seven
+  approved powers: reversible profile fields, activity pictures and published
+  messages; timed suspension; appeals; security session/reset actions; and
+  targeted expiring announcements. Sensitive changes run through callable
+  Functions, preserve removed originals in a server-only vault, write an audit
+  row, notify the affected account and are backed by rules that stop a direct
+  client bypass. Appeal decisions use an action token and short review lease so
+  an old or overlapping review cannot reverse the wrong action. Automated checks
+  and the seeded browser walkthrough pass. Not committed or deployed; localhost
+  review comes first.
 - **LIVE (`481ecae`, 2026-09-23)** — activity creation and editing
   use a SmartSync-styled calendar and alarm-like time dial instead of Safari's
   native date/time popovers. Today/Tomorrow and common-time shortcuts speed up
@@ -201,7 +211,7 @@ three. Details in README.md; the parts worth knowing here:
   no banner; 5.5 s: silence banner at 20.4 s, cleared at the first answer;
   held: stays until released) and is now worded as silence rather than
   "Offline"; edit rows carry what the form was seeded with, so a landed edit
-  overtaken from another device is *superseded* (offered as a choice), not a
+  overtaken from another device is _superseded_ (offered as a choice), not a
   false "couldn't be saved"; the unsent registry falls back localStorage →
   sessionStorage → memory with a leave-page guard when memory is the only
   copy. Rules and integration suites run on their own emulator ports
@@ -265,7 +275,7 @@ three. Details in README.md; the parts worth knowing here:
   `chatPictures`), so the only writer is `sendChatMessageCall`, a
   callable that re-checks membership, suspension, closure and the 30-day
   window itself and then moderates. Text goes to OpenAI's Moderation API
-  (`omni-moderation-latest`); a picture goes as an image *and* is
+  (`omni-moderation-latest`); a picture goes as an image _and_ is
   transcribed by a small vision model so the words inside a meme are
   read as text, because the API applies `hate` and `harassment` to text
   only. Nine categories block, each only when the API's boolean is true
@@ -328,7 +338,7 @@ three. Details in README.md; the parts worth knowing here:
   — `34ae1d4` shipped (Function then hosting); the live page then showed
   the no-ranking state because the API answered every generation call
   with `permission_denied: "Your project has been denied access. Please
-  contact support."` (key valid: the models list answers 200). Google's
+contact support."` (key valid: the models list answers 200). Google's
   side — the AI Studio/Cloud project behind the key, most likely the new
   prepay billing under review; worked the evening before. Follow-up:
   401/402/403 now classify as `refused` with the wording "Gemini is
@@ -369,7 +379,7 @@ three. Details in README.md; the parts worth knowing here:
   Gemini the page shows the eligible activities soonest first under
   "Not ranked" with the reason and Try again — no hero and no reasons,
   because nothing ranked. The wire value for no answer is `source:
-  'none'` (was `'standard'`), which the deployed Function still sends as
+'none'` (was `'standard'`), which the deployed Function still sends as
   `'standard'` until it is redeployed — the page treats anything but
   `'gemini'` the same, so either works. A retired `smartsync:weights`
   key is swept from localStorage on load. Four languages; `EVALUATION.md`

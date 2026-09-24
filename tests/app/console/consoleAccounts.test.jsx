@@ -278,6 +278,7 @@ describe('the account panel', () => {
       expect(mod.suspendAccount).toHaveBeenCalledWith('bob', {
         adminId: 'me',
         reason: 'Threats in chat',
+        durationHours: 168,
       }),
     )
     await waitFor(() => expect(lastToast().title).toBe('Account suspended'))

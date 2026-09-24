@@ -366,8 +366,8 @@ was written.
 ### The admin console
 
 **Path:** `/admin` → `src/console/AdminPanel.jsx` → `ConsoleProvider`
-(five listeners: roles, warnings, the open queue, the decided reports, the
-log) → `useDesk` (every action) → `firebase/moderation.js`
+(roles, warnings, report queues and the log) → `useDesk` for the original
+transactional actions, or `firebase/admin.js` for trusted callable actions.
 
 One internal desk outside the shell, loaded on demand, for the one rank
 that acts: an overview in figures; the report queue; every account with
@@ -377,6 +377,37 @@ the history of everything that was done. Drawn from the app's tokens and
 drawn densely: tables the keyboard walks, sticky filters, a panel for the
 selected record. Three controls above a list at most, and no bulk actions,
 so that every function is one sentence to explain.
+
+The expanded powers cross a boundary that rules cannot safely grant to an
+admin browser: changing another person's profile, restoring removed content,
+revoking Auth sessions and sending a reset email. They therefore go through
+callable Functions in `functions/index.js` and the narrow operations in
+`functions/lib/admin.js`. Each call proves the caller is still an active admin,
+refuses self and fellow-admin actions, bounds the request and requires a
+reason. Content removals copy the exact original into server-only
+`moderationVault`, replace the public value with a safe state and add a public
+lock in one transaction. Rules preserve the lock and reject owner writes to a
+locked field or picture; only a Function can restore the vault copy.
+
+Appeals use the same boundary. `/appeals` asks the Function to verify that the
+action still exists before creating a stable, duplicate-proof
+`moderationAppeals` record. `/admin/appeals` can uphold it or reverse the named
+action. The Function rechecks the action token and takes a five-minute review
+lease before changing anything, so a stale appeal or a second admin cannot undo
+the wrong decision. Failed attempts release the lease, and an abandoned lease
+can be reclaimed after it expires. `/admin/announcements` creates server-owned,
+expiring notices for all accounts, hosts or participants; `AnnouncementBanner`
+evaluates audience and expiry against the signed-in user's live data. Security
+actions look up the Auth account server-side, so session revocation and
+Firebase's password-reset email never expose a private email to the browser.
+The local Function targets the Auth emulator's matching endpoint, keeping the
+whole security-action path testable without sending a real email.
+
+A suspension may be indefinite or carry `suspendedUntil`. Every rules check
+evaluates that timestamp, so access returns at expiry even if no job has run.
+The scheduled `expireTimedSuspensions` Function clears expired flags every
+fifteen minutes for tidy data, an audit row and the “active again” notice. The
+scheduler is cleanup and communication, not the security boundary.
 
 Working a report is claim → act and record in one transaction, exactly as
 before (ADR-016); the desk adds a claim taken on purpose, with its lease
@@ -471,18 +502,22 @@ another account. The host reads "Anonymous user".
 
 ## 5. What is guarded, and where
 
-| Concern                          | Guarded by                        | Verify with         |
-| -------------------------------- | --------------------------------- | ------------------- |
-| Only participants read chat      | `firestore.rules`                 | `npm test`          |
-| Capacity cannot be exceeded      | rules + `arrayUnion`              | `npm test`          |
-| Only you can edit your profile   | rules                             | `npm test`          |
-| Private profile unreadable       | separate document + rules         | `npm test`          |
-| Compatibility 0–100, symmetric   | pure functions + a fuzzer         | `npm run test:unit` |
-| Corrupt local data               | `looksLike` in `utils/storage.js` | —                   |
-| Gemini key never in the browser  | Secret Manager + callable         | `grep` the bundle   |
-| Model cannot invent or overclaim | `parsePicks` + `resolvePicks`     | `npm run test:unit` |
-| Model calls bounded              | per-person and per-day counters   | `npm run test:unit` |
-| Render crash                     | `ErrorBoundary`                   | —                   |
+| Concern                          | Guarded by                         | Verify with          |
+| -------------------------------- | ---------------------------------- | -------------------- |
+| Only participants read chat      | `firestore.rules`                  | `npm test`           |
+| Capacity cannot be exceeded      | rules + `arrayUnion`               | `npm test`           |
+| Only you can edit your profile   | rules                              | `npm test`           |
+| Private profile unreadable       | separate document + rules          | `npm test`           |
+| Compatibility 0–100, symmetric   | pure functions + a fuzzer          | `npm run test:unit`  |
+| Corrupt local data               | `looksLike` in `utils/storage.js`  | —                    |
+| Gemini key never in the browser  | Secret Manager + callable          | `grep` the bundle    |
+| Model cannot invent or overclaim | `parsePicks` + `resolvePicks`      | `npm run test:unit`  |
+| Model calls bounded              | per-person and per-day counters    | `npm run test:unit`  |
+| Removed admin content stays down | public lock + rules + server vault | `npm run test:rules` |
+| Admin restores exact original    | callable Function + vault          | `npm run test:unit`  |
+| Timed suspension expires safely  | timestamp in every rules guard     | `npm run test:rules` |
+| Password email stays private     | server-side Auth lookup            | `npm run test:unit`  |
+| Render crash                     | `ErrorBoundary`                    | —                    |
 
 ```bash
 npm test           # the unit, rendering and security rule suites

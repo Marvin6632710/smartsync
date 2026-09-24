@@ -108,6 +108,8 @@ describe.each([
       locale.console.nav.blocks,
       locale.console.nav.accounts,
       locale.console.nav.activities,
+      locale.console.nav.appeals,
+      locale.console.nav.announcements,
       locale.console.nav.history,
     ])
     // Filters, a badge, and the panel's sections.

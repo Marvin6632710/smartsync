@@ -12,7 +12,17 @@
     "closed": "closed",
     "reopened": "reopened",
     "warning": "warning",
-    "activityBack": "activityBack"
+    "activityBack": "activityBack",
+    "profileContentRemoved": "profileContentRemoved",
+    "profileContentRestored": "profileContentRestored",
+    "activityPictureRemoved": "activityPictureRemoved",
+    "activityPictureRestored": "activityPictureRestored",
+    "messageRemoved": "messageRemoved",
+    "messageRestored": "messageRestored",
+    "sessionsRevoked": "sessionsRevoked",
+    "passwordResetSent": "passwordResetSent",
+    "appealReversed": "appealReversed",
+    "appealUpheld": "appealUpheld"
   },
   "appNames": {
     "Anonymous user": "profile.anonymousName",

@@ -185,6 +185,18 @@ test('a taken-down activity’s picture cannot be replaced or deleted by its hos
   await assertFails(deleteDoc(doc(dbFor(), 'activityPictures', 'a1')))
 })
 
+test('moderated pictures cannot be uploaded again through a direct client write', async () => {
+  await seed('users/alice', {
+    contentModeration: { picture: { active: true, actionId: 'profile-action' } },
+  })
+  await assertFails(save(dbFor(), 'profile', 'alice'))
+
+  await seed('activities/a1', {
+    contentModeration: { picture: { active: true, actionId: 'activity-action' } },
+  })
+  await assertFails(save(dbFor(), 'activity', 'a1'))
+})
+
 test('deleting an unused activity deletes its picture in the same batch', async () => {
   const db = dbFor()
   await save(db, 'activity', 'a1')

@@ -1,15 +1,26 @@
 import { AvatarContent } from '../../components/SavedPicture'
 import React, { useEffect, useMemo } from 'react'
-import { MessageSquareWarning, ShieldOff, UserRoundCheck, UserRoundX } from 'lucide-react'
+import {
+  ImageOff,
+  KeyRound,
+  MessageSquareWarning,
+  RotateCcw,
+  ShieldOff,
+  TextCursorInput,
+  UserRoundCheck,
+  UserRoundX,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { fetchAccountHistory } from '../../firebase/moderation'
+import { runAdminContentAction, runAdminSecurityAction } from '../../firebase/admin'
 import { categoryLabel } from '../../i18n'
 import { useConsole } from '../ConsoleContext'
 import { historyEvents } from '../history'
 import { useFetched } from '../hooks'
 import DetailPanel from '../ui/DetailPanel'
+import AdminActionButton from '../AdminActionButton'
 import Timeline from '../ui/Timeline'
 import {
   AccountStateBadges,
@@ -42,6 +53,7 @@ export default function AccountDetails({ uid, person, profile, base, onClose }) 
     nameFor,
     ensureProfile,
     rankOf,
+    rolesByUid,
     isSuspended,
     isClosed,
     warningCount,
@@ -60,6 +72,8 @@ export default function AccountDetails({ uid, person, profile, base, onClose }) 
   const isMe = uid === user.uid
   const cannotTouch = isMe || rank === 'admin'
   const busy = desk.recording === uid || desk.suspending === uid
+  const suspendedUntil = rolesByUid.get(uid)?.suspendedUntil || null
+  const locks = profile?.contentModeration || {}
 
   const events = useMemo(
     () =>
@@ -129,16 +143,25 @@ export default function AccountDetails({ uid, person, profile, base, onClose }) 
               </button>
             )}
             {!cannotTouch && suspended && !closed && (
-              <button
-                className="secondary-button"
-                disabled={busy}
-                onClick={() => desk.askSuspend(uid, false)}
-              >
-                <UserRoundCheck size={15} />{' '}
-                {desk.suspending === uid
-                  ? t('moderation.people.lifting')
-                  : t('moderation.people.liftSuspension')}
-              </button>
+              <>
+                <button
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() => desk.askSuspend(uid, true)}
+                >
+                  <UserRoundX size={15} /> {t('adminPowers.changeSuspension')}
+                </button>
+                <button
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() => desk.askSuspend(uid, false)}
+                >
+                  <UserRoundCheck size={15} />{' '}
+                  {desk.suspending === uid
+                    ? t('moderation.people.lifting')
+                    : t('moderation.people.liftSuspension')}
+                </button>
+              </>
             )}
             {/* The end of the ladder: the one rung with nothing after it. */}
             {!cannotTouch && !closed && (
@@ -192,12 +215,87 @@ export default function AccountDetails({ uid, person, profile, base, onClose }) 
             <Field label={t('console.accounts.uid')}>
               <code>{uid}</code>
             </Field>
+            {suspended && (
+              <Field label={t('adminPowers.suspensionEnds')}>
+                {suspendedUntil ? <When at={suspendedUntil} exact /> : t('adminPowers.indefinite')}
+              </Field>
+            )}
           </Fields>
         ) : (
           <p className="con-muted">{t('console.accounts.profileUnknown')}</p>
         )}
         <p className="con-muted">{t('console.accounts.publicOnly')}</p>
       </Section>
+
+      {!cannotTouch && (
+        <Section title={t('adminPowers.profileModeration')} id="con-profile-moderation">
+          <p className="con-muted">{t('adminPowers.profileModerationHint')}</p>
+          <div className="con-action-row admin-power-grid">
+            {[
+              ['picture', ImageOff],
+              ['bio', TextCursorInput],
+              ['username', TextCursorInput],
+            ].map(([field, Icon]) => {
+              const removed = locks[field]?.active === true
+              return (
+                <AdminActionButton
+                  key={field}
+                  action={(reason) =>
+                    runAdminContentAction({
+                      action: removed ? 'restore-profile' : 'remove-profile',
+                      targetId: uid,
+                      field,
+                      reason,
+                    })
+                  }
+                  title={t(
+                    removed ? 'adminPowers.restoreProfileTitle' : 'adminPowers.removeProfileTitle',
+                    { field: t(`adminPowers.profileField.${field}`) },
+                  )}
+                  body={t(
+                    removed ? 'adminPowers.restoreProfileBody' : 'adminPowers.removeProfileBody',
+                  )}
+                  className={removed ? 'secondary-button' : 'danger-button'}
+                  tone={removed ? 'default' : 'danger'}
+                >
+                  {removed ? <RotateCcw size={15} /> : <Icon size={15} />}{' '}
+                  {t(removed ? 'adminPowers.restoreField' : 'adminPowers.removeField', {
+                    field: t(`adminPowers.profileField.${field}`),
+                  })}
+                </AdminActionButton>
+              )
+            })}
+          </div>
+        </Section>
+      )}
+
+      {!cannotTouch && (
+        <Section title={t('adminPowers.security')} id="con-security">
+          <p className="con-muted">{t('adminPowers.securityHint')}</p>
+          <div className="con-action-row admin-power-grid">
+            <AdminActionButton
+              action={(reason) =>
+                runAdminSecurityAction({ action: 'revoke-sessions', targetId: uid, reason })
+              }
+              title={t('adminPowers.revokeTitle')}
+              body={t('adminPowers.revokeBody')}
+              className="danger-button"
+              tone="danger"
+            >
+              <ShieldOff size={15} /> {t('adminPowers.revokeSessions')}
+            </AdminActionButton>
+            <AdminActionButton
+              action={(reason) =>
+                runAdminSecurityAction({ action: 'send-password-reset', targetId: uid, reason })
+              }
+              title={t('adminPowers.resetTitle')}
+              body={t('adminPowers.resetBody')}
+            >
+              <KeyRound size={15} /> {t('adminPowers.sendReset')}
+            </AdminActionButton>
+          </div>
+        </Section>
+      )}
 
       <Section title={t('console.accounts.activity')} id="con-activity">
         <Fields>

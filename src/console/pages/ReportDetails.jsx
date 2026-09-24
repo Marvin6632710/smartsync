@@ -1,5 +1,5 @@
 import { AvatarContent } from '../../components/SavedPicture'
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   CheckCircle2,
   Hand,
@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { CLAIM_TTL_MS } from '../../firebase/moderation'
+import { runAdminContentAction } from '../../firebase/admin'
 import { categoryLabel, personName } from '../../i18n'
 import { localizeReportContext } from '../../i18n/reportContext'
 import { formatActivityDate, formatClock } from '../../utils/time'
@@ -19,6 +20,7 @@ import { useConsole } from '../ConsoleContext'
 import { historyEvents } from '../history'
 import { useNow } from '../hooks'
 import DetailPanel from '../ui/DetailPanel'
+import AdminActionButton from '../AdminActionButton'
 import Timeline from '../ui/Timeline'
 import {
   AccountStateBadges,
@@ -93,6 +95,22 @@ export default function ReportDetails({ report, base, onClose }) {
   const waits = busy || held || !mineToJudge || decided
   const repeats = timesReported(report)
   const claimLeft = report.claimedAt ? CLAIM_TTL_MS - (now - report.claimedAt) : 0
+  const [messageStatus, setMessageStatus] = useState('loading')
+
+  useEffect(() => {
+    if (report.targetType !== 'message' || !report.activityId) return undefined
+    let live = true
+    runAdminContentAction({
+      action: 'message-status',
+      activityId: report.activityId,
+      messageId: report.targetId,
+    })
+      .then((result) => live && setMessageStatus(result.status))
+      .catch(() => live && setMessageStatus('unavailable'))
+    return () => {
+      live = false
+    }
+  }, [report.activityId, report.targetId, report.targetType])
 
   const activity =
     report.targetType === 'activity'
@@ -288,6 +306,51 @@ export default function ReportDetails({ report, base, onClose }) {
           </div>
         )}
       </Section>
+
+      {report.targetType === 'message' && report.activityId && mineToJudge && (
+        <Section title={t('adminPowers.messageModeration')} id="con-message-moderation">
+          <p className="con-muted">{t('adminPowers.messageModerationHint')}</p>
+          {messageStatus === 'not-found' ? (
+            <p className="con-note">{t('adminPowers.messageUnavailable')}</p>
+          ) : (
+            <div className="con-action-row admin-power-grid">
+              <AdminActionButton
+                disabled={messageStatus === 'loading' || messageStatus === 'unavailable'}
+                action={(reason) =>
+                  runAdminContentAction({
+                    action: messageStatus === 'removed' ? 'restore-message' : 'remove-message',
+                    activityId: report.activityId,
+                    messageId: report.targetId,
+                    reason,
+                  })
+                }
+                onDone={(result) =>
+                  setMessageStatus(result.status === 'restored' ? 'available' : 'removed')
+                }
+                title={t(
+                  messageStatus === 'removed'
+                    ? 'adminPowers.restoreMessageTitle'
+                    : 'adminPowers.removeMessageTitle',
+                )}
+                body={t(
+                  messageStatus === 'removed'
+                    ? 'adminPowers.restoreMessageBody'
+                    : 'adminPowers.removeMessageBody',
+                )}
+                className={messageStatus === 'removed' ? 'secondary-button' : 'danger-button'}
+                tone={messageStatus === 'removed' ? 'default' : 'danger'}
+              >
+                {messageStatus === 'removed' ? <RotateCcw size={15} /> : <Trash2 size={15} />}{' '}
+                {t(
+                  messageStatus === 'removed'
+                    ? 'adminPowers.restoreMessage'
+                    : 'adminPowers.removeMessage',
+                )}
+              </AdminActionButton>
+            </div>
+          )}
+        </Section>
+      )}
 
       <Section title={t('console.reports.subject')} id="con-subject">
         <div className="con-person">

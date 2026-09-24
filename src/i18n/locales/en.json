@@ -87,7 +87,8 @@
     "blocked": "Blocked people",
     "moderation": "Moderation",
     "joined": "Joined",
-    "terms": "Terms & Safety"
+    "terms": "Terms & Safety",
+    "appeals": "Appeals"
   },
   "shell": {
     "openProfile": "Open profile",
@@ -410,24 +411,8 @@
     "today": "Today",
     "tomorrow": "Tomorrow",
     "yesterday": "Yesterday",
-    "weekdays": [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday"
-    ],
-    "weekdaysShort": [
-      "Sun",
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat"
-    ],
+    "weekdays": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    "weekdaysShort": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     "monthsShort": [
       "Jan",
       "Feb",
@@ -622,7 +607,8 @@
       "not-allowed": "You cannot post in this chat.",
       "not-found": "This activity no longer exists.",
       "not-configured": "Message checking is not set up on this server, so nothing was sent."
-    }
+    },
+    "removedByAdmin": "Removed by a SmartSync admin."
   },
   "messages": {
     "title": "Messages",
@@ -673,7 +659,27 @@
       "warningTitle": "A warning about your SmartSync account",
       "warningBody": "{{reason}} Nothing has been taken away. Repeated problems can lead to a suspension.",
       "activityBackTitle": "Your activity is back",
-      "activityBackBody": "\"{{title}}\" was reviewed again and restored."
+      "activityBackBody": "\"{{title}}\" was reviewed again and restored.",
+      "profileContentRemovedTitle": "Profile content removed",
+      "profileContentRemovedBody": "SmartSync removed part of your public profile: {{reason}}",
+      "profileContentRestoredTitle": "Profile content restored",
+      "profileContentRestoredBody": "SmartSync restored part of your public profile: {{reason}}",
+      "activityPictureRemovedTitle": "Activity picture removed",
+      "activityPictureRemovedBody": "SmartSync removed the picture from \"{{title}}\": {{reason}}",
+      "activityPictureRestoredTitle": "Activity picture restored",
+      "activityPictureRestoredBody": "SmartSync restored the picture for \"{{title}}\": {{reason}}",
+      "messageRemovedTitle": "Chat message removed",
+      "messageRemovedBody": "SmartSync removed one of your chat messages: {{reason}}",
+      "messageRestoredTitle": "Chat message restored",
+      "messageRestoredBody": "SmartSync restored one of your chat messages: {{reason}}",
+      "sessionsRevokedTitle": "Signed out for security",
+      "sessionsRevokedBody": "SmartSync signed your other sessions out: {{reason}}",
+      "passwordResetSentTitle": "Password reset requested",
+      "passwordResetSentBody": "SmartSync sent a password-reset email after an admin security review: {{reason}}",
+      "appealReversedTitle": "Your appeal was accepted",
+      "appealReversedBody": "{{reason}}",
+      "appealUpheldTitle": "Your appeal was reviewed",
+      "appealUpheldBody": "{{reason}}"
     },
     "push": {
       "messageFrom": "{{name}} sent a message."
@@ -1206,7 +1212,9 @@
       "blocks": "Chat blocks",
       "accounts": "Accounts",
       "history": "History",
-      "activities": "Activities"
+      "activities": "Activities",
+      "appeals": "Appeals",
+      "announcements": "Recent announcements"
     },
     "denied": {
       "adminsTitle": "Admins only",
@@ -1503,5 +1511,154 @@
     "tooYoungBody_other": "You need to be {{count}} or over. Nothing has been shared and nobody has been told.",
     "comeBack_one": "Come back in about {{count}} year.",
     "comeBack_other": "Come back in about {{count}} years."
+  },
+  "adminPowers": {
+    "done": "Action completed",
+    "saved": "The change was saved.",
+    "failed": "Action failed",
+    "reason": "Reason",
+    "reasonPlaceholder": "Explain why this action is needed",
+    "suspensionLength": "Suspension length",
+    "suspensionEnds": "Suspension ends",
+    "indefinite": "Until an admin ends it",
+    "changeSuspension": "Change suspension",
+    "profileModeration": "Profile content moderation",
+    "profileModerationHint": "Remove one public profile field while preserving it for a reviewed restore.",
+    "profileField": {
+      "picture": "profile picture",
+      "bio": "bio",
+      "username": "username"
+    },
+    "removeField": "Remove {{field}}",
+    "restoreField": "Restore {{field}}",
+    "removeProfileTitle": "Remove {{field}}?",
+    "removeProfileBody": "The public value will be replaced with a safe placeholder. The original is retained for a possible restore.",
+    "restoreProfileTitle": "Restore {{field}}?",
+    "restoreProfileBody": "The preserved original will become public again.",
+    "security": "Account security",
+    "securityHint": "These actions are performed by the server and do not reveal the account email.",
+    "revokeSessions": "Sign out active sessions",
+    "revokeTitle": "Sign out this account everywhere?",
+    "revokeBody": "Existing sign-in sessions will be revoked. The person can sign in again with their password.",
+    "sendReset": "Send password-reset email",
+    "resetTitle": "Send a password-reset email?",
+    "resetBody": "SmartSync will send the email without showing the address to the admin.",
+    "activityPicture": "Activity picture moderation",
+    "activityPictureHint": "Remove the picture without taking down the activity.",
+    "removeActivityPicture": "Remove picture",
+    "restoreActivityPicture": "Restore picture",
+    "removeActivityPictureTitle": "Remove this activity picture?",
+    "removeActivityPictureBody": "The activity will use its category artwork. The original is retained for a possible restore.",
+    "restoreActivityPictureTitle": "Restore this activity picture?",
+    "restoreActivityPictureBody": "The preserved picture will be shown again.",
+    "messageModeration": "Published message moderation",
+    "messageModerationHint": "Remove the published text and picture from every participant’s chat.",
+    "messageUnavailable": "This message is no longer available.",
+    "removeMessage": "Remove message",
+    "restoreMessage": "Restore message",
+    "removeMessageTitle": "Remove this published message?",
+    "removeMessageBody": "The text and image will be hidden from every participant and preserved for review.",
+    "restoreMessageTitle": "Restore this message?",
+    "restoreMessageBody": "The preserved message will return to the activity chat.",
+    "duration": {
+      "day": "1 day",
+      "threeDays": "3 days",
+      "week": "1 week",
+      "month": "30 days",
+      "indefinite": "Until an admin ends it"
+    },
+    "status": {
+      "removed": "Removed and preserved.",
+      "restored": "Restored.",
+      "revoked": "Active sessions were revoked.",
+      "sent": "The reset email was sent.",
+      "expired": "The announcement was ended.",
+      "reversed": "The action was reversed.",
+      "upheld": "The action was upheld.",
+      "already-removed": "It was already removed.",
+      "already-restored": "It was already restored.",
+      "nothing-to-remove": "There is nothing to remove.",
+      "original-unavailable": "The original is unavailable.",
+      "no-email": "This account has no email address.",
+      "reviewing": "Another admin is reviewing this appeal."
+    },
+    "appeals": {
+      "title": "Appeals",
+      "person": "Person",
+      "one": "Appeal review",
+      "loadFailed": "Appeals could not be loaded.",
+      "empty": "No appeals waiting",
+      "emptyBody": "New appeals will appear here.",
+      "request": "What the person said",
+      "type": "Action appealed",
+      "reverse": "Accept and reverse",
+      "uphold": "Uphold action",
+      "reverseTitle": "Accept this appeal?",
+      "reverseBody": "The original admin action will be reversed where possible.",
+      "upholdTitle": "Uphold this action?",
+      "upholdBody": "The action stays in place and the person receives your reason."
+    },
+    "appealKind": {
+      "profile-picture": "Profile picture removal",
+      "profile-bio": "Bio removal",
+      "profile-username": "Username removal",
+      "activity-picture": "Activity picture removal",
+      "message": "Message removal",
+      "suspension": "Account suspension",
+      "closure": "Account closure",
+      "activity": "Activity removal"
+    },
+    "appealStatus": {
+      "open": "Waiting for review",
+      "reversed": "Accepted",
+      "upheld": "Upheld",
+      "reviewing": "Being reviewed"
+    },
+    "announcements": {
+      "compose": "Publish an announcement",
+      "titleLabel": "Title",
+      "messageLabel": "Message",
+      "audienceLabel": "Audience",
+      "expiresLabel": "Expires after",
+      "sixHours": "6 hours",
+      "publish": "Publish announcement",
+      "published": "The announcement is live.",
+      "recent": "Recent announcements",
+      "empty": "No announcements yet",
+      "emptyBody": "Published notices will appear here.",
+      "active": "Live",
+      "expired": "Ended",
+      "expires": "Expires",
+      "expireNow": "End now",
+      "expireTitle": "End this announcement?",
+      "expireBody": "It will disappear immediately for everyone."
+    },
+    "audience": {
+      "all": "Everyone",
+      "hosts": "Activity hosts",
+      "participants": "Activity participants"
+    }
+  },
+  "appeals": {
+    "title": "Appeals",
+    "intro": "Ask an admin to review a moderation decision. Explain what you believe should be reconsidered.",
+    "available": "Decisions you can appeal",
+    "noneAvailable": "There are no active moderation decisions available to appeal.",
+    "messageHint": "A removed chat message can be appealed from its place in the activity chat.",
+    "history": "Your appeals",
+    "noHistory": "You have not submitted an appeal.",
+    "appeal": "Appeal",
+    "dialogTitle": "Ask for a review",
+    "dialogBody": "An admin will review the decision and your explanation.",
+    "explanation": "Your explanation",
+    "placeholder": "Explain clearly why this decision should be changed (at least 10 characters)",
+    "send": "Send appeal",
+    "sent": "Appeal sent",
+    "sentBody": "An admin can now review it.",
+    "failed": "Appeal could not be sent",
+    "noLongerAvailable": "This decision is no longer available to appeal.",
+    "loadFailed": "Your appeals could not be loaded.",
+    "settingsHint": "Review or submit an appeal",
+    "fieldLocked": "An admin removed this content. Appeal the decision to request a restore."
   }
 }

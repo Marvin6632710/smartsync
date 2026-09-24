@@ -1,5 +1,14 @@
 import React from 'react'
-import { CalendarRange, Flag, Gauge, MessageSquareWarning, ScrollText, Users } from 'lucide-react'
+import {
+  CalendarRange,
+  Flag,
+  Gauge,
+  Megaphone,
+  MessageSquareWarning,
+  Scale,
+  ScrollText,
+  Users,
+} from 'lucide-react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -9,6 +18,8 @@ import { ConsoleProvider } from './ConsoleContext'
 import ConsoleLayout from './ConsoleLayout'
 import AccountsPage from './pages/AccountsPage'
 import ActivitiesPage from './pages/ActivitiesPage'
+import AnnouncementsPage from './pages/AnnouncementsPage'
+import AppealsPage from './pages/AppealsPage'
 import ChatBlocksPage from './pages/ChatBlocksPage'
 import HistoryPage from './pages/HistoryPage'
 import Overview from './pages/Overview'
@@ -38,6 +49,13 @@ export const ADMIN_NAV = [
     to: `${BASE}/activities`,
     label: 'console.nav.activities',
     icon: CalendarRange,
+  },
+  { key: 'appeals', to: `${BASE}/appeals`, label: 'console.nav.appeals', icon: Scale },
+  {
+    key: 'announcements',
+    to: `${BASE}/announcements`,
+    label: 'console.nav.announcements',
+    icon: Megaphone,
   },
   { key: 'history', to: `${BASE}/history`, label: 'console.nav.history', icon: ScrollText },
 ]
@@ -78,6 +96,9 @@ export default function AdminPanel() {
           <Route path="accounts/:uid" element={<AccountsPage base={BASE} />} />
           <Route path="activities" element={<ActivitiesPage base={BASE} />} />
           <Route path="activities/:id" element={<ActivitiesPage base={BASE} />} />
+          <Route path="appeals" element={<AppealsPage base={BASE} />} />
+          <Route path="appeals/:id" element={<AppealsPage base={BASE} />} />
+          <Route path="announcements" element={<AnnouncementsPage />} />
           <Route path="history" element={<HistoryPage base={BASE} />} />
           <Route path="*" element={<Navigate to={BASE} replace />} />
         </Route>

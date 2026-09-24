@@ -1,16 +1,18 @@
 import React, { useMemo, useState } from 'react'
-import { CalendarX2, RotateCcw, Trash2 } from 'lucide-react'
+import { CalendarX2, ImageOff, RotateCcw, Trash2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { DISCOVERY_LIMIT } from '../../firebase/activities'
 import { fetchActivityHistory } from '../../firebase/moderation'
+import { runAdminContentAction } from '../../firebase/admin'
 import { categoryLabel, takedownReasonText } from '../../i18n'
 import { formatActivityDate, formatClock } from '../../utils/time'
 import { useConsole } from '../ConsoleContext'
 import { historyEvents } from '../history'
 import { useFetched, useFilterParams, useStickyState } from '../hooks'
 import DataTable from '../ui/DataTable'
+import AdminActionButton from '../AdminActionButton'
 import DetailPanel from '../ui/DetailPanel'
 import { FilterBar, SearchField, SelectFilter, matches } from '../ui/Filters'
 import Timeline from '../ui/Timeline'
@@ -193,7 +195,7 @@ export default function ActivitiesPage({ base }) {
 
 function ActivityDetails({ activity, base, onClose, user, desk }) {
   const { t } = useTranslation()
-  const { nameFor, subjectOf, reasonLabel } = useConsole()
+  const { nameFor, subjectOf, reasonLabel, rankOf } = useConsole()
   const history = useFetched(activity.id, fetchActivityHistory)
   const [restoreReason, setRestoreReason] = useState('')
   const events = useMemo(
@@ -205,6 +207,8 @@ function ActivityDetails({ activity, base, onClose, user, desk }) {
   )
   const openReports = history.data?.reports.filter((r) => r.status === 'open') || []
   const removed = activity.status === 'removed'
+  const pictureRemoved = activity.contentModeration?.picture?.active === true
+  const cannotTouchHost = activity.hostId === user.uid || rankOf(activity.hostId) === 'admin'
 
   return (
     <DetailPanel
@@ -291,6 +295,42 @@ function ActivityDetails({ activity, base, onClose, user, desk }) {
           )}
         </Fields>
       </Section>
+
+      {!cannotTouchHost && (
+        <Section title={t('adminPowers.activityPicture')} id="con-activity-picture-moderation">
+          <p className="con-muted">{t('adminPowers.activityPictureHint')}</p>
+          <div className="con-action-row admin-power-grid">
+            <AdminActionButton
+              action={(reason) =>
+                runAdminContentAction({
+                  action: pictureRemoved ? 'restore-activity-picture' : 'remove-activity-picture',
+                  activityId: activity.id,
+                  reason,
+                })
+              }
+              title={t(
+                pictureRemoved
+                  ? 'adminPowers.restoreActivityPictureTitle'
+                  : 'adminPowers.removeActivityPictureTitle',
+              )}
+              body={t(
+                pictureRemoved
+                  ? 'adminPowers.restoreActivityPictureBody'
+                  : 'adminPowers.removeActivityPictureBody',
+              )}
+              className={pictureRemoved ? 'secondary-button' : 'danger-button'}
+              tone={pictureRemoved ? 'default' : 'danger'}
+            >
+              {pictureRemoved ? <RotateCcw size={15} /> : <ImageOff size={15} />}{' '}
+              {t(
+                pictureRemoved
+                  ? 'adminPowers.restoreActivityPicture'
+                  : 'adminPowers.removeActivityPicture',
+              )}
+            </AdminActionButton>
+          </div>
+        </Section>
+      )}
 
       {activity.moderation && (
         <Section title={t('console.activities.moderationRecord')} id="con-activity-moderation">

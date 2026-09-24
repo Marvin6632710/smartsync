@@ -93,7 +93,11 @@ service cloud.firestore {
     // of the activity I am about to join suspended?
     function accountSuspended(uid) {
       return exists(/databases/$(database)/documents/roles/$(uid))
-        && get(/databases/$(database)/documents/roles/$(uid)).data.suspended == true;
+        && get(/databases/$(database)/documents/roles/$(uid)).data.suspended == true
+        && (
+          !('suspendedUntil' in get(/databases/$(database)/documents/roles/$(uid)).data)
+          || get(/databases/$(database)/documents/roles/$(uid)).data.suspendedUntil > request.time
+        );
     }
 
     // A closed account. Strictly more than a suspension: a suspended person
@@ -216,6 +220,8 @@ service cloud.firestore {
         && (isSelf(uid) || (!isBanned()
           && get(/databases/$(database)/documents/users/$(uid)).data.anonymous == false));
       allow create, update: if isSelf(uid) && !isBanned()
+        && getAfter(/databases/$(database)/documents/users/$(uid)).data
+             .get('contentModeration', {}).get('picture', {}).get('active', false) != true
         && validPicture(request.resource.data)
         && getAfter(/databases/$(database)/documents/users/$(uid)).data.pictureVersion
           == request.resource.data.version;
@@ -226,6 +232,8 @@ service cloud.firestore {
       allow get: if signedIn() && !isBanned()
         && exists(/databases/$(database)/documents/activities/$(activityId));
       allow create, update: if signedIn() && !isBanned()
+        && getAfter(/databases/$(database)/documents/activities/$(activityId)).data
+             .get('contentModeration', {}).get('picture', {}).get('active', false) != true
         && validPicture(request.resource.data)
         && getAfter(/databases/$(database)/documents/activities/$(activityId)).data.hostId
           == request.auth.uid
@@ -298,6 +306,7 @@ service cloud.firestore {
         && data.preferredTime is string
         && data.anonymous is bool
         && data.notificationsEnabled is bool
+        && (!('contentModeration' in data) || data.contentModeration is map)
         && data.uid == request.auth.uid;
     }
 
@@ -318,14 +327,43 @@ service cloud.firestore {
       // member with a limit on them, and anonymous mode is a protection —
       // taking someone's privacy controls away as a punishment is a
       // punishment in the wrong direction.
-      allow create: if isSelf(uid) && !isBanned() && validPublicProfile(request.resource.data);
+      allow create: if isSelf(uid)
+        && !isBanned()
+        && !('contentModeration' in request.resource.data)
+        && validPublicProfile(request.resource.data);
 
       allow update: if isSelf(uid)
         && !isBanned()
         && validPublicProfile(request.resource.data)
+        // Only the trusted admin Function may lock or unlock a moderated
+        // profile field. Keeping the map unchanged also stops a direct API
+        // call from putting removed content straight back.
+        && request.resource.data.get('contentModeration', {})
+             == resource.data.get('contentModeration', {})
+        // A lock is useful only if the owner cannot change the value behind it.
+        && (
+          resource.data.get('contentModeration', {}).get('picture', {}).get('active', false) != true
+          || request.resource.data.get('pictureVersion', null)
+               == resource.data.get('pictureVersion', null)
+        )
+        && (
+          resource.data.get('contentModeration', {}).get('bio', {}).get('active', false) != true
+          || request.resource.data.bio == resource.data.bio
+        )
+        && (
+          resource.data.get('contentModeration', {}).get('username', {}).get('active', false) != true
+          || request.resource.data.username == resource.data.username
+        )
         && request.resource.data.uid == resource.data.uid;
 
-      allow delete: if isSelf(uid) && !isBanned();
+      // Deleting and recreating the profile must not erase an active content
+      // lock. There is no account-deletion flow in this client; a trusted
+      // backend can still perform a real erasure when one is added.
+      allow delete: if isSelf(uid)
+        && !isBanned()
+        && resource.data.get('contentModeration', {}).get('picture', {}).get('active', false) != true
+        && resource.data.get('contentModeration', {}).get('bio', {}).get('active', false) != true
+        && resource.data.get('contentModeration', {}).get('username', {}).get('active', false) != true;
 
       // Private half of the profile. Never readable by anyone else.
       //
@@ -613,6 +651,7 @@ service cloud.firestore {
         // host cannot pre-write the record of a decision nobody has taken.
         && request.resource.data.status == 'active'
         && !('moderation' in request.resource.data)
+        && !('contentModeration' in request.resource.data)
         && validActivity(request.resource.data);
 
       // Two disjoint kinds of update:
@@ -641,7 +680,7 @@ service cloud.firestore {
           && request.resource.data.status in ['active', 'cancelled']
           // Neither may a host forge a moderation record, or erase one.
           && !request.resource.data.diff(resource.data)
-                .affectedKeys().hasAny(['moderation'])
+                .affectedKeys().hasAny(['moderation', 'contentModeration'])
           && validActivity(request.resource.data)
         ) || (
           touches(['participantUids', 'updatedAt'])
@@ -721,7 +760,10 @@ service cloud.firestore {
       allow delete: if signedIn()
         && resource.data.hostId == request.auth.uid
         && resource.data.participantUids == [request.auth.uid]
-        && resource.data.status != 'removed';
+        && resource.data.status != 'removed'
+        // A host cannot erase the lock and recreate the activity with a new
+        // picture. Restore or an appeal has to resolve it first.
+        && resource.data.get('contentModeration', {}).get('picture', {}).get('active', false) != true;
 
       // ----------------------------------------------------------- messages
 
@@ -802,9 +844,20 @@ service cloud.firestore {
         // most consequential row in the database, and everything reading it
         // looks at these — so anything else on it is state nobody validates,
         // nobody reads, and nobody would notice arriving.
-        && request.resource.data.keys().hasOnly(['role', 'suspended', 'banned'])
+        && request.resource.data.keys().hasOnly(
+             ['role', 'suspended', 'banned', 'suspendedAt', 'suspendedUntil', 'bannedAt'])
         && request.resource.data.suspended is bool
         && (!('banned' in request.resource.data) || request.resource.data.banned is bool)
+        && (!('suspendedAt' in request.resource.data)
+          || request.resource.data.suspendedAt is timestamp)
+        && (!('suspendedUntil' in request.resource.data)
+          || request.resource.data.suspendedUntil is timestamp)
+        && (!('bannedAt' in request.resource.data)
+          || request.resource.data.bannedAt is timestamp)
+        && (!('suspendedUntil' in request.resource.data)
+          || request.resource.data.suspended == true)
+        && (!('bannedAt' in request.resource.data)
+          || request.resource.data.get('banned', false) == true)
         && request.resource.data.role == 'user'
         && rankOf(uid) != 'admin';
 
@@ -1089,6 +1142,29 @@ service cloud.firestore {
     }
     match /aiPicksUsage/{day} {
       allow read, write: if false;
+    }
+
+    // Originals removed by an admin are retained for a later restore. They
+    // may contain private or harmful material and therefore never reach a
+    // browser; only the trusted moderation Functions use this collection.
+    match /moderationVault/{entryId} {
+      allow read, write: if false;
+    }
+
+    // A person can follow their own appeal and an admin can work the queue.
+    // Creation and decisions go through callables, where the current
+    // moderation state is checked before anything is accepted or reversed.
+    match /moderationAppeals/{appealId} {
+      allow read: if signedIn()
+        && (resource.data.subjectId == request.auth.uid || isAdmin());
+      allow write: if false;
+    }
+
+    // Announcements are public to signed-in members. Publishing and expiring
+    // stay server-only so a browser cannot impersonate SmartSync.
+    match /announcements/{announcementId} {
+      allow read: if signedIn() && !isBanned();
+      allow write: if false;
     }
 
     // ------------------------------------------------------- chat moderation

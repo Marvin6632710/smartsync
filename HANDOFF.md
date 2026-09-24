@@ -9,6 +9,70 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
+## Latest continuation — expanded admin powers (2026-09-24)
+
+**LOCAL ONLY — built on deployed `main` at `e0bc596`; not committed, pushed or
+deployed. The owner tests on localhost first.** The admin console now covers the
+seven powers the owner approved:
+
+1. remove and restore one profile picture, bio or username;
+2. remove and restore one activity picture without taking down the activity;
+3. remove and restore a message that had already been published;
+4. suspend for one day, three days, one week, thirty days or indefinitely,
+   then extend, shorten or end the suspension;
+5. accept appeals and let an admin uphold or reverse the original action;
+6. revoke an account's existing sessions or send its password-reset email;
+7. publish expiring announcements for everyone, hosts or participants.
+
+The browser cannot perform the sensitive writes directly. Five callable Cloud
+Functions in `functions/index.js` delegate to `functions/lib/admin.js`, where
+the caller is checked again as an active admin, self/fellow-admin actions are
+refused, inputs are bounded, every action requires a reason and the affected
+person is notified. Removed profile, picture and message content is kept in
+server-only `moderationVault` documents, while a small lock on the public
+parent prevents the owner restoring it around the console. The public copy is
+safe immediately: photos disappear, bios are blank, usernames become
+`@removed`, and messages show a moderation placeholder. Restore uses the held
+copy rather than asking the person to upload or type it again.
+
+Appeals live at `/appeals`, including for a closed account, and the console has
+new Appeals and Announcements sections. An appeal can only be filed while the
+named action still exists, and its stable id prevents duplicates for the same
+action. The action token is checked again at decision time, and a five-minute
+review lease prevents two admins deciding the same appeal concurrently; a
+failed review reopens safely. Announcement banners apply audience and expiry in
+the browser; only an admin Function writes them. Timed suspension expiry is
+enforced by the rules even before the scheduled cleanup runs, and
+`expireTimedSuspensions` clears the stale role flags every fifteen minutes and
+sends the account an update.
+
+Password resets use Firebase's own Identity Toolkit endpoint from the Function;
+the email is looked up server-side and never returned to the admin's browser.
+Session revocation uses Firebase Auth. Neither capability gives the console a
+password or exposes private profile data. On localhost the same operation uses
+the Auth emulator endpoint, so owner testing does not contact the production
+identity service or send a real email.
+
+New collections are `moderationVault` (server only), `moderationAppeals`
+(subject and admins read; Function writes) and `announcements` (active signed-in
+accounts read; Function writes). Rules also make every active profile/activity
+content lock unskippable. ADR-035 records why trusted Functions, a reversible
+vault and an appeal path are one design rather than separate conveniences.
+
+Verification: **952/952 unit and rendering tests**, **402/402 rules
+tests**, **8/8 Auth/Firestore integration tests** and both push suites
+(**11/11** delivery, **3/3** trigger) pass. Lint, source formatting, Maps
+configuration and the production build are clean. The new server unit tests
+cover timed expiry, vault preservation, self-action refusal, appeal action-token
+and review-lease safety, announcement audit and the password-reset privacy
+boundary. The new hostile-client rules tests cover vault denial, appeal and
+announcement access, timed suspension enforcement and content locks. The
+seeded local browser walkthrough covered the admin navigation, empty appeal
+queue, announcement composer, account content/security actions, activity-picture
+action, published-message action, every suspension duration and the user appeal
+page. No destructive action was submitted. The build is ready for the owner's
+localhost review.
+
 ## Latest continuation — modern activity schedule picker (2026-09-23)
 
 **LIVE — committed `481ecae`, pushed and hosting deployed 2026-09-23**
@@ -69,7 +133,7 @@ existed — on a screen above every other route except a closed account.
 
 **A date of birth, not an age.** An age is true for a year; somebody who
 typed 15 would still be 15 at thirty, and the staleness would be in the
-one number the minimum depends on. The date sits in the *private* half
+one number the minimum depends on. The date sits in the _private_ half
 of the profile with the email and the real name, and is never public
 under any setting.
 
@@ -78,7 +142,7 @@ write carrying a date of birth under the minimum, so a client that skips
 the screen is refused exactly as one that uses it. Rules have no date
 arithmetic — only durations, and fifteen years is not a fixed number of
 days — so the cut-off is built as a `YYYY-MM-DD` string from
-`request.time` and compared as a string, which for that format *is* a
+`request.time` and compared as a string, which for that format _is_ a
 date comparison and needs no timezone agreed.
 
 **The gate is in the router**, above onboarding. Interests, a picture and
@@ -87,7 +151,7 @@ is answered first.
 
 **The age is public only by consent, and consent means absence.**
 `showAge` is off by default. On, the public profile carries a number;
-off, that field is `null` — the number *leaves* rather than being hidden
+off, that field is `null` — the number _leaves_ rather than being hidden
 at render time, because Firestore has no field-level read rules and a
 value in a public document is readable whatever the screen draws (the
 same argument ADR-005 makes for a name under anonymous mode). The
@@ -97,14 +161,14 @@ others get.
 
 ### Files
 
-| | |
-| --- | --- |
-| The whole policy | `src/utils/age.js` — `MIN_AGE` is the one number to change |
-| The gate | `src/App.jsx`, `src/pages/AgeCheckPage.jsx`, `src/components/TooYoungScreen.jsx` |
-| Enforcement | `firestore.rules` — `ageCutoff()`, `oldEnough()`, `validAge()` |
-| Data | `src/firebase/users.js` — `saveDateOfBirth`, `setShowAge`, `refreshPublicAge` |
-| Sign-up | `src/pages/SignUpPage.jsx`, `src/firebase/auth.js` (`pendingSignUpDetails`) |
-| Consent + display | `src/pages/PrivacyPage.jsx`, `src/pages/ProfilePage.jsx` |
+|                   |                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------- |
+| The whole policy  | `src/utils/age.js` — `MIN_AGE` is the one number to change                       |
+| The gate          | `src/App.jsx`, `src/pages/AgeCheckPage.jsx`, `src/components/TooYoungScreen.jsx` |
+| Enforcement       | `firestore.rules` — `ageCutoff()`, `oldEnough()`, `validAge()`                   |
+| Data              | `src/firebase/users.js` — `saveDateOfBirth`, `setShowAge`, `refreshPublicAge`    |
+| Sign-up           | `src/pages/SignUpPage.jsx`, `src/firebase/auth.js` (`pendingSignUpDetails`)      |
+| Consent + display | `src/pages/PrivacyPage.jsx`, `src/pages/ProfilePage.jsx`                         |
 
 `pendingSignUpName` became `pendingSignUpDetails` and returns
 `{ name, dateOfBirth }`. Both the sign-up and the auth observer race to
@@ -159,7 +223,7 @@ scores. README §11 carries the full measurements.
 
 **What it cannot do is written down rather than hidden.** Threats and
 trash talk are the same thing to this model ("I will end you" about a
-card deck scores *higher* than "I will kill you" to a person); calmly
+card deck scores _higher_ than "I will kill you" to a person); calmly
 worded stalking and weapon threats come back clean; "go back to your own
 country" is not classified as hate at all; coercive sexual pressure and
 indirect suicide instructions are not flagged by the API in the first
@@ -193,11 +257,11 @@ Functions deploy then failed, every chat message on the live site would
 have been refused with nothing able to write one — a dead chat for as
 long as the fix took.
 
-| step | result |
-| --- | --- |
+| step                                                               | result                                                                             |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | `functions:sendChatMessageCall,requestChatReview,resolveChatBlock` | all three created; Secret Manager access to `OPENAI_API_KEY` granted automatically |
-| `firestore:rules` | compiled and released |
-| `hosting` | `index-zxYnK4zD.js`, confirmed being served |
+| `firestore:rules`                                                  | compiled and released                                                              |
+| `hosting`                                                          | `index-zxYnK4zD.js`, confirmed being served                                        |
 
 Verified after the deploy: all three functions `ACTIVE` with
 `OPENAI_API_KEY` version 1 bound as a secret environment variable, at
@@ -211,16 +275,16 @@ what proves the module loaded rather than merely uploaded.
 real account against the deployed Functions, the deployed rules and the
 real Moderation API:
 
-| | |
-| --- | --- |
-| ordinary note | sent, in the thread |
-| swearing | sent, in the thread |
-| "your idea is rubbish and you did not think it through" | sent, in the thread |
-| "you are so bad at this game it is actually impressive" | sent, in the thread |
-| somebody saying they feel low | sent, in the thread |
-| a personal attack | blocked · harassment, absent |
-| a pile-on | blocked · harassment, absent |
-| **writing straight to the thread, moderation skipped** | **permission-denied** |
+|                                                         |                              |
+| ------------------------------------------------------- | ---------------------------- |
+| ordinary note                                           | sent, in the thread          |
+| swearing                                                | sent, in the thread          |
+| "your idea is rubbish and you did not think it through" | sent, in the thread          |
+| "you are so bad at this game it is actually impressive" | sent, in the thread          |
+| somebody saying they feel low                           | sent, in the thread          |
+| a personal attack                                       | blocked · harassment, absent |
+| a pile-on                                               | blocked · harassment, absent |
+| **writing straight to the thread, moderation skipped**  | **permission-denied**        |
 
 The last row is the one that matters: without it the other seven are a
 courtesy rather than a control.
@@ -261,7 +325,7 @@ review, four languages, verification and documentation.
 `activities/{id}/messages` is now `allow create: if false`, and so is
 the new `chatPictures/{messageId}`. The only writer is
 `sendChatMessageCall`, a callable Function using the Admin SDK, which
-bypasses rules because it *is* the rule for a chat message now: `gate()`
+bypasses rules because it _is_ the rule for a chat message now: `gate()`
 re-checks membership, the activity's existence, suspension, closure and
 the 30-day retention window before anything is moderated or written.
 
@@ -326,39 +390,39 @@ Retry is offered.
 
 ### Files
 
-| Area | Files |
-| --- | --- |
-| Policy (pure) | `functions/lib/moderation.js` — categories, floors, `judge`, `decide`, the transcription prompt |
-| API adapter | `functions/lib/openai.js` — `moderate()`, `readImageText()`, error classification |
-| Request checking | `functions/lib/chat.js` — text cleaning, image sniffing by bytes, `validateSend` |
-| The send path | `functions/lib/sendChat.js` — `gate`, `takeTurn`, `checkParts`, `sendChatMessage`, `recordBlock`, `resolveBlock` |
-| Callables | `functions/index.js` — `sendChatMessageCall`, `requestChatReview`, `resolveChatBlock` |
-| Rules | `firestore.rules` — messages, `chatPictures`, `moderationBlocks`, `chatModeration`, `chatModerationUsage` |
-| Client | `src/firebase/chat.js`, `src/context/AppContext.jsx` (`chatPending`, retry, review), `src/pages/ChatPage.jsx` |
-| Console | `src/console/pages/ChatBlocksPage.jsx` + nav/route/feed wiring |
-| Stand-in | `scripts/fake-openai.mjs` |
+| Area             | Files                                                                                                            |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Policy (pure)    | `functions/lib/moderation.js` — categories, floors, `judge`, `decide`, the transcription prompt                  |
+| API adapter      | `functions/lib/openai.js` — `moderate()`, `readImageText()`, error classification                                |
+| Request checking | `functions/lib/chat.js` — text cleaning, image sniffing by bytes, `validateSend`                                 |
+| The send path    | `functions/lib/sendChat.js` — `gate`, `takeTurn`, `checkParts`, `sendChatMessage`, `recordBlock`, `resolveBlock` |
+| Callables        | `functions/index.js` — `sendChatMessageCall`, `requestChatReview`, `resolveChatBlock`                            |
+| Rules            | `firestore.rules` — messages, `chatPictures`, `moderationBlocks`, `chatModeration`, `chatModerationUsage`        |
+| Client           | `src/firebase/chat.js`, `src/context/AppContext.jsx` (`chatPending`, retry, review), `src/pages/ChatPage.jsx`    |
+| Console          | `src/console/pages/ChatBlocksPage.jsx` + nav/route/feed wiring                                                   |
+| Stand-in         | `scripts/fake-openai.mjs`                                                                                        |
 
 ### Verified in the emulator — against the stand-in, not the real API
 
 Driven through the running app at `localhost:5173` with
 `scripts/fake-openai.mjs` in place of OpenAI:
 
-| Case | Result |
-| --- | --- |
-| Ordinary message | moderated and delivered, `moderatedAt` stamped |
-| `xharassx` | refused with a plain reason; in no thread, picture or notification |
-| Appeal | `appealed: true`, queued at `/admin/chat` with a sidebar count |
-| Overturn | the original message posted; held copy deleted |
-| Outage (stand-in 503) | "check could not be completed", nothing written, Retry offered |
-| Retry after recovery | delivered |
-| Picture | caption, image and transcription all called; stored in `chatPictures`; renders |
-| Meme (`OPENAI_FAKE_IMAGE_TEXT=xhatex`) | blocked with `source: image-text` although the caption was clean |
-| `xmildx` (flagged at 0.12) | delivered — the floor does its job |
-| Rate limit | "try again in 60 minutes", message kept |
-| Client writes a message / a picture / its own counter / a chat notification | all four `permission-denied` |
-| Non-participant reads the thread, reads a picture, calls the callable | refused, refused, `not-allowed` |
-| Non-admin resolves a block; appeals somebody else's | 403 "Admins only", 403 "Not your message" |
-| Non-admin reads `moderationBlocks` | `permission-denied` |
+| Case                                                                        | Result                                                                         |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Ordinary message                                                            | moderated and delivered, `moderatedAt` stamped                                 |
+| `xharassx`                                                                  | refused with a plain reason; in no thread, picture or notification             |
+| Appeal                                                                      | `appealed: true`, queued at `/admin/chat` with a sidebar count                 |
+| Overturn                                                                    | the original message posted; held copy deleted                                 |
+| Outage (stand-in 503)                                                       | "check could not be completed", nothing written, Retry offered                 |
+| Retry after recovery                                                        | delivered                                                                      |
+| Picture                                                                     | caption, image and transcription all called; stored in `chatPictures`; renders |
+| Meme (`OPENAI_FAKE_IMAGE_TEXT=xhatex`)                                      | blocked with `source: image-text` although the caption was clean               |
+| `xmildx` (flagged at 0.12)                                                  | delivered — the floor does its job                                             |
+| Rate limit                                                                  | "try again in 60 minutes", message kept                                        |
+| Client writes a message / a picture / its own counter / a chat notification | all four `permission-denied`                                                   |
+| Non-participant reads the thread, reads a picture, calls the callable       | refused, refused, `not-allowed`                                                |
+| Non-admin resolves a block; appeals somebody else's                         | 403 "Admins only", 403 "Not your message"                                      |
+| Non-admin reads `moderationBlocks`                                          | `permission-denied`                                                            |
 
 **What is not verified: the real model's scores against these floors.**
 The key is now set (2026-09-23) but the account has no credits, so no
@@ -407,10 +471,10 @@ account. A key made under a different account works.
 **What that key can actually do** — measured with the app's own ranker
 against the real API:
 
-| model | free tier, this account |
-| --- | --- |
-| `gemini-3.5-flash-lite` | "currently experiencing high demand" on every attempt, over many minutes |
-| `gemini-3.5-flash` | correct rankings, in 43 s / 49 s / 65 s / 75 s — and sometimes the same refusal |
+| model                   | free tier, this account                                                         |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| `gemini-3.5-flash-lite` | "currently experiencing high demand" on every attempt, over many minutes        |
+| `gemini-3.5-flash`      | correct rankings, in 43 s / 49 s / 65 s / 75 s — and sometimes the same refusal |
 
 The time is queuing, not generating: the answers are the usual ~1,100
 tokens. On the paid key the same call took two or three seconds.
@@ -518,7 +582,7 @@ choice.
   matters") is gone; the privacy sentence sits under the page lead as a
   quiet line. The hero shows "Gemini's top pick" instead of a percentage,
   its reasons only when the model gave any. With no ranking (`source !==
-  'gemini'`): the bar reads "Not ranked. <reason>" with Try again, there
+'gemini'`): the bar reads "Not ranked. <reason>" with Try again, there
   is **no hero**, and a "Not ranked / Happening soon" section lists the
   eligible activities soonest first without reasons (`unrankedPicks`).
   The grouped-by-interest list orders groups by first appearance
@@ -545,13 +609,13 @@ choice.
   `settings.weights/weightsHint`, `titles.weights`, `reasons.default`,
   `activity.whyThis/matchReasons`, `common.match/noScore`,
   `profile.topMatch/activity`, `picks.howEyebrow/howTitle/howLead/
-  changeWhatMatters` removed; `picks.sourceStandard` → `picks.sourceNone`;
+changeWhatMatters` removed; `picks.sourceStandard` → `picks.sourceNone`;
   added `picks.topPick`, `picks.unrankedEyebrow`, `picks.unrankedTitle`;
   `picks.fallback.*`, `picks.improveLead`, `welcome.stage.why` reworded —
   all four languages, `json.dumps` formatting. `reasonText` returns `''`
   for a code with no wording (`i18n.exists`), so callers drop it.
 - **CSS:** rules for `.weight-*`, `.score-card`, `.how-strip/list/
-  swatch/label/share`, `.hero-score`, `.hero-why`, `.preview-match`,
+swatch/label/share`, `.hero-score`, `.hero-why`, `.preview-match`,
   `.detail-hero .match-pill` removed; `.top-pick-score` → `.top-pick-badge`
   (a label, not a number); `.ai-source[data-state='none']`; the wide AI
   Picks layout is no longer two columns (nothing sits beside the hero);
@@ -616,7 +680,7 @@ to change; they chose to build it.
   carried `["interest","history","place"]`. The document is still in
   the dev emulator — delete it if unwanted:
   `curl -X DELETE -H "Authorization: Bearer owner"
-  "http://127.0.0.1:8181/v1/projects/demo-smartsync/databases/(default)/documents/activities/place-test-1"`.
+"http://127.0.0.1:8181/v1/projects/demo-smartsync/databases/(default)/documents/activities/place-test-1"`.
 - Docs: README §10 (what goes out, the codes), ADR-029 amendment note,
   ADR-031, FIXLIST, CLAUDE_HANDOFF.
 
@@ -658,9 +722,9 @@ right now…" in four languages. Committed and deployed after `34ae1d4`
    and "Place names to Gemini, by name only"; co-author line on each),
    `git push`.
 2. `npx firebase deploy --only functions:recommendActivities --project
-   smartsync-c1f07` (the `'none'` wire value and the prompt without the
+smartsync-c1f07` (the `'none'` wire value and the prompt without the
    score) and `npx firebase deploy --only hosting --project
-   smartsync-c1f07 --non-interactive`.
+smartsync-c1f07 --non-interactive`.
 3. Two untracked directories, `output/` and `tmp/` (word-break files
    from 2026-09-21 23:05–00:04), are not SmartSync's and were not
    touched; do not `git add` them.
@@ -698,10 +762,10 @@ with reasons the data supports" and pushed; hosting deployed after.
   dropped, codes filtered to the true ones, null when nothing usable),
   `rateWindow` (fixed-window arithmetic).
 - `functions/lib/gemini.js` (new) — `geminiRanker({ apiKey, model,
-  baseUrl, timeoutMs })` over `@google/genai` 2.23 (`ai.interactions.create`
+baseUrl, timeoutMs })` over `@google/genai` 2.23 (`ai.interactions.create`
   with `system_instruction`, `store: false`, `generation_config:
-  { max_output_tokens: 1024, thinking_level: 'low' }`, `response_format:
-  { type: 'text', mime_type: 'application/json', schema }`, one retry,
+{ max_output_tokens: 1024, thinking_level: 'low' }`, `response_format:
+{ type: 'text', mime_type: 'application/json', schema }`, one retry,
   20 s timeout); `classifyError` (429 → rate-limited, 5xx/timeout →
   unavailable, other 4xx → invalid); `DEFAULT_MODEL = 'gemini-3.5-flash-lite'`
   (the current stable "fastest, most cost-effective" model per
@@ -709,16 +773,16 @@ with reasons the data supports" and pushed; hosting deployed after.
   June 2026 and recommended for new projects, `generateContent` is
   legacy but supported).
 - `functions/lib/recommend.js` (new) — `recommend({ db, uid, signals,
-  candidates, force, ranker, now, log, caps })`: cache doc
+candidates, force, ranker, now, log, caps })`: cache doc
   `aiPicks/{uid}` (signature, picks, model, createdAt; 10-minute TTL;
   `force` bypasses), one transaction over `aiPicks/{uid}.calls` (10 per
   hour) and `aiPicksUsage/{day}.count` (1,500 per day), then the ranker;
   every outcome a value — `{ source: 'gemini', picks, model, createdAt,
-  cached }` or `{ source: 'standard', reason: 'not-configured' |
-  'rate-limited' (+ retryAfterSeconds) | 'unavailable' | 'invalid' }`.
+cached }` or `{ source: 'standard', reason: 'not-configured' |
+'rate-limited' (+ retryAfterSeconds) | 'unavailable' | 'invalid' }`.
 - `functions/index.js` — `recommendActivities = onCall({ region:
-  'us-central1', secrets: [GEMINI_API_KEY], timeoutSeconds: 30, memory:
-  '256MiB', maxInstances: 5 })`: unauthenticated → `HttpsError`, bad shape
+'us-central1', secrets: [GEMINI_API_KEY], timeoutSeconds: 30, memory:
+'256MiB', maxInstances: 5 })`: unauthenticated → `HttpsError`, bad shape
   → `invalid-argument`, else `recommend`. Env: `GEMINI_MODEL`,
   `PICKS_USER_HOURLY_CAP`, `PICKS_DAILY_CAP`; `GEMINI_BASE_URL` honoured
   under the emulator only. `@google/genai` added to `functions/package.json`.
@@ -758,7 +822,7 @@ with reasons the data supports" and pushed; hosting deployed after.
   `sourceGemini`, `sourceStandard`, `refresh`, `alsoForYou`,
   `withinFilters_*`, `emptyTitle`, `emptyBody`, `emptyBodyFilters_*`,
   `fallback.{unavailable, rate-limited_*, not-configured, invalid, stale,
-  error}`, `improveEyebrow`, `improveTitle`, `improveLead`,
+error}`, `improveEyebrow`, `improveTitle`, `improveLead`,
   `improve.{join, interests, time, location}`, `privacy`;
   `reasons.soon`, `reasons.spots_*`.
 - `src/styles.css` — `.ai-source` (+ `[data-state]`, pulse while asking,
@@ -858,7 +922,7 @@ with reasons the data supports" and pushed; hosting deployed after.
     (`43463df`, Function redeployed). **Live and working since 14:55
     UTC on 2026-09-21:** "Ranked by Gemini · Just now", hero + four
     picks with reasons, log line `ai picks ranked … candidates 5, picks
-    5, tokens 1112`.
+5, tokens 1112`.
 
 ## Latest continuation — discovery filters as sets (2026-09-21)
 
@@ -871,13 +935,13 @@ change (the filters never leave the device).
 
 - `src/utils/filters.js` (new) — the one place that knows the filters'
   shape. `defaultFilters = { categories: [], maxDistance: 10, timeBands: [],
-  availableOnly: true }`; `DISTANCE_RANGE = { min: 1, max: 15 }`;
+availableOnly: true }`; `DISTANCE_RANGE = { min: 1, max: 15 }`;
   `normaliseFilters(stored)` reads either the new shape or the old one
   (`category: 'All' | name`, `timeBand: 'Any' | band` → set of one, or
   empty for All/Any), keeps only vocabulary members in vocabulary order,
   clamps the distance to the slider and rounds it, and falls back field by
   field; `toggleChoice(chosen, value, vocabulary)`; `matchesFilters(activity,
-  filters)` — OR within each set, AND between the four groups, an unknown
+filters)` — OR within each set, AND between the four groups, an unknown
   distance never hides anything; `activeFilterCount` / `filtersActive`
   (each chosen category and band counts one, distance and switch count one
   each when off their defaults). ADR-028 records the "empty means
@@ -928,7 +992,7 @@ change (the filters never leave the device).
   morning), not "Coffee & New Connections" (afternoon); search "connect"
   → not found with "Clear filters and search again", which then finds it;
   the old shape `{category:'Coffee', timeBand:'Afternoon', maxDistance:8,
-  availableOnly:false}` seeded into `localStorage` → page shows Coffee +
+availableOnly:false}` seeded into `localStorage` → page shows Coffee +
   Afternoon + 8 km + switch off and storage is rewritten as sets; Reset →
   defaults stored; map empty state with both buttons, pins back after
   Clear; phone viewport, light and dark; keyboard focus ring on a chip,
@@ -1238,9 +1302,9 @@ state and live `/admin` walkthrough in §3 remain outstanding.
 
 |                  |                                                                                                                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live             | <https://smartsync-c1f07.web.app> — hosting bundle `index-jHb5xmTm.js`, built from `1adfa05`, released and checksum-verified 2026-09-21                                                   |
-| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`; maps implementation `1adfa05`, search `4462773`, photos `355b89f`                                                                  |
-| Deployed         | Hosting as of `1adfa05`; Firestore rules and indexes (including photo-field index exemptions) as of `355b89f`                                                                       |
+| Live             | <https://smartsync-c1f07.web.app> — hosting bundle `index-jHb5xmTm.js`, built from `1adfa05`, released and checksum-verified 2026-09-21                                                |
+| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`; maps implementation `1adfa05`, search `4462773`, photos `355b89f`                                                                 |
+| Deployed         | Hosting as of `1adfa05`; Firestore rules and indexes (including photo-field index exemptions) as of `355b89f`                                                                          |
 | **Not** deployed | Cloud Functions in `functions/` (browser push). They need the Blaze plan and a `VITE_FCM_VAPID_KEY`. The live site has no push notifications, which is what README and DEMO_SCRIPT say |
 | Local state      | Firebase CLI 15.29.0 signed in as the owner on this machine. A dev emulator and Vite dev server may still be running (see §7)                                                          |
 

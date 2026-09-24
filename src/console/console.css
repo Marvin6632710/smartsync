@@ -874,6 +874,69 @@ button.con-stat:hover {
   flex-wrap: wrap;
   gap: 8px;
 }
+.admin-power-grid > button {
+  min-width: 150px;
+}
+
+.con-announcements {
+  display: grid;
+  gap: 16px;
+  max-width: 920px;
+}
+.con-announcement-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.con-announcement-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: var(--w-medium);
+}
+.con-announcement-form .wide {
+  grid-column: 1 / -1;
+}
+.con-announcement-form textarea {
+  resize: vertical;
+}
+.con-announcement-form .primary-button {
+  justify-self: start;
+}
+.con-announcement-list {
+  display: grid;
+  gap: 10px;
+}
+.con-announcement-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--con-radius);
+  background: var(--surface-2);
+}
+.con-announcement-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.con-announcement-card header > div {
+  display: grid;
+  gap: 2px;
+}
+.con-announcement-card header span,
+.con-announcement-card small {
+  color: var(--text-3);
+  font-size: 12px;
+}
+.con-announcement-card p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.con-announcement-card button {
+  justify-self: start;
+}
 .con-action-row.compact {
   flex-wrap: nowrap;
   justify-content: flex-end;
@@ -1193,6 +1256,12 @@ button.con-stat:hover {
   }
   .con-detail-body .con-section {
     padding: 8px 10px;
+  }
+  .con-announcement-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .con-announcement-form .wide {
+    grid-column: auto;
   }
 }
 

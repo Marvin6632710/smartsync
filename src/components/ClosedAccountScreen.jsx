@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ShieldOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { watchNotifications } from '../firebase/notifications'
 import { localizeNotification } from '../i18n/notificationText'
@@ -21,6 +22,7 @@ import { localizeNotification } from '../i18n/notificationText'
 export default function ClosedAccountScreen() {
   const { t } = useTranslation()
   const { user, signOut } = useAuth()
+  const navigate = useNavigate()
   // The notification itself is kept, and worded at render, so a change of
   // language re-words it too.
   const [closure, setClosure] = useState(null)
@@ -45,9 +47,14 @@ export default function ClosedAccountScreen() {
         <h3>{t('closed.title')}</h3>
         <p>{reason || t('closed.body')}</p>
         <p className="helper-text">{t('closed.why')}</p>
-        <button className="primary-button" onClick={signOut}>
-          {t('common.signOut')}
-        </button>
+        <div className="button-row">
+          <button className="primary-button" onClick={() => navigate('/appeals')}>
+            {t('appeals.appeal')}
+          </button>
+          <button className="secondary-button" onClick={signOut}>
+            {t('common.signOut')}
+          </button>
+        </div>
       </div>
     </div>
   )

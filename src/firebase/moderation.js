@@ -132,24 +132,42 @@ export function fileReport({
  * to be written when somebody signs up.
  */
 export function watchRole(uid, callback, onError) {
-  return onSnapshot(
+  let expiryTimer = null
+  let latest = null
+  const deliver = (row, meta) => {
+    latest = row
+    if (expiryTimer) clearTimeout(expiryTimer)
+    const until = (row.suspendedUntil?.toMillis?.() ?? Number(row.suspendedUntil)) || null
+    const suspended = row.suspended === true && (!until || until > Date.now())
+    callback(
+      {
+        role: row.role || 'user',
+        suspended,
+        suspendedUntil: suspended ? until : null,
+        banned: row.banned === true,
+      },
+      meta,
+    )
+    if (suspended && until) {
+      expiryTimer = setTimeout(
+        () => deliver(latest, meta),
+        Math.min(until - Date.now() + 25, 2_147_000_000),
+      )
+    }
+  }
+  const stop = onSnapshot(
     doc(db, 'roles', uid),
     // Metadata too, and the origin reported alongside the row — see the
     // note on the profile watchers in users.js.
     { includeMetadataChanges: true },
     (snap) =>
-      callback(
-        snap.exists()
-          ? {
-              role: snap.data().role || 'user',
-              suspended: !!snap.data().suspended,
-              banned: snap.data().banned === true,
-            }
-          : { role: 'user', suspended: false, banned: false },
-        { fromCache: snap.metadata?.fromCache === true },
-      ),
+      deliver(snap.exists() ? snap.data() : {}, { fromCache: snap.metadata?.fromCache === true }),
     onError,
   )
+  return () => {
+    if (expiryTimer) clearTimeout(expiryTimer)
+    stop()
+  }
 }
 
 /**
@@ -185,6 +203,7 @@ async function patchRole(uid, change, claim, meta = {}) {
     const existing = snap.data() || {}
     const before = {
       suspended: existing.suspended === true,
+      suspendedUntil: existing.suspendedUntil || null,
       banned: existing.banned === true,
     }
     // The only role the app ever writes. Nobody acts on an admin from inside
@@ -197,12 +216,14 @@ async function patchRole(uid, change, claim, meta = {}) {
       ...(before.banned ? { banned: true } : {}),
       ...change,
     }
-    tx.set(ref, next, { merge: true })
+    const kind = roleChangeKind(before, change, meta)
+    // A repeated decision may still close its report below, but it must not
+    // refresh suspension metadata or create a second role change of its own.
+    if (kind) tx.set(ref, next, { merge: true })
     // The decision lands with the row or not at all — see recordDecision.
     if (claim?.decision) recordDecision(tx, claim)
     // And the record of who changed what, in the same step — only when the
     // change was a change. A repeat is not a second decision.
-    const kind = roleChangeKind(before, change)
     if (kind) {
       recordAction(tx, {
         kind,
@@ -212,7 +233,7 @@ async function patchRole(uid, change, claim, meta = {}) {
         reason: meta.reason,
       })
     }
-    return { before, after: { ...before, ...change } }
+    return { before, after: kind ? { ...before, ...change } : before, kind }
   })
 }
 
@@ -221,9 +242,17 @@ async function patchRole(uid, change, claim, meta = {}) {
  * changes nothing. Each patch carries exactly one field, so the one that
  * differs from the row is the decision.
  */
-function roleChangeKind(before, change) {
+function roleChangeKind(before, change, meta = {}) {
   if ('suspended' in change && change.suspended !== before.suspended) {
     return change.suspended ? 'suspend' : 'lift'
+  }
+  if (
+    'suspendedUntil' in change &&
+    change.suspended === true &&
+    (before.suspendedUntil ||
+      (Number.isFinite(Number(meta.durationHours)) && Number(meta.durationHours) > 0))
+  ) {
+    return 'suspend'
   }
   if ('banned' in change && change.banned !== before.banned) {
     return change.banned ? 'close' : 'reopen'
@@ -232,8 +261,23 @@ function roleChangeKind(before, change) {
 }
 
 export async function setSuspended(uid, suspended, claim, meta) {
-  const { before } = await patchRole(uid, { suspended }, claim, meta)
-  if (before.suspended === suspended) return
+  const durationHours = Number(meta?.durationHours)
+  const timed = suspended && Number.isFinite(durationHours) && durationHours > 0
+  const change = suspended
+    ? {
+        suspended: true,
+        suspendedAt: serverTimestamp(),
+        suspendedUntil: timed
+          ? Timestamp.fromMillis(Date.now() + durationHours * 60 * 60_000)
+          : deleteField(),
+      }
+    : {
+        suspended: false,
+        suspendedAt: deleteField(),
+        suspendedUntil: deleteField(),
+      }
+  const { kind } = await patchRole(uid, change, claim, meta)
+  if (!kind) return
   // Every notice below is stored in English, the language notifications are
   // written in, and worded for its reader on their own screen — see
   // i18n/notificationText, which is where these templates live.
@@ -622,11 +666,39 @@ export async function removeActivity(activityId, { adminId, reason, reportId, de
  * is being read, so it either holds for every row or for none.
  */
 export function watchRoles(callback, onError) {
-  return onSnapshot(
+  let expiryTimer = null
+  let latest = []
+  const deliver = () => {
+    if (expiryTimer) clearTimeout(expiryTimer)
+    const now = Date.now()
+    const rows = latest.map((row) => {
+      const until = (row.suspendedUntil?.toMillis?.() ?? Number(row.suspendedUntil)) || null
+      return {
+        ...row,
+        suspendedUntil: until,
+        suspended: row.suspended === true && (!until || until > now),
+      }
+    })
+    callback(rows)
+    const next = rows
+      .filter((row) => row.suspended && row.suspendedUntil)
+      .reduce((soonest, row) => Math.min(soonest, row.suspendedUntil), Infinity)
+    if (Number.isFinite(next)) {
+      expiryTimer = setTimeout(deliver, Math.min(next - Date.now() + 25, 2_147_000_000))
+    }
+  }
+  const stop = onSnapshot(
     collection(db, 'roles'),
-    (snap) => callback(snap.docs.map((d) => ({ uid: d.id, ...d.data() }))),
+    (snap) => {
+      latest = snap.docs.map((d) => ({ uid: d.id, ...d.data() }))
+      deliver()
+    },
     onError,
   )
+  return () => {
+    if (expiryTimer) clearTimeout(expiryTimer)
+    stop()
+  }
 }
 
 /**
@@ -671,7 +743,7 @@ async function standDownHosted(uid, { adminId, reason }) {
   }
 }
 
-export async function suspendAccount(uid, { adminId, reportId, decision, reason }) {
+export async function suspendAccount(uid, { adminId, reportId, decision, reason, durationHours }) {
   // The suspension itself is tied to the claim, and the decision is
   // recorded in the same transaction; the stand-down that follows is a
   // consequence of a suspension that has already landed, and runs whatever
@@ -679,6 +751,7 @@ export async function suspendAccount(uid, { adminId, reportId, decision, reason 
   await setSuspended(uid, true, reportId ? { reportId, adminId, decision } : undefined, {
     by: adminId,
     reason,
+    durationHours,
   })
   return standDownHosted(uid, {
     adminId,
@@ -702,10 +775,15 @@ export async function suspendAccount(uid, { adminId, reportId, decision, reason 
  */
 export async function closeAccount(uid, { adminId, reason }) {
   const note = String(reason || '').slice(0, 300)
-  const { before } = await patchRole(uid, { banned: true }, undefined, {
-    by: adminId,
-    reason: note,
-  })
+  const { before } = await patchRole(
+    uid,
+    { banned: true, bannedAt: serverTimestamp() },
+    undefined,
+    {
+      by: adminId,
+      reason: note,
+    },
+  )
   if (before.banned) {
     // Closed already. Still stand down anything left standing — that half
     // may be what failed last time — but say nothing twice.
@@ -726,7 +804,7 @@ export async function closeAccount(uid, { adminId, reason }) {
 
 /** Reopens a closed account. */
 export async function reopenAccount(uid, { adminId, reason }) {
-  const { before } = await patchRole(uid, { banned: false }, undefined, {
+  const { before } = await patchRole(uid, { banned: false, bannedAt: deleteField() }, undefined, {
     by: adminId,
     reason: String(reason || '').slice(0, 300),
   })
