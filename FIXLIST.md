@@ -301,6 +301,33 @@ three. Details in README.md; the parts worth knowing here:
   ten is read as a default nobody chose and moves with it. That can only
   widen what somebody sees. Three tests were pinning the old default as a
   literal and now read the constant. 961 unit/app tests.
+- **The report dialog stops being a phone screen on a laptop, 2026-09-24
+  (`e8c37e7`, pushed and deployed)** — reporting somebody used the confirm
+  dialog's box: **`max-width: 320px` at every size**, with a legend, six
+  reason chips, a text area, a switch, two buttons and the safety note
+  stacked inside it and the whole lot left to scroll. It is the longest
+  dialog in the app wearing the shortest one's frame, and on the laptop it
+  was reported from, Send had fallen off the bottom of the window. It is
+  three parts now — head, a body that scrolls, actions that do not — so
+  the frame has somewhere to go as the screen grows: a **sheet off the
+  bottom edge on a phone**, where the actions stay put when the keyboard
+  opens, and a **centred card from 720px** (600px, 640px from 1024px)
+  where the note moves alongside the buttons instead of pushing them
+  down. Checked at 1440x860, 820x900, 390x780 and **390x420** — the
+  keyboard-up worst case, where the head and actions hold and only the
+  form scrolls. The six reasons became an **even grid** (two across on a
+  phone, three above) rather than a ragged wrap, which was most of what
+  made it read as a phone screen. Two things were fixed in passing: the
+  **switch in the block offer was wrapping onto its own line** because
+  `.compact-row` forces two grid columns and that row has three children
+  (the filters page uses the same class without an icon and is
+  untouched), and **`/activity/:id/participants` was pinned to the narrow
+  column** — a roster is a set of people to compare, like the matching
+  page, so it takes the medium column and that page's `people-grid`.
+  Presentation only: no backend, rules, schema, locale or ADR change.
+  **961 unit/app and 402 rules tests pass**; lint, format and build clean.
+  Hosting serves checksum-matched `index-DXX6Bll3.css`; the site returns
+  HTTP 200.
 - **A minimum age of fifteen, 2026-09-23** — asked at sign-up and, for
   accounts that predate the gate, on a screen above every other route
   except a closed account (interests are something somebody makes;

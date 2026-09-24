@@ -10,7 +10,50 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; later release
 records below carry the current state.
 
-## Latest continuation — Discover shows all of it (2026-09-24)
+## Latest continuation — the report dialog on a laptop (2026-09-24)
+
+**Live: `e8c37e7`, pushed, hosting deployed** (`index-DXX6Bll3.css`,
+checksum-matched against the local build, site returns 200). 961 unit/app
+and 402 rules tests; lint, format and build clean.
+
+Reported from the live site: reporting somebody looks like a phone screen
+on a laptop. It was — the dialog wore `.dialog`'s box, **320px wide at
+every size**, with a legend, six reason chips, a text area, a switch, two
+buttons and the safety note stacked inside it and the whole lot left to
+scroll. The longest dialog in the app had the shortest one's frame, and in
+the screenshot it was reported from, **Send had fallen off the bottom of
+the window**.
+
+It is built as three parts now instead of one scrolling column — who is
+being reported, the form, and the actions — with only the middle part
+scrolling. That gives the frame somewhere to go as the screen grows: a
+sheet off the bottom edge on a phone, where the actions sit under the
+thumb and stay put when the keyboard opens, and a centred card from 720px
+(600px, and 640px from 1024px) where the safety note moves alongside the
+buttons rather than pushing them further down. Verified at 1440x860,
+820x900, 390x780 and 390x420 — that last one is the keyboard-up worst
+case, and the head and actions hold while only the form scrolls.
+
+The six reasons are an even grid — two across on a phone, three once there
+is room — rather than a ragged wrap. The ragged block was most of what made
+this read as a phone screen, and equal cells give every reason the same
+size target.
+
+**Two things fixed in passing.** The switch in the block offer was wrapping
+onto a line of its own: `.compact-row` forces two grid columns and that row
+has three children, so the icon and the words took the columns and the
+switch went underneath. It takes three columns when an icon is present now;
+the filters page uses the same class without an icon and is untouched. And
+`/activity/:id/participants` was pinned to the narrow column, so a roster
+was one phone-width list of cards alone in the middle of a laptop — it now
+takes the medium column and the `people-grid` the matching page already
+uses.
+
+Presentation only: `src/components/ReportDialog.jsx`,
+`src/pages/ParticipantsPage.jsx` and `src/styles.css`. No backend, rules,
+schema, locale or ADR change.
+
+## Continuation — Discover shows all of it (2026-09-24)
 
 **Live: `8f088ff`, pushed, hosting deployed** (`index-COyU5P3A.js`,
 confirmed served, site returns 200). 961 unit/app tests; lint, format
