@@ -282,6 +282,25 @@ three. Details in README.md; the parts worth knowing here:
   pills, category chip tints, shadows and the map ground moved onto tokens;
   `public/theme-boot.js` stamps the attribute before the first paint. Every
   dark pairing measured ≥ 4.5:1, most ≥ 7:1. 12 tests added.
+- **Discover shows every activity, and the range reaches across the city,
+  2026-09-24 (`8f088ff`, pushed and deployed)** — friends testing the live
+  site reported that activities in some categories never appeared. The
+  categories were a red herring: no category filtering happens by default
+  and an empty set has always meant no restriction. **Discover stopped at
+  six** (`soonest.slice(0, 6)`) while the count beside the heading
+  reported the true total, so the live feed of eighteen showed six cards
+  under the number 18 with nothing saying the rest existed. The list is
+  ordered by start time, so whatever was cut clustered in whichever
+  categories fell later — which is why it looked like a category problem.
+  The section renders the whole list now, and `tests/app/discoverFeed.test.jsx`
+  (there was no Discover test at all) renders twenty-three and checks the
+  count and the cards agree. **The distance filter went 15 km → 30 km and
+  its default 10 → 20.** Raising the default alone would have reached
+  nobody: the filters are written to localStorage on mount, so every
+  device that has opened SmartSync already holds a number — so a stored
+  ten is read as a default nobody chose and moves with it. That can only
+  widen what somebody sees. Three tests were pinning the old default as a
+  literal and now read the constant. 961 unit/app tests.
 - **A minimum age of fifteen, 2026-09-23** — asked at sign-up and, for
   accounts that predate the gate, on a screen above every other route
   except a closed account (interests are something somebody makes;

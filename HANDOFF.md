@@ -10,6 +10,47 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; later release
 records below carry the current state.
 
+## Latest continuation — Discover shows all of it (2026-09-24)
+
+**Live: `8f088ff`, pushed, hosting deployed** (`index-COyU5P3A.js`,
+confirmed served, site returns 200). 961 unit/app tests; lint, format
+and build clean.
+
+Friends testing the live site said activities in some categories never
+appeared. **The categories were a red herring** — no category filtering
+happens by default, and an empty set has always meant no restriction.
+Discover simply stopped at six, while the count beside the heading
+reported the true total. The live feed of eighteen showed six cards
+under the number 18, with nothing on the screen saying the rest existed
+or how to reach them; people read that as their activity never having
+been posted. Because the list is ordered by start time, whatever was cut
+clustered in whichever categories happened to fall later, which is what
+made it look like a category problem from the outside.
+
+The section renders the whole filtered list now. There was **no test
+covering Discover at all**; `tests/app/discoverFeed.test.jsx` renders
+twenty-three activities and asserts the count chip and the number of
+cards agree, so a cap reintroduced later fails the suite instead of
+somebody's feed.
+
+**The distance filter reached 15 km and defaulted to 10 — now 30 and
+20.** The trap worth remembering: raising the default alone would have
+reached nobody. `AppContext` writes the filters to localStorage in an
+effect that runs on mount, so every device that has ever opened
+SmartSync already holds a number, including the ones that never touched
+the slider — which is everybody who reported this. So `storedDistance`
+reads a stored ten as a default nobody chose and moves it with the
+default. It can only widen what somebody sees, never narrow it; it does
+override anyone who deliberately picked ten, which is the stated price.
+
+### Still open, and still not category-related
+
+**Full activities are hidden from Discover by default.** `availableOnly`
+defaults to `true`, so an activity vanishes once it fills — including
+from the person who created it. That is the remaining way an activity
+can be "missing" from the feed, and it is a product decision rather than
+a bug, so it has been left alone and put to the owner.
+
 ## Latest release — activity pictures in Messages chat heads (2026-09-24)
 
 **LIVE — committed and pushed as `184522e`; Firebase Hosting deployed
