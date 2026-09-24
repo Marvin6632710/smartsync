@@ -10,6 +10,27 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; later release
 records below carry the current state.
 
+## Latest source release — redesigned Messages inbox (2026-09-24)
+
+**Committed and pushed at the owner's request; not deployed.** `/messages` now
+reads as one modern inbox instead of a loose
+stack of oversized cards. The page has a clear title and short explanation, a
+single search/filter toolbar, and one bordered conversation surface with
+compact divided rows. The saturated circular category pictograms were replaced
+by quiet activity-title monograms, with a slim category-colour edge for fast
+recognition. Sender, preview and time have a stronger scanning hierarchy;
+desktop uses the medium-width page column while phone rows and filters keep
+their touch-sized layout.
+
+Only presentation changed. Joined/open-thread selection, newest-first order,
+All/Hosting/Joined filters, search fields, anonymous-name handling, empty states
+and row navigation are unchanged. The new subtitle is current in all four
+locales. Files: `src/pages/MessagesPage.jsx`, `src/styles.css` and the four
+`src/i18n/locales/*.json` files. No rules, Functions, data model or ADR changed.
+The local page was checked at phone and 1440 px laptop widths in dark mode;
+search and Hosting filtering were exercised. **957/957 unit/app tests pass**;
+lint, Prettier, Maps configuration and the production build are clean.
+
 ## Latest data/source release — renamed admin demo identities (2026-09-24)
 
 **Live and local data migrated and verified; source committed and pushed;

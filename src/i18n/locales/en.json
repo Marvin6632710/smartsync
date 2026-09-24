@@ -611,6 +611,7 @@
   },
   "messages": {
     "title": "Messages",
+    "subtitle": "Chats from activities you host and join.",
     "searchPlaceholder": "Search chats",
     "searchLabel": "Search chats",
     "all": "All",

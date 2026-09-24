@@ -597,6 +597,7 @@
   },
   "messages": {
     "title": "消息",
+    "subtitle": "你主办和参与的活动聊天。",
     "searchPlaceholder": "搜索聊天",
     "searchLabel": "搜索聊天",
     "all": "全部",

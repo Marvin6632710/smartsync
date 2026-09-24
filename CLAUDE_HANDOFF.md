@@ -3,6 +3,24 @@
 Prepared 2026-09-21. Use the existing local folder:
 `/Users/marvin/Downloads/SmartSync 2`.
 
+## Current source release — redesigned Messages inbox (2026-09-24)
+
+**Committed and pushed after localhost owner review; not deployed.**
+`/messages` now uses a medium-width inbox layout: title and subtitle,
+one compact search/filter toolbar, then one bordered conversation list with
+hairline row dividers. Bright circular category pictograms are gone. Each row
+uses a restrained activity-title monogram and a slim category-colour edge,
+with clearer title, sender, preview and time hierarchy. Phone spacing and
+touch targets are preserved.
+
+This is presentation only. Existing thread eligibility, sorting, search,
+All/Hosting/Joined filters, anonymous-name rendering, empty states and
+navigation are unchanged. The subtitle is translated in en/th/my/zh. Changed
+files are `src/pages/MessagesPage.jsx`, `src/styles.css` and the four locale
+files; no backend, rules or ADR change. Dark-mode phone and 1440 px laptop
+layouts, search and Hosting filtering were checked locally. **957 unit/app
+tests pass**; lint, formatting, Maps configuration and build are clean.
+
 ## Current release — renamed admin demo identities (2026-09-24)
 
 **Source committed and pushed; live and local Firebase data migrated and

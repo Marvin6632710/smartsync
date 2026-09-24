@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { personName } from '../i18n'
-import CategoryIcon from '../components/CategoryIcon'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { isChatClosed } from '../firebase/messages'
@@ -18,6 +17,24 @@ const FILTERS = [
   { key: 'hosting', label: 'messages.hosting' },
   { key: 'joined', label: 'messages.joined' },
 ]
+
+// A quiet activity monogram reads like a familiar group-chat avatar. The old
+// saturated category pictograms looked decorative beside every row and made
+// the inbox harder to scan. Array.from keeps a multi-byte first character
+// intact for titles written in any of SmartSync's four languages.
+function threadMonogram(title) {
+  const words = String(title || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (!words.length) return '–'
+  if (words.length === 1) return Array.from(words[0]).slice(0, 2).join('').toLocaleUpperCase()
+  return words
+    .slice(0, 2)
+    .map((word) => Array.from(word)[0])
+    .join('')
+    .toLocaleUpperCase()
+}
 
 export default function MessagesPage() {
   const { t } = useTranslation()
@@ -60,60 +77,68 @@ export default function MessagesPage() {
   }, [activities, joinedIds, threadPreviews, search, filter, user.uid])
 
   return (
-    <div className="page-content">
-      <section className="headline-block">
+    <div className="page-content messages-page">
+      <section className="headline-block messages-headline">
         <h2>{t('messages.title')}</h2>
+        <p className="helper-text">{t('messages.subtitle')}</p>
       </section>
 
-      <div className="search-box">
-        <Search size={18} />
-        <input
-          placeholder={t('messages.searchPlaceholder')}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          aria-label={t('messages.searchLabel')}
-        />
-      </div>
-      <div className="chip-row category-row">
-        {FILTERS.map((option) => (
-          <button
-            className={`filter-chip ${filter === option.key ? 'active' : ''}`}
-            key={option.key}
-            onClick={() => setFilter(option.key)}
-            aria-pressed={filter === option.key}
-          >
-            {t(option.label)}
-          </button>
-        ))}
+      <div className="messages-toolbar">
+        <div className="search-box messages-search">
+          <Search size={18} />
+          <input
+            placeholder={t('messages.searchPlaceholder')}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            aria-label={t('messages.searchLabel')}
+          />
+        </div>
+        <div className="chip-row category-row messages-filters">
+          {FILTERS.map((option) => (
+            <button
+              type="button"
+              className={`filter-chip ${filter === option.key ? 'active' : ''}`}
+              key={option.key}
+              onClick={() => setFilter(option.key)}
+              aria-pressed={filter === option.key}
+            >
+              {t(option.label)}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="stack list-stack">
+      <div className={`messages-inbox ${threads.length === 0 ? 'is-empty' : ''}`}>
         {threads.map((activity) => {
           const last = threadPreviews[activity.id]
           return (
             <button
+              type="button"
               className="message-thread nomad-thread"
               key={activity.id}
               data-category={(activity.category || '').toLowerCase()}
               onClick={() => navigate(`/activity/${activity.id}/chat`)}
             >
-              <div className="avatar small cat-avatar">
-                <CategoryIcon category={activity.category} size={16} />
+              <div className="message-thread-avatar" aria-hidden="true">
+                {threadMonogram(activity.title)}
               </div>
-              <div>
+              <div className="message-thread-copy">
                 <strong>{activity.title}</strong>
-                <p>
-                  {last
-                    ? `${personName(last.senderName)}: ${last.text}`
-                    : t('messages.noMessagesYet')}
-                </p>
+                {last ? (
+                  <p className="message-thread-preview">
+                    <span className="message-thread-sender">{personName(last.senderName)}:</span>{' '}
+                    {last.text}
+                  </p>
+                ) : (
+                  <p className="message-thread-preview is-empty">{t('messages.noMessagesYet')}</p>
+                )}
               </div>
-              <span>{formatMessageTime(last?.createdAt)}</span>
+              <time className="message-thread-time">{formatMessageTime(last?.createdAt)}</time>
             </button>
           )
         })}
         {threads.length === 0 && (
-          <div className="empty-state">
+          <div className="empty-state messages-empty">
             <MessageCircle size={30} />
             <h3>
               {search || filter !== 'all' ? t('messages.nothingMatches') : t('messages.noChats')}

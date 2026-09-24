@@ -605,6 +605,7 @@
   },
   "messages": {
     "title": "ข้อความ",
+    "subtitle": "แชทจากกิจกรรมที่คุณจัดและเข้าร่วม",
     "searchPlaceholder": "ค้นหาแชท",
     "searchLabel": "ค้นหาแชท",
     "all": "ทั้งหมด",
