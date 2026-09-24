@@ -3,6 +3,7 @@ import { MessageCircle, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
+import { ActivityPicture } from '../components/SavedPicture'
 import { personName } from '../i18n'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -18,10 +19,10 @@ const FILTERS = [
   { key: 'joined', label: 'messages.joined' },
 ]
 
-// A quiet activity monogram reads like a familiar group-chat avatar. The old
-// saturated category pictograms looked decorative beside every row and made
-// the inbox harder to scan. Array.from keeps a multi-byte first character
-// intact for titles written in any of SmartSync's four languages.
+// A quiet activity monogram keeps the chat head recognizable while an uploaded
+// activity picture loads, and remains as the fallback when there is no usable
+// picture. Array.from keeps a multi-byte first character intact for titles
+// written in any of SmartSync's four languages.
 function threadMonogram(title) {
   const words = String(title || '')
     .trim()
@@ -121,6 +122,7 @@ export default function MessagesPage() {
             >
               <div className="message-thread-avatar" aria-hidden="true">
                 {threadMonogram(activity.title)}
+                <ActivityPicture activity={activity} className="message-thread-picture" />
               </div>
               <div className="message-thread-copy">
                 <strong>{activity.title}</strong>

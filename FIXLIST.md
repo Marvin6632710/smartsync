@@ -27,6 +27,13 @@ The list below is a changelog of _what_ each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
 digging through git.
 
+- **LOCAL — awaiting owner review (2026-09-24)** — Messages inbox chat heads
+  use an uploaded activity picture when available, with the existing title
+  monogram kept as the loading, missing-picture and image-error fallback. The
+  shared version-aware picture loader is reused and images fill the existing
+  laptop/phone shape with `object-fit: cover`; no backend, rules, schema,
+  locale or ADR changed. **957 unit/app tests, lint, format, Maps configuration
+  and build pass.** The laptop layout and fallback were checked locally.
 - **LIVE (`d88393b`, 2026-09-24)** — `/messages` is redesigned as
   one sharper inbox surface rather than a sparse stack of rounded cards. Search
   and All/Hosting/Joined filters share a compact toolbar; conversation rows use

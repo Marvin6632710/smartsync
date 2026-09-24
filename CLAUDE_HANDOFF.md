@@ -3,6 +3,19 @@
 Prepared 2026-09-21. Use the existing local folder:
 `/Users/marvin/Downloads/SmartSync 2`.
 
+## Local follow-up — activity pictures in Messages chat heads (2026-09-24)
+
+**Awaiting localhost owner review; not committed, pushed or deployed.** Each
+Messages inbox row now uses the uploaded activity picture as its chat head when
+one exists. The existing activity-title monogram stays underneath during load
+and remains the fallback for no picture, missing picture data or an image load
+failure. This reuses `ActivityPicture` and its session/version-aware Firestore
+listener; no backend, rules, schema, locale or ADR changed. The image is clipped
+to the existing laptop/phone chat-head shape and uses `object-fit: cover`.
+Changed files are `src/pages/MessagesPage.jsx` and `src/styles.css`.
+**957 unit/app tests pass**; lint, formatting, Maps configuration and build are
+clean. The local laptop layout and no-picture fallback were visually checked.
+
 ## Current release — redesigned Messages inbox (2026-09-24)
 
 **Live in `d88393b`, pushed and deployed to Firebase Hosting after localhost
