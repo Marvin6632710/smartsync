@@ -9,11 +9,10 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; this handoff
 update is documentation only. The application has no half-finished changes.
 
-## Latest continuation — expanded admin powers (2026-09-24)
+## Latest release — expanded admin powers (2026-09-24)
 
-**LOCAL ONLY — built on deployed `main` at `e0bc596`; not committed, pushed or
-deployed. The owner tests on localhost first.** The admin console now covers the
-seven powers the owner approved:
+**LIVE — committed and pushed as `d7d8595`, then deployed 2026-09-24.** The
+admin console now covers the seven powers the owner approved:
 
 1. remove and restore one profile picture, bio or username;
 2. remove and restore one activity picture without taking down the activity;
@@ -70,8 +69,20 @@ announcement access, timed suspension enforcement and content locks. The
 seeded local browser walkthrough covered the admin navigation, empty appeal
 queue, announcement composer, account content/security actions, activity-picture
 action, published-message action, every suspension duration and the user appeal
-page. No destructive action was submitted. The build is ready for the owner's
-localhost review.
+page. No destructive action was submitted.
+
+Release order was Functions, rules, then hosting. All six new Functions are
+listed in production: the five callables `adminContentAction`,
+`adminSecurityAction`, `submitModerationAppeal`, `resolveModerationAppeal` and
+`adminAnnouncementAction`, plus the scheduled `expireTimedSuspensions`. The
+rules compiled and released. Hosting serves `index-w5XzjkvV.js` and
+`index--EhzI9rv.css`; both match the verified local build byte-for-byte by
+SHA-256. The signed-in live `/admin` dashboard loaded real counts and showed
+Appeals and Recent announcements. No production moderation action was run.
+Firebase's deploy output retained two existing non-blocking warnings: the
+`firebase-functions` package is behind the newest release, and
+`onNotificationCreated` is in `us-central1` while its Firestore trigger is in
+`asia-southeast1`.
 
 ## Latest continuation — modern activity schedule picker (2026-09-23)
 
@@ -310,9 +321,10 @@ the balance should fall only with pictures, and slowly.
 
 ## Latest continuation — chat is moderated before delivery (2026-09-23)
 
-**Not committed, not deployed.** Working tree only, for the owner to
-test on localhost first. 908 unit/app tests and 390 rules tests pass;
-lint and build clean.
+**Live since 2026-09-23.** The three chat callables, rules and Hosting were
+deployed in that order. The original local checkpoint had 908 unit/app tests
+and 390 rules tests passing; current totals are recorded in the latest release
+section above.
 
 Built to the owner's 12-point specification: text and image moderation
 for activity chat, enforced on the server, with rules that prevent
@@ -1296,20 +1308,23 @@ did not reset the development data.
 the new picture-collection rules. The owner will do the walkthrough: Profile → Edit
 profile → Choose picture; Create activity or an owned activity's Edit page →
 Choose picture. The previously unverified production composite-index build
-state and live `/admin` walkthrough in §3 remain outstanding.
+state remains outstanding. The signed-in live `/admin` dashboard walkthrough
+was completed with the expanded-admin release above.
 
 ## 1. Where things stand
 
-|                  |                                                                                                                                                                                        |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live             | <https://smartsync-c1f07.web.app> — hosting bundle `index-jHb5xmTm.js`, built from `1adfa05`, released and checksum-verified 2026-09-21                                                |
-| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`; maps implementation `1adfa05`, search `4462773`, photos `355b89f`                                                                 |
-| Deployed         | Hosting as of `1adfa05`; Firestore rules and indexes (including photo-field index exemptions) as of `355b89f`                                                                          |
-| **Not** deployed | Cloud Functions in `functions/` (browser push). They need the Blaze plan and a `VITE_FCM_VAPID_KEY`. The live site has no push notifications, which is what README and DEMO_SCRIPT say |
-| Local state      | Firebase CLI 15.29.0 signed in as the owner on this machine. A dev emulator and Vite dev server may still be running (see §7)                                                          |
+|                  |                                                                                                                                                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Live             | <https://smartsync-c1f07.web.app> — `index-w5XzjkvV.js` + `index--EhzI9rv.css`, built from `d7d8595`, released and checksum-verified 2026-09-24                                                                         |
+| Repo             | `github.com/Marvin6632710/smartsync`, branch `main`; expanded-admin release `d7d8595` is pushed                                                                                                                         |
+| Deployed         | Hosting and rules through `d7d8595`; nine callable Functions and `expireTimedSuspensions` are active                                                                                                                    |
+| **Not** deployed | Browser-push Functions `onNotificationCreated` and `cleanupPushTokens`; they still need the push release decision and a `VITE_FCM_VAPID_KEY`. The live site has inbox notifications but no closed-browser push delivery |
+| Local state      | Firebase CLI signed in as the owner. The dev emulators and Vite server are running for localhost review (see §7)                                                                                                        |
 
 Recent commits, newest first:
 
+- `d7d8595` Expand admin moderation controls — reversible content actions,
+  timed suspensions, appeals, security actions and announcements.
 - `622ed9c` Record the configured and verified Google Maps release.
 - `1adfa05` Replace Leaflet maps with Google Maps for activity discovery and placement — configured restricted browser key/map ID, native markers, preserved saved coordinates, responsive controls, CSP and verification.
 - `78c9093` Record the verified activity-search release.
@@ -1398,7 +1413,7 @@ firestore:indexes` → `--only hosting` → confirmed the live `index.html`
 references the same bundle hash as the local build and that
 `AdminPanel-BD9yL9vj.js` is served → this file → push.
 
-Two things were **not** verified and are the first thing to check:
+One thing is still **not** verified:
 
 1. **Index build state in production.** `firebase deploy --only
 firestore:indexes` returns when the indexes are _submitted_; they build
@@ -1409,9 +1424,6 @@ firestore:indexes` returns when the indexes are _submitted_; they build
    queries `activities` by `status` + `startsAt`) fail with a
    `failed-precondition` "index is building" error. On a dataset this size it
    takes minutes.
-2. **A click-through of `/admin` on the live site with real data.** Testing
-   was against the emulator (by the owner and by me). Only the owner's admin
-   account can do this; see the credentials note in §7.
 
 ## 4. Known bugs, caveats and blockers
 
@@ -1585,9 +1597,8 @@ against `dist/index.html`.
 These are historical console/exhibition suggestions. Follow the owner's next
 feature request; current feature status is in CLAUDE_HANDOFF.md.
 
-1. Check the two new indexes are _Enabled_ in the Firebase console, then have
-   the owner open `/admin` live and walk the five sections once with real
-   data.
+1. Check the two new indexes are _Enabled_ in the Firebase console. The live
+   `/admin` dashboard and new navigation already loaded with real data.
 2. Exhibition items only the owner can do (ROADMAP): D-03 backup video, D-04
    report and slides, D-02 three timed rehearsals. If the console will be
    shown, add a 30-second segment to DEMO_SCRIPT.md: Reports → claim → decide

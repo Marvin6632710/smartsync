@@ -27,16 +27,16 @@ The list below is a changelog of _what_ each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
 digging through git.
 
-- **LOCAL, READY FOR OWNER REVIEW (2026-09-24)** — the admin console gains seven
+- **LIVE (`d7d8595`, 2026-09-24)** — the admin console gains seven
   approved powers: reversible profile fields, activity pictures and published
   messages; timed suspension; appeals; security session/reset actions; and
   targeted expiring announcements. Sensitive changes run through callable
   Functions, preserve removed originals in a server-only vault, write an audit
   row, notify the affected account and are backed by rules that stop a direct
   client bypass. Appeal decisions use an action token and short review lease so
-  an old or overlapping review cannot reverse the wrong action. Automated checks
-  and the seeded browser walkthrough pass. Not committed or deployed; localhost
-  review comes first.
+  an old or overlapping review cannot reverse the wrong action. Automated checks,
+  the seeded browser walkthrough and a read-only live dashboard check pass. Six
+  Functions, rules and the checksum-matched Hosting build are deployed.
 - **LIVE (`481ecae`, 2026-09-23)** — activity creation and editing
   use a SmartSync-styled calendar and alarm-like time dial instead of Safari's
   native date/time popovers. Today/Tomorrow and common-time shortcuts speed up

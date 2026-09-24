@@ -1,9 +1,9 @@
 # SmartSync — handing the work to another agent
 
-Updated 2026-09-24. Deployed `main` is clean at `e0bc596`; the expanded admin
-powers described below are a local working tree on top of it and must not be
-committed, pushed or deployed before the owner tests them. This is the briefing for a fresh agent with none of the
-conversation behind it. Read this first, then
+Updated 2026-09-24. Expanded admin powers shipped in `d7d8595`: the commit is
+on `origin/main`, six new Functions and the rules are live, and Hosting serves
+the checksum-verified build. This is the briefing for a fresh agent with none
+of the conversation behind it. Read this first, then
 [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md) for the feature-by-feature state
 and [HANDOFF.md](HANDOFF.md) for what each recent change actually did.
 
@@ -142,22 +142,22 @@ independently of the form.
 
 Ordered by what would hurt most to leave undone before Friday.
 
-| #   | Item                                      | Notes                                                                                                                                                                                                                                                                                            |
-| --- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 0   | **Owner review of expanded admin powers** | Seven approved powers are built and verified locally: reversible content moderation, timed suspension, appeals, account-security actions and announcements. The seeded browser walkthrough and all automated checks pass. Let the owner test localhost; do not commit or deploy until requested. |
-| 1   | **Demo accounts have no date of birth**   | Every existing account is asked once on next entry — including the demo ones. Sign in to each on the live site and answer it, or an audience meets the age screen first. **Owner's job; needs the live password.**                                                                               |
-| 2   | **B-08 data export**                      | `firebase firestore:export` before the defence so a bad write is recoverable. Cheap insurance.                                                                                                                                                                                                   |
-| 3   | **D-03 backup demo video**                | So venue wifi failing is not a failed defence.                                                                                                                                                                                                                                                   |
-| 4   | **B-09 accessibility sweep**              | Keyboard-only pass through the main flow plus a contrast check. Often explicitly on the rubric.                                                                                                                                                                                                  |
-| 5   | **B-07 quota sanity check**               | Confirm a demo session is nowhere near the read limits; do not leave tabs holding listeners open overnight.                                                                                                                                                                                      |
-| 6   | **D-04 report and slides**                | Most required artefacts (SRS, UML, test matrix) can be pulled straight from this repo.                                                                                                                                                                                                           |
+| #   | Item                                    | Notes                                                                                                                                                                                                              |
+| --- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Demo accounts have no date of birth** | Every existing account is asked once on next entry — including the demo ones. Sign in to each on the live site and answer it, or an audience meets the age screen first. **Owner's job; needs the live password.** |
+| 2   | **B-08 data export**                    | `firebase firestore:export` before the defence so a bad write is recoverable. Cheap insurance.                                                                                                                     |
+| 3   | **D-03 backup demo video**              | So venue wifi failing is not a failed defence.                                                                                                                                                                     |
+| 4   | **B-09 accessibility sweep**            | Keyboard-only pass through the main flow plus a contrast check. Often explicitly on the rubric.                                                                                                                    |
+| 5   | **B-07 quota sanity check**             | Confirm a demo session is nowhere near the read limits; do not leave tabs holding listeners open overnight.                                                                                                        |
+| 6   | **D-04 report and slides**              | Most required artefacts (SRS, UML, test matrix) can be pulled straight from this repo.                                                                                                                             |
 
 ### Known gaps that are _not_ bugs — do not "fix" them by accident
 
-- **`onNotificationCreated` has never been deployed.** Only four
-  callables exist in production (`firebase functions:list` shows them).
-  Browser push writes the inbox record but delivers no push. Deploying
-  it is a real change with real cost; it is a decision, not a chore.
+- **`onNotificationCreated` and `cleanupPushTokens` have never been deployed.**
+  Production currently has nine callables and the timed-suspension scheduler;
+  `firebase functions:list` shows them. Browser push writes the inbox record
+  but delivers no push. Deploying the push pair is a real change with real
+  cost; it is a decision, not a chore.
 - **`moderationBlocks` are never deleted.** Held copies of refused
   messages stay for the retention window. A scheduled cleanup needs
   Cloud Scheduler and has not been written.
