@@ -11,15 +11,17 @@ Read this first, then
 [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md) for the feature-by-feature state
 and [HANDOFF.md](HANDOFF.md) for what each recent change actually did.
 
-**Local follow-up awaiting owner review; not committed, pushed or deployed.**
-Messages inbox chat heads now show an activity's uploaded picture when it has
-one, using the existing `ActivityPicture` loader. Title monograms remain as the
-loading, missing-picture and image-error fallback. The picture fills the current
-rounded-square head with `object-fit: cover` at laptop and phone sizes. Only
-`src/pages/MessagesPage.jsx` and `src/styles.css` changed; there is no backend,
-rules, schema, locale or ADR change. **957 unit/app tests pass**; lint, Prettier,
-Maps configuration and build are clean. The local laptop layout and monogram
-fallback were visually checked.
+**Latest live release, 2026-09-24: `184522e`, pushed and deployed after
+localhost owner review.** Messages inbox chat heads now show an activity's
+uploaded picture when it has one, using the existing `ActivityPicture` loader.
+Title monograms remain as the loading, missing-picture and image-error fallback.
+The picture fills the current rounded-square head with `object-fit: cover` at
+laptop and phone sizes. Only `src/pages/MessagesPage.jsx` and `src/styles.css`
+changed; there is no backend, rules, schema, locale or ADR change. **957
+unit/app tests pass**; lint, Prettier, Maps configuration and build are clean.
+The local laptop layout and monogram fallback were visually checked. Hosting
+serves checksum-matched `index-DuHFLmUQ.js` and `index-Cen28VRE.css`, and the
+live `/messages` route returns HTTP 200.
 
 **Latest live release, 2026-09-24: `d88393b`, pushed and deployed after
 localhost owner review.** `/messages` is now a modern, medium-width inbox:

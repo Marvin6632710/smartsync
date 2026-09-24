@@ -10,20 +10,22 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; later release
 records below carry the current state.
 
-## Local follow-up — activity pictures in Messages chat heads (2026-09-24)
+## Latest release — activity pictures in Messages chat heads (2026-09-24)
 
-**LOCAL ONLY — awaiting owner review; not committed, pushed or deployed.** A
-conversation row now fills its existing chat head with the activity's uploaded
-picture when `pictureVersion` is present. The title monogram remains underneath
-while the picture loads and is shown whenever the activity has no picture, the
-saved picture is missing, or the image cannot load. The same bounded Firestore
-picture component and version-aware listener used by cards and activity details
-are reused; there is no data-model, rules, Function, locale or ADR change.
-`object-fit: cover` keeps the current rounded-square proportions on laptop and
-phone without stretching. Files: `src/pages/MessagesPage.jsx` and
+**LIVE — committed and pushed as `184522e`; Firebase Hosting deployed
+2026-09-24.** A conversation row now fills its existing chat head with the
+activity's uploaded picture when `pictureVersion` is present. The title monogram
+remains underneath while the picture loads and is shown whenever the activity
+has no picture, the saved picture is missing, or the image cannot load. The same
+bounded Firestore picture component and version-aware listener used by cards and
+activity details are reused; there is no data-model, rules, Function, locale or
+ADR change. `object-fit: cover` keeps the current rounded-square proportions on
+laptop and phone without stretching. Files: `src/pages/MessagesPage.jsx` and
 `src/styles.css`. **957/957 unit/app tests pass**; lint, Prettier, Maps
 configuration and the production build are clean. The local Messages page was
-checked at laptop width and its no-picture fallback renders correctly.
+checked at laptop width and its no-picture fallback renders correctly. Hosting
+serves `index-DuHFLmUQ.js` and `index-Cen28VRE.css`; both match the verified
+local build byte-for-byte, and `/messages` returns HTTP 200.
 
 ## Latest release — redesigned Messages inbox (2026-09-24)
 
