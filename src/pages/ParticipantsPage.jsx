@@ -49,7 +49,7 @@ export default function ParticipantsPage() {
           capacity: activity.capacity,
         })}
       </p>
-      <div className="stack">
+      <div className="stack people-grid">
         {participants.map((person) => (
           <div className="person-card" key={person.uid}>
             <div className="avatar">

@@ -2093,6 +2093,13 @@ select:focus-visible {
   border-radius: var(--r-md);
   grid-template-columns: 1fr auto;
 }
+/* With an icon there are three things in the row, and two columns sent the
+   switch onto a second line underneath — which is what the block offer in
+   the report dialog has been doing. Settings rows already have the three
+   columns; this only restores them where the icon is present. */
+.compact-row:has(> svg) {
+  grid-template-columns: auto 1fr auto;
+}
 /* The words stack here as they do in a settings row — which keys on the
    span being second, after an icon this row does not always have. */
 .compact-row > span:first-of-type {
@@ -3990,38 +3997,123 @@ input[type='range'] {
   color: var(--danger, #dc2626);
 }
 
+/* --- Reporting: the dialog itself -----------------------------------
+   The longest dialog in the app, and until now it wore the shortest
+   one's box: 320px wide at every size, with a legend, six chips, a text
+   area, a switch, two buttons and a safety note stacked inside it and
+   the whole lot left to scroll. On a laptop that is a phone screen
+   floating in the middle of a monitor, and Send was usually the part
+   below the fold.
+
+   So it is built as three parts instead of one scrolling column — who
+   is being reported, the form, and the actions — with only the middle
+   part scrolling. The frame then has somewhere to go as the screen
+   grows: a sheet off the bottom edge on a phone, where the actions sit
+   under the thumb and survive the keyboard opening, and a centred card
+   from a tablet up, where the note moves alongside the buttons rather
+   than pushing them further down. */
+
+.report-backdrop {
+  /* A sheet on a phone: the full width of the screen, off the bottom.
+     Centred at this size the box is narrower than the content wants and
+     the safety note ends up scrolled away from the button it qualifies. */
+  align-items: end;
+  padding: 0;
+}
 .report-dialog {
   display: grid;
-  gap: 12px;
+  /* Head, the part that scrolls, actions. minmax(0, …) or a long enough
+     body refuses to shrink and pushes the actions off the bottom again. */
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-width: none;
+  max-height: 92vh;
+  max-height: 92dvh;
+  padding: 0;
   text-align: left;
-  max-height: min(86vh, 640px);
-  overflow-y: auto;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  border-bottom: 0;
 }
-.report-dialog h3 {
-  display: flex;
+
+.report-dialog-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding: 12px 12px 12px 16px;
+  border-bottom: 1px solid var(--line);
 }
-.report-subject {
-  margin: -6px 0 0;
+/* The flag was inline in the heading, where at 17px beside 18px text it
+   read as a bullet. Given a tile in the warning colour it says what kind
+   of dialog this is before the sentence does. */
+.report-dialog-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-line);
+  color: var(--danger);
+}
+.report-dialog-titles {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.report-dialog-titles h3 {
+  margin: 0;
+  font-size: var(--t-h2);
+}
+.report-dialog-titles .report-subject {
+  margin: 0;
   font-size: var(--t-sm);
   color: var(--ink-soft);
   overflow-wrap: anywhere;
 }
+.report-dialog-close {
+  justify-self: end;
+}
+
+.report-dialog-body {
+  display: grid;
+  gap: 16px;
+  /* Otherwise three short rows stretch to fill a tall sheet. */
+  align-content: start;
+  padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.report-dialog-body > .form-error {
+  margin: 0;
+}
 
 .report-reasons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
+  display: block;
   margin: 0;
   padding: 0;
   border: none;
+  /* A fieldset's default min-width is min-content, which in a grid lets
+     the longest reason set the width of the dialog. */
+  min-width: 0;
 }
 .report-reasons legend {
   padding: 0 0 8px;
   font-size: var(--t-tiny);
   font-weight: var(--w-medium);
   color: var(--ink-soft);
+}
+/* Six labels of unequal length wrapped into a ragged block, which is
+   most of what made this read as a phone screen. Equal cells instead:
+   two across on a phone, three once there is room for them. */
+.report-reason-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.report-reason-grid .interest-chip {
+  min-height: 48px;
+  padding: 10px 12px;
+  line-height: 1.3;
 }
 
 .report-detail {
@@ -4052,14 +4144,83 @@ input[type='range'] {
   background: var(--surface);
   resize: vertical;
 }
+.report-dialog .report-detail textarea {
+  min-height: 92px;
+}
 
-.report-note {
+.report-dialog-foot {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  /* Clears the home indicator on a phone, where this is a sheet sitting
+     on the bottom edge of the screen. */
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.report-dialog-foot .report-note {
   margin: 0;
   font-size: var(--t-tiny);
   line-height: 1.45;
   color: var(--ink-soft);
-  border-top: 1px solid var(--line);
-  padding-top: 10px;
+}
+
+/* From a tablet up it stops being a sheet and becomes a card: centred,
+   wide enough for the reasons to sit three across, and with the safety
+   note moved beside the buttons instead of above them. Both overrides
+   below beat `.dialog .button-row > *` on order, not specificity — they
+   are the same weight and simply come later in the file. */
+@media (min-width: 720px) {
+  .report-backdrop {
+    align-items: center;
+    padding: 24px;
+  }
+  .report-dialog {
+    max-width: 600px;
+    max-height: min(720px, 92vh);
+    max-height: min(720px, 92dvh);
+    border-radius: var(--r-xl);
+    border-bottom: 1px solid var(--line);
+  }
+  .report-dialog-head {
+    padding: 16px 16px 16px 22px;
+  }
+  .report-dialog-body {
+    gap: 20px;
+    padding: 20px 22px;
+  }
+  .report-reason-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .report-dialog-foot {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+    padding: 16px 22px;
+  }
+  .report-dialog-foot .button-row {
+    justify-content: flex-end;
+  }
+  /* Sized to their words. Two buttons stretched across a 600px dialog is
+     the phone layout wearing a laptop's width. */
+  .report-dialog-foot .button-row > * {
+    flex: 0 0 auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .report-dialog {
+    max-width: 640px;
+  }
+  .report-dialog-head {
+    padding: 18px 18px 18px 24px;
+  }
+  .report-dialog-body {
+    padding: 24px;
+  }
+  .report-dialog-foot {
+    padding: 18px 24px;
+  }
 }
 
 /* ==========================================================================
@@ -6929,7 +7090,11 @@ button.celebration-toast:hover {
   }
   .page-scroll[data-view='messages'],
   .page-scroll[data-view='moderation'],
-  .page-scroll[data-view='matching'] {
+  .page-scroll[data-view='matching'],
+  /* A roster is a set of people to compare, the same as the matching
+     page, and at the narrow width its cards were a phone's list left
+     alone in the middle of a laptop. */
+  .page-scroll[data-view='activity-participants'] {
     --page-max: var(--content-medium);
   }
   .page-bar {

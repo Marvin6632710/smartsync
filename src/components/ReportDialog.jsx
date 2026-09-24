@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Flag, ShieldOff } from 'lucide-react'
+import { Flag, ShieldOff, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { REPORT_REASONS } from '../firebase/moderation'
@@ -25,6 +25,12 @@ import { useApp } from '../context/AppContext'
  * It never claims more than it can do. The closing message says the report was
  * sent and will be reviewed — not that action has been taken, which nobody
  * here is in a position to promise.
+ *
+ * The frame is three parts — head, a body that scrolls, and actions that do
+ * not — because this is the longest dialog in the app and it used to be the
+ * shortest one's box: a 320px card whose content simply ran past the bottom
+ * of the window, taking Send with it. Pinning the actions means the way out
+ * is in the same place on a phone with the keyboard up and on a laptop.
  */
 export default function ReportDialog({ open, subject, onClose }) {
   const { t } = useTranslation()
@@ -129,7 +135,7 @@ export default function ReportDialog({ open, subject, onClose }) {
   }
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
+    <div className="dialog-backdrop report-backdrop" onClick={onClose}>
       <div
         className="dialog report-dialog"
         role="dialog"
@@ -138,71 +144,97 @@ export default function ReportDialog({ open, subject, onClose }) {
         ref={dialogRef}
         onClick={(event) => event.stopPropagation()}
       >
-        <h3 id="report-title">
-          <Flag size={17} /> {t('report.title', { label: t(subject.label) })}
-        </h3>
-        <p className="report-subject">{personName(subject.name)}</p>
-        {earlier && (
-          <p className="form-error" role="status">
-            {t('report.earlierFailed', {
-              reason: unsentErrorText(earlier.error, earlier.kind) || t('report.earlierRefused'),
-            })}
-          </p>
-        )}
-
-        <fieldset className="report-reasons">
-          <legend>{t('report.whatIsWrong')}</legend>
-          {REPORT_REASONS.map((option, index) => (
-            <button
-              key={option.key}
-              type="button"
-              ref={index === 0 ? firstRef : null}
-              className={`interest-chip ${reason === option.key ? 'selected' : ''}`}
-              onClick={() => setReason(option.key)}
-              aria-pressed={reason === option.key}
-            >
-              {reportReasonLabel(option.key)}
-            </button>
-          ))}
-        </fieldset>
-
-        <label className="report-detail">
-          {t('report.anythingElse')} <span className="optional">{t('common.optional')}</span>
-          <textarea
-            rows="3"
-            value={detail}
-            onChange={(event) => setDetail(event.target.value)}
-            maxLength={1000}
-            placeholder={t('report.detailPlaceholder')}
-          />
-        </label>
-
-        {isPerson && !alreadyBlocked && (
+        <div className="report-dialog-head">
+          <span className="report-dialog-mark" aria-hidden="true">
+            <Flag size={18} />
+          </span>
+          <span className="report-dialog-titles">
+            <h3 id="report-title">{t('report.title', { label: t(subject.label) })}</h3>
+            <p className="report-subject">{personName(subject.name)}</p>
+          </span>
           <button
             type="button"
-            className="setting-row compact-row"
-            onClick={() => setAlsoBlock((current) => !current)}
-            role="switch"
-            aria-checked={alsoBlock}
+            className="icon-button slim report-dialog-close"
+            onClick={onClose}
+            aria-label={t('common.close')}
           >
-            <ShieldOff size={17} />
-            <span>
-              <strong>{t('report.alsoBlock')}</strong>
-              <small>{t('report.alsoBlockHint')}</small>
-            </span>
-            <span className={`switch ${alsoBlock ? 'on' : ''}`} aria-hidden="true" />
-          </button>
-        )}
-
-        <div className="button-row">
-          <button className="secondary-button" onClick={onClose} disabled={busy}>
-            {t('common.cancel')}
-          </button>
-          <button className="danger-button" onClick={send} disabled={!reason || busy}>
-            {busy ? t('report.sending') : t('report.send')}
+            <X size={18} />
           </button>
         </div>
-        <p className="report-note">{t('report.note')}</p>
+
+        <div className="report-dialog-body">
+          {earlier && (
+            <p className="form-error" role="status">
+              {t('report.earlierFailed', {
+                reason: unsentErrorText(earlier.error, earlier.kind) || t('report.earlierRefused'),
+              })}
+            </p>
+          )}
+
+          <fieldset className="report-reasons">
+            <legend>{t('report.whatIsWrong')}</legend>
+            {/* A grid rather than a wrapped row: six labels of unequal
+                length wrap raggedly, and the ragged block is most of what
+                made this read as a phone screen on a laptop. Equal cells
+                also give every reason the same size target. */}
+            <div className="report-reason-grid">
+              {REPORT_REASONS.map((option, index) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  ref={index === 0 ? firstRef : null}
+                  className={`interest-chip ${reason === option.key ? 'selected' : ''}`}
+                  onClick={() => setReason(option.key)}
+                  aria-pressed={reason === option.key}
+                >
+                  {reportReasonLabel(option.key)}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <label className="report-detail">
+            <span className="field-label">
+              {t('report.anythingElse')} <span className="optional">{t('common.optional')}</span>
+            </span>
+            <textarea
+              rows="3"
+              value={detail}
+              onChange={(event) => setDetail(event.target.value)}
+              maxLength={1000}
+              placeholder={t('report.detailPlaceholder')}
+            />
+          </label>
+
+          {isPerson && !alreadyBlocked && (
+            <button
+              type="button"
+              className="setting-row compact-row"
+              onClick={() => setAlsoBlock((current) => !current)}
+              role="switch"
+              aria-checked={alsoBlock}
+            >
+              <ShieldOff size={17} />
+              <span>
+                <strong>{t('report.alsoBlock')}</strong>
+                <small>{t('report.alsoBlockHint')}</small>
+              </span>
+              <span className={`switch ${alsoBlock ? 'on' : ''}`} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+
+        <div className="report-dialog-foot">
+          <p className="report-note">{t('report.note')}</p>
+          <div className="button-row">
+            <button className="secondary-button" onClick={onClose} disabled={busy}>
+              {t('common.cancel')}
+            </button>
+            <button className="danger-button" onClick={send} disabled={!reason || busy}>
+              {busy ? t('report.sending') : t('report.send')}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
