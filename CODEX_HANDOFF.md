@@ -1,18 +1,18 @@
 # SmartSync — handing the work to another agent
 
-Updated 2026-09-24. The latest source release is a pushed Messages-page
-redesign that has not been deployed. The earlier source/data release renamed
-two demo identities and granted both active admin rows; the underlying live
-application remains the moderated-chat build from `6b323f6`. Source is on
-`origin/main`, `sendChatMessageCall` is active, and Hosting still serves the
-previous checksum-verified build.
+Updated 2026-09-24. The latest live release is the Messages-page redesign in
+`d88393b`. The earlier source/data release renamed two demo identities and
+granted both active admin rows; the underlying live
+application retains the moderated-chat Function from `6b323f6`. Source is on
+`origin/main`, `sendChatMessageCall` is active, and Hosting serves the
+checksum-verified Messages build.
 This is the briefing for a fresh agent with none of the conversation behind it.
 Read this first, then
 [CLAUDE_HANDOFF.md](CLAUDE_HANDOFF.md) for the feature-by-feature state
 and [HANDOFF.md](HANDOFF.md) for what each recent change actually did.
 
-**Latest source release, 2026-09-24: committed and pushed after localhost
-owner review; not deployed.** `/messages` is now a modern, medium-width inbox:
+**Latest live release, 2026-09-24: `d88393b`, pushed and deployed after
+localhost owner review.** `/messages` is now a modern, medium-width inbox:
 a compact search/filter toolbar and one divided conversation surface replace
 the sparse stack of rounded cards. Bright circular category pictograms are
 replaced by calm activity-title monograms with slim category-colour rails, and
@@ -22,6 +22,8 @@ navigation behavior is unchanged. The subtitle is translated in all four
 locales. Local dark-mode phone and 1440 px checks passed, including search and
 Hosting filtering; **957 unit/app tests pass**, with lint, Prettier, Maps
 configuration and build clean. No rules, Functions, data model or ADR changed.
+Hosting serves `index-B2Rs0uVj.js` and `index-CVU3-Yd0.css`; both live files
+match the local build byte-for-byte, and `/messages` returns HTTP 200.
 
 **Latest data/source release, 2026-09-24: committed, pushed and verified; Hosting
 redeployed.** The existing demo-account UIDs and passwords were preserved while

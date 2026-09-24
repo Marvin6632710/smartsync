@@ -27,7 +27,7 @@ The list below is a changelog of _what_ each fix actually changed, not a
 second status list — it exists so you can see the shape of a fix without
 digging through git.
 
-- **PUSHED / not deployed (2026-09-24)** — `/messages` is redesigned as
+- **LIVE (`d88393b`, 2026-09-24)** — `/messages` is redesigned as
   one sharper inbox surface rather than a sparse stack of rounded cards. Search
   and All/Hosting/Joined filters share a compact toolbar; conversation rows use
   dividers, clearer sender/preview/time hierarchy, quiet title monograms and a
@@ -35,7 +35,8 @@ digging through git.
   Laptop width increases to the medium page column and the phone layout keeps
   touch-sized controls. All data selection, sorting, search, filters and
   navigation are unchanged. Four locales are current; **957 unit/app tests,
-  lint, format, Maps configuration and build pass.**
+  lint, format, Maps configuration and build pass.** Hosting assets match the
+  local build by checksum and the live route returns HTTP 200.
 - **LIVE (2026-09-24)** — renamed two existing demo
   identities without changing their UIDs or passwords: Alex Chen is now Zwe
   Khat Lin at `marvin@smart.sync.demo`; Maya Rahman is now Chaw Yadanar Oo at

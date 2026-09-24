@@ -10,10 +10,10 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; later release
 records below carry the current state.
 
-## Latest source release — redesigned Messages inbox (2026-09-24)
+## Latest release — redesigned Messages inbox (2026-09-24)
 
-**Committed and pushed at the owner's request; not deployed.** `/messages` now
-reads as one modern inbox instead of a loose
+**LIVE — committed and pushed as `d88393b`; Firebase Hosting deployed
+2026-09-24.** `/messages` now reads as one modern inbox instead of a loose
 stack of oversized cards. The page has a clear title and short explanation, a
 single search/filter toolbar, and one bordered conversation surface with
 compact divided rows. The saturated circular category pictograms were replaced
@@ -30,6 +30,8 @@ locales. Files: `src/pages/MessagesPage.jsx`, `src/styles.css` and the four
 The local page was checked at phone and 1440 px laptop widths in dark mode;
 search and Hosting filtering were exercised. **957/957 unit/app tests pass**;
 lint, Prettier, Maps configuration and the production build are clean.
+Hosting serves `index-B2Rs0uVj.js` and `index-CVU3-Yd0.css`; both match the
+verified local build byte-for-byte by SHA-256, and `/messages` returns HTTP 200.
 
 ## Latest data/source release — renamed admin demo identities (2026-09-24)
 
