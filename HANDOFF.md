@@ -10,7 +10,57 @@ for the current release, local setup, feature status and continuation steps.
 Prepared 2026-09-21 from clean, synchronized `main` at `622ed9c`; later release
 records below carry the current state.
 
-## Latest continuation — the report dialog on a laptop (2026-09-24)
+## Latest continuation — People for you, collapsed (2026-09-24)
+
+**Live: `38a8b4c`, pushed, hosting deployed** (`index-Bv6aR49u.css` and
+`index-CP8WBQWJ.js`, both checksum-matched, site returns 200). 968
+unit/app tests; lint, format and build clean.
+
+Reported as "the info of the users is too tight". Every card on
+`/matching` showed everything at once — name, score, six interest chips,
+two fact pills, and a bordered box with its own heading and sentence
+around the follow button. Ten people is ten walls of text with nothing to
+compare, and the page is a list to skim.
+
+A card is now the avatar, the name with its score beside it, the one line
+saying why they are ranked there, and the follow button. Pressing the
+person opens the rest: what you share, when they are usually free, and
+their interests. **The person is the control, not the chevron** — a
+chevron alone is a fingernail-sized target, and "who is this?" and "tell
+me more" are the same question. Collapsed cards measure 148px on a laptop
+and 134–150 on a phone.
+
+**Each card opens on its own, deliberately.** An accordion would make
+having two people open at once impossible, which is the one thing this
+page is for. `.stack.people-grid` also stopped stretching its rows, or a
+card beside an open one grew tall and half empty.
+
+**The score means something now.** Every pill was the same purple, so 33%
+looked as important as 80% and the number was decoration. It is filled at
+or above `SIMILAR_USER_THRESHOLD` and quiet below — the constant the picks
+request already uses to call somebody similar, rather than a number chosen
+to make the pill look good.
+
+Smaller: the score moved onto the name line, because at the card's edge it
+squeezed the name into a column too narrow to hold one; the report flag
+lost its border until hover, since a bordered circle beside every face
+read as a list of suspects; the fact labels share one grid so the values
+line up; and two cards fit across a tablet now they are short, which also
+stops the follow button becoming a 700px pill.
+
+`src/pages/UserMatchingPage.jsx`, `src/styles.css`, three new strings in
+the four locales, and `tests/app/userMatching.test.jsx` (7 tests: the
+drawer starts shut, pressing opens it, one card does not open or close
+another, and the score tier follows the threshold rather than a literal).
+No backend, rules, schema or ADR change.
+
+**Known and untouched:** `.people-match-banner` (the card on AI Picks that
+links here) sets `box-shadow: var(--shadow-md)`, and no `--shadow-md`
+token exists — it has been rendering no shadow at all. One word to fix
+(`--shadow`); left alone because it changes a different page and the owner
+had not asked.
+
+## Continuation — the report dialog on a laptop (2026-09-24)
 
 **Live: `e8c37e7`, pushed, hosting deployed** (`index-DXX6Bll3.css`,
 checksum-matched against the local build, site returns 200). 961 unit/app

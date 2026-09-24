@@ -328,6 +328,34 @@ three. Details in README.md; the parts worth knowing here:
   **961 unit/app and 402 rules tests pass**; lint, format and build clean.
   Hosting serves checksum-matched `index-DXX6Bll3.css`; the site returns
   HTTP 200.
+- **People for you shows a person and a decision, 2026-09-24 (`38a8b4c`,
+  pushed and deployed)** — every card showed everything at once: the name,
+  the score, six interest chips, two fact pills and a bordered box with its
+  own heading and sentence wrapped around the follow button. Ten people is
+  ten walls of text with nothing to compare, and this page is a list to
+  skim. A card is now the **avatar, the name with its score beside it, the
+  one line saying why, and the button**; pressing the person opens what you
+  share, when they are usually free and what they are into. The **person is
+  the control**, not the chevron — a chevron alone is a fingernail-sized
+  target, and "who is this?" and "tell me more" are the same question.
+  **Each card opens on its own**: an accordion would make having two people
+  open at once impossible, which is the one thing this page is for, and
+  `.stack.people-grid` stopped stretching its rows for the same reason.
+  **The score means something now** — every pill was the same purple, so
+  33% looked as important as 80%; it is filled at or above
+  `SIMILAR_USER_THRESHOLD` and quiet below, reusing the constant the picks
+  request already uses rather than a number chosen to look good. Smaller
+  things: the score moved onto the name line (at the card's edge it
+  squeezed the name into a column too narrow to hold one), the report flag
+  lost its border until hover (a bordered circle beside every face read as
+  a list of suspects), the fact labels share one grid so the values align,
+  and two cards fit across a tablet now they are short. Collapsed cards
+  measure 148px on a laptop and 134–150 on a phone. Three new strings in
+  en/th/my/zh; no backend, rules, schema or ADR change.
+  `tests/app/userMatching.test.jsx` adds **7 tests** on the parts that
+  would quietly come undone. **968 unit/app tests pass**; lint, format and
+  build clean. Hosting serves checksum-matched `index-Bv6aR49u.css` and
+  `index-CP8WBQWJ.js`; the site returns HTTP 200.
 - **A minimum age of fifteen, 2026-09-23** — asked at sign-up and, for
   accounts that predate the gate, on a screen above every other route
   except a closed account (interests are something somebody makes;
