@@ -26,6 +26,7 @@ Cloud Firestore) on the back end.
 11. [How chat moderation works](#11-how-chat-moderation-works)
 12. [Testing](#12-testing)
 13. [Known limits](#13-known-limits)
+14. [The team](#14-the-team)
 
 ---
 
@@ -1001,3 +1002,20 @@ Honest about what is not there:
 - **Blocking hides, it does not conceal.** Somebody you blocked cannot join
   your activities or reach you, and you stop seeing them everywhere — but they
   are not told, and their own view of public activity listings is unchanged.
+
+---
+
+## 14. The team
+
+Who built what. Each person edits their own row — one line, their own
+commit, from their own account.
+
+| Name | GitHub | What they worked on |
+| ---- | ------ | ------------------- |
+| Marvin | [@Marvin6632710](https://github.com/Marvin6632710) | Application, security rules, moderation, deployment |
+| Chaw Yadanar Oo | | |
+| | | |
+| | | |
+
+Add yourself by filling in your row, or add a new one if there is no blank
+left. Keep it to one line; the detail belongs in the report.
