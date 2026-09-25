@@ -1010,12 +1010,12 @@ Honest about what is not there:
 Who built what. Each person edits their own row — one line, their own
 commit, from their own account.
 
-| Name | GitHub | What they worked on |
-| ---- | ------ | ------------------- |
-| Marvin | [@Marvin6632710](https://github.com/Marvin6632710) | Application, security rules, moderation, deployment |
-| Chaw Yadanar Oo | | |
-| | | |
-| | | |
+| Name            | GitHub                                             | What they worked on                                 |
+| --------------- | -------------------------------------------------- | --------------------------------------------------- |
+| Marvin          | [@Marvin6632710](https://github.com/Marvin6632710) | Application, security rules, moderation, deployment |
+| Chaw Yadanar Oo |                                                    |                                                     |
+|                 |                                                    |                                                     |
+|                 |                                                    |                                                     |
 
 Add yourself by filling in your row, or add a new one if there is no blank
 left. Keep it to one line; the detail belongs in the report.
