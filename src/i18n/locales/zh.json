@@ -1470,6 +1470,20 @@
       "recent": "近期审核",
       "allHistory": "全部历史",
       "decided": "已决定的举报"
+    },
+    "charts": {
+      "workload": "工作量",
+      "perDay": "最近 {{days}} 天的管理操作",
+      "reasons": "举报的原因",
+      "reportOutcomes": "举报的处理结果",
+      "activitiesSplit": "按状态划分的活动",
+      "otherReason": "已不再提供的原因",
+      "nothingYet": "此期间没有管理操作。",
+      "noReports": "还没有人提交举报。",
+      "notKnown": "超出已加载的范围",
+      "notCounted": "无法统计——参见上方说明。",
+      "windowed": "根据已加载的数据绘制，最早回溯到 {{since}}。更早的日期标为未知，而不是零。",
+      "wholeRecord": "已加载的数据涵盖全部记录，因此这里的每一天都已统计。"
     }
   },
   "pictures": {

@@ -2078,3 +2078,80 @@ half-filled form, and the map already owns dragging). Keeping the pull distance
 in React state (sixty renders of the whole shell per second to move a spinner).
 Leaving the refreshing message in the page and asking the reader to scroll back
 up to see it.
+
+## ADR-037 — The console's figures gain three charts, one hue each, and days outside the window are drawn as unknown
+
+**Context.** The overview was entirely figures. That was a deliberate
+starting point — every number on it is one the data actually supports, and
+the "active users" a dashboard usually leads with is absent because nothing
+records when somebody was last here. But a total says how many and cannot
+say what shape. "Forty reports" does not say whether they are arriving
+faster than they are decided, and nothing on the page said what people
+were reporting, although every report carries a reason. Raised by the
+project's supervisor, who asked for a chart; the question of _which_ chart
+is the part worth recording.
+
+**Decision.** Three, each answering something a figure on that page could
+not, with every existing figure kept. A bar answers "what is the split";
+a number answers "how many"; neither does the other's job.
+
+**1. Moderation actions per day, fourteen days.** A column chart over the
+log, the warnings and the decided reports — the same three records the
+history timeline joins. This is the one that shows a trend, which is the
+thing no total can.
+
+**2. Why people report.** Horizontal bars over every report's reason,
+ranked. A reason nobody chose keeps its row at nought, because on a
+moderation screen that is a finding rather than an absence.
+
+**3. Two part-to-whole bars.** Report outcomes and activity statuses, from
+the same server counts as the tiles directly above them.
+
+**4. One hue per chart, and the split bars use steps rather than colours.**
+The obvious choice was the console's own state palette, and it is wrong
+here — measured, not assumed. The console accent and `--success` are 3.6
+apart in OKLab, and `--warning` and `--danger` 3.5 apart under
+deuteranopia. As words on a badge that is invisible; as two segments of one
+bar it means the bar cannot be read. So the split bars are three steps of a
+single hue and let lightness carry the order, which no colour vision can
+lose. The light and dark ramps are chosen separately against the surface
+each is drawn on rather than one being a flip of the other, and the middle
+step of the light ramp is the console accent itself. The two single-series
+charts need no palette at all: one hue for every bar, because the length
+already says which is biggest and shading by size would spend the only free
+channel repeating it.
+
+**5. A day outside the window is drawn as unknown, not as nought.** This is
+the page's existing doctrine — a count that could not be made shows as
+unknown — carried into a form that makes breaking it easy. The console
+reads windows: the newest three hundred log entries, two hundred warnings,
+two hundred decided reports. A day that fell out of one counts zero, and a
+zero-height column is a claim that nothing happened. So the window's edge
+is found first (`coverageFrom`), every day before it is hatched rather than
+drawn, and the note underneath says how far back the data reaches. A feed
+that came back short of its limit is complete and bounds nothing; when
+several are full the _newest_ edge wins, because past it at least one has
+stopped contributing. A day the window opened halfway through is unknown
+too — a half-counted day and a quiet day look identical.
+
+**6. Every chart carries a table.** Visually hidden, always present, the
+same numbers. A value reachable only by hovering is a value some readers
+cannot reach at all.
+
+**Cost.** Drawn in CSS rather than with a charting library: these are
+rectangles against a baseline, the console already owns every colour, and a
+dependency whose job is to draw a rectangle has to be maintained for the
+life of the project. The cost is that layout is hand-built — the columns
+are flex, not grid, because `fr` units in the implicit tracks that
+`grid-auto-flow: column` creates do not share free space, and the fourteen
+days first rendered as two columns of 380px and twelve of nought.
+
+**Rejected.** Charting the headline figures against each other (accounts,
+activities and reports are different units; a bar chart of them invents a
+comparison). A pie (two of these are three-way splits where the segments
+are close, which is what a pie is worst at). Replacing the figures with the
+charts (the exact number is what an admin acts on). Colouring each bar of a
+ranked list darker where it is longer (double-encodes length as hue and
+fails the categorical checks by design). Using the console's state colours
+for the split segments — see above; it was the first design and the
+validator refused it. Drawing a day with no data as zero.

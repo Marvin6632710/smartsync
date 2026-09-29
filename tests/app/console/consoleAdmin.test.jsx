@@ -167,6 +167,110 @@ describe('the overview', () => {
   })
 })
 
+describe('the overview’s charts', () => {
+  const DAY = 86_400_000
+  const logRow = (id, at) => ({ id, at, kind: 'suspend', by: 'me', subjectId: 'bob' })
+  /** The legend entry for a segment, as the reader sees it. */
+  const key = (label) =>
+    screen
+      .getAllByText(label)
+      .map((el) => el.closest('.con-split-keys li'))
+      .find(Boolean)
+
+  test('the split bars carry the server’s counts, with a value beside every name', async () => {
+    at('/admin')
+    act(() => settle(registry.feeds))
+    // Three segments each, from reportsOpen/Actioned/Dismissed and the
+    // activity statuses — the same numbers as the tiles, as proportions.
+    await waitFor(() => expect(document.querySelectorAll('.con-split-bar')).toHaveLength(2))
+    expect(key(en.console.status.actioned).textContent).toContain('10')
+    expect(key(en.console.status.dismissed).textContent).toContain('5')
+    expect(key(en.console.activityStatus.cancelled).textContent).toContain('17')
+    // Colour ranks the segments; it never has to identify them.
+    expect(document.querySelectorAll('.con-split-keys li').length).toBeGreaterThanOrEqual(6)
+  })
+
+  test('a part that could not be counted makes the whole bar unknown, not partial', async () => {
+    // A bar drawn from two of three numbers is a bar that lies about the third.
+    mod.fetchCounts.mockResolvedValueOnce({
+      accounts: 5,
+      reportsOpen: 2,
+      reportsActioned: null,
+      reportsDismissed: 1,
+      activitiesActive: 1,
+      activitiesCancelled: 0,
+      activitiesRemoved: 0,
+      countedAt: Date.now(),
+    })
+    at('/admin')
+    act(() => settle(registry.feeds))
+    // The activities bar still draws; the reports one refuses to.
+    await waitFor(() => expect(document.querySelectorAll('.con-split-bar')).toHaveLength(1))
+    expect(screen.getByText(en.console.charts.notCounted)).toBeTruthy()
+  })
+
+  test('reasons are ranked, and a reason nobody chose still gets its row', async () => {
+    at('/admin')
+    act(() =>
+      settle(registry.feeds, {
+        open: [report('r1', { reason: 'spam' }), report('r2', { reason: 'spam' })],
+        resolved: [report('r3', { reason: 'harassment', status: 'actioned' })],
+      }),
+    )
+    await waitFor(() => expect(document.querySelectorAll('.con-bar-row').length).toBe(3))
+    const rows = [...document.querySelectorAll('.con-bar-row')].map(
+      (r) => r.querySelector('.con-bar-name').textContent,
+    )
+    // Spam has two, harassment one, safety none — biggest first, and the
+    // reason nobody gave is the finding, not a row to leave out.
+    expect(rows[0]).toBe(en.reportReasons.spam)
+    expect(rows[1]).toBe(en.reportReasons.harassment)
+    expect(rows[2]).toBe(en.reportReasons.safety)
+  })
+
+  test('a full log window makes the days before it unknown rather than nought', async () => {
+    // The feed came back at its limit, so it has an edge: everything it holds
+    // is from the last two days, and the twelve before that are days nothing
+    // is known about — which a zero-height bar would deny.
+    const now = Date.now()
+    const full = Array.from({ length: 300 }, (_, i) => logRow(`l${i}`, now - (i % 2) * DAY))
+    at('/admin')
+    act(() => settle(registry.feeds, { log: full }))
+    await waitFor(() => expect(document.querySelectorAll('.con-column').length).toBe(14))
+    const unknown = document.querySelectorAll('.con-column[data-known="no"]')
+    expect(unknown.length).toBe(12)
+    // And it says so in words, not only in the drawing.
+    expect(screen.getByText(new RegExp(en.console.charts.windowed.split('{{')[0]))).toBeTruthy()
+  })
+
+  test('a window holding the whole record counts every day in range', async () => {
+    at('/admin')
+    act(() => settle(registry.feeds, { log: [logRow('l1', Date.now())] }))
+    await waitFor(() => expect(document.querySelectorAll('.con-column').length).toBe(14))
+    expect(document.querySelectorAll('.con-column[data-known="no"]').length).toBe(0)
+    expect(screen.getByText(en.console.charts.wholeRecord)).toBeTruthy()
+  })
+
+  test('every chart carries a table of the same numbers', async () => {
+    at('/admin')
+    // With something in every chart: a chart with nothing in it shows a
+    // sentence instead, and an empty table would say less than the sentence.
+    act(() =>
+      settle(registry.feeds, {
+        open: [report('r1', { reason: 'spam' })],
+        log: [logRow('l1', Date.now())],
+      }),
+    )
+    // A value a reader can only get by hovering is a value some readers
+    // cannot get at all.
+    await waitFor(() => expect(document.querySelectorAll('.con-chart table').length).toBe(4))
+    for (const table of document.querySelectorAll('.con-chart table')) {
+      expect(table.querySelector('caption')?.textContent).toBeTruthy()
+      expect(table.classList.contains('sr-only')).toBe(true)
+    }
+  })
+})
+
 describe('the sections that no longer exist', () => {
   test('moderators and system go to the overview, and nothing appoints anybody', () => {
     at('/admin/moderators')

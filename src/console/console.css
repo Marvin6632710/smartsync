@@ -17,6 +17,22 @@
   --con-accent-soft: #e3f4f2;
   --con-accent-line: #b9e0dc;
   --con-on-accent: #ffffff;
+
+  /* The charts' one hue, in three steps, light to dark.
+
+     Three of the console's state colours would have been the obvious choice
+     and they are wrong for this: the accent teal and --success sit 3.6 apart
+     in OKLab, and --warning and --danger 3.5 apart under deuteranopia. As
+     words on a badge that is invisible; as two segments of one bar it means
+     the bar cannot be read. So the split bars use steps of a single hue and
+     let lightness carry the order, which no colour vision can lose.
+
+     The middle step is --con-accent itself. Checked in both themes against
+     the surface each is drawn on — monotone lightness, gaps of at least
+     0.06, light end clear of the surface. */
+  --con-step-1: #14b8a6;
+  --con-step-2: #0f766e;
+  --con-step-3: #0b4a45;
 }
 :root[data-theme='dark'] [data-console='admin'] {
   --con-accent: #5eead4;
@@ -24,6 +40,12 @@
   --con-accent-soft: #14302d;
   --con-accent-line: #1f524d;
   --con-on-accent: #0b1f1d;
+
+  /* Chosen for the dark surface rather than flipped from the light ramp —
+     the light steps would disappear into it. */
+  --con-step-1: #99f6e4;
+  --con-step-2: #4fd6c0;
+  --con-step-3: #2d8f83;
 }
 
 /* --------------------------------------------------------- frame */
@@ -1303,4 +1325,289 @@ button.con-stat:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* --------------------------------------------------------- charts
+
+   Bars against a baseline, drawn in CSS. Thin marks, hairline axes a shade
+   off the surface, values in text tokens rather than in the series colour,
+   and a 2px gap of surface between stacked segments instead of a border
+   around each. Every chart also carries a hidden table with the same
+   numbers — see ui/Chart.jsx. */
+
+.con-chart {
+  margin: 0;
+}
+.con-chart-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: var(--w-semibold);
+  color: var(--text-2);
+}
+.con-chart-empty {
+  margin: 0;
+  padding: 18px 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.con-chart-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 20px;
+}
+.con-chart-block {
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  .con-chart-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- columns over time --- */
+
+.con-chart-plot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+}
+/* The scale is two numbers, not a ruled grid: at this size a gridline per
+   step is more ink than the bars it measures. */
+.con-chart-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  /* The columns' own height, so the top number sits on the top of the plot
+     and the nought on the baseline — the label row below is not part of it. */
+  height: 132px;
+  font-size: 10px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+/* Flex rather than a grid with `grid-auto-flow: column`: `fr` units in the
+   implicit tracks that auto-flow creates do not share the free space, and the
+   fourteen days came out as two columns of 380px and twelve of nought.
+   Measured in the browser, not guessed. */
+.con-columns {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 3px;
+}
+.con-column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  /* The label band is part of the box, so the axis is never the thing that
+     gets cut off when the card is sized. */
+  grid-template-rows: 132px auto;
+  gap: 5px;
+}
+.con-column-track {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  /* The baseline, and the only rule on the plot. */
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  cursor: default;
+}
+.con-column-track:focus-visible {
+  outline: 2px solid var(--con-accent);
+  outline-offset: 2px;
+}
+.con-column-fill {
+  width: 100%;
+  /* A count of nought is still a day that was counted, so it keeps a sliver
+     of a mark: an empty column and an unknown one must not look the same. */
+  height: max(2px, var(--h));
+  background: var(--con-accent);
+  /* Rounded at the data end only, anchored to the baseline. */
+  border-radius: 4px 4px 0 0;
+}
+/* A day the window never covered. Not nought — nothing. Hatched rather than
+   coloured, so it reads as an absence in any colour vision and in print. */
+.con-column[data-known='no'] .con-column-track {
+  background: repeating-linear-gradient(135deg, var(--surface-2) 0 4px, transparent 4px 8px);
+}
+.con-column[data-known='no'] .con-column-fill {
+  display: none;
+}
+.con-column-label {
+  font-size: 10px;
+  color: var(--text-3);
+  text-align: center;
+  white-space: nowrap;
+  /* Only the ends and the middle are labelled; the rest keep the row's
+     height so the baselines stay level. */
+  visibility: hidden;
+}
+.con-column[data-marked='yes'] .con-column-label {
+  visibility: visible;
+}
+/* A column is narrower than its date, so the two ends hang their label into
+   the chart rather than off the edge of it. */
+.con-column:first-child .con-column-label {
+  text-align: left;
+}
+.con-column:last-child .con-column-label {
+  text-align: right;
+}
+.con-column-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s var(--ease);
+}
+.con-column-track:hover .con-column-tip,
+.con-column-track:focus-visible .con-column-tip {
+  opacity: 1;
+}
+/* A tip is wider than the column it belongs to, so the ones near the ends
+   hang inwards instead of off the side of the card. */
+.con-column:first-child .con-column-tip {
+  left: 0;
+  transform: none;
+}
+.con-column:last-child .con-column-tip {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+.con-column-track:hover .con-column-fill {
+  background: var(--con-accent-strong);
+}
+
+/* --- a ranked list of bars --- */
+
+.con-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.con-bar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 8.5rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.con-bar-name {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.con-bar-track {
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+}
+.con-bar-fill {
+  display: block;
+  height: 100%;
+  /* One hue for every bar: the length already says which is biggest, and
+     shading them by size would spend the only free channel repeating it. */
+  width: max(3px, var(--w));
+  background: var(--con-accent);
+  border-radius: var(--r-pill);
+}
+.con-bar-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-semibold);
+  color: var(--text-2);
+}
+
+/* --- one whole, divided --- */
+
+.con-split-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+  margin-top: 14px;
+}
+.con-split-block {
+  min-width: 0;
+}
+.con-split-bar {
+  display: flex;
+  height: 12px;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  background: var(--surface-2);
+  /* The gap between segments, as surface rather than as a border on each. */
+  gap: 2px;
+}
+.con-split-seg {
+  min-width: 3px;
+  width: var(--w);
+}
+.con-split-seg[data-step='1'] {
+  background: var(--con-step-1);
+}
+.con-split-seg[data-step='2'] {
+  background: var(--con-step-2);
+}
+.con-split-seg[data-step='3'] {
+  background: var(--con-step-3);
+}
+.con-split-empty {
+  flex: 1;
+}
+.con-split-keys {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+}
+.con-split-keys li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.con-split-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex: none;
+}
+.con-split-dot[data-step='1'] {
+  background: var(--con-step-1);
+}
+.con-split-dot[data-step='2'] {
+  background: var(--con-step-2);
+}
+.con-split-dot[data-step='3'] {
+  background: var(--con-step-3);
+}
+.con-split-name {
+  color: var(--text-2);
+}
+.con-split-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-semibold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .con-column-tip {
+    transition: none;
+  }
 }

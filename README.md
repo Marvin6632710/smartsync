@@ -78,7 +78,10 @@ Cloud Firestore) on the back end.
   took it and why. Nobody can act on a report about themselves, no admin can
   act on another, admin can only be granted from the Firebase console, and
   the rank cannot read a private profile, a block list, or a chat it did not
-  join. See ADR-011 and ADR-024.
+  join. See ADR-011 and ADR-024. The overview adds three charts to its figures —
+  moderation actions per day, what people actually report, and where reports
+  end up — each drawn so that a day the loaded window does not reach is marked
+  unknown rather than drawn as nought. See ADR-037.
 
 ## 2. Running it locally without a Firebase account
 

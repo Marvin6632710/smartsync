@@ -1498,6 +1498,20 @@
       "recent": "Recent moderation",
       "allHistory": "All history",
       "decided": "Decided reports"
+    },
+    "charts": {
+      "workload": "Workload",
+      "perDay": "Moderation actions, last {{days}} days",
+      "reasons": "Why people report",
+      "reportOutcomes": "Where reports end up",
+      "activitiesSplit": "Activities by status",
+      "otherReason": "Reason no longer offered",
+      "nothingYet": "No moderation actions in this period.",
+      "noReports": "No reports have been filed yet.",
+      "notKnown": "outside the loaded window",
+      "notCounted": "Not counted — see the note above.",
+      "windowed": "Drawn from the loaded windows, which reach back to {{since}}. Days before that are marked as unknown, not as nought.",
+      "wholeRecord": "The loaded windows hold the whole record, so every day here is counted."
     }
   },
   "pictures": {
