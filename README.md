@@ -39,7 +39,10 @@ Cloud Firestore) on the back end.
   saved picture or existing initials/category artwork. Anonymous mode hides
   the profile photo from other accounts. See ADR-025 for the storage limits.
 - **Discovery.** Every activity anyone creates is visible to everyone, ranked
-  for you personally.
+  for you personally. Below the billboard the feed is rows you scroll sideways, the shape every
+  streaming app uses: what is on soonest, what suits you, what is filling up,
+  what is near you, and one row per category. Those last rows are a partition
+  of the feed, so nothing is ever left out of all of them. See ADR-038.
 - **Real places.** Hosts place an activity by tapping a map. Distance is then
   computed from your device's GPS position to that coordinate — so the same
   activity is correctly "600 m away" for one person and "8 km away" for

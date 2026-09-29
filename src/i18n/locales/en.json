@@ -336,12 +336,21 @@
       "default": "What are you doing next?"
     },
     "takeALook": "Take a look",
-    "fromInterests": "From your interests",
-    "aiPicks": "AI Picks",
-    "soonestFirst": "Soonest first",
-    "happeningSoon": "Happening soon",
     "filterActive_one": "Filter, {{count}} active",
-    "filterActive_other": "Filter, {{count}} active"
+    "filterActive_other": "Filter, {{count}} active",
+    "rails": {
+      "soon": "Happening soon",
+      "soonWhy": "Soonest first",
+      "interests": "AI Picks",
+      "interestsWhy": "From your interests",
+      "filling": "Filling up",
+      "fillingWhy": "Nearly full",
+      "near": "Near you",
+      "nearWhy": "Closest first",
+      "categoryEyebrow": "Browse"
+    },
+    "scrollBack": "Back",
+    "scrollOn": "More"
   },
   "filtersEmpty": {
     "title": "No activities match your filters",

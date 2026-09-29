@@ -13,6 +13,12 @@
  * The number in this file is deliberately larger than any cap anybody
  * would reach for, so re-introducing one fails here rather than in
  * somebody's hands.
+ *
+ * The feed is rows you scroll sideways now, so the guarantee moved rather
+ * than went: the rows by category are a partition of the feed, and these
+ * check the page as a whole rather than one section of it. That is the
+ * stronger claim of the two — it does not care which row anything landed in,
+ * only that nothing landed outside all of them.
  */
 import React from 'react'
 import { cleanup, render, screen, within } from '@testing-library/react'
@@ -56,6 +62,12 @@ vi.mock('../../src/context/AuthContext', () => ({
   useAuth: () => ({ user: { uid: 'me', realName: 'Uma Test', interests: ['Football'] } }),
 }))
 vi.mock('../../src/hooks/useMorph', () => ({ useMorph: () => () => {} }))
+// A rail measures itself to decide whether to draw its arrows; jsdom has no
+// layout, so there is nothing to observe and nothing to report.
+globalThis.ResizeObserver = class {
+  observe() {}
+  disconnect() {}
+}
 // Pictures are fetched per activity from a database this test does not have.
 vi.mock('../../src/components/SavedPicture', () => ({
   ActivityPicture: () => null,
@@ -75,30 +87,48 @@ const mount = () =>
     </MemoryRouter>,
   )
 
-/** The "Happening soon" section, which is the feed proper. */
-const feedSection = () => document.querySelector('.soon-block')
-const cardsIn = (section) => within(section).getAllByRole('heading', { level: 3 })
+/** Every activity title on the page, in whichever row it ended up. */
+const titlesOnPage = () =>
+  new Set(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent.trim()))
+const rails = () => [...document.querySelectorAll('.rail')]
 
 describe('the Discover feed', () => {
-  test('renders every activity that passed the filters, not a sample', () => {
+  test('every activity that passed the filters is on the page, not a sample', () => {
     const activities = feedOf(23)
     app = { ...app, filteredActivities: activities, recommendations: activities }
     mount()
-    const section = feedSection()
-    expect(section).toBeTruthy()
-    // The count beside the heading and the number of cards have to agree.
-    // They disagreeing silently is the whole bug this test exists for.
-    expect(within(section).getByText('23')).toBeTruthy()
-    expect(cardsIn(section)).toHaveLength(23)
+    const shown = titlesOnPage()
+    for (const activity of activities) {
+      expect(shown.has(activity.title), `${activity.title} is missing`).toBe(true)
+    }
   })
 
   test('no category is dropped, whatever order they arrive in', () => {
     const activities = feedOf(23)
     app = { ...app, filteredActivities: activities, recommendations: activities }
     mount()
-    const shown = new Set(cardsIn(feedSection()).map((heading) => heading.textContent.trim()))
-    for (const activity of activities) {
-      expect(shown.has(activity.title), `${activity.title} (${activity.category})`).toBe(true)
+    // One row per category, and each holds its own — which is what makes the
+    // rows a partition rather than eight samples.
+    for (const category of CATEGORIES) {
+      const heading = screen
+        .getAllByRole('heading', { level: 2 })
+        .find((h) => h.textContent === category)
+      expect(heading, `no row for ${category}`).toBeTruthy()
+      const row = heading.closest('.rail')
+      const mine = activities.filter((a) => a.category === category)
+      expect(within(row).getAllByRole('heading', { level: 3 })).toHaveLength(mine.length)
+    }
+  })
+
+  test('a count beside a heading agrees with the cards under it', () => {
+    // The count and the cards disagreeing silently is the whole bug this
+    // file exists for; it just sits on a row now rather than a section.
+    const activities = feedOf(23)
+    app = { ...app, filteredActivities: activities, recommendations: activities }
+    mount()
+    for (const row of rails()) {
+      const count = Number(within(row).getByText(/^\d+$/).textContent)
+      expect(within(row).getAllByRole('heading', { level: 3 })).toHaveLength(count)
     }
   })
 
@@ -106,7 +136,8 @@ describe('the Discover feed', () => {
     const activities = feedOf(3)
     app = { ...app, filteredActivities: activities, recommendations: activities }
     mount()
-    expect(cardsIn(feedSection())).toHaveLength(3)
+    const shown = titlesOnPage()
+    for (const activity of activities) expect(shown.has(activity.title)).toBe(true)
   })
 
   test('nothing through the filters is still the empty state, not a blank list', () => {

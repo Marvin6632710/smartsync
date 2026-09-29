@@ -2155,3 +2155,73 @@ ranked list darker where it is longer (double-encodes length as hue and
 fails the categorical checks by design). Using the console's state colours
 for the split segments — see above; it was the first design and the
 validator refused it. Drawing a day with no data as zero.
+
+## ADR-038 — Discover is rows you scroll sideways, and the rows by category are what guarantees nothing is hidden
+
+**Context.** Discover was a billboard and then one long vertical list of
+everything that passed the filters. That list was itself a fix: an earlier
+version stopped at six cards with the true total printed beside the
+heading, so a feed of eighteen showed six under the number 18 and people
+reported it as their activity never having been posted. The list is
+correct and it is also the wrong shape for browsing — it says only "here
+is everything", which is the one thing somebody deciding what to do
+tonight is not asking for. Raised by the project's owner, who asked for
+the layout every streaming app uses, on the grounds that people already
+know how to read it.
+
+**Decision.** Below the billboard, the feed is rows you scroll sideways.
+
+**1. A row is a claim about its contents.** The heading says why these
+belong together, which is the whole reason the form works: the eye takes
+a row in without committing to any of it. The rows are therefore chosen,
+not generated — what is on soonest, what suits your interests, what is
+filling up, what is near you, and then one row per category.
+
+**2. The rows by category are a partition, and that is the coverage.**
+Every activity has exactly one category, so every activity is in exactly
+one of those rows whatever the curated rows above happen to pick. This is
+the old guarantee carried into the new shape rather than dropped with the
+list that used to carry it. `coversEverything` states it and tests hold
+it, including at sixty activities — well past any cap anybody would reach
+for. The rows by category are deliberately **not** capped: capping them
+is precisely how the six-card feed lost its tail.
+
+**3. The billboard stays out of the curated rows and stays in its own row
+by category.** Out of the curated ones so the first row is not the hero
+again; in the partition because otherwise it is the single activity on
+the page that no row accounts for.
+
+**4. A curated row needs more than one in it.** "Filling up" over one
+half-empty activity is not a finding, it is a card with a title over it.
+The rows by category are the exception and appear at any size, because
+they are the coverage and a category with one activity in it is still
+where that activity lives.
+
+**5. "Near you" only where the distance is known.** `distanceKm` is null
+until the reader shares a location. A row built from whichever activities
+happen to carry a number is a row that misleads about every other one, so
+it appears only when at least two are actually known.
+
+**6. The cards are the same `ActivityCard`.** A rail-only card would be a
+second component to keep in step with the first, and this one already has
+the shape the form wants: a coloured header that reads as artwork, then
+the two facts somebody decides on. The card at a row's edge is cut rather
+than hidden — a half-card is the only way to say "there is more this way"
+that works on a touch device, which will never see the arrows.
+
+**Cost.** An activity now appears more than once on the page: once in the
+rows that picked it, once in its row by category. That is how the form
+works everywhere it is used, and the alternative — curated rows that
+exclude anything already shown — would make the rows depend on each
+other's order and on what happened to be above them. The wide-screen
+layout that put the feed in one column and the picks in a sticky sidebar
+is gone with its seam, because a row is the full width.
+
+**Rejected.** Keeping the vertical list below the rows (the rows by
+category already account for everything, and a second complete copy is
+the page twice). Capping the rows by category so the page is shorter (the
+six-card bug, re-introduced). One row per category only above some size
+(the categories below it would be the ones that vanish, which is the same
+bug wearing a threshold). Arrow buttons in the tab order (tabbing reaches
+the cards themselves and the browser scrolls each into view, so they
+would be two more stops to the same place).

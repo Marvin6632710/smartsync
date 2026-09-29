@@ -4,7 +4,7 @@ import { ArrowRight, Filter, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMorph } from '../hooks/useMorph'
-import ActivityCard from '../components/ActivityCard'
+import ActivityRail from '../components/ActivityRail'
 import CategoryIcon from '../components/CategoryIcon'
 import FiltersEmptyState from '../components/FiltersEmptyState'
 import ActivitiesLoading from '../components/ActivitiesLoading'
@@ -14,6 +14,7 @@ import { activeFilterCount } from '../utils/filters'
 import { formatActivityDate, formatClock, greetingFor, partOfDay, questionFor } from '../utils/time'
 import { categoryLabel } from '../i18n'
 import { pickForInterests } from '../services/interestPicks'
+import { discoverRows } from '../services/discoverRows'
 
 /**
  * Discover.
@@ -26,7 +27,31 @@ import { pickForInterests } from '../services/interestPicks'
  * rather than a dashboard about you — and the first ordinary card lands
  * within the first screen. Stats about your own account moved to Profile,
  * where somebody who wants them will go looking.
+ *
+ * Below the hero the feed is rows you scroll sideways, the shape streaming
+ * apps have taught everyone to read: a heading that says why these belong
+ * together, and a row you can take in without committing to any of it. One
+ * long list said only "here is everything", which is the one thing a
+ * browsing reader is not asking for.
+ *
+ * What is in each row, and the guarantee that no activity falls out of all
+ * of them, is `services/discoverRows.js`.
  */
+
+/**
+ * What a row is called, and the smaller line above it saying why it is here.
+ *
+ * Kept next to the page rather than in `discoverRows`, which decides what
+ * belongs in a row and has no business knowing what language it is read in.
+ */
+function railTitle(row, t) {
+  if (row.kind === 'category') return categoryLabel(row.category)
+  return t(`home.rails.${row.kind}`)
+}
+function railEyebrow(row, t) {
+  if (row.kind === 'category') return t('home.rails.categoryEyebrow')
+  return t(`home.rails.${row.kind}Why`)
+}
 
 export default function HomePage() {
   const { t } = useTranslation()
@@ -54,14 +79,15 @@ export default function HomePage() {
     () => soonest.find((a) => (a.participants || 0) < (a.capacity || 0)) || soonest[0],
     [soonest],
   )
-  // A short taste of the other page, plainly labelled as such — a pointer
-  // rather than a second copy of it.
-  const fromPicks = useMemo(
-    () =>
-      pickForInterests(recommendations, user.interests)
-        .filter((a) => a.id !== heroPick?.id)
-        .slice(0, 2),
-    [recommendations, user.interests, heroPick],
+  // A taste of the other page, plainly labelled as such — a pointer rather
+  // than a second copy of it.
+  const interestPicks = useMemo(
+    () => pickForInterests(recommendations, user.interests),
+    [recommendations, user.interests],
+  )
+  const rows = useMemo(
+    () => discoverRows({ activities: soonest, interestPicks, heroId: heroPick?.id ?? null }),
+    [soonest, interestPicks, heroPick],
   )
   const firstName = (user.realName || '').split(' ')[0]
   // Recomputed on every render rather than held in state: the only thing that
@@ -75,11 +101,7 @@ export default function HomePage() {
   // The wide layouts are decided in the stylesheet from what is on the page:
   // with picks, the feed takes a sidebar; without, it takes the full width.
   return (
-    <div
-      className="page-content discover-page"
-      data-part={part}
-      data-picks={fromPicks.length > 0 ? 'yes' : 'no'}
-    >
+    <div className="page-content discover-page" data-part={part}>
       <header className="discover-head" data-part={part}>
         <div>
           <span className="eyebrow">
@@ -139,53 +161,33 @@ export default function HomePage() {
         </button>
       )}
 
-      {fromPicks.length > 0 && (
-        <section className="section-block picks-block">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">{t('home.fromInterests')}</span>
-              <h2>{t('home.aiPicks')}</h2>
-            </div>
-            <button className="text-button" onClick={() => navigate('/recommendations')}>
-              {t('common.seeAll')} <ArrowRight size={15} />
-            </button>
-          </div>
-          <div className="stack card-grid">
-            {fromPicks.map((activity) => (
-              <ActivityCard key={activity.id} activity={activity} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="section-block soon-block">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">{t('home.soonestFirst')}</span>
-            <h2>{t('home.happeningSoon')}</h2>
-          </div>
-          <span className="count-chip">{soonest.length}</span>
-        </div>
+      {/* Loading and "your filters match nothing" are states of the whole
+          feed, not of any one row, so they replace the rows rather than
+          appearing inside an empty one. */}
+      {loading ? (
         <div className="stack card-grid">
-          {loading ? (
-            <ActivitiesLoading />
-          ) : filteredActivities.length === 0 ? (
-            <FiltersEmptyState />
-          ) : (
-            // Every activity that passed the filters, not a sample of them.
-            // This used to stop at six, with the count beside the heading
-            // still reporting the true total — so a feed of eighteen showed
-            // six cards under the number 18, with nothing on the screen
-            // saying the rest existed or how to reach them. People read
-            // that as their activity never having been posted, and because
-            // the order is by start time, the ones cut were whichever
-            // categories happened to fall later.
-            soonest.map((activity) => (
-              <ActivityCard key={activity.id} activity={activity} compact />
-            ))
-          )}
+          <ActivitiesLoading />
         </div>
-      </section>
+      ) : filteredActivities.length === 0 ? (
+        <FiltersEmptyState />
+      ) : (
+        rows.map((row) => (
+          <ActivityRail
+            key={row.key}
+            eyebrow={railEyebrow(row, t)}
+            title={railTitle(row, t)}
+            count={row.items.length}
+            activities={row.items}
+            action={
+              row.kind === 'interests' ? (
+                <button className="text-button" onClick={() => navigate('/recommendations')}>
+                  {t('common.seeAll')} <ArrowRight size={15} />
+                </button>
+              ) : null
+            }
+          />
+        ))
+      )}
     </div>
   )
 }

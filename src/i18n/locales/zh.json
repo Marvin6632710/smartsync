@@ -332,11 +332,20 @@
       "default": "接下来做什么？"
     },
     "takeALook": "去看看",
-    "fromInterests": "来自你的兴趣",
-    "aiPicks": "AI 精选",
-    "soonestFirst": "最近的在前",
-    "happeningSoon": "即将开始",
-    "filterActive_other": "筛选，{{count}} 项生效中"
+    "filterActive_other": "筛选，{{count}} 项生效中",
+    "rails": {
+      "soon": "即将开始",
+      "soonWhy": "按最近时间排序",
+      "interests": "AI Picks",
+      "interestsWhy": "来自你的兴趣",
+      "filling": "快满了",
+      "fillingWhy": "剩余名额不多",
+      "near": "在你附近",
+      "nearWhy": "按距离排序",
+      "categoryEyebrow": "浏览"
+    },
+    "scrollBack": "返回",
+    "scrollOn": "更多"
   },
   "filtersEmpty": {
     "title": "没有符合筛选条件的活动",

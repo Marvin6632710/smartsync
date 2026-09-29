@@ -332,11 +332,20 @@
       "default": "ต่อไปจะทำอะไรดี?"
     },
     "takeALook": "ดูรายละเอียด",
-    "fromInterests": "จากความสนใจของคุณ",
-    "aiPicks": "AI แนะนำ",
-    "soonestFirst": "เรียงจากเร็วที่สุด",
-    "happeningSoon": "กำลังจะเกิดขึ้น",
-    "filterActive_other": "ตัวกรอง ใช้งานอยู่ {{count}} รายการ"
+    "filterActive_other": "ตัวกรอง ใช้งานอยู่ {{count}} รายการ",
+    "rails": {
+      "soon": "กำลังจะเกิดขึ้น",
+      "soonWhy": "เรียงตามเวลาที่ใกล้ที่สุด",
+      "interests": "AI Picks",
+      "interestsWhy": "จากความสนใจของคุณ",
+      "filling": "ใกล้เต็มแล้ว",
+      "fillingWhy": "เหลือที่ไม่มาก",
+      "near": "ใกล้คุณ",
+      "nearWhy": "เรียงตามระยะทาง",
+      "categoryEyebrow": "เลือกดู"
+    },
+    "scrollBack": "ย้อนกลับ",
+    "scrollOn": "ดูเพิ่ม"
   },
   "filtersEmpty": {
     "title": "ไม่มีกิจกรรมที่ตรงกับตัวกรอง",

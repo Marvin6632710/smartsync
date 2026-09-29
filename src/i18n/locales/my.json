@@ -332,11 +332,20 @@
       "default": "နောက်တစ်ခု ဘာလုပ်မလဲ?"
     },
     "takeALook": "ကြည့်မည်",
-    "fromInterests": "သင့်စိတ်ဝင်စားမှုများမှ",
-    "aiPicks": "AI ရွေးချယ်မှု",
-    "soonestFirst": "အနီးဆုံးအချိန် အရင်",
-    "happeningSoon": "မကြာမီ ဖြစ်မည်",
-    "filterActive_other": "စစ်ထုတ်၊ {{count}} ခု အသုံးပြုနေသည်"
+    "filterActive_other": "စစ်ထုတ်၊ {{count}} ခု အသုံးပြုနေသည်",
+    "rails": {
+      "soon": "မကြာမီ ဖြစ်မည်",
+      "soonWhy": "အနီးဆုံးအချိန် အစဉ်လိုက်",
+      "interests": "AI Picks",
+      "interestsWhy": "သင့်စိတ်ဝင်စားမှုများမှ",
+      "filling": "နေရာ နီးပါးပြည့်",
+      "fillingWhy": "နေရာ အနည်းငယ်သာ ကျန်",
+      "near": "သင့်အနီး",
+      "nearWhy": "အနီးဆုံး အစဉ်လိုက်",
+      "categoryEyebrow": "လိုက်ကြည့်ရန်"
+    },
+    "scrollBack": "နောက်သို့",
+    "scrollOn": "ထပ်ကြည့်"
   },
   "filtersEmpty": {
     "title": "သင့်စစ်ထုတ်ချက်နှင့် ကိုက်ညီသော လှုပ်ရှားမှု မရှိပါ",
