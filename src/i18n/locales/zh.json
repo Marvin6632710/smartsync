@@ -52,7 +52,11 @@
     "light": "浅色",
     "dark": "深色",
     "system": "系统",
-    "select": "选择外观"
+    "select": "选择外观",
+    "switchTo": {
+      "light": "切换到浅色",
+      "dark": "切换到深色"
+    }
   },
   "app": {
     "starting": "正在启动 SmartSync…",
@@ -66,6 +70,7 @@
     "aiPicks": "AI 精选",
     "messages": "消息",
     "profile": "我的",
+    "plans": "你的计划",
     "primary": "主导航",
     "create": "创建"
   },
@@ -86,7 +91,7 @@
     "privacy": "隐私",
     "blocked": "已屏蔽的人",
     "moderation": "内容审核",
-    "joined": "已加入",
+    "joined": "你的计划",
     "terms": "条款与安全",
     "appeals": "申诉"
   },
@@ -931,10 +936,16 @@
     "notifyMe": "提醒我"
   },
   "joined": {
-    "eyebrow": "你的活动历史",
-    "title": "已加入的活动",
-    "none": "还没有加入活动",
-    "noneBody": "从发现页加入一个活动，它就会显示在这里。"
+    "eyebrow": "你已承诺的全部",
+    "title": "你的计划",
+    "hosting": "你在组织",
+    "hostingWhy": "由你负责",
+    "going": "你要参加",
+    "goingWhy": "即将开始",
+    "past": "去过的",
+    "pastWhy": "你的记录",
+    "none": "还没有安排",
+    "noneBody": "你组织或参加的活动都会出现在这里，不用再去聊天里翻找。"
   },
   "report": {
     "title": "举报{{label}}",

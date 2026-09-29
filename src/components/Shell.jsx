@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Bell,
+  CalendarCheck2,
   Compass,
   Map,
   MessageSquare,
@@ -26,6 +27,7 @@ import JoinBurst from './JoinBurst'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import AnnouncementBanner from './AnnouncementBanner'
+import ThemeToggle from './ThemeToggle'
 import PullToRefresh from './PullToRefresh'
 import { RefreshProvider } from '../context/RefreshContext'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
@@ -247,6 +249,18 @@ export default function Shell() {
           <h1>{title}</h1>
         </div>
         <div className="topbar-meta">
+          {/* Both of these were a page away and are the two things people
+              were hunting for: what am I committed to, and this screen is
+              too bright. Beside the bell, so every screen has them. */}
+          <ThemeToggle />
+          <button
+            className="icon-button plans-button"
+            onClick={() => navigate('/joined')}
+            aria-label={t('nav.plans')}
+            title={t('nav.plans')}
+          >
+            <CalendarCheck2 size={20} />
+          </button>
           <button
             className="icon-button notification-button"
             onClick={() => navigate('/notifications')}
@@ -316,6 +330,17 @@ export default function Shell() {
                 </span>
               )}
             </button>
+            {/* The same two as the phone bar: what you are committed to, and
+                the brightness of the screen you are reading. */}
+            <button
+              className="icon-button plans-button"
+              onClick={() => navigate('/joined')}
+              aria-label={t('nav.plans')}
+              title={t('nav.plans')}
+            >
+              <CalendarCheck2 size={20} />
+            </button>
+            <ThemeToggle />
             {/* The desk, for the admin: the console is its own room, and
                 this is its door from the app. */}
             {user.isAdmin && (

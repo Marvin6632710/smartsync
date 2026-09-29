@@ -52,7 +52,11 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System",
-    "select": "Choose appearance"
+    "select": "Choose appearance",
+    "switchTo": {
+      "light": "Switch to light",
+      "dark": "Switch to dark"
+    }
   },
   "app": {
     "starting": "Starting SmartSync…",
@@ -66,6 +70,7 @@
     "aiPicks": "AI Picks",
     "messages": "Messages",
     "profile": "Profile",
+    "plans": "Your plans",
     "primary": "Primary navigation",
     "create": "Create"
   },
@@ -86,7 +91,7 @@
     "privacy": "Privacy",
     "blocked": "Blocked people",
     "moderation": "Moderation",
-    "joined": "Joined",
+    "joined": "Your plans",
     "terms": "Terms & Safety",
     "appeals": "Appeals"
   },
@@ -953,10 +958,16 @@
     "notifyMe": "Notify me"
   },
   "joined": {
-    "eyebrow": "Your activity history",
-    "title": "Joined activities",
-    "none": "No joined activities",
-    "noneBody": "Join an activity from discovery to see it here."
+    "eyebrow": "Everything you are committed to",
+    "title": "Your plans",
+    "hosting": "You are hosting",
+    "hostingWhy": "Yours to run",
+    "going": "You are going",
+    "goingWhy": "Upcoming",
+    "past": "Been to",
+    "pastWhy": "Your history",
+    "none": "Nothing on yet",
+    "noneBody": "Activities you host or join show up here, so you never have to go looking through chats for them."
   },
   "report": {
     "title": "Report {{label}}",

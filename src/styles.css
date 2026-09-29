@@ -588,6 +588,38 @@ select:focus-visible {
 .topbar-meta {
   display: flex;
   justify-content: flex-end;
+  /* Three targets where there was one. They keep their 44px — a thumb does
+     not care why the bar is busy — so the gap between them is what gives,
+     and each still reads as its own button because each has its own edge. */
+  gap: 2px;
+}
+/* Under about 380px the title's column is what the three would eat into, so
+   the buttons give up their own padding first. The target is unchanged: the
+   button is still 40px across, which is the floor, and the icon inside it
+   shrinks rather than the box around it. */
+@media (max-width: 380px) {
+  .topbar {
+    gap: 6px;
+    padding-inline: 12px;
+  }
+  .topbar-meta .icon-button {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* --- Your plans ---------------------------------------------------------
+   Three groups in the order they need attention: what you are running, what
+   you are turning up to, then what has been. */
+.plans-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.plans-page .section-heading .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 .top-avatar {
   border: 1px solid var(--line);

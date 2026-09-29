@@ -66,6 +66,11 @@ Cloud Firestore) on the back end.
   list is indistinguishable from a quiet one until something asks the server
   directly. The session, the filters and your place in the list all survive,
   so an accidental pull costs nothing. See ADR-036.
+- **Your plans.** Everything you are committed to in one place, with what you
+  host kept separate from what you joined — and a button in the bar on every
+  screen, because a page nobody can find is a page that does not exist. The
+  appearance switch is beside it, one press between light and dark; the full
+  choice, including following the device, stays in Settings. See ADR-039.
 - **Privacy controls.** Anonymous mode genuinely removes your name from the
   profile document other people can read. Approximate location rounds your
   position to roughly a kilometre before it is stored at all.

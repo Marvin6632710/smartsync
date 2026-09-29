@@ -2225,3 +2225,66 @@ six-card bug, re-introduced). One row per category only above some size
 bug wearing a threshold). Arrow buttons in the tab order (tabbing reaches
 the cards themselves and the browser scrolls each into view, so they
 would be two more stops to the same place).
+
+## ADR-039 — Your plans tells hosting from going, and both it and the appearance switch move into the bar
+
+**Context.** Two things the owner could not find, reported together, with
+the same shape: the app had them and the app had hidden them.
+
+A page of joined activities existed at `/joined`, reachable only from a
+"See all" link on Profile. It was also answering half the question.
+Creating an activity puts you in its participants, so what you host was
+already in that list — under one heading that said "joined", with nothing
+telling the two apart. People were reading the chat list instead, because
+a thread per activity was the closest thing the app had to "what am I
+involved in".
+
+The appearance choice — light, dark, or follow the device — was in
+Settings and nowhere else. Changing it meant leaving whatever you were
+reading, which is the one thing you are not willing to do when the reason
+you want it is that the screen in front of you is too bright.
+
+**Decision.**
+
+**1. `/joined` becomes Your plans, in three groups.** What you are hosting
+first, because that is the one with work in it; then what you are going
+to; then what has been. A past activity you hosted is history, not
+hosting — "You are hosting" is a list of work still to do, and something
+that has happened has none left. A group with nothing in it is left out
+rather than drawn empty, except when all three are, which is the only case
+where the page needs to say what to do about it.
+
+**2. Both get a button in the bar, on every screen.** A calendar for the
+plans and a moon or sun for the appearance, beside the bell, in the phone
+bar and the web header alike. The fix for "I cannot find it" is not a
+better page, it is a door that is visible from where somebody is standing.
+
+**3. The quick switch is two-way; the three-way choice stays in Settings.**
+"Follow my device" is a decision somebody makes once and a settings page
+is the right home for it. The other case is one press. From `system` the
+press takes the opposite of what is _currently on screen_ rather than
+anything about the stored word, because that is what pressing it means at
+that moment — and it stops following the device, which is the honest
+reading of somebody overriding it by hand. Settings is where they hand
+that back.
+
+**4. The label is the action, not the state.** "Switch to dark", not
+"Dark". A screen reader hearing the current theme learns nothing it could
+not get from the page; hearing what the press will do is the whole point
+of the control.
+
+**Cost.** Three targets in the phone bar where there was one. They keep
+their 44px, because a thumb does not care why the bar is busy; below about
+380px the bar's own padding gives way instead, and the title's column is
+narrower on the smallest phones. The appearance now has two controls in
+two places for one stored preference — they write the same word, so they
+cannot disagree, but a change to what a preference means has two callers
+to keep in step.
+
+**Rejected.** A sixth tab in the bottom bar for the plans (five is already
+what fits a phone, and the tabs are places you go rather than things you
+check). Leaving the plans on Profile and making the link louder (it is not
+a fact about you, it is what you are committed to). A three-way cycle on
+the one button (there is no press that reads as "now follow my device").
+Separate pages for hosting and going (they are one question asked from two
+sides, and splitting them puts the answer two taps away again).
