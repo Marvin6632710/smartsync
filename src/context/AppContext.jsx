@@ -480,6 +480,44 @@ export function AppProvider({ children }) {
     resetAttempts()
   }
 
+  // ------------------------------------------------------------ pull to refresh
+
+  // Bumped to make every listener below again. The data is live, so this is
+  // not how a change reaches the screen — that needs nothing. It is for the
+  // case the live connection has quietly stopped being one, which the app
+  // already models as `serverSilent`: a stream that died without saying so
+  // keeps delivering nothing, indistinguishable from nothing happening. A
+  // fresh subscription is the only thing that tells those two apart, and is
+  // what somebody pulling a list down is really asking for.
+  const [reloadToken, setReloadToken] = useState(0)
+  // Resolved by the feed's next snapshot, so the spinner lasts as long as the
+  // reload does rather than a guessed interval.
+  const reloadWaitersRef = React.useRef([])
+  const settleReload = React.useCallback(() => {
+    if (reloadWaitersRef.current.length === 0) return
+    const waiting = reloadWaitersRef.current
+    reloadWaitersRef.current = []
+    waiting.forEach((resolve) => resolve())
+  }, [])
+
+  /**
+   * Read the live data again, and resolve once the feed has answered.
+   *
+   * Costs one document read per row the listeners return, so it is a gesture
+   * somebody makes, never something on a timer.
+   */
+  const refreshData = React.useCallback(() => {
+    if (!uid) return Promise.resolve()
+    // Both go back to their starting state so that "waiting for the server"
+    // is answered again rather than still standing from the first load.
+    setFeedSynced(false)
+    setFeedWaited(false)
+    setReloadToken((n) => n + 1)
+    return new Promise((resolve) => {
+      reloadWaitersRef.current.push(resolve)
+    })
+  }, [uid])
+
   useEffect(() => {
     if (!uid) return undefined
     // A closed account is refused every one of these by the rules, and sees
@@ -514,6 +552,9 @@ export function AppProvider({ children }) {
     const probe = window.setTimeout(() => {
       if (!live) return
       setFeedWaited(true)
+      // Nothing is coming. A spinner still turning would be claiming
+      // otherwise; the banner says what is actually known.
+      settleReload()
       if (serverSeenRef.current) return
       setServerReachable((previous) => {
         if (previous !== null) return previous
@@ -536,6 +577,9 @@ export function AppProvider({ children }) {
         if (!meta.fromCache) {
           feedSeenServer = true
           setFeedSynced(true)
+          // What a pull-to-refresh was waiting for: not the cache answering
+          // instantly, which proves nothing, but the server answering.
+          settleReload()
           probeDeclaredRef.current = false
           setServerSilent(false)
           setServerReachable(true)
@@ -566,7 +610,7 @@ export function AppProvider({ children }) {
       window.clearTimeout(probe)
       stops.forEach((stop) => stop())
     }
-  }, [uid, user?.banned, listenerAttempt, guard])
+  }, [uid, user?.banned, listenerAttempt, reloadToken, guard, settleReload])
 
   // Follows made before the host-side mirror existed have only the private
   // half, so the host has never heard of them and could not tell them
@@ -984,7 +1028,7 @@ export function AppProvider({ children }) {
       open.forEach((stop) => stop())
       open.clear()
     }
-  }, [uid, listenerAttempt])
+  }, [uid, listenerAttempt, reloadToken])
 
   // Reconcile: open what is new, close what has gone, leave the rest alone.
   useEffect(() => {
@@ -1030,7 +1074,7 @@ export function AppProvider({ children }) {
     }
     // No cleanup: the effect above owns the lifetime.
     return undefined
-  }, [joinedKey, uid, guard, listenerAttempt])
+  }, [joinedKey, uid, guard, listenerAttempt, reloadToken])
 
   // ------------------------------------------------------------------ actions
 
@@ -1627,6 +1671,9 @@ export function AppProvider({ children }) {
     browserOffline,
     serverSilent,
     dataError,
+    // Read the live data again — the pull-to-refresh gesture's own action.
+    // See `refreshData` for why a live listener is ever worth remaking.
+    refreshData,
 
     activities: visibleActivities,
     recommendations,

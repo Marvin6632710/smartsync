@@ -18,6 +18,7 @@ import my from '../../src/i18n/locales/my.json'
 // The badge reads the context's own unread count (its own listener, not
 // the inbox), so the tests set it directly.
 let unreadCount = 2
+const refreshData = vi.fn(() => Promise.resolve())
 vi.mock('../../src/context/AppContext', () => ({
   useApp: () => ({
     unreadCount,
@@ -26,6 +27,7 @@ vi.mock('../../src/context/AppContext', () => ({
     offline: false,
     browserOffline: false,
     serverSilent: false,
+    refreshData,
   }),
 }))
 vi.mock('../../src/context/AuthContext', () => ({
@@ -210,4 +212,52 @@ test('the web header carries the language picker, beside the avatar, on the one 
   expect(document.documentElement.lang).toBe('my')
   expect(localStorage.getItem(LANGUAGE_KEY)).toBe('my')
   expect(picker.value).toBe('my')
+})
+
+/**
+ * Which screens carry the pull-to-refresh sheet.
+ *
+ * It belongs on a list of things that change, and nowhere else: a pull on a
+ * half-filled form is a gesture whose whole job is to fetch over what is on
+ * screen, and the map already owns dragging.
+ */
+test('the lists that change carry the pull-to-refresh sheet', () => {
+  for (const path of [
+    '/home',
+    '/recommendations',
+    '/matching',
+    '/messages',
+    '/notifications',
+    '/joined',
+    '/activity/a1/participants',
+  ]) {
+    mount(path)
+    expect(document.querySelector('.pull-sheet'), `${path} has no sheet`).not.toBeNull()
+    cleanup()
+  }
+})
+
+test('forms, settings and the map do not', () => {
+  for (const path of ['/create', '/settings', '/map', '/profile/edit', '/filters', '/search']) {
+    mount(path)
+    expect(document.querySelector('.pull-sheet'), `${path} should have no sheet`).toBeNull()
+    cleanup()
+  }
+})
+
+test('the sheet is the scroller’s first child, so the page slides past it', () => {
+  mount('/home')
+  const scroller = document.querySelector('.page-scroll')
+  expect(scroller.firstElementChild.className).toBe('pull-sheet')
+})
+
+test('nothing wraps the page — the stylesheet reaches it through `.page-scroll > …`', () => {
+  // Discover's backdrop is chosen with `:has(> .discover-page[data-part])`, and
+  // a wrapper here would silently switch it off. The sheet is the only child
+  // this adds.
+  mount('/home')
+  const scroller = document.querySelector('.page-scroll')
+  const added = [...scroller.children].filter((el) => el.classList.contains('pull-sheet'))
+  expect(added).toHaveLength(1)
+  expect(scroller.dataset.pulling).toBeUndefined()
 })

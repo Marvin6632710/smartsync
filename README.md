@@ -56,6 +56,13 @@ Cloud Firestore) on the back end.
   message text kept off the lock screen unless they ask for it.
 - **People matching.** Other users ranked by how compatible their interests,
   preferred times and activity history are with yours.
+- **Pull to refresh.** Pull down at the top of any list — or, on a laptop,
+  scroll up hard against one already at its top — and the live listeners
+  behind it are made again. Not because the data is stale: it arrives on its
+  own. Because a Firestore stream can quietly stop being one, and a frozen
+  list is indistinguishable from a quiet one until something asks the server
+  directly. The session, the filters and your place in the list all survive,
+  so an accidental pull costs nothing. See ADR-036.
 - **Privacy controls.** Anonymous mode genuinely removes your name from the
   profile document other people can read. Approximate location rounds your
   position to roughly a kilometre before it is stored at all.

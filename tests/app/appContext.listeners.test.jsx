@@ -2354,3 +2354,90 @@ describe('a notification arriving while the app is on screen', () => {
     expect(toast()).toBeNull()
   })
 })
+
+describe('refreshData — what a pull-to-refresh actually does', () => {
+  const names = ['activities', 'blocked', 'following', 'mine', 'notifications', 'peers', 'unread']
+
+  /** Renders the tree and hands back the context's `refreshData`. */
+  function mountWithRefresh() {
+    let refresh
+    function Grab() {
+      refresh = useApp().refreshData
+      return null
+    }
+    render(
+      <AppProvider>
+        <Grab />
+      </AppProvider>,
+    )
+    return () => refresh()
+  }
+
+  test('every listener is closed and made again', () => {
+    const refresh = mountWithRefresh()
+    for (const name of names) expect(stops[name] || 0).toBe(0)
+    act(() => {
+      refresh()
+    })
+    // Closed, because a stream that died without saying so keeps delivering
+    // nothing — remaking the subscription is the only way to tell that apart
+    // from nothing happening.
+    for (const name of names) {
+      expect(stops[name], `${name} was not made again`).toBe(1)
+    }
+    expect(Object.keys(emit).sort()).toEqual([...names].sort())
+  })
+
+  test('it waits for the server, not for the cache', async () => {
+    const refresh = mountWithRefresh()
+    let done = false
+    await act(async () => {
+      refresh().then(() => {
+        done = true
+      })
+    })
+    // The cache answers instantly and proves nothing about the connection.
+    await act(async () => {
+      emit.activities([activity('a1')], { fromCache: true })
+    })
+    expect(done).toBe(false)
+    await act(async () => {
+      emit.activities([activity('a1')], { fromCache: false })
+    })
+    expect(done).toBe(true)
+  })
+
+  test('it gives up with the silence probe rather than waiting for ever', async () => {
+    vi.useFakeTimers()
+    try {
+      const refresh = mountWithRefresh()
+      let done = false
+      await act(async () => {
+        refresh().then(() => {
+          done = true
+        })
+      })
+      expect(done).toBe(false)
+      // Past the point the app stops expecting an answer: the banner says what
+      // is known, and a spinner still turning would be claiming otherwise.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(SERVER_SILENCE_MS + 100)
+      })
+      expect(done).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('signed out, there is nothing to refresh and nothing to wait for', async () => {
+    currentUser = null
+    const refresh = mountWithRefresh()
+    let done = false
+    await act(async () => {
+      refresh().then(() => {
+        done = true
+      })
+    })
+    expect(done).toBe(true)
+  })
+})

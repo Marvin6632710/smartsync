@@ -1,5 +1,5 @@
 import { AvatarContent } from './SavedPicture'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Bell,
@@ -26,6 +26,9 @@ import JoinBurst from './JoinBurst'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import AnnouncementBanner from './AnnouncementBanner'
+import PullToRefresh from './PullToRefresh'
+import { RefreshProvider } from '../context/RefreshContext'
+import { usePullToRefresh } from '../hooks/usePullToRefresh'
 
 // Labels are translation keys; the words are looked up at render.
 const tabs = [
@@ -73,6 +76,22 @@ function viewOf(pathname) {
   return first
 }
 
+/**
+ * The screens a pull-to-refresh belongs on: the ones that are a list of things
+ * that change. Deliberately not the rest — a form is the wrong place for a
+ * gesture whose whole job is to fetch over what is on screen, and a map
+ * already owns dragging.
+ */
+const PULLABLE_VIEWS = new Set([
+  'home',
+  'recommendations',
+  'matching',
+  'messages',
+  'notifications',
+  'joined',
+  'activity-participants',
+])
+
 // The bar's tabs, minus Profile: on a wide screen the avatar at the end of
 // the header is the way to the profile, the way every web application does
 // it, so a fifth tab would be the same door twice.
@@ -83,7 +102,15 @@ export default function Shell() {
   usePushNavigation()
   const navigate = useNavigate()
   const location = useLocation()
-  const { unreadCount, celebration, dataError, offline, browserOffline, serverSilent } = useApp()
+  const {
+    unreadCount,
+    celebration,
+    dataError,
+    offline,
+    browserOffline,
+    serverSilent,
+    refreshData,
+  } = useApp()
   const { user } = useAuth()
   // The badge: the exact number up to ninety-nine, then "99+"; nothing at
   // zero. The button's name carries the count too, since a screen reader
@@ -164,6 +191,36 @@ export default function Shell() {
   }, [location.pathname])
   const title = t(`titles.${ROUTE_TITLES.has(simpleTitle) ? simpleTitle : 'home'}`)
   const view = viewOf(location.pathname)
+
+  /**
+   * Pull down at the top of a list to read it again.
+   *
+   * The gesture lives here because the scroller does — one element for the
+   * whole app — but what a refresh means is partly the screen's own business.
+   * Re-reading the live data covers most of them and is done here; a screen
+   * with more to do than that registers it (see RefreshContext), and AI Picks
+   * is the one that does, because it also has to ask the model again.
+   */
+  const extraRef = useRef(new Set())
+  const register = useCallback((action) => {
+    extraRef.current.add(action)
+    return () => {
+      extraRef.current.delete(action)
+    }
+  }, [])
+  const onRefresh = useCallback(
+    () =>
+      // Settled, not all: one screen's refresh failing must not cut the
+      // spinner short on the work that is still running.
+      Promise.allSettled([refreshData(), ...[...extraRef.current].map((action) => action())]),
+    [refreshData],
+  )
+  const pullable = PULLABLE_VIEWS.has(view)
+  const { phase: pullPhase } = usePullToRefresh({
+    targetRef: scrollRef,
+    onRefresh,
+    enabled: pullable,
+  })
 
   return (
     <div className="app-shell">
@@ -354,6 +411,12 @@ export default function Shell() {
       )}
 
       <main className="page-scroll" ref={scrollRef} data-view={view} tabIndex={-1}>
+        {/* First, so that it is the one child the stylesheet holds still while
+            the page slides down past it. Nothing wraps the page itself: the
+            stylesheet reaches the screens through `.page-scroll > …`, and a
+            wrapper here would quietly break Discover's backdrop and any page
+            that measures its height against the scroller. */}
+        {pullable && <PullToRefresh phase={pullPhase} />}
         {/* On a wide screen the phone bar is gone, and with it the way back.
             A sub-page gets it here instead, at the head of its own column. */}
         {!atRootTab && (
@@ -364,7 +427,9 @@ export default function Shell() {
         {/* Scoped to the page, so one screen failing leaves the bar and the
             tabs intact rather than replacing the whole app. */}
         <RouteErrorBoundary resetKey={location.pathname}>
-          <Outlet />
+          <RefreshProvider register={register}>
+            <Outlet />
+          </RefreshProvider>
         </RouteErrorBoundary>
       </main>
 

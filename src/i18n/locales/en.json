@@ -100,6 +100,9 @@
     "offline": "Offline — changes will sync when you reconnect.",
     "serverSilent": "No answer from the server yet — showing what was last loaded. Changes will sync when it answers.",
     "dataError": "Couldn't load the latest data. Check your connection.",
+    "pullToRefresh": "Pull down to refresh",
+    "releaseToRefresh": "Release to refresh",
+    "refreshing": "Refreshing…",
     "console": "Open the console"
   },
   "errors": {

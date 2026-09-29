@@ -9,6 +9,7 @@ import CategoryIcon from '../components/CategoryIcon'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { useAiPicks } from '../hooks/useAiPicks'
+import { usePageRefresh } from '../context/RefreshContext'
 import { categoryLabel, listInWords, reasonText } from '../i18n'
 import { improveHints, resolvePicks, thinProfile, unrankedPicks } from '../services/aiPicks'
 import { groupByInterest, interestsWithNothing, pickForInterests } from '../services/interestPicks'
@@ -74,6 +75,11 @@ export default function RecommendationsPage() {
     joinedActivities,
     enabled: !loading && interests.length > 0,
   })
+  // Pulling the page down is the same request as the Refresh button beside the
+  // ranking: past every cache, ask the model again. This is the one screen
+  // where re-reading the data is not the whole story — the activities could be
+  // identical and the ranking still be the thing somebody wants remade.
+  usePageRefresh(ai.refresh)
 
   // The list to show: the model's, joined back to the activities on screen
   // — or, with no ranking, the same activities soonest first and the reason

@@ -1977,3 +1977,104 @@ Creating one appeal collection per feature (different states and duplicate
 rules for the same review process). Sending announcements as one notification
 write per account (unbounded fan-out, permanent inbox noise and no clean
 audience change or expiry).
+
+## ADR-036 — Pull down at the top of a list to read it again, and remaking a live listener is what "again" means
+
+**Context.** SmartSync's data is live. Every list on screen is backed by a
+Firestore `onSnapshot`, so a change reaches the reader without anybody asking
+for it. By the usual reasoning that makes a refresh gesture pointless: there is
+nothing to fetch that is not already arriving.
+
+That reasoning is wrong in one case, and the app already knows it is. A
+Firestore stream can stop being a stream without saying so — the socket goes,
+the SDK serves the cache, and a list that is quietly frozen looks exactly like
+a list where nothing is happening. The app models this as `serverSilent` and
+puts up a banner about it after twenty seconds. But the banner's only remedy
+was `window.location.reload()`, which throws away the session, the filters and
+the reader's place in the list to fix a connection.
+
+There is also the ordinary human reason. People pull lists down. When the
+gesture does nothing, the reader does not conclude that the data is live; they
+conclude that the app is broken.
+
+**Decision.** A pull-to-refresh, on the lists and nowhere else, that remakes
+the live listeners rather than reloading the page.
+
+**1. The gesture is at the top, and it is two gestures.** Pulling down at the
+top of a list, damped to about half the finger's travel, armed at 64px. On a
+laptop there is no finger, so the equivalent is scrolling _up_ against a list
+that is already at its top: 240px of accumulated upward wheel, forgotten after
+350ms of quiet and emptied by any downward turn or any scroll position that is
+not the top. The touch threshold is smaller because a finger commits to the
+gesture; the wheel budget is larger because a mouse arrives in ~100px steps and
+a trackpad in a flood, and the tail of a fast scroll that merely _ended up_ at
+the top must not count as somebody asking for anything.
+
+**2. Refreshing is remaking the listeners, not reloading the page.** A bumped
+token re-runs the three effects that own the subscriptions. Nothing is cleared
+first, so no list blinks empty; the old rows stay until the new ones arrive.
+The session, the filters and the scroll position all survive, which is what
+makes an accidental trigger cost nothing — and is why the thresholds above
+could be tuned for "easy to do on purpose" rather than "impossible to do by
+accident".
+
+**3. The spinner waits for the server, not for the cache.** A re-subscribe is
+answered from cache almost immediately, which proves nothing about the
+connection — precisely the case this exists for. So the promise settles on the
+first snapshot the server answers, or when the silence probe gives up, with a
+floor of 550ms so an instant answer still reads as a refresh rather than a
+flicker, and a ceiling of 9s so a gesture can never fail to end.
+
+**4. While it works, the message leaves the page.** A refresh runs for up to
+nine seconds when the server is slow, and nothing obliges the reader to sit at
+the top and wait for it. Pinned to the page the message scrolled away with the
+content, so somebody reading the bottom of a list never saw that a refresh was
+running and could not tell when it finished — reported from the running app,
+not theorised. So once the work starts the sheet stops being part of the page
+and becomes a pill fixed to the window, the way the celebration toast already
+is. It gains a surface, a border and a shadow only at that moment, because only
+at that moment is there content behind it to be separated from. Where the
+scroller's top sits is measured when the refresh starts rather than written as
+a constant: it differs between the phone bar and the web header, and again when
+a banner is up.
+
+**5. The shell owns the gesture; a screen may add to it.** There is one
+scrolling element in the whole app and it belongs to the shell, so the gesture
+does too. What a refresh _means_ is partly the screen's business: AI Picks has
+to ask the model again, which the shell has no reason to know about. A screen
+registers its own work through `RefreshContext` and the shell runs it alongside
+re-reading the data, settled rather than all-or-nothing so one screen's failure
+does not cut the spinner short on work still running.
+
+**6. Nothing is transformed at rest.** The page follows the pull with a CSS
+transform, applied only while `data-pulling` says so. A transform that is
+always present — even `translateY(0)` — makes the element a containing block,
+which would leave every `position: fixed` dialog inside a page fixed to the
+page instead of to the window. For the same reason the page's children are
+moved one by one rather than wrapped: the stylesheet reaches the screens
+through `.page-scroll > …`, including Discover's time-of-day backdrop
+(`:has(> .discover-page[data-part])`), and a wrapper would silently switch that
+off and break any page measuring its height against the scroller.
+
+**Cost.** Each refresh costs one document read per row the listeners return —
+roughly the cost of a cold load. That is affordable for a gesture somebody
+makes and would not be for anything on a timer, so this is never automatic.
+The gesture also needs a pointer, so it is an addition to the ways data gets
+re-read, never the only one: the existing banner's own control remains, and
+the sheet announces "Refreshing…" through a live region so the outcome is not
+purely visual. The pinned pill is measured once per refresh and again on a
+resize, so a banner that arrives _during_ a refresh can leave it a banner's
+height out of place for the seconds that remain — traded against re-measuring
+on every scroll frame, which would jitter.
+
+**Rejected.** Reloading the page (throws away the session, the filters and the
+reader's place to fix a connection). A refresh on a timer (bills reads
+indefinitely to solve a problem that is rare). The gesture at the _bottom_ of
+the list, which is how it was first described — "at the end" — but which no
+platform uses for refresh and which every reader would have had to be taught;
+the top gesture is the one people already know. Putting it on every screen (a
+gesture whose job is to fetch over what is on screen has no business on a
+half-filled form, and the map already owns dragging). Keeping the pull distance
+in React state (sixty renders of the whole shell per second to move a spinner).
+Leaving the refreshing message in the page and asking the reader to scroll back
+up to see it.

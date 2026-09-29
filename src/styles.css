@@ -600,6 +600,139 @@ select:focus-visible {
 .page-scroll::-webkit-scrollbar {
   display: none;
 }
+
+/* --- Pull to refresh -----------------------------------------------------
+   The gesture is in usePullToRefresh, which writes two custom properties onto
+   the scroller — `--pull`, how far the page has been dragged down, and
+   `--pull-arm`, the same as a fraction of the distance that arms it — and sets
+   `data-pulling`: 'yes' while a finger or a wheel is driving it, 'easing' for
+   the spring back and for as long as the refresh runs, 'no' at rest.
+
+   Nothing is transformed at rest, and that is the point: a transform, even
+   `translateY(0)`, makes an element a containing block, so a permanent one
+   here would leave every `position: fixed` dialog inside a page fixed to the
+   page rather than to the window. It is also why the page's children are
+   moved one by one instead of a wrapper being added around them — the
+   stylesheet reaches the screens through `.page-scroll > …`, Discover's
+   time-of-day backdrop included, and a wrapper would quietly break all of
+   it. */
+.page-scroll {
+  /* Matches PULL_THRESHOLD in usePullToRefresh. */
+  --pull-height: 64px;
+}
+/* Only the screens that have a sheet, so the containing block every page's
+   absolute children resolve against is left alone everywhere else. */
+.page-scroll:has(> .pull-sheet) {
+  position: relative;
+}
+.pull-sheet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  height: var(--pull-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The gesture belongs to the scroller underneath. The sheet only reports it. */
+  pointer-events: none;
+  /* Parked exactly its own height above the top, so it rides down into the gap
+     the pull opens and then travels on with the page past the threshold. */
+  transform: translateY(calc(var(--pull, 0px) - 100%));
+  opacity: var(--pull-arm, 0);
+}
+.pull-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+/* Refreshing outlasts the gesture — up to nine seconds while a slow server is
+   given its chance — and the reader is under no obligation to sit at the top
+   and wait for it. Pinned to the page, the message scrolled away with the
+   content and the refresh finished unannounced. So once the work starts the
+   sheet stops being part of the page and becomes a pill pinned to the window,
+   the way the celebration toast already is: still there, and still saying so,
+   from wherever they have scrolled to.
+
+   `--pull-pin` is where the scroller's top actually is, measured when the
+   refresh starts — it differs between the phone bar and the web header, and
+   again when a banner is up, so it cannot be a constant here. */
+.pull-sheet[data-phase='busy'] {
+  position: fixed;
+  top: var(--pull-pin, 76px);
+  height: auto;
+  /* The pull's offset is meaningless now that it is off the page. */
+  transform: none;
+  opacity: 1;
+}
+/* Only now does it need a ground of its own: on the page it sat in an empty
+   gap, and over the page it would otherwise be words across a card. */
+.pull-sheet[data-phase='busy'] .pull-pill {
+  padding: 6px 14px 6px 6px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  animation: slideDown 0.24s var(--ease);
+}
+.pull-spinner {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  color: var(--text-2);
+  /* Turns with the pull, so the sheet answers the finger continuously rather
+     than waiting to be let go. One full turn by the time it is armed. */
+  transform: rotate(calc(var(--pull-arm, 0) * 360deg));
+}
+.pull-label {
+  font-size: var(--t-xs);
+  font-weight: var(--w-medium);
+  color: var(--text-2);
+}
+/* Armed: letting go now would refresh, and the sheet says so in the accent
+   rather than only in words. */
+.pull-sheet[data-phase='armed'] .pull-spinner {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.pull-sheet[data-phase='armed'] .pull-label {
+  color: var(--accent);
+}
+.pull-sheet[data-phase='busy'] .pull-spinner {
+  animation: pull-spin 0.75s linear infinite;
+}
+@keyframes pull-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The page follows the pull, each child on its own — see above. */
+.page-scroll[data-pulling='yes'] > *:not(.pull-sheet),
+.page-scroll[data-pulling='easing'] > *:not(.pull-sheet) {
+  transform: translateY(var(--pull, 0px));
+}
+/* A transition only on the way back, never during the gesture: while a finger
+   is down the page has to track it exactly, and easing there reads as lag. */
+.page-scroll[data-pulling='easing'] > * {
+  transition:
+    transform 0.3s var(--ease-spring),
+    opacity 0.3s var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-scroll[data-pulling='easing'] > * {
+    transition: none;
+  }
+  .pull-sheet[data-phase='busy'] .pull-spinner {
+    animation-duration: 1.8s;
+  }
+}
 .page-content {
   /* The bottom bar is 64px and the create button floats 80px up from the
      bottom and is 56 tall, so the content had to clear 136px, not 104 — the

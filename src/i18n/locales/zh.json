@@ -99,6 +99,9 @@
     "offline": "离线——重新联网后更改会自动同步。",
     "serverSilent": "服务器暂无响应——正在显示上次加载的内容。服务器恢复后更改会自动同步。",
     "dataError": "无法加载最新数据，请检查网络连接。",
+    "pullToRefresh": "下拉刷新",
+    "releaseToRefresh": "松开即可刷新",
+    "refreshing": "正在刷新…",
     "console": "打开控制台"
   },
   "errors": {
